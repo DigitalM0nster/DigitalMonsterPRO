@@ -1,0 +1,1394 @@
+/* LOADING SCREEN */
+.loadingScreen {
+	position: fixed;
+	left: 0;
+	top: 0;
+	width: 100vw;
+	height: 100vh;
+	overflow: hidden;
+	pointer-events: auto;
+	cursor: default;
+	z-index: 0;
+}
+.loadingScreen.startApp {
+	pointer-events: none;
+}
+.blockMain {
+	display: flex;
+	flex-direction: column;
+	position: fixed;
+	left: 0;
+	top: 0;
+	width: 100%;
+	height: 100%;
+}
+.blockMainL {
+	transform: translate(0, 0);
+}
+.blockMainR {
+	transform: translate(100%, 0);
+}
+
+.block {
+	position: fixed;
+	left: 0;
+	top: 50%;
+	width: 100%;
+	background-color: black;
+	transform: translate(0, -50%) scaleX(1);
+}
+.blockMainL .block {
+	transform-origin: 0% 0;
+}
+.blockMainR .block {
+	transform-origin: 100% 0;
+}
+.block1 {
+	height: 100%;
+}
+.block2 {
+	height: 90%;
+}
+.block3 {
+	height: 60%;
+}
+.block4 {
+	height: 40%;
+}
+.block5 {
+	height: 20%;
+}
+.block6 {
+	height: 10%;
+}
+.block7 {
+	height: 5%;
+}
+
+.startApp .block1 {
+	animation: hidingBlock 1s cubic-bezier(0.2, 0.1, 0.5, 1.2) forwards;
+}
+.startApp .block2 {
+	animation: hidingBlock 1s cubic-bezier(0.3, 0.1, 0.5, 1.2) forwards;
+}
+.startApp .block3 {
+	animation: hidingBlock 1s cubic-bezier(0.4, 0.1, 0.5, 1.2) forwards;
+}
+.startApp .block4 {
+	animation: hidingBlock 1s cubic-bezier(0.5, 0.1, 0.5, 1.2) forwards;
+}
+.startApp .block5 {
+	animation: hidingBlock 1s cubic-bezier(0.6, 0.1, 0.5, 1.2) forwards;
+}
+.startApp .block6 {
+	animation: hidingBlock 1s cubic-bezier(0.7, 0.1, 0.5, 1.2) forwards;
+}
+.startApp .block7 {
+	animation: hidingBlock 1s cubic-bezier(0.8, 0.1, 0.5, 1.2) forwards;
+}
+
+@keyframes hidingBlock {
+	0% {
+		transform: translate(0%, -50%) scaleX(1);
+	}
+	100% {
+		transform: translate(0%, -50%) scaleX(0);
+	}
+}
+
+/* LOGO */
+:root {
+	--logoSize: 5.3vw;
+	--logoSizeHalf: calc(var(--logoSize) / 2);
+	--logoPosX: calc(-50% - 50px);
+	--progressPosX: calc(var(--logoPosX) + 80%);
+}
+.digitalMonsterLogo {
+	position: fixed;
+	left: 50%;
+	top: 50%;
+	transform: translate(calc(var(--logoPosX) - 0vw), -50%);
+	width: var(--logoSize);
+	height: var(--logoSize);
+	transition: 0.25s linear;
+}
+.removed .digitalMonsterLogo {
+	transform: translate(calc(var(--logoPosX) - 7vw), -50%);
+	transition: all 0.25s linear;
+}
+
+/* LOADING PROGRESS */
+.loadingProgress {
+	position: fixed;
+	left: 50%;
+	top: 50%;
+	transform: translate(calc(var(--progressPosX) - 0vw), -50%);
+	color: white;
+	font-weight: 800;
+	opacity: 1;
+	text-transform: uppercase;
+	font-size: 0.53vw;
+	letter-spacing: 1px;
+	transition: all 0.25s;
+}
+.removed .loadingProgress {
+	opacity: 0;
+	transition: all 0.25s;
+}
+
+/* LOADER */
+:root {
+	--firstColor: #00d9ff;
+	--secondColor: #003f58;
+}
+.hud-container0 {
+	opacity: 1;
+	/* display: block; */
+	transition: 0.25s;
+}
+.hud-container.removed {
+	opacity: 0;
+	/* display: none; */
+	transition: 0.25s;
+}
+
+#hud {
+	height: 100%;
+	max-height: 18.2vw;
+	max-width: 18.2vw;
+	z-index: 1;
+	left: 50%;
+	position: fixed;
+	top: 50%;
+	width: 100%;
+	-webkit-transition: all 1s ease-in-out;
+	-sand-transition: all 1s ease-in-out;
+	-moz-transition: all 1s ease-in-out;
+	-ms-transition: all 1s ease-in-out;
+	-o-transition: all 1s ease-in-out;
+	transition: all 1s ease-in-out;
+	-webkit-transform: translate(-50%, -50%);
+	-sand-transform: translate(-50%, -50%);
+	-moz-transform: translate(-50%, -50%);
+	-ms-transform: translate(-50%, -50%);
+	-o-transform: translate(-50%, -50%);
+	transform: translate(-50%, -50%);
+}
+#hud.active {
+	-webkit-transform: translate(-50%, -50%);
+	-sand-transform: translate(-50%, -50%);
+	-moz-transform: translate(-50%, -50%);
+	-ms-transform: translate(-50%, -50%);
+	-o-transform: translate(-50%, -50%);
+	transform: translate(-50%, -50%);
+}
+#hud.loading {
+	-webkit-transition: all 0.5s ease-in-out;
+	-sand-transition: all 0.5s ease-in-out;
+	-moz-transition: all 0.5s ease-in-out;
+	-ms-transition: all 0.5s ease-in-out;
+	-o-transition: all 0.5s ease-in-out;
+	transition: all 0.5s ease-in-out;
+	-webkit-transform: translate(-50%, -50%) scale(0.5);
+	-sand-transform: translate(-50%, -50%) scale(0.5);
+	-moz-transform: translate(-50%, -50%) scale(0.5);
+	-ms-transform: translate(-50%, -50%) scale(0.5);
+	-o-transform: translate(-50%, -50%) scale(0.5);
+	transform: translate(-50%, -50%) scale(0.5);
+}
+#hud.loading svg {
+	-webkit-transform-origin: 50% 50%;
+	-sand-transform-origin: 50% 50%;
+	-moz-transform-origin: 50% 50%;
+	-ms-transform-origin: 50% 50%;
+	-o-transform-origin: 50% 50%;
+	transform-origin: 50% 50%;
+	-webkit-animation: hud_spin_counter_clockwise 3s infinite linear;
+	-sand-animation: hud_spin_counter_clockwise 3s infinite linear;
+	-moz-animation: hud_spin_counter_clockwise 3s infinite linear;
+	-ms-animation: hud_spin_counter_clockwise 3s infinite linear;
+	-o-animation: hud_spin_counter_clockwise 3s infinite linear;
+	animation: hud_spin_counter_clockwise 3s infinite linear;
+}
+#hud.loading svg .hatching {
+	opacity: 0;
+	-webkit-animation: none;
+	-sand-animation: none;
+	-moz-animation: none;
+	-ms-animation: none;
+	-o-animation: none;
+	animation: none;
+}
+#hud.loading svg .outer-ring {
+	-webkit-animation: none;
+	-sand-animation: none;
+	-moz-animation: none;
+	-ms-animation: none;
+	-o-animation: none;
+	animation: none;
+}
+#hud.loading svg .inner-ring,
+#hud.loading svg .trace {
+	stroke-width: 6 !important;
+}
+#hud.loading svg .inner-ring {
+	-webkit-animation: hud_spin_clockwise 1s infinite linear;
+	-sand-animation: hud_spin_clockwise 1s infinite linear;
+	-moz-animation: hud_spin_clockwise 1s infinite linear;
+	-ms-animation: hud_spin_clockwise 1s infinite linear;
+	-o-animation: hud_spin_clockwise 1s infinite linear;
+	animation: hud_spin_clockwise 1s infinite linear;
+}
+#hud.exploded {
+	opacity: 0;
+	-webkit-transition: all 0.5s ease-in-out;
+	-sand-transition: all 0.5s ease-in-out;
+	-moz-transition: all 0.5s ease-in-out;
+	-ms-transition: all 0.5s ease-in-out;
+	-o-transition: all 0.5s ease-in-out;
+	transition: all 0.5s ease-in-out;
+	-webkit-transform: translate(-50%, -50%) scale(2.5);
+	-sand-transform: translate(-50%, -50%) scale(2.5);
+	-moz-transform: translate(-50%, -50%) scale(2.5);
+	-ms-transform: translate(-50%, -50%) scale(2.5);
+	-o-transform: translate(-50%, -50%) scale(2.5);
+	transform: translate(-50%, -50%) scale(2.5);
+}
+#hud.exploded svg {
+	-webkit-transform-origin: 50% 50%;
+	-sand-transform-origin: 50% 50%;
+	-moz-transform-origin: 50% 50%;
+	-ms-transform-origin: 50% 50%;
+	-o-transform-origin: 50% 50%;
+	transform-origin: 50% 50%;
+}
+#hud.hidden:before {
+	opacity: 0;
+}
+#hud.hidden svg .hatching,
+#hud.hidden svg .glow-img,
+#hud.hidden svg .glow-img-inner,
+#hud.hidden svg .outer-ring-blue,
+#hud.hidden svg .outer-ring-red,
+#hud.hidden svg .inner-ring {
+	-webkit-animation: none;
+	-sand-animation: none;
+	-moz-animation: none;
+	-ms-animation: none;
+	-o-animation: none;
+	animation: none;
+}
+#hud:before {
+	content: " ";
+	top: 50%;
+	left: 50%;
+	height: 1px;
+	position: absolute;
+	width: 1px;
+	-webkit-transition: all 0.5s ease-in-out;
+	-sand-transition: all 0.5s ease-in-out;
+	-moz-transition: all 0.5s ease-in-out;
+	-ms-transition: all 0.5s ease-in-out;
+	-o-transition: all 0.5s ease-in-out;
+	transition: all 0.5s ease-in-out;
+	-webkit-box-shadow: 0 0 1000px 200px rgba(70, 131, 176, 0.3);
+	-sand-box-shadow: 0 0 1000px 200px rgba(70, 131, 176, 0.3);
+	-moz-box-shadow: 0 0 1000px 200px rgba(70, 131, 176, 0.3);
+	-ms-box-shadow: 0 0 1000px 200px rgba(70, 131, 176, 0.3);
+	-o-box-shadow: 0 0 1000px 200px rgba(70, 131, 176, 0.3);
+	box-shadow: 0 0 1000px 200px rgba(70, 131, 176, 0.3);
+}
+#hud svg {
+	opacity: 1;
+	overflow: visible;
+	-webkit-transform-origin: 50% 50%;
+	-sand-transform-origin: 50% 50%;
+	-moz-transform-origin: 50% 50%;
+	-ms-transform-origin: 50% 50%;
+	-o-transform-origin: 50% 50%;
+	transform-origin: 50% 50%;
+	-webkit-transition: all 0.5s ease-in-out;
+	-sand-transition: all 0.5s ease-in-out;
+	-moz-transition: all 0.5s ease-in-out;
+	-ms-transition: all 0.5s ease-in-out;
+	-o-transition: all 0.5s ease-in-out;
+	transition: all 0.5s ease-in-out;
+}
+#hud svg .hatching {
+	opacity: 0.4;
+	fill: #fffff9;
+	enable-background: new;
+	-webkit-transform-origin: 50% 50%;
+	-sand-transform-origin: 50% 50%;
+	-moz-transform-origin: 50% 50%;
+	-ms-transform-origin: 50% 50%;
+	-o-transform-origin: 50% 50%;
+	transform-origin: 50% 50%;
+	-webkit-transform: translate(1px, 0);
+	-sand-transform: translate(1px, 0);
+	-moz-transform: translate(1px, 0);
+	-ms-transform: translate(1px, 0);
+	-o-transform: translate(1px, 0);
+	transform: translate(1px, 0);
+	-webkit-animation: hud_pulsate 2s infinite ease-in-out;
+	-sand-animation: hud_pulsate 2s infinite ease-in-out;
+	-moz-animation: hud_pulsate 2s infinite ease-in-out;
+	-ms-animation: hud_pulsate 2s infinite ease-in-out;
+	-o-animation: hud_pulsate 2s infinite ease-in-out;
+	animation: hud_pulsate 2s infinite ease-in-out;
+}
+#hud svg .glow-img {
+	-webkit-transform-origin: 50% 50%;
+	-sand-transform-origin: 50% 50%;
+	-moz-transform-origin: 50% 50%;
+	-ms-transform-origin: 50% 50%;
+	-o-transform-origin: 50% 50%;
+	transform-origin: 50% 50%;
+	-webkit-transform: scale(1.07);
+	-sand-transform: scale(1.07);
+	-moz-transform: scale(1.07);
+	-ms-transform: scale(1.07);
+	-o-transform: scale(1.07);
+	transform: scale(1.07);
+}
+#hud svg .glow-img-inner {
+	-webkit-transform: scale(0.94);
+	-sand-transform: scale(0.94);
+	-moz-transform: scale(0.94);
+	-ms-transform: scale(0.94);
+	-o-transform: scale(0.94);
+	transform: scale(0.94);
+}
+#hud svg .outer-ring-blue {
+	-webkit-transform-origin: 50% 50%;
+	-sand-transform-origin: 50% 50%;
+	-moz-transform-origin: 50% 50%;
+	-ms-transform-origin: 50% 50%;
+	-o-transform-origin: 50% 50%;
+	transform-origin: 50% 50%;
+	-webkit-transform: translate(1px, 0);
+	-sand-transform: translate(1px, 0);
+	-moz-transform: translate(1px, 0);
+	-ms-transform: translate(1px, 0);
+	-o-transform: translate(1px, 0);
+	transform: translate(1px, 0);
+	-webkit-animation: hud_spin_clockwise 20s infinite linear;
+	-sand-animation: hud_spin_clockwise 20s infinite linear;
+	-moz-animation: hud_spin_clockwise 20s infinite linear;
+	-ms-animation: hud_spin_clockwise 20s infinite linear;
+	-o-animation: hud_spin_clockwise 20s infinite linear;
+	animation: hud_spin_clockwise 20s infinite linear;
+}
+#hud svg .outer-ring-blue .trace {
+	opacity: 0.5;
+	fill: none;
+	stroke: #ffffff;
+	stroke-width: 1.5;
+	enable-background: new;
+}
+#hud svg .outer-ring-blue .glow {
+	fill: none;
+	stroke: var(--firstColor);
+	stroke-width: 9.5;
+	-webkit-animation: hud_fade 2s infinite linear;
+	-sand-animation: hud_fade 2s infinite linear;
+	-moz-animation: hud_fade 2s infinite linear;
+	-ms-animation: hud_fade 2s infinite linear;
+	-o-animation: hud_fade 2s infinite linear;
+	animation: hud_fade 2s infinite linear;
+}
+#hud svg .outer-ring-red {
+	-webkit-transform-origin: 50% 50%;
+	-sand-transform-origin: 50% 50%;
+	-moz-transform-origin: 50% 50%;
+	-ms-transform-origin: 50% 50%;
+	-o-transform-origin: 50% 50%;
+	transform-origin: 50% 50%;
+	-webkit-transform: translate(1px, 0);
+	-sand-transform: translate(1px, 0);
+	-moz-transform: translate(1px, 0);
+	-ms-transform: translate(1px, 0);
+	-o-transform: translate(1px, 0);
+	transform: translate(1px, 0);
+	-webkit-animation: hud_spin_counter_clockwise 10s infinite linear;
+	-sand-animation: hud_spin_counter_clockwise 10s infinite linear;
+	-moz-animation: hud_spin_counter_clockwise 10s infinite linear;
+	-ms-animation: hud_spin_counter_clockwise 10s infinite linear;
+	-o-animation: hud_spin_counter_clockwise 10s infinite linear;
+	animation: hud_spin_counter_clockwise 10s infinite linear;
+	-webkit-animation-delay: -1s;
+	-sand-animation-delay: -1s;
+	-moz-animation-delay: -1s;
+	-ms-animation-delay: -1s;
+	-o-animation-delay: -1s;
+	animation-delay: -1s;
+}
+#hud svg .outer-ring-red .trace {
+	opacity: 0.5;
+	fill: none;
+	stroke: #ffffff;
+	stroke-width: 1.5;
+	enable-background: new;
+}
+#hud svg .outer-ring-red .glow {
+	fill: none;
+	stroke: var(--secondColor);
+	stroke-width: 9.5;
+	-webkit-transform: translate(1px, 0);
+	-sand-transform: translate(1px, 0);
+	-moz-transform: translate(1px, 0);
+	-ms-transform: translate(1px, 0);
+	-o-transform: translate(1px, 0);
+	transform: translate(1px, 0);
+	-webkit-animation: hud_flicker 2s infinite linear;
+	-sand-animation: hud_flicker 2s infinite linear;
+	-moz-animation: hud_flicker 2s infinite linear;
+	-ms-animation: hud_flicker 2s infinite linear;
+	-o-animation: hud_flicker 2s infinite linear;
+	animation: hud_flicker 2s infinite linear;
+	-webkit-animation-delay: -1s;
+	-sand-animation-delay: -1s;
+	-moz-animation-delay: -1s;
+	-ms-animation-delay: -1s;
+	-o-animation-delay: -1s;
+	animation-delay: -1s;
+}
+#hud svg .inner-ring {
+	opacity: 0.5;
+	fill: none;
+	stroke: #fff;
+	enable-background: new;
+	-webkit-transform-origin: 50% 50%;
+	-sand-transform-origin: 50% 50%;
+	-moz-transform-origin: 50% 50%;
+	-ms-transform-origin: 50% 50%;
+	-o-transform-origin: 50% 50%;
+	transform-origin: 50% 50%;
+	-webkit-transform: translate(1px, 0);
+	-sand-transform: translate(1px, 0);
+	-moz-transform: translate(1px, 0);
+	-ms-transform: translate(1px, 0);
+	-o-transform: translate(1px, 0);
+	transform: translate(1px, 0);
+	-webkit-animation: hud_wind_release 4s infinite ease-out;
+	-sand-animation: hud_wind_release 4s infinite ease-out;
+	-moz-animation: hud_wind_release 4s infinite ease-out;
+	-ms-animation: hud_wind_release 4s infinite ease-out;
+	-o-animation: hud_wind_release 4s infinite ease-out;
+	animation: hud_wind_release 4s infinite ease-out;
+}
+#hud.disabled,
+#hud.hidden {
+	display: block;
+	z-index: -1;
+}
+#hud.disabled svg,
+#hud.hidden svg {
+	opacity: 0;
+	-webkit-transform: scale(0) rotate(-180deg);
+	-sand-transform: scale(0) rotate(-180deg);
+	-moz-transform: scale(0) rotate(-180deg);
+	-ms-transform: scale(0) rotate(-180deg);
+	-o-transform: scale(0) rotate(-180deg);
+	transform: scale(0) rotate(-180deg);
+}
+#hud.spin-in svg {
+	opacity: 0;
+	-webkit-transform: scale(0) rotate(-180deg);
+	-sand-transform: scale(0) rotate(-180deg);
+	-moz-transform: scale(0) rotate(-180deg);
+	-ms-transform: scale(0) rotate(-180deg);
+	-o-transform: scale(0) rotate(-180deg);
+	transform: scale(0) rotate(-180deg);
+}
+#hud.spin-out svg {
+	opacity: 0;
+	-webkit-transform: scale(3) rotate(-180deg);
+	-sand-transform: scale(3) rotate(-180deg);
+	-moz-transform: scale(3) rotate(-180deg);
+	-ms-transform: scale(3) rotate(-180deg);
+	-o-transform: scale(3) rotate(-180deg);
+	transform: scale(3) rotate(-180deg);
+}
+
+.st0 {
+	opacity: 0.4;
+	fill: rgb(255, 255, 249);
+	enable-background: new;
+}
+
+.st1 {
+	fill: none;
+}
+
+.st2 {
+	opacity: 0.5;
+	fill: none;
+	stroke: #ffffff;
+	stroke-width: 1.5;
+	enable-background: new;
+}
+
+.st3 {
+	fill: none;
+	stroke: var(--firstColor);
+	stroke-width: 9.5;
+}
+
+.st4 {
+	fill: none;
+	stroke: var(--secondColor);
+	stroke-width: 9.5;
+}
+
+.st5 {
+	opacity: 0.5;
+	fill: none;
+	stroke: #ffffff;
+	enable-background: new;
+}
+
+@-webkit-keyframes hud_flicker {
+	10% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.5;
+	}
+	90% {
+		opacity: 1;
+	}
+	100% {
+		opacity: 0.7;
+	}
+}
+@-moz-keyframes hud_flicker {
+	10% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.5;
+	}
+	90% {
+		opacity: 1;
+	}
+	100% {
+		opacity: 0.7;
+	}
+}
+@-ms-keyframes hud_flicker {
+	10% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.5;
+	}
+	90% {
+		opacity: 1;
+	}
+	100% {
+		opacity: 0.7;
+	}
+}
+@keyframes hud_flicker {
+	10% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.5;
+	}
+	90% {
+		opacity: 1;
+	}
+	100% {
+		opacity: 0.7;
+	}
+}
+@-webkit-keyframes hud_fade {
+	50% {
+		opacity: 0.5;
+	}
+}
+@-moz-keyframes hud_fade {
+	50% {
+		opacity: 0.5;
+	}
+}
+@-ms-keyframes hud_fade {
+	50% {
+		opacity: 0.5;
+	}
+}
+@keyframes hud_fade {
+	50% {
+		opacity: 0.5;
+	}
+}
+@-webkit-keyframes hud_pulsate {
+	50% {
+		-webkit-transform: scale(0.95);
+		-sand-transform: scale(0.95);
+		-moz-transform: scale(0.95);
+		-ms-transform: scale(0.95);
+		-o-transform: scale(0.95);
+		transform: scale(0.95);
+	}
+}
+@-moz-keyframes hud_pulsate {
+	50% {
+		-webkit-transform: scale(0.95);
+		-sand-transform: scale(0.95);
+		-moz-transform: scale(0.95);
+		-ms-transform: scale(0.95);
+		-o-transform: scale(0.95);
+		transform: scale(0.95);
+	}
+}
+@-ms-keyframes hud_pulsate {
+	50% {
+		-webkit-transform: scale(0.95);
+		-sand-transform: scale(0.95);
+		-moz-transform: scale(0.95);
+		-ms-transform: scale(0.95);
+		-o-transform: scale(0.95);
+		transform: scale(0.95);
+	}
+}
+@keyframes hud_pulsate {
+	50% {
+		-webkit-transform: scale(0.95);
+		-sand-transform: scale(0.95);
+		-moz-transform: scale(0.95);
+		-ms-transform: scale(0.95);
+		-o-transform: scale(0.95);
+		transform: scale(0.95);
+	}
+}
+@-webkit-keyframes hud_spin_clockwise {
+	0% {
+		-webkit-transform: rotate(0deg);
+		-sand-transform: rotate(0deg);
+		-moz-transform: rotate(0deg);
+		-ms-transform: rotate(0deg);
+		-o-transform: rotate(0deg);
+		transform: rotate(0deg);
+	}
+	100% {
+		bottom: 0;
+		-webkit-transform: rotate(-360deg);
+		-sand-transform: rotate(-360deg);
+		-moz-transform: rotate(-360deg);
+		-ms-transform: rotate(-360deg);
+		-o-transform: rotate(-360deg);
+		transform: rotate(-360deg);
+	}
+}
+@-moz-keyframes hud_spin_clockwise {
+	0% {
+		-webkit-transform: rotate(0deg);
+		-sand-transform: rotate(0deg);
+		-moz-transform: rotate(0deg);
+		-ms-transform: rotate(0deg);
+		-o-transform: rotate(0deg);
+		transform: rotate(0deg);
+	}
+	100% {
+		bottom: 0;
+		-webkit-transform: rotate(-360deg);
+		-sand-transform: rotate(-360deg);
+		-moz-transform: rotate(-360deg);
+		-ms-transform: rotate(-360deg);
+		-o-transform: rotate(-360deg);
+		transform: rotate(-360deg);
+	}
+}
+@-ms-keyframes hud_spin_clockwise {
+	0% {
+		-webkit-transform: rotate(0deg);
+		-sand-transform: rotate(0deg);
+		-moz-transform: rotate(0deg);
+		-ms-transform: rotate(0deg);
+		-o-transform: rotate(0deg);
+		transform: rotate(0deg);
+	}
+	100% {
+		bottom: 0;
+		-webkit-transform: rotate(-360deg);
+		-sand-transform: rotate(-360deg);
+		-moz-transform: rotate(-360deg);
+		-ms-transform: rotate(-360deg);
+		-o-transform: rotate(-360deg);
+		transform: rotate(-360deg);
+	}
+}
+@keyframes hud_spin_clockwise {
+	0% {
+		-webkit-transform: rotate(0deg);
+		-sand-transform: rotate(0deg);
+		-moz-transform: rotate(0deg);
+		-ms-transform: rotate(0deg);
+		-o-transform: rotate(0deg);
+		transform: rotate(0deg);
+	}
+	100% {
+		bottom: 0;
+		-webkit-transform: rotate(-360deg);
+		-sand-transform: rotate(-360deg);
+		-moz-transform: rotate(-360deg);
+		-ms-transform: rotate(-360deg);
+		-o-transform: rotate(-360deg);
+		transform: rotate(-360deg);
+	}
+}
+@-webkit-keyframes hud_spin_counter_clockwise {
+	0% {
+		-webkit-transform: rotate(0deg);
+		-sand-transform: rotate(0deg);
+		-moz-transform: rotate(0deg);
+		-ms-transform: rotate(0deg);
+		-o-transform: rotate(0deg);
+		transform: rotate(0deg);
+	}
+	100% {
+		bottom: 0;
+		-webkit-transform: rotate(360deg);
+		-sand-transform: rotate(360deg);
+		-moz-transform: rotate(360deg);
+		-ms-transform: rotate(360deg);
+		-o-transform: rotate(360deg);
+		transform: rotate(360deg);
+	}
+}
+@-moz-keyframes hud_spin_counter_clockwise {
+	0% {
+		-webkit-transform: rotate(0deg);
+		-sand-transform: rotate(0deg);
+		-moz-transform: rotate(0deg);
+		-ms-transform: rotate(0deg);
+		-o-transform: rotate(0deg);
+		transform: rotate(0deg);
+	}
+	100% {
+		bottom: 0;
+		-webkit-transform: rotate(360deg);
+		-sand-transform: rotate(360deg);
+		-moz-transform: rotate(360deg);
+		-ms-transform: rotate(360deg);
+		-o-transform: rotate(360deg);
+		transform: rotate(360deg);
+	}
+}
+@-ms-keyframes hud_spin_counter_clockwise {
+	0% {
+		-webkit-transform: rotate(0deg);
+		-sand-transform: rotate(0deg);
+		-moz-transform: rotate(0deg);
+		-ms-transform: rotate(0deg);
+		-o-transform: rotate(0deg);
+		transform: rotate(0deg);
+	}
+	100% {
+		bottom: 0;
+		-webkit-transform: rotate(360deg);
+		-sand-transform: rotate(360deg);
+		-moz-transform: rotate(360deg);
+		-ms-transform: rotate(360deg);
+		-o-transform: rotate(360deg);
+		transform: rotate(360deg);
+	}
+}
+@keyframes hud_spin_counter_clockwise {
+	0% {
+		-webkit-transform: rotate(0deg);
+		-sand-transform: rotate(0deg);
+		-moz-transform: rotate(0deg);
+		-ms-transform: rotate(0deg);
+		-o-transform: rotate(0deg);
+		transform: rotate(0deg);
+	}
+	100% {
+		bottom: 0;
+		-webkit-transform: rotate(360deg);
+		-sand-transform: rotate(360deg);
+		-moz-transform: rotate(360deg);
+		-ms-transform: rotate(360deg);
+		-o-transform: rotate(360deg);
+		transform: rotate(360deg);
+	}
+}
+@-webkit-keyframes hud_wind_release {
+	90% {
+		-webkit-transform: scale(0.8) rotate(210deg);
+		-sand-transform: scale(0.8) rotate(210deg);
+		-moz-transform: scale(0.8) rotate(210deg);
+		-ms-transform: scale(0.8) rotate(210deg);
+		-o-transform: scale(0.8) rotate(210deg);
+		transform: scale(0.8) rotate(210deg);
+	}
+}
+@-moz-keyframes hud_wind_release {
+	90% {
+		-webkit-transform: scale(0.8) rotate(210deg);
+		-sand-transform: scale(0.8) rotate(210deg);
+		-moz-transform: scale(0.8) rotate(210deg);
+		-ms-transform: scale(0.8) rotate(210deg);
+		-o-transform: scale(0.8) rotate(210deg);
+		transform: scale(0.8) rotate(210deg);
+	}
+}
+@-ms-keyframes hud_wind_release {
+	90% {
+		-webkit-transform: scale(0.8) rotate(210deg);
+		-sand-transform: scale(0.8) rotate(210deg);
+		-moz-transform: scale(0.8) rotate(210deg);
+		-ms-transform: scale(0.8) rotate(210deg);
+		-o-transform: scale(0.8) rotate(210deg);
+		transform: scale(0.8) rotate(210deg);
+	}
+}
+@keyframes hud_wind_release {
+	90% {
+		-webkit-transform: scale(0.8) rotate(210deg);
+		-sand-transform: scale(0.8) rotate(210deg);
+		-moz-transform: scale(0.8) rotate(210deg);
+		-ms-transform: scale(0.8) rotate(210deg);
+		-o-transform: scale(0.8) rotate(210deg);
+		transform: scale(0.8) rotate(210deg);
+	}
+}
+
+.startButton {
+	position: absolute;
+	left: 50%;
+	top: 50%;
+	transform: translate(calc(-50% + 7vw), 190px);
+	justify-content: center;
+	align-items: center;
+	font-family: "MazzardM";
+	font-size: 0.8vw;
+	text-transform: uppercase;
+	letter-spacing: 2px;
+	color: white;
+	width: 9vw;
+	height: 2.2vw;
+	cursor: pointer;
+	opacity: 0;
+	pointer-events: none;
+	transition: 0.3s;
+}
+.startButton.active {
+	pointer-events: auto;
+	opacity: 1;
+	transform: translate(calc(-50% + 0vw), 190px);
+}
+.startButton.active.exit,
+.startButton.exit {
+	pointer-events: none;
+	opacity: 0;
+	transform: translate(calc(-50% - 7vw), 190px);
+}
+
+.startButton .borderLeft {
+	position: absolute;
+	left: 0;
+	width: 1px;
+	height: 100%;
+	background: linear-gradient(to bottom, rgba(0, 169, 255, 1) 50%, rgba(0, 169, 255, 0.3) 100%);
+}
+.startButton .borderTop {
+	position: absolute;
+	top: 0;
+	width: 100%;
+	height: 1px;
+	background: linear-gradient(to right, rgba(0, 169, 255, 1) 50%, rgba(0, 169, 255, 0.3) 100%);
+}
+.startButton .borderRight {
+	position: absolute;
+	right: 0;
+	width: 1px;
+	height: 100%;
+	background: linear-gradient(to bottom, rgba(0, 169, 255, 0.3) 50%, rgba(0, 169, 255, 0.3) 100%);
+}
+.startButton .borderBottom {
+	position: absolute;
+	bottom: 0;
+	width: 100%;
+	height: 1px;
+	background: linear-gradient(to right, rgba(0, 169, 255, 0.3) 50%, rgba(0, 169, 255, 0.3) 100%);
+}
+
+/* Current loader. The previous HUD remains mounted inside .legacyLoader. */
+.legacyLoader {
+	display: none;
+}
+
+.digitalMonsterLoader {
+	--loader-cyan: #00cfff;
+	--loader-blue: #087dff;
+	position: fixed;
+	inset: 0;
+	z-index: 4;
+	display: grid;
+	place-items: center;
+	overflow: hidden;
+	color: #f6fbff;
+	background: #000204;
+	opacity: 1;
+	transition: opacity 250ms linear;
+}
+
+.digitalMonsterLoader.removed {
+	opacity: 0;
+	pointer-events: none;
+}
+
+.digitalMonsterLoaderOrb {
+	position: relative;
+	width: min(80vh, 48vw);
+	min-width: 620px;
+	aspect-ratio: 1;
+	border-radius: 50%;
+	/* contain: layout paint; */
+	transform: scale(0.75);
+	transform-origin: center;
+	overflow: visible;
+}
+
+.digitalMonsterLoaderRings {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	overflow: visible;
+	pointer-events: none;
+}
+
+.digitalMonsterLoaderRings circle,
+.digitalMonsterLoaderRings path {
+	vector-effect: non-scaling-stroke;
+	fill: none;
+}
+
+.loaderOuterOrbit {
+	--loader-orbit-arcs: conic-gradient(
+		from 0deg,
+		transparent 0%,
+		transparent 12%,
+		rgba(0, 83, 190, 0.08) 15%,
+		rgba(0, 128, 255, 0.42) 22%,
+		rgba(0, 174, 255, 0.92) 27%,
+		#36cfff 30%,
+		rgba(0, 174, 255, 0.92) 33%,
+		rgba(0, 128, 255, 0.42) 38%,
+		rgba(0, 83, 190, 0.08) 45%,
+		transparent 48%,
+		transparent 67%,
+		rgba(0, 83, 190, 0.08) 68%,
+		rgba(0, 128, 255, 0.42) 74%,
+		rgba(0, 174, 255, 0.92) 79%,
+		#36cfff 82%,
+		rgba(0, 174, 255, 0.92) 85%,
+		rgba(0, 128, 255, 0.42) 90%,
+		rgba(0, 83, 190, 0.08) 97%,
+		transparent 100%
+	);
+	--loader-orbit-bloom: conic-gradient(
+		from 0deg,
+		transparent 20%,
+		rgba(0, 75, 255, 0.18) 25%,
+		rgba(0, 126, 255, 1) 30%,
+		#9af6ff 31.5%,
+		rgba(0, 126, 255, 1) 33%,
+		rgba(0, 75, 255, 0.18) 37%,
+		transparent 40%,
+		transparent 70%,
+		rgba(0, 75, 255, 0.18) 77%,
+		rgba(0, 126, 255, 1) 81%,
+		#9af6ff 84%,
+		rgba(0, 126, 255, 1) 85%,
+		rgba(0, 75, 255, 0.18) 90%,
+		transparent 92%,
+		transparent 100%
+	);
+	position: absolute;
+	left: 50%;
+	top: 50%;
+	width: 110%;
+	height: 110%;
+	transform: translate(-50%, -50%) rotate(0deg);
+	border-radius: 50%;
+	pointer-events: none;
+	will-change: transform;
+	animation: loaderOuterOrbitRotate 24s linear infinite;
+	animation-delay: var(--loader-animation-offset, 0s);
+}
+
+.loaderMiddleOrbit {
+	--loader-orbit-arcs: conic-gradient(
+		from 0deg,
+		transparent 0%,
+		transparent 12%,
+		rgba(0, 83, 190, 0.08) 15%,
+		rgba(0, 128, 255, 0.42) 22%,
+		rgba(0, 174, 255, 0.92) 27%,
+		#36cfff 30%,
+		rgba(0, 174, 255, 0.92) 33%,
+		rgba(0, 128, 255, 0.42) 38%,
+		rgba(0, 83, 190, 0.08) 45%,
+		transparent 48%,
+		transparent 100%
+	);
+	--loader-orbit-bloom: conic-gradient(
+		from 0deg,
+		transparent 22%,
+		rgba(0, 75, 255, 0.18) 25%,
+		rgba(0, 126, 255, 1) 31%,
+		#9af6ff 33%,
+		rgba(0, 126, 255, 1) 34%,
+		rgba(0, 75, 255, 0.18) 37.6%,
+		transparent 43%,
+		transparent 100%
+	);
+	position: absolute;
+	left: 50%;
+	top: 50%;
+	width: 94%;
+	height: 94%;
+	transform: translate(-50%, -50%) rotate(0deg);
+	border-radius: 50%;
+	pointer-events: none;
+	will-change: transform;
+	animation: loaderMiddleOrbitRotate 30s linear infinite;
+	animation-delay: var(--loader-animation-offset, 0s);
+}
+
+.loaderOuterOrbitCore,
+.loaderOuterOrbitGlow {
+	position: absolute;
+	inset: 0;
+	border-radius: inherit;
+	pointer-events: none;
+}
+
+.loaderOuterOrbitCore {
+	background: var(--loader-orbit-arcs);
+	-webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1px));
+	mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1px));
+}
+
+.loaderOuterOrbitGlowNear {
+	inset: 0;
+	opacity: 1;
+	filter: brightness(1.8) drop-shadow(0 0 2px rgba(174, 248, 255, 1)) drop-shadow(0 0 4px rgba(0, 207, 255, 1)) drop-shadow(0 0 8px rgba(0, 113, 255, 1))
+		drop-shadow(0 0 14px rgba(0, 55, 255, 0.85));
+}
+
+.loaderOuterOrbitGlowSource {
+	position: absolute;
+	inset: 0;
+	border-radius: inherit;
+	background: var(--loader-orbit-bloom);
+	-webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 2px), transparent 100%);
+	mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 2px), transparent 100%);
+}
+
+@keyframes loaderOuterOrbitRotate {
+	to {
+		transform: translate(-50%, -50%) rotate(360deg);
+	}
+}
+
+@keyframes loaderMiddleOrbitRotate {
+	to {
+		transform: translate(-50%, -50%) rotate(360deg);
+	}
+}
+
+.loaderRingInner {
+	stroke: rgba(0, 184, 255, 0.25);
+	stroke-width: 1;
+}
+
+.loaderRingDotted {
+	stroke: rgba(0, 174, 255, 0.7);
+	stroke-width: 2;
+	stroke-linecap: round;
+	stroke-dasharray: 1 8;
+}
+
+.loaderRingArc {
+	display: none;
+	stroke-width: 3;
+	stroke-linecap: round;
+	stroke-dasharray: 520 2433;
+}
+
+.loaderRingArcTop {
+	stroke: url("#loaderArcTopFade");
+	stroke-width: 2;
+	transform: rotate(202deg);
+	transform-origin: 500px 500px;
+}
+
+.loaderRingArcTopHalo {
+	display: none;
+	stroke: url("#loaderArcTopFade");
+	stroke-linecap: round;
+	stroke-dasharray: 520 2433;
+	transform: rotate(202deg);
+	transform-origin: 500px 500px;
+}
+
+.loaderRingArcTopHaloOuter {
+	stroke-width: 32;
+	opacity: 0.006;
+}
+
+.loaderRingArcTopHaloSoft {
+	stroke-width: 25;
+	opacity: 0.01;
+}
+
+.loaderRingArcTopHaloFar {
+	stroke-width: 19;
+	opacity: 0.017;
+}
+
+.loaderRingArcTopHaloWide {
+	stroke-width: 14;
+	opacity: 0.028;
+}
+
+.loaderRingArcTopHaloMid {
+	stroke-width: 10;
+	opacity: 0.048;
+}
+
+.loaderRingArcTopHaloNear {
+	stroke-width: 6;
+	opacity: 0.095;
+}
+
+.loaderRingArcRight {
+	stroke: url("#loaderArcRightFade");
+	stroke-width: 4;
+	stroke-dasharray: 390 2563;
+	transform: rotate(300deg);
+	transform-origin: 500px 500px;
+}
+
+.loaderRingArcBottom {
+	stroke: url("#loaderArcBottomFade");
+	stroke-width: 4;
+	stroke-dasharray: 430 2523;
+	transform: rotate(83deg);
+	transform-origin: 500px 500px;
+}
+
+.digitalMonsterLoaderContent {
+	position: absolute;
+	inset: 0;
+	font-family: "MazzardM", sans-serif;
+	text-align: center;
+}
+
+.digitalMonsterLoaderBrand {
+	position: absolute;
+	top: 19.5%;
+	left: 50%;
+	display: flex;
+	flex-direction: column;
+	color: #f5f9ff;
+	font-family: "Aquire", "ManifoldExtended", sans-serif;
+	font-size: clamp(48px, 3.35vw, 68px);
+	font-weight: 300;
+	line-height: 1.06;
+	letter-spacing: 10px;
+	white-space: nowrap;
+	transform: translateX(-50%);
+}
+
+.digitalMonsterLoaderLanguageLabel {
+	position: absolute;
+	top: 41.2%;
+	left: 50%;
+	color: rgba(218, 224, 230, 0.64);
+	font:
+		300 17px/1 "MazzardM",
+		sans-serif;
+	letter-spacing: 0;
+	white-space: nowrap;
+	transform: translateX(-50%);
+}
+
+.digitalMonsterLoaderLanguages {
+	position: absolute;
+	top: 47%;
+	left: 50%;
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	gap: 16px;
+	width: 74%;
+	transform: translateX(-50%);
+}
+
+.digitalMonsterLoaderLanguages button {
+	position: relative;
+	height: 54px;
+	overflow: hidden;
+	border: 1px solid rgba(35, 188, 232, 0.52);
+	border-radius: 2px;
+	color: rgba(205, 236, 244, 0.82);
+	background:
+		linear-gradient(135deg, rgba(0, 207, 255, 0.16), transparent 24%) top left / 42px 100% no-repeat,
+		rgba(0, 8, 15, 0.78);
+	font:
+		300 17px/1 "MazzardM",
+		sans-serif;
+	letter-spacing: 0;
+	white-space: nowrap;
+	cursor: pointer;
+	transition:
+		border-color 180ms linear,
+		color 180ms linear,
+		background-color 180ms linear,
+		box-shadow 180ms linear,
+		text-shadow 180ms linear;
+}
+
+.digitalMonsterLoaderLanguages button:disabled {
+	border-color: rgba(121, 144, 153, 0.28);
+	color: rgba(174, 188, 194, 0.34);
+	background: rgba(2, 7, 10, 0.7);
+	box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.72);
+	text-shadow: none;
+	cursor: not-allowed;
+}
+
+.digitalMonsterLoaderLanguages button:disabled:hover {
+	color: transparent;
+}
+
+.digitalMonsterLoaderLanguages button:disabled:hover::after {
+	content: attr(data-loading-label);
+	position: absolute;
+	inset: 0;
+	display: grid;
+	place-items: center;
+	color: rgba(99, 218, 240, 0.72);
+	font-size: 10px;
+	line-height: 1;
+	white-space: nowrap;
+}
+
+.digitalMonsterLoaderLanguages button:not(:disabled):hover {
+	border-color: #7cefff;
+	color: #a8f7ff;
+	background-color: rgba(0, 25, 48, 0.72);
+	box-shadow:
+		0 0 2px rgba(184, 249, 255, 1),
+		0 0 6px rgba(0, 207, 255, 1),
+		0 0 13px rgba(0, 106, 255, 0.95),
+		0 0 22px rgba(0, 55, 255, 0.72),
+		inset 0 0 8px rgba(0, 183, 255, 0.32);
+	text-shadow:
+		0 0 2px rgba(220, 253, 255, 1),
+		0 0 5px rgba(0, 220, 255, 1),
+		0 0 11px rgba(0, 91, 255, 1);
+}
+
+.digitalMonsterLoaderProgress {
+	position: absolute;
+	top: 60.8%;
+	left: 50%;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	width: 100%;
+	transform: translateX(-50%);
+}
+
+.digitalMonsterLoaderProgress strong {
+	color: #f4f8ff;
+	font:
+		300 clamp(35px, 3.25vw, 46px)/1 "ManifoldExtended",
+		sans-serif;
+	letter-spacing: 0;
+}
+
+.digitalMonsterLoaderProgress > span {
+	margin-top: 12px;
+	color: rgba(211, 219, 230, 0.7);
+	font:
+		300 16px/1 "MazzardM",
+		sans-serif;
+	letter-spacing: 1px;
+}
+
+.digitalMonsterLoaderTrack {
+	position: relative;
+	width: 54%;
+	height: 1px;
+	margin-top: 29px;
+	background: rgba(231, 235, 238, 0.55);
+}
+
+.digitalMonsterLoaderTrack i {
+	position: absolute;
+	inset: 0 auto 0 0;
+	width: var(--loader-progress);
+	background: #11cfff;
+	transition: width 80ms linear;
+}
+
+.digitalMonsterLoaderTrack i::after {
+	content: "";
+	position: absolute;
+	top: 50%;
+	right: -2px;
+	width: 5px;
+	height: 5px;
+	border-radius: 50%;
+	background: #79f4ff;
+	transform: translateY(-50%);
+}
+
+@media (max-width: 900px), (max-height: 720px) {
+	.digitalMonsterLoaderOrb {
+		width: min(92vw, 88vh);
+		min-width: 0;
+	}
+
+	.digitalMonsterLoaderBrand {
+		font-size: clamp(28px, 7.8vw, 48px);
+		letter-spacing: clamp(4px, 1.7vw, 8px);
+	}
+
+	.digitalMonsterLoaderLanguageLabel {
+		font-size: clamp(9px, 2.5vw, 14px);
+	}
+
+	.digitalMonsterLoaderLanguages {
+		gap: 7px;
+		width: 78%;
+	}
+
+	.digitalMonsterLoaderLanguages button {
+		height: clamp(34px, 10vw, 48px);
+		border-radius: 9px;
+		font-size: clamp(10px, 2.7vw, 15px);
+	}
+
+	.digitalMonsterLoaderProgress strong {
+		font-size: clamp(34px, 10vw, 56px);
+	}
+
+	.digitalMonsterLoaderProgress > span {
+		margin-top: 7px;
+		font-size: clamp(9px, 2.5vw, 13px);
+	}
+
+	.digitalMonsterLoaderTrack {
+		margin-top: 16px;
+	}
+}

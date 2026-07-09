@@ -1,0 +1,6032 @@
+{
+  "exportedAt": "2026-06-26T04:46:41.671Z",
+  "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+  "url": "http://localhost:5173/portfolio",
+  "recording": false,
+  "flashCount": 14,
+  "eventCount": 151,
+  "routeHistory": [
+    {
+      "t": 0,
+      "path": "/portfolio",
+      "phase": "idle"
+    },
+    {
+      "t": 0,
+      "path": "/portfolio",
+      "phase": "idle"
+    },
+    {
+      "t": 0,
+      "path": "/portfolio",
+      "phase": "idle"
+    },
+    {
+      "t": 0,
+      "path": "/portfolio",
+      "phase": "idle"
+    },
+    {
+      "t": 0,
+      "path": "/portfolio",
+      "phase": "idle"
+    },
+    {
+      "t": 0,
+      "path": "/portfolio",
+      "phase": "exiting"
+    },
+    {
+      "t": 0,
+      "path": "/portfolio",
+      "phase": "exiting"
+    },
+    {
+      "t": 0,
+      "path": "/",
+      "phase": "entering"
+    },
+    {
+      "t": 0,
+      "path": "/",
+      "phase": "idle"
+    },
+    {
+      "t": 0,
+      "path": "/",
+      "phase": "idle"
+    },
+    {
+      "t": 0,
+      "path": "/portfolio",
+      "phase": "idle"
+    },
+    {
+      "t": 0,
+      "path": "/portfolio",
+      "phase": "exiting"
+    },
+    {
+      "t": 0,
+      "path": "/portfolio",
+      "phase": "exiting"
+    },
+    {
+      "t": 0,
+      "path": "/portfolio",
+      "phase": "exiting"
+    },
+    {
+      "t": 0,
+      "path": "/portfolio",
+      "phase": "idle"
+    },
+    {
+      "t": 0,
+      "path": "/portfolio",
+      "phase": "idle"
+    },
+    {
+      "t": 0,
+      "path": "/",
+      "phase": "idle"
+    },
+    {
+      "t": 0,
+      "path": "/",
+      "phase": "exiting"
+    },
+    {
+      "t": 0,
+      "path": "/",
+      "phase": "exiting"
+    },
+    {
+      "t": 0,
+      "path": "/",
+      "phase": "exiting"
+    },
+    {
+      "t": 0,
+      "path": "/",
+      "phase": "idle"
+    },
+    {
+      "t": 0,
+      "path": "/",
+      "phase": "idle"
+    },
+    {
+      "t": 1579,
+      "path": "/portfolio",
+      "phase": "idle"
+    },
+    {
+      "t": 1586,
+      "path": "/portfolio",
+      "phase": "exiting"
+    },
+    {
+      "t": 1591,
+      "path": "/portfolio",
+      "phase": "exiting"
+    },
+    {
+      "t": 1606,
+      "path": "/portfolio",
+      "phase": "exiting"
+    },
+    {
+      "t": 1616,
+      "path": "/portfolio",
+      "phase": "idle"
+    },
+    {
+      "t": 1625,
+      "path": "/portfolio",
+      "phase": "idle"
+    }
+  ],
+  "events": [
+    {
+      "t": 0,
+      "frame": 0,
+      "type": "record_start",
+      "url": "http://localhost:5173/",
+      "routeHistory": [
+        {
+          "t": 0,
+          "path": "/portfolio",
+          "phase": "idle"
+        },
+        {
+          "t": 0,
+          "path": "/portfolio",
+          "phase": "idle"
+        },
+        {
+          "t": 0,
+          "path": "/portfolio",
+          "phase": "idle"
+        },
+        {
+          "t": 0,
+          "path": "/portfolio",
+          "phase": "idle"
+        },
+        {
+          "t": 0,
+          "path": "/portfolio",
+          "phase": "idle"
+        },
+        {
+          "t": 0,
+          "path": "/portfolio",
+          "phase": "exiting"
+        },
+        {
+          "t": 0,
+          "path": "/portfolio",
+          "phase": "exiting"
+        },
+        {
+          "t": 0,
+          "path": "/",
+          "phase": "entering"
+        },
+        {
+          "t": 0,
+          "path": "/",
+          "phase": "idle"
+        },
+        {
+          "t": 0,
+          "path": "/",
+          "phase": "idle"
+        },
+        {
+          "t": 0,
+          "path": "/portfolio",
+          "phase": "idle"
+        },
+        {
+          "t": 0,
+          "path": "/portfolio",
+          "phase": "exiting"
+        },
+        {
+          "t": 0,
+          "path": "/portfolio",
+          "phase": "exiting"
+        },
+        {
+          "t": 0,
+          "path": "/portfolio",
+          "phase": "exiting"
+        },
+        {
+          "t": 0,
+          "path": "/portfolio",
+          "phase": "idle"
+        },
+        {
+          "t": 0,
+          "path": "/portfolio",
+          "phase": "idle"
+        },
+        {
+          "t": 0,
+          "path": "/",
+          "phase": "idle"
+        },
+        {
+          "t": 0,
+          "path": "/",
+          "phase": "exiting"
+        },
+        {
+          "t": 0,
+          "path": "/",
+          "phase": "exiting"
+        },
+        {
+          "t": 0,
+          "path": "/",
+          "phase": "exiting"
+        },
+        {
+          "t": 0,
+          "path": "/",
+          "phase": "idle"
+        },
+        {
+          "t": 0,
+          "path": "/",
+          "phase": "idle"
+        }
+      ]
+    },
+    {
+      "t": 1579,
+      "frame": 0,
+      "type": "route",
+      "path": "/portfolio",
+      "phase": "idle"
+    },
+    {
+      "t": 1579,
+      "frame": 0,
+      "type": "set_route_state",
+      "currentPage": "/portfolio",
+      "teleportPage": "/",
+      "routePhase": "idle",
+      "appStarted": true,
+      "hubLifecycle": "dormant"
+    },
+    {
+      "t": 1586,
+      "frame": 0,
+      "type": "route",
+      "path": "/portfolio",
+      "phase": "exiting"
+    },
+    {
+      "t": 1586,
+      "frame": 0,
+      "type": "set_route_state",
+      "currentPage": "/portfolio",
+      "teleportPage": "/",
+      "routePhase": "exiting",
+      "appStarted": true,
+      "hubLifecycle": "dormant"
+    },
+    {
+      "t": 1586,
+      "frame": 0,
+      "type": "grid_exit_start",
+      "snapshot": {
+        "layerCount": 7,
+        "layers": [
+          {
+            "index": 0,
+            "label": "НИПИГАЗ",
+            "meshVisible": true,
+            "shaderAlpha": 0,
+            "keepMeshInRender": true,
+            "appearPending": 7,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 1,
+            "label": "Troof",
+            "meshVisible": true,
+            "shaderAlpha": 0,
+            "keepMeshInRender": true,
+            "appearPending": 5,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 2,
+            "label": "MMK-1",
+            "meshVisible": true,
+            "shaderAlpha": 0,
+            "keepMeshInRender": true,
+            "appearPending": 5,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 3,
+            "label": "Belka Production",
+            "meshVisible": true,
+            "shaderAlpha": 0,
+            "keepMeshInRender": true,
+            "appearPending": 15,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 4,
+            "label": "RE-EVOLUTION",
+            "meshVisible": true,
+            "shaderAlpha": 0,
+            "keepMeshInRender": true,
+            "appearPending": 12,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 5,
+            "label": "Ostankino",
+            "meshVisible": true,
+            "shaderAlpha": 0,
+            "keepMeshInRender": true,
+            "appearPending": 9,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 6,
+            "label": "Hubarch",
+            "meshVisible": true,
+            "shaderAlpha": 0,
+            "keepMeshInRender": true,
+            "appearPending": 7,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          }
+        ],
+        "totalVisibleLetters": 0,
+        "inkLayerCount": 0
+      }
+    },
+    {
+      "t": 1591,
+      "frame": 0,
+      "type": "route",
+      "path": "/portfolio",
+      "phase": "exiting"
+    },
+    {
+      "t": 1591,
+      "frame": 0,
+      "type": "set_route_state",
+      "currentPage": "/portfolio",
+      "teleportPage": "/",
+      "routePhase": "exiting",
+      "appStarted": true,
+      "hubLifecycle": "exiting"
+    },
+    {
+      "t": 1597,
+      "frame": 0,
+      "type": "hud_set_visibility",
+      "visibility": 0.9999716884488438,
+      "hubLifecycle": "exiting",
+      "route": "/portfolio",
+      "snapshot": {
+        "layerCount": 7,
+        "layers": [
+          {
+            "index": 0,
+            "label": "НИПИГАЗ",
+            "meshVisible": true,
+            "shaderAlpha": 0,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 6,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 1,
+            "label": "Troof",
+            "meshVisible": true,
+            "shaderAlpha": 0,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 4,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 2,
+            "label": "MMK-1",
+            "meshVisible": true,
+            "shaderAlpha": 0,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 4,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 3,
+            "label": "Belka Production",
+            "meshVisible": true,
+            "shaderAlpha": 0,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 14,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 4,
+            "label": "RE-EVOLUTION",
+            "meshVisible": true,
+            "shaderAlpha": 0,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 11,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 5,
+            "label": "Ostankino",
+            "meshVisible": true,
+            "shaderAlpha": 0,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 8,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 6,
+            "label": "Hubarch",
+            "meshVisible": true,
+            "shaderAlpha": 0,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 6,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          }
+        ],
+        "totalVisibleLetters": 53,
+        "inkLayerCount": 3
+      }
+    },
+    {
+      "t": 1597,
+      "frame": 0,
+      "type": "hud_layout_visibility",
+      "multiplier": 0.9999716884488438,
+      "snapshot": {
+        "layerCount": 7,
+        "layers": [
+          {
+            "index": 0,
+            "label": "НИПИГАЗ",
+            "meshVisible": true,
+            "shaderAlpha": 0,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 6,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 1,
+            "label": "Troof",
+            "meshVisible": true,
+            "shaderAlpha": 0,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 4,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 2,
+            "label": "MMK-1",
+            "meshVisible": true,
+            "shaderAlpha": 0,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 4,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 3,
+            "label": "Belka Production",
+            "meshVisible": true,
+            "shaderAlpha": 0,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 14,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 4,
+            "label": "RE-EVOLUTION",
+            "meshVisible": true,
+            "shaderAlpha": 0,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 11,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 5,
+            "label": "Ostankino",
+            "meshVisible": true,
+            "shaderAlpha": 0,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 8,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 6,
+            "label": "Hubarch",
+            "meshVisible": true,
+            "shaderAlpha": 0,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 6,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          }
+        ],
+        "totalVisibleLetters": 53,
+        "inkLayerCount": 3
+      }
+    },
+    {
+      "t": 1597,
+      "frame": 1,
+      "type": "FLASH_DETECTED",
+      "reason": "visible_letters_while_intro_hidden",
+      "hudVisibility": 0.9999716884488438,
+      "hubLifecycle": "exiting",
+      "stackVisibility": 0.9999716884488438,
+      "snapshot": {
+        "layerCount": 7,
+        "layers": [
+          {
+            "index": 0,
+            "label": "НИПИГАЗ",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 6,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 1,
+            "label": "Troof",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 4,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 2,
+            "label": "MMK-1",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 4,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 3,
+            "label": "Belka Production",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 14,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 4,
+            "label": "RE-EVOLUTION",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 11,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 5,
+            "label": "Ostankino",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 8,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 6,
+            "label": "Hubarch",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 6,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          }
+        ],
+        "totalVisibleLetters": 53,
+        "inkLayerCount": 3
+      }
+    },
+    {
+      "t": 1597,
+      "frame": 1,
+      "type": "frame_state",
+      "hudVisibility": 0.9999716884488438,
+      "hubLifecycle": "exiting",
+      "stackVisibility": 0.9999716884488438,
+      "snapshot": {
+        "layerCount": 7,
+        "layers": [
+          {
+            "index": 0,
+            "label": "НИПИГАЗ",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 6,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 1,
+            "label": "Troof",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 4,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 2,
+            "label": "MMK-1",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 4,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 3,
+            "label": "Belka Production",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 14,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 4,
+            "label": "RE-EVOLUTION",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 11,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 5,
+            "label": "Ostankino",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 8,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 6,
+            "label": "Hubarch",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 6,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          }
+        ],
+        "totalVisibleLetters": 53,
+        "inkLayerCount": 3
+      }
+    },
+    {
+      "t": 1606,
+      "frame": 1,
+      "type": "route",
+      "path": "/portfolio",
+      "phase": "exiting"
+    },
+    {
+      "t": 1606,
+      "frame": 1,
+      "type": "set_route_state",
+      "currentPage": "/portfolio",
+      "teleportPage": "/portfolio",
+      "routePhase": "exiting",
+      "appStarted": true,
+      "hubLifecycle": "exiting"
+    },
+    {
+      "t": 1613,
+      "frame": 1,
+      "type": "hud_set_visibility",
+      "visibility": 0.9994939759737679,
+      "hubLifecycle": "exiting",
+      "route": "/portfolio",
+      "snapshot": {
+        "layerCount": 7,
+        "layers": [
+          {
+            "index": 0,
+            "label": "НИПИГАЗ",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 6,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 1,
+            "label": "Troof",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 4,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 2,
+            "label": "MMK-1",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 4,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 3,
+            "label": "Belka Production",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 14,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 4,
+            "label": "RE-EVOLUTION",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 11,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 5,
+            "label": "Ostankino",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 8,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 6,
+            "label": "Hubarch",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 6,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          }
+        ],
+        "totalVisibleLetters": 53,
+        "inkLayerCount": 3
+      }
+    },
+    {
+      "t": 1613,
+      "frame": 1,
+      "type": "hud_layout_visibility",
+      "multiplier": 0.9994939759737679,
+      "snapshot": {
+        "layerCount": 7,
+        "layers": [
+          {
+            "index": 0,
+            "label": "НИПИГАЗ",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 6,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 1,
+            "label": "Troof",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 4,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 2,
+            "label": "MMK-1",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 4,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 3,
+            "label": "Belka Production",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 14,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 4,
+            "label": "RE-EVOLUTION",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 11,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 5,
+            "label": "Ostankino",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 8,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 6,
+            "label": "Hubarch",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 6,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          }
+        ],
+        "totalVisibleLetters": 53,
+        "inkLayerCount": 3
+      }
+    },
+    {
+      "t": 1616,
+      "frame": 2,
+      "type": "route",
+      "path": "/portfolio",
+      "phase": "idle"
+    },
+    {
+      "t": 1616,
+      "frame": 2,
+      "type": "set_route_state",
+      "currentPage": "/portfolio",
+      "teleportPage": "/portfolio",
+      "routePhase": "idle",
+      "appStarted": true,
+      "hubLifecycle": "exiting"
+    },
+    {
+      "t": 1616,
+      "frame": 2,
+      "type": "cancel_grid_exit_for_reenter",
+      "gridExitActive": true,
+      "hubLifecycle": "exiting",
+      "snapshot": {
+        "layerCount": 7,
+        "layers": [
+          {
+            "index": 0,
+            "label": "НИПИГАЗ",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 6,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 1,
+            "label": "Troof",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 4,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 2,
+            "label": "MMK-1",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 4,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 3,
+            "label": "Belka Production",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 14,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 4,
+            "label": "RE-EVOLUTION",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 11,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 5,
+            "label": "Ostankino",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 8,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 6,
+            "label": "Hubarch",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 6,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          }
+        ],
+        "totalVisibleLetters": 53,
+        "inkLayerCount": 3
+      }
+    },
+    {
+      "t": 1616,
+      "frame": 2,
+      "type": "stash_projects_dormant",
+      "snapshot": {
+        "layerCount": 7,
+        "layers": [
+          {
+            "index": 0,
+            "label": "НИПИГАЗ",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 6,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 1,
+            "label": "Troof",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 4,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 2,
+            "label": "MMK-1",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 4,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 3,
+            "label": "Belka Production",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 14,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 4,
+            "label": "RE-EVOLUTION",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 11,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 5,
+            "label": "Ostankino",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 8,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 6,
+            "label": "Hubarch",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 6,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          }
+        ],
+        "totalVisibleLetters": 53,
+        "inkLayerCount": 3
+      }
+    },
+    {
+      "t": 1616,
+      "frame": 2,
+      "type": "stash_layers_hidden",
+      "before": {
+        "layerCount": 7,
+        "layers": [
+          {
+            "index": 0,
+            "label": "НИПИГАЗ",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 6,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 1,
+            "label": "Troof",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 4,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 2,
+            "label": "MMK-1",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 4,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 3,
+            "label": "Belka Production",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 14,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 4,
+            "label": "RE-EVOLUTION",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 11,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 5,
+            "label": "Ostankino",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 8,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 6,
+            "label": "Hubarch",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 6,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          }
+        ],
+        "totalVisibleLetters": 53,
+        "inkLayerCount": 3
+      }
+    },
+    {
+      "t": 1616,
+      "frame": 2,
+      "type": "sync_glitch_hidden",
+      "label": "НИПИГАЗ",
+      "projectIndex": 0
+    },
+    {
+      "t": 1617,
+      "frame": 2,
+      "type": "glitch_engine_prepare_appear",
+      "slotCount": 7
+    },
+    {
+      "t": 1617,
+      "frame": 2,
+      "type": "sync_glitch_hidden",
+      "label": "Troof",
+      "projectIndex": 1
+    },
+    {
+      "t": 1617,
+      "frame": 2,
+      "type": "glitch_engine_prepare_appear",
+      "slotCount": 5
+    },
+    {
+      "t": 1617,
+      "frame": 2,
+      "type": "sync_glitch_hidden",
+      "label": "MMK-1",
+      "projectIndex": 2
+    },
+    {
+      "t": 1617,
+      "frame": 2,
+      "type": "glitch_engine_prepare_appear",
+      "slotCount": 5
+    },
+    {
+      "t": 1617,
+      "frame": 2,
+      "type": "sync_glitch_hidden",
+      "label": "Belka Production",
+      "projectIndex": 3
+    },
+    {
+      "t": 1617,
+      "frame": 2,
+      "type": "glitch_engine_prepare_appear",
+      "slotCount": 16
+    },
+    {
+      "t": 1617,
+      "frame": 2,
+      "type": "sync_glitch_hidden",
+      "label": "RE-EVOLUTION",
+      "projectIndex": 4
+    },
+    {
+      "t": 1617,
+      "frame": 2,
+      "type": "glitch_engine_prepare_appear",
+      "slotCount": 12
+    },
+    {
+      "t": 1617,
+      "frame": 2,
+      "type": "sync_glitch_hidden",
+      "label": "Ostankino",
+      "projectIndex": 5
+    },
+    {
+      "t": 1617,
+      "frame": 2,
+      "type": "glitch_engine_prepare_appear",
+      "slotCount": 9
+    },
+    {
+      "t": 1617,
+      "frame": 2,
+      "type": "sync_glitch_hidden",
+      "label": "Hubarch",
+      "projectIndex": 6
+    },
+    {
+      "t": 1617,
+      "frame": 2,
+      "type": "glitch_engine_prepare_appear",
+      "slotCount": 7
+    },
+    {
+      "t": 1617,
+      "frame": 2,
+      "type": "stash_layers_hidden_done",
+      "after": {
+        "layerCount": 7,
+        "layers": [
+          {
+            "index": 0,
+            "label": "НИПИГАЗ",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 7,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 1,
+            "label": "Troof",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 5,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 2,
+            "label": "MMK-1",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 5,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 3,
+            "label": "Belka Production",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 15,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 4,
+            "label": "RE-EVOLUTION",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 12,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 5,
+            "label": "Ostankino",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 9,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 6,
+            "label": "Hubarch",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 7,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          }
+        ],
+        "totalVisibleLetters": 0,
+        "inkLayerCount": 0
+      }
+    },
+    {
+      "t": 1617,
+      "frame": 2,
+      "type": "cancel_grid_exit_for_reenter",
+      "gridExitActive": false,
+      "hubLifecycle": "exiting",
+      "snapshot": {
+        "layerCount": 7,
+        "layers": [
+          {
+            "index": 0,
+            "label": "НИПИГАЗ",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 7,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 1,
+            "label": "Troof",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 5,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 2,
+            "label": "MMK-1",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 5,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 3,
+            "label": "Belka Production",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 15,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 4,
+            "label": "RE-EVOLUTION",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 12,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 5,
+            "label": "Ostankino",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 9,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 6,
+            "label": "Hubarch",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 7,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          }
+        ],
+        "totalVisibleLetters": 0,
+        "inkLayerCount": 0
+      }
+    },
+    {
+      "t": 1617,
+      "frame": 2,
+      "type": "stash_projects_dormant",
+      "snapshot": {
+        "layerCount": 7,
+        "layers": [
+          {
+            "index": 0,
+            "label": "НИПИГАЗ",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 7,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 1,
+            "label": "Troof",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 5,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 2,
+            "label": "MMK-1",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 5,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 3,
+            "label": "Belka Production",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 15,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 4,
+            "label": "RE-EVOLUTION",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 12,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 5,
+            "label": "Ostankino",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 9,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 6,
+            "label": "Hubarch",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 7,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          }
+        ],
+        "totalVisibleLetters": 0,
+        "inkLayerCount": 0
+      }
+    },
+    {
+      "t": 1617,
+      "frame": 2,
+      "type": "stash_layers_hidden",
+      "before": {
+        "layerCount": 7,
+        "layers": [
+          {
+            "index": 0,
+            "label": "НИПИГАЗ",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 7,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 1,
+            "label": "Troof",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 5,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 2,
+            "label": "MMK-1",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 5,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 3,
+            "label": "Belka Production",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 15,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 4,
+            "label": "RE-EVOLUTION",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 12,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 5,
+            "label": "Ostankino",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 9,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 6,
+            "label": "Hubarch",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 7,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          }
+        ],
+        "totalVisibleLetters": 0,
+        "inkLayerCount": 0
+      }
+    },
+    {
+      "t": 1617,
+      "frame": 2,
+      "type": "sync_glitch_hidden",
+      "label": "НИПИГАЗ",
+      "projectIndex": 0
+    },
+    {
+      "t": 1617,
+      "frame": 2,
+      "type": "glitch_engine_prepare_appear",
+      "slotCount": 7
+    },
+    {
+      "t": 1617,
+      "frame": 2,
+      "type": "sync_glitch_hidden",
+      "label": "Troof",
+      "projectIndex": 1
+    },
+    {
+      "t": 1617,
+      "frame": 2,
+      "type": "glitch_engine_prepare_appear",
+      "slotCount": 5
+    },
+    {
+      "t": 1617,
+      "frame": 2,
+      "type": "sync_glitch_hidden",
+      "label": "MMK-1",
+      "projectIndex": 2
+    },
+    {
+      "t": 1617,
+      "frame": 2,
+      "type": "glitch_engine_prepare_appear",
+      "slotCount": 5
+    },
+    {
+      "t": 1617,
+      "frame": 2,
+      "type": "sync_glitch_hidden",
+      "label": "Belka Production",
+      "projectIndex": 3
+    },
+    {
+      "t": 1617,
+      "frame": 2,
+      "type": "glitch_engine_prepare_appear",
+      "slotCount": 16
+    },
+    {
+      "t": 1617,
+      "frame": 2,
+      "type": "sync_glitch_hidden",
+      "label": "RE-EVOLUTION",
+      "projectIndex": 4
+    },
+    {
+      "t": 1617,
+      "frame": 2,
+      "type": "glitch_engine_prepare_appear",
+      "slotCount": 12
+    },
+    {
+      "t": 1617,
+      "frame": 2,
+      "type": "sync_glitch_hidden",
+      "label": "Ostankino",
+      "projectIndex": 5
+    },
+    {
+      "t": 1618,
+      "frame": 2,
+      "type": "glitch_engine_prepare_appear",
+      "slotCount": 9
+    },
+    {
+      "t": 1618,
+      "frame": 2,
+      "type": "sync_glitch_hidden",
+      "label": "Hubarch",
+      "projectIndex": 6
+    },
+    {
+      "t": 1618,
+      "frame": 2,
+      "type": "glitch_engine_prepare_appear",
+      "slotCount": 7
+    },
+    {
+      "t": 1618,
+      "frame": 2,
+      "type": "stash_layers_hidden_done",
+      "after": {
+        "layerCount": 7,
+        "layers": [
+          {
+            "index": 0,
+            "label": "НИПИГАЗ",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 7,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 1,
+            "label": "Troof",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 5,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 2,
+            "label": "MMK-1",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 5,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 3,
+            "label": "Belka Production",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 15,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 4,
+            "label": "RE-EVOLUTION",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 12,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 5,
+            "label": "Ostankino",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 9,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 6,
+            "label": "Hubarch",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 7,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          }
+        ],
+        "totalVisibleLetters": 0,
+        "inkLayerCount": 0
+      }
+    },
+    {
+      "t": 1618,
+      "frame": 2,
+      "type": "enter_immediate_start",
+      "route": "/portfolio",
+      "hubLifecycle": "exiting",
+      "gridExitActive": false
+    },
+    {
+      "t": 1618,
+      "frame": 2,
+      "type": "cancel_grid_exit_for_reenter",
+      "gridExitActive": false,
+      "hubLifecycle": "exiting",
+      "snapshot": {
+        "layerCount": 7,
+        "layers": [
+          {
+            "index": 0,
+            "label": "НИПИГАЗ",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 7,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 1,
+            "label": "Troof",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 5,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 2,
+            "label": "MMK-1",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 5,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 3,
+            "label": "Belka Production",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 15,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 4,
+            "label": "RE-EVOLUTION",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 12,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 5,
+            "label": "Ostankino",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 9,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 6,
+            "label": "Hubarch",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 7,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          }
+        ],
+        "totalVisibleLetters": 0,
+        "inkLayerCount": 0
+      }
+    },
+    {
+      "t": 1618,
+      "frame": 2,
+      "type": "stash_projects_dormant",
+      "snapshot": {
+        "layerCount": 7,
+        "layers": [
+          {
+            "index": 0,
+            "label": "НИПИГАЗ",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 7,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 1,
+            "label": "Troof",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 5,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 2,
+            "label": "MMK-1",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 5,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 3,
+            "label": "Belka Production",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 15,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 4,
+            "label": "RE-EVOLUTION",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 12,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 5,
+            "label": "Ostankino",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 9,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 6,
+            "label": "Hubarch",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 7,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          }
+        ],
+        "totalVisibleLetters": 0,
+        "inkLayerCount": 0
+      }
+    },
+    {
+      "t": 1618,
+      "frame": 2,
+      "type": "stash_layers_hidden",
+      "before": {
+        "layerCount": 7,
+        "layers": [
+          {
+            "index": 0,
+            "label": "НИПИГАЗ",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 7,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 1,
+            "label": "Troof",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 5,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 2,
+            "label": "MMK-1",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 5,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 3,
+            "label": "Belka Production",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 15,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 4,
+            "label": "RE-EVOLUTION",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 12,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 5,
+            "label": "Ostankino",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 9,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 6,
+            "label": "Hubarch",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 7,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          }
+        ],
+        "totalVisibleLetters": 0,
+        "inkLayerCount": 0
+      }
+    },
+    {
+      "t": 1618,
+      "frame": 2,
+      "type": "sync_glitch_hidden",
+      "label": "НИПИГАЗ",
+      "projectIndex": 0
+    },
+    {
+      "t": 1618,
+      "frame": 2,
+      "type": "glitch_engine_prepare_appear",
+      "slotCount": 7
+    },
+    {
+      "t": 1618,
+      "frame": 2,
+      "type": "sync_glitch_hidden",
+      "label": "Troof",
+      "projectIndex": 1
+    },
+    {
+      "t": 1618,
+      "frame": 2,
+      "type": "glitch_engine_prepare_appear",
+      "slotCount": 5
+    },
+    {
+      "t": 1618,
+      "frame": 2,
+      "type": "sync_glitch_hidden",
+      "label": "MMK-1",
+      "projectIndex": 2
+    },
+    {
+      "t": 1618,
+      "frame": 2,
+      "type": "glitch_engine_prepare_appear",
+      "slotCount": 5
+    },
+    {
+      "t": 1618,
+      "frame": 2,
+      "type": "sync_glitch_hidden",
+      "label": "Belka Production",
+      "projectIndex": 3
+    },
+    {
+      "t": 1618,
+      "frame": 2,
+      "type": "glitch_engine_prepare_appear",
+      "slotCount": 16
+    },
+    {
+      "t": 1618,
+      "frame": 2,
+      "type": "sync_glitch_hidden",
+      "label": "RE-EVOLUTION",
+      "projectIndex": 4
+    },
+    {
+      "t": 1618,
+      "frame": 2,
+      "type": "glitch_engine_prepare_appear",
+      "slotCount": 12
+    },
+    {
+      "t": 1618,
+      "frame": 2,
+      "type": "sync_glitch_hidden",
+      "label": "Ostankino",
+      "projectIndex": 5
+    },
+    {
+      "t": 1618,
+      "frame": 2,
+      "type": "glitch_engine_prepare_appear",
+      "slotCount": 9
+    },
+    {
+      "t": 1618,
+      "frame": 2,
+      "type": "sync_glitch_hidden",
+      "label": "Hubarch",
+      "projectIndex": 6
+    },
+    {
+      "t": 1618,
+      "frame": 2,
+      "type": "glitch_engine_prepare_appear",
+      "slotCount": 7
+    },
+    {
+      "t": 1618,
+      "frame": 2,
+      "type": "stash_layers_hidden_done",
+      "after": {
+        "layerCount": 7,
+        "layers": [
+          {
+            "index": 0,
+            "label": "НИПИГАЗ",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 7,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 1,
+            "label": "Troof",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 5,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 2,
+            "label": "MMK-1",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 5,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 3,
+            "label": "Belka Production",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 15,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 4,
+            "label": "RE-EVOLUTION",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 12,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 5,
+            "label": "Ostankino",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 9,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 6,
+            "label": "Hubarch",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 7,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          }
+        ],
+        "totalVisibleLetters": 0,
+        "inkLayerCount": 0
+      }
+    },
+    {
+      "t": 1620,
+      "frame": 2,
+      "type": "stash_projects_dormant",
+      "snapshot": {
+        "layerCount": 7,
+        "layers": [
+          {
+            "index": 0,
+            "label": "НИПИГАЗ",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 7,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 1,
+            "label": "Troof",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 5,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 2,
+            "label": "MMK-1",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 5,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 3,
+            "label": "Belka Production",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 15,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 4,
+            "label": "RE-EVOLUTION",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 12,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 5,
+            "label": "Ostankino",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 9,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 6,
+            "label": "Hubarch",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 7,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          }
+        ],
+        "totalVisibleLetters": 0,
+        "inkLayerCount": 0
+      }
+    },
+    {
+      "t": 1620,
+      "frame": 2,
+      "type": "stash_layers_hidden",
+      "before": {
+        "layerCount": 7,
+        "layers": [
+          {
+            "index": 0,
+            "label": "НИПИГАЗ",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 7,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 1,
+            "label": "Troof",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 5,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 2,
+            "label": "MMK-1",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 5,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 3,
+            "label": "Belka Production",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 15,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 4,
+            "label": "RE-EVOLUTION",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 12,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 5,
+            "label": "Ostankino",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 9,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 6,
+            "label": "Hubarch",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 7,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          }
+        ],
+        "totalVisibleLetters": 0,
+        "inkLayerCount": 0
+      }
+    },
+    {
+      "t": 1620,
+      "frame": 2,
+      "type": "sync_glitch_hidden",
+      "label": "НИПИГАЗ",
+      "projectIndex": 0
+    },
+    {
+      "t": 1620,
+      "frame": 2,
+      "type": "glitch_engine_prepare_appear",
+      "slotCount": 7
+    },
+    {
+      "t": 1620,
+      "frame": 2,
+      "type": "sync_glitch_hidden",
+      "label": "Troof",
+      "projectIndex": 1
+    },
+    {
+      "t": 1620,
+      "frame": 2,
+      "type": "glitch_engine_prepare_appear",
+      "slotCount": 5
+    },
+    {
+      "t": 1620,
+      "frame": 2,
+      "type": "sync_glitch_hidden",
+      "label": "MMK-1",
+      "projectIndex": 2
+    },
+    {
+      "t": 1620,
+      "frame": 2,
+      "type": "glitch_engine_prepare_appear",
+      "slotCount": 5
+    },
+    {
+      "t": 1620,
+      "frame": 2,
+      "type": "sync_glitch_hidden",
+      "label": "Belka Production",
+      "projectIndex": 3
+    },
+    {
+      "t": 1620,
+      "frame": 2,
+      "type": "glitch_engine_prepare_appear",
+      "slotCount": 16
+    },
+    {
+      "t": 1620,
+      "frame": 2,
+      "type": "sync_glitch_hidden",
+      "label": "RE-EVOLUTION",
+      "projectIndex": 4
+    },
+    {
+      "t": 1620,
+      "frame": 2,
+      "type": "glitch_engine_prepare_appear",
+      "slotCount": 12
+    },
+    {
+      "t": 1620,
+      "frame": 2,
+      "type": "sync_glitch_hidden",
+      "label": "Ostankino",
+      "projectIndex": 5
+    },
+    {
+      "t": 1620,
+      "frame": 2,
+      "type": "glitch_engine_prepare_appear",
+      "slotCount": 9
+    },
+    {
+      "t": 1620,
+      "frame": 2,
+      "type": "sync_glitch_hidden",
+      "label": "Hubarch",
+      "projectIndex": 6
+    },
+    {
+      "t": 1620,
+      "frame": 2,
+      "type": "glitch_engine_prepare_appear",
+      "slotCount": 7
+    },
+    {
+      "t": 1620,
+      "frame": 2,
+      "type": "stash_layers_hidden_done",
+      "after": {
+        "layerCount": 7,
+        "layers": [
+          {
+            "index": 0,
+            "label": "НИПИГАЗ",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 7,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 1,
+            "label": "Troof",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 5,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 2,
+            "label": "MMK-1",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 5,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 3,
+            "label": "Belka Production",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 15,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 4,
+            "label": "RE-EVOLUTION",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 12,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 5,
+            "label": "Ostankino",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 9,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 6,
+            "label": "Hubarch",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 7,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          }
+        ],
+        "totalVisibleLetters": 0,
+        "inkLayerCount": 0
+      }
+    },
+    {
+      "t": 1620,
+      "frame": 2,
+      "type": "play_enter_glitch_start",
+      "snapshot": {
+        "layerCount": 7,
+        "layers": [
+          {
+            "index": 0,
+            "label": "НИПИГАЗ",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 7,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 1,
+            "label": "Troof",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 5,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 2,
+            "label": "MMK-1",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 5,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 3,
+            "label": "Belka Production",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 15,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 4,
+            "label": "RE-EVOLUTION",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 12,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 5,
+            "label": "Ostankino",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 9,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 6,
+            "label": "Hubarch",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 7,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          }
+        ],
+        "totalVisibleLetters": 0,
+        "inkLayerCount": 0
+      }
+    },
+    {
+      "t": 1620,
+      "frame": 2,
+      "type": "sync_glitch_hidden",
+      "label": "НИПИГАЗ",
+      "projectIndex": 0
+    },
+    {
+      "t": 1620,
+      "frame": 2,
+      "type": "glitch_engine_prepare_appear",
+      "slotCount": 7
+    },
+    {
+      "t": 1620,
+      "frame": 2,
+      "type": "sync_glitch_hidden",
+      "label": "Troof",
+      "projectIndex": 1
+    },
+    {
+      "t": 1620,
+      "frame": 2,
+      "type": "glitch_engine_prepare_appear",
+      "slotCount": 5
+    },
+    {
+      "t": 1620,
+      "frame": 2,
+      "type": "sync_glitch_hidden",
+      "label": "MMK-1",
+      "projectIndex": 2
+    },
+    {
+      "t": 1620,
+      "frame": 2,
+      "type": "glitch_engine_prepare_appear",
+      "slotCount": 5
+    },
+    {
+      "t": 1620,
+      "frame": 2,
+      "type": "sync_glitch_hidden",
+      "label": "Belka Production",
+      "projectIndex": 3
+    },
+    {
+      "t": 1620,
+      "frame": 2,
+      "type": "glitch_engine_prepare_appear",
+      "slotCount": 16
+    },
+    {
+      "t": 1620,
+      "frame": 2,
+      "type": "sync_glitch_hidden",
+      "label": "RE-EVOLUTION",
+      "projectIndex": 4
+    },
+    {
+      "t": 1620,
+      "frame": 2,
+      "type": "glitch_engine_prepare_appear",
+      "slotCount": 12
+    },
+    {
+      "t": 1620,
+      "frame": 2,
+      "type": "sync_glitch_hidden",
+      "label": "Ostankino",
+      "projectIndex": 5
+    },
+    {
+      "t": 1620,
+      "frame": 2,
+      "type": "glitch_engine_prepare_appear",
+      "slotCount": 9
+    },
+    {
+      "t": 1620,
+      "frame": 2,
+      "type": "sync_glitch_hidden",
+      "label": "Hubarch",
+      "projectIndex": 6
+    },
+    {
+      "t": 1620,
+      "frame": 2,
+      "type": "glitch_engine_prepare_appear",
+      "slotCount": 7
+    },
+    {
+      "t": 1620,
+      "frame": 2,
+      "type": "glitch_play_appear",
+      "text": "НИПИГАЗ",
+      "timeBudgetMs": 500
+    },
+    {
+      "t": 1620,
+      "frame": 2,
+      "type": "glitch_engine_prepare_appear",
+      "slotCount": 7
+    },
+    {
+      "t": 1620,
+      "frame": 2,
+      "type": "play_enter_glitch_after_stagger",
+      "snapshot": {
+        "layerCount": 7,
+        "layers": [
+          {
+            "index": 0,
+            "label": "НИПИГАЗ",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 7,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 1,
+            "label": "Troof",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 5,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 2,
+            "label": "MMK-1",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 5,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 3,
+            "label": "Belka Production",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 15,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 4,
+            "label": "RE-EVOLUTION",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 12,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 5,
+            "label": "Ostankino",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 9,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 6,
+            "label": "Hubarch",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 7,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          }
+        ],
+        "totalVisibleLetters": 0,
+        "inkLayerCount": 0
+      }
+    },
+    {
+      "t": 1621,
+      "frame": 2,
+      "type": "enter_immediate_before_visibility",
+      "snapshot": {
+        "layerCount": 7,
+        "layers": [
+          {
+            "index": 0,
+            "label": "НИПИГАЗ",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 7,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 1,
+            "label": "Troof",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 5,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 2,
+            "label": "MMK-1",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 5,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 3,
+            "label": "Belka Production",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 15,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 4,
+            "label": "RE-EVOLUTION",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 12,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 5,
+            "label": "Ostankino",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 9,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 6,
+            "label": "Hubarch",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 7,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          }
+        ],
+        "totalVisibleLetters": 0,
+        "inkLayerCount": 0
+      }
+    },
+    {
+      "t": 1621,
+      "frame": 2,
+      "type": "hud_set_visibility",
+      "visibility": 1,
+      "hubLifecycle": "entering",
+      "route": "/portfolio",
+      "snapshot": {
+        "layerCount": 7,
+        "layers": [
+          {
+            "index": 0,
+            "label": "НИПИГАЗ",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 7,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 1,
+            "label": "Troof",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 5,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 2,
+            "label": "MMK-1",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 5,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 3,
+            "label": "Belka Production",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 15,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 4,
+            "label": "RE-EVOLUTION",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 12,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 5,
+            "label": "Ostankino",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 9,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 6,
+            "label": "Hubarch",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 7,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          }
+        ],
+        "totalVisibleLetters": 0,
+        "inkLayerCount": 0
+      }
+    },
+    {
+      "t": 1621,
+      "frame": 2,
+      "type": "hud_layout_visibility",
+      "multiplier": 1,
+      "snapshot": {
+        "layerCount": 7,
+        "layers": [
+          {
+            "index": 0,
+            "label": "НИПИГАЗ",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 7,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 1,
+            "label": "Troof",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 5,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 2,
+            "label": "MMK-1",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 5,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 3,
+            "label": "Belka Production",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 15,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 4,
+            "label": "RE-EVOLUTION",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 12,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 5,
+            "label": "Ostankino",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 9,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 6,
+            "label": "Hubarch",
+            "meshVisible": true,
+            "shaderAlpha": 0.999,
+            "keepMeshInRender": true,
+            "appearPending": 7,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          }
+        ],
+        "totalVisibleLetters": 0,
+        "inkLayerCount": 0
+      }
+    },
+    {
+      "t": 1625,
+      "frame": 2,
+      "type": "route",
+      "path": "/portfolio",
+      "phase": "idle"
+    },
+    {
+      "t": 1625,
+      "frame": 2,
+      "type": "set_route_state",
+      "currentPage": "/portfolio",
+      "teleportPage": "/portfolio",
+      "routePhase": "idle",
+      "appStarted": true,
+      "hubLifecycle": "entering"
+    },
+    {
+      "t": 1628,
+      "frame": 3,
+      "type": "frame_state",
+      "hudVisibility": 1,
+      "hubLifecycle": "entering",
+      "stackVisibility": 1,
+      "snapshot": {
+        "layerCount": 7,
+        "layers": [
+          {
+            "index": 0,
+            "label": "НИПИГАЗ",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 7,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 1,
+            "label": "Troof",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 5,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 2,
+            "label": "MMK-1",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 5,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 3,
+            "label": "Belka Production",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 15,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 4,
+            "label": "RE-EVOLUTION",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 12,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 5,
+            "label": "Ostankino",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 9,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 6,
+            "label": "Hubarch",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 7,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          }
+        ],
+        "totalVisibleLetters": 0,
+        "inkLayerCount": 0
+      }
+    },
+    {
+      "t": 1675,
+      "frame": 7,
+      "type": "glitch_play_appear",
+      "text": "Troof",
+      "timeBudgetMs": 500
+    },
+    {
+      "t": 1675,
+      "frame": 7,
+      "type": "glitch_engine_prepare_appear",
+      "slotCount": 5
+    },
+    {
+      "t": 1715,
+      "frame": 10,
+      "type": "glitch_play_appear",
+      "text": "MMK-1",
+      "timeBudgetMs": 500
+    },
+    {
+      "t": 1715,
+      "frame": 10,
+      "type": "glitch_engine_prepare_appear",
+      "slotCount": 5
+    },
+    {
+      "t": 1774,
+      "frame": 14,
+      "type": "glitch_play_appear",
+      "text": "Belka Production",
+      "timeBudgetMs": 500
+    },
+    {
+      "t": 1774,
+      "frame": 14,
+      "type": "glitch_engine_prepare_appear",
+      "slotCount": 16
+    },
+    {
+      "t": 1779,
+      "frame": 15,
+      "type": "frame_state",
+      "hudVisibility": 1,
+      "hubLifecycle": "entering",
+      "stackVisibility": 1,
+      "snapshot": {
+        "layerCount": 7,
+        "layers": [
+          {
+            "index": 0,
+            "label": "НИПИГАЗ",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 6,
+            "visibleLetters": 1,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 1,
+            "label": "Troof",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 5,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 2,
+            "label": "MMK-1",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 5,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 3,
+            "label": "Belka Production",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 15,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 4,
+            "label": "RE-EVOLUTION",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 12,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 5,
+            "label": "Ostankino",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 9,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 6,
+            "label": "Hubarch",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 7,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          }
+        ],
+        "totalVisibleLetters": 1,
+        "inkLayerCount": 0
+      }
+    },
+    {
+      "t": 1809,
+      "frame": 17,
+      "type": "glitch_play_appear",
+      "text": "RE-EVOLUTION",
+      "timeBudgetMs": 500
+    },
+    {
+      "t": 1809,
+      "frame": 17,
+      "type": "glitch_engine_prepare_appear",
+      "slotCount": 12
+    },
+    {
+      "t": 1845,
+      "frame": 20,
+      "type": "FLASH_DETECTED",
+      "reason": "canvas_ink_while_slots_hidden",
+      "hudVisibility": 1,
+      "hubLifecycle": "entering",
+      "stackVisibility": 1,
+      "snapshot": {
+        "layerCount": 7,
+        "layers": [
+          {
+            "index": 0,
+            "label": "НИПИГАЗ",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 5,
+            "visibleLetters": 2,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 1,
+            "label": "Troof",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 4,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 2,
+            "label": "MMK-1",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 5,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 3,
+            "label": "Belka Production",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 15,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 4,
+            "label": "RE-EVOLUTION",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 12,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 5,
+            "label": "Ostankino",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 9,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 6,
+            "label": "Hubarch",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 7,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          }
+        ],
+        "totalVisibleLetters": 2,
+        "inkLayerCount": 2
+      }
+    },
+    {
+      "t": 1845,
+      "frame": 20,
+      "type": "frame_state",
+      "hudVisibility": 1,
+      "hubLifecycle": "entering",
+      "stackVisibility": 1,
+      "snapshot": {
+        "layerCount": 7,
+        "layers": [
+          {
+            "index": 0,
+            "label": "НИПИГАЗ",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 5,
+            "visibleLetters": 2,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 1,
+            "label": "Troof",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 4,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 2,
+            "label": "MMK-1",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 5,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 3,
+            "label": "Belka Production",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 15,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 4,
+            "label": "RE-EVOLUTION",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 12,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 5,
+            "label": "Ostankino",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 9,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 6,
+            "label": "Hubarch",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 7,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": false,
+            "textureNeedsUpdate": false
+          }
+        ],
+        "totalVisibleLetters": 2,
+        "inkLayerCount": 2
+      }
+    },
+    {
+      "t": 1862,
+      "frame": 21,
+      "type": "glitch_play_appear",
+      "text": "Ostankino",
+      "timeBudgetMs": 500
+    },
+    {
+      "t": 1862,
+      "frame": 21,
+      "type": "glitch_engine_prepare_appear",
+      "slotCount": 9
+    },
+    {
+      "t": 1897,
+      "frame": 23,
+      "type": "glitch_play_appear",
+      "text": "Hubarch",
+      "timeBudgetMs": 500
+    },
+    {
+      "t": 1897,
+      "frame": 23,
+      "type": "glitch_engine_prepare_appear",
+      "slotCount": 7
+    },
+    {
+      "t": 1925,
+      "frame": 26,
+      "type": "frame_state",
+      "hudVisibility": 1,
+      "hubLifecycle": "entering",
+      "stackVisibility": 1,
+      "snapshot": {
+        "layerCount": 7,
+        "layers": [
+          {
+            "index": 0,
+            "label": "НИПИГАЗ",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 4,
+            "visibleLetters": 3,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 1,
+            "label": "Troof",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 3,
+            "visibleLetters": 1,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 2,
+            "label": "MMK-1",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 4,
+            "visibleLetters": 1,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 3,
+            "label": "Belka Production",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 14,
+            "visibleLetters": 1,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 4,
+            "label": "RE-EVOLUTION",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 12,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 5,
+            "label": "Ostankino",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 9,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 6,
+            "label": "Hubarch",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 7,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          }
+        ],
+        "totalVisibleLetters": 6,
+        "inkLayerCount": 1
+      }
+    },
+    {
+      "t": 1939,
+      "frame": 27,
+      "type": "frame_state",
+      "hudVisibility": 1,
+      "hubLifecycle": "entering",
+      "stackVisibility": 1,
+      "snapshot": {
+        "layerCount": 7,
+        "layers": [
+          {
+            "index": 0,
+            "label": "НИПИГАЗ",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 4,
+            "visibleLetters": 3,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 1,
+            "label": "Troof",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 3,
+            "visibleLetters": 2,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 2,
+            "label": "MMK-1",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 4,
+            "visibleLetters": 1,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 3,
+            "label": "Belka Production",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 13,
+            "visibleLetters": 1,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 4,
+            "label": "RE-EVOLUTION",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 11,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 5,
+            "label": "Ostankino",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 9,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 6,
+            "label": "Hubarch",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 7,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          }
+        ],
+        "totalVisibleLetters": 7,
+        "inkLayerCount": 1
+      }
+    },
+    {
+      "t": 1965,
+      "frame": 29,
+      "type": "FLASH_DETECTED",
+      "reason": "visible_letters_while_intro_hidden",
+      "hudVisibility": 1,
+      "hubLifecycle": "entering",
+      "stackVisibility": 1,
+      "snapshot": {
+        "layerCount": 7,
+        "layers": [
+          {
+            "index": 0,
+            "label": "НИПИГАЗ",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 3,
+            "visibleLetters": 3,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 1,
+            "label": "Troof",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 3,
+            "visibleLetters": 2,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 2,
+            "label": "MMK-1",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 3,
+            "visibleLetters": 1,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 3,
+            "label": "Belka Production",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 13,
+            "visibleLetters": 2,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 4,
+            "label": "RE-EVOLUTION",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 11,
+            "visibleLetters": 1,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 5,
+            "label": "Ostankino",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 9,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 6,
+            "label": "Hubarch",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 7,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          }
+        ],
+        "totalVisibleLetters": 9,
+        "inkLayerCount": 0
+      }
+    },
+    {
+      "t": 1965,
+      "frame": 29,
+      "type": "frame_state",
+      "hudVisibility": 1,
+      "hubLifecycle": "entering",
+      "stackVisibility": 1,
+      "snapshot": {
+        "layerCount": 7,
+        "layers": [
+          {
+            "index": 0,
+            "label": "НИПИГАЗ",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 3,
+            "visibleLetters": 3,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 1,
+            "label": "Troof",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 3,
+            "visibleLetters": 2,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 2,
+            "label": "MMK-1",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 3,
+            "visibleLetters": 1,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 3,
+            "label": "Belka Production",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 13,
+            "visibleLetters": 2,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 4,
+            "label": "RE-EVOLUTION",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 11,
+            "visibleLetters": 1,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 5,
+            "label": "Ostankino",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 9,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 6,
+            "label": "Hubarch",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 7,
+            "visibleLetters": 0,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          }
+        ],
+        "totalVisibleLetters": 9,
+        "inkLayerCount": 0
+      }
+    },
+    {
+      "t": 2099,
+      "frame": 39,
+      "type": "FLASH_DETECTED",
+      "reason": "visible_letters_while_intro_hidden",
+      "hudVisibility": 1,
+      "hubLifecycle": "entering",
+      "stackVisibility": 1,
+      "snapshot": {
+        "layerCount": 7,
+        "layers": [
+          {
+            "index": 0,
+            "label": "НИПИГАЗ",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 1,
+            "visibleLetters": 6,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 1,
+            "label": "Troof",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 1,
+            "visibleLetters": 4,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 2,
+            "label": "MMK-1",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 2,
+            "visibleLetters": 3,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 3,
+            "label": "Belka Production",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 7,
+            "visibleLetters": 6,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 4,
+            "label": "RE-EVOLUTION",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 8,
+            "visibleLetters": 4,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 5,
+            "label": "Ostankino",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 6,
+            "visibleLetters": 2,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 6,
+            "label": "Hubarch",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 6,
+            "visibleLetters": 1,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          }
+        ],
+        "totalVisibleLetters": 26,
+        "inkLayerCount": 2
+      }
+    },
+    {
+      "t": 2099,
+      "frame": 39,
+      "type": "frame_state",
+      "hudVisibility": 1,
+      "hubLifecycle": "entering",
+      "stackVisibility": 1,
+      "snapshot": {
+        "layerCount": 7,
+        "layers": [
+          {
+            "index": 0,
+            "label": "НИПИГАЗ",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 1,
+            "visibleLetters": 6,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 1,
+            "label": "Troof",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 1,
+            "visibleLetters": 4,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 2,
+            "label": "MMK-1",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 2,
+            "visibleLetters": 3,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 3,
+            "label": "Belka Production",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 7,
+            "visibleLetters": 6,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 4,
+            "label": "RE-EVOLUTION",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 8,
+            "visibleLetters": 4,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 5,
+            "label": "Ostankino",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 6,
+            "visibleLetters": 2,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 6,
+            "label": "Hubarch",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 6,
+            "visibleLetters": 1,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          }
+        ],
+        "totalVisibleLetters": 26,
+        "inkLayerCount": 2
+      }
+    },
+    {
+      "t": 2232,
+      "frame": 49,
+      "type": "FLASH_DETECTED",
+      "reason": "visible_letters_while_intro_hidden",
+      "hudVisibility": 1,
+      "hubLifecycle": "entering",
+      "stackVisibility": 1,
+      "snapshot": {
+        "layerCount": 7,
+        "layers": [
+          {
+            "index": 0,
+            "label": "НИПИГАЗ",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 7,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 1,
+            "label": "Troof",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 5,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 2,
+            "label": "MMK-1",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 5,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 3,
+            "label": "Belka Production",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 3,
+            "visibleLetters": 12,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 4,
+            "label": "RE-EVOLUTION",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 2,
+            "visibleLetters": 8,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 5,
+            "label": "Ostankino",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 4,
+            "visibleLetters": 5,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 6,
+            "label": "Hubarch",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 4,
+            "visibleLetters": 3,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          }
+        ],
+        "totalVisibleLetters": 45,
+        "inkLayerCount": 3
+      }
+    },
+    {
+      "t": 2232,
+      "frame": 49,
+      "type": "frame_state",
+      "hudVisibility": 1,
+      "hubLifecycle": "entering",
+      "stackVisibility": 1,
+      "snapshot": {
+        "layerCount": 7,
+        "layers": [
+          {
+            "index": 0,
+            "label": "НИПИГАЗ",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 7,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 1,
+            "label": "Troof",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 5,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 2,
+            "label": "MMK-1",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 5,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 3,
+            "label": "Belka Production",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 3,
+            "visibleLetters": 12,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 4,
+            "label": "RE-EVOLUTION",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 2,
+            "visibleLetters": 8,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 5,
+            "label": "Ostankino",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 4,
+            "visibleLetters": 5,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 6,
+            "label": "Hubarch",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 4,
+            "visibleLetters": 3,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          }
+        ],
+        "totalVisibleLetters": 45,
+        "inkLayerCount": 3
+      }
+    },
+    {
+      "t": 2354,
+      "frame": 58,
+      "type": "FLASH_DETECTED",
+      "reason": "visible_letters_while_intro_hidden",
+      "hudVisibility": 1,
+      "hubLifecycle": "entering",
+      "stackVisibility": 1,
+      "snapshot": {
+        "layerCount": 7,
+        "layers": [
+          {
+            "index": 0,
+            "label": "НИПИГАЗ",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 7,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 1,
+            "label": "Troof",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 5,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 2,
+            "label": "MMK-1",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 5,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 3,
+            "label": "Belka Production",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 15,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 4,
+            "label": "RE-EVOLUTION",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 11,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 5,
+            "label": "Ostankino",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 1,
+            "visibleLetters": 7,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 6,
+            "label": "Hubarch",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 2,
+            "visibleLetters": 5,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          }
+        ],
+        "totalVisibleLetters": 55,
+        "inkLayerCount": 3
+      }
+    },
+    {
+      "t": 2354,
+      "frame": 58,
+      "type": "frame_state",
+      "hudVisibility": 1,
+      "hubLifecycle": "entering",
+      "stackVisibility": 1,
+      "snapshot": {
+        "layerCount": 7,
+        "layers": [
+          {
+            "index": 0,
+            "label": "НИПИГАЗ",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 7,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 1,
+            "label": "Troof",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 5,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 2,
+            "label": "MMK-1",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 5,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 3,
+            "label": "Belka Production",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 15,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 4,
+            "label": "RE-EVOLUTION",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 11,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 5,
+            "label": "Ostankino",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 1,
+            "visibleLetters": 7,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 6,
+            "label": "Hubarch",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 2,
+            "visibleLetters": 5,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          }
+        ],
+        "totalVisibleLetters": 55,
+        "inkLayerCount": 3
+      }
+    },
+    {
+      "t": 2478,
+      "frame": 67,
+      "type": "ensure_visible_fallback",
+      "before": {
+        "layerCount": 7,
+        "layers": [
+          {
+            "index": 0,
+            "label": "НИПИГАЗ",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 7,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 1,
+            "label": "Troof",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 5,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 2,
+            "label": "MMK-1",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 5,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 3,
+            "label": "Belka Production",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 15,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 4,
+            "label": "RE-EVOLUTION",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 12,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 5,
+            "label": "Ostankino",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 9,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 6,
+            "label": "Hubarch",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 7,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          }
+        ],
+        "totalVisibleLetters": 60,
+        "inkLayerCount": 3
+      }
+    },
+    {
+      "t": 2478,
+      "frame": 67,
+      "type": "ensure_visible_fallback_done",
+      "after": {
+        "layerCount": 7,
+        "layers": [
+          {
+            "index": 0,
+            "label": "НИПИГАЗ",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 7,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 1,
+            "label": "Troof",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 5,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 2,
+            "label": "MMK-1",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 5,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 3,
+            "label": "Belka Production",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 15,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 4,
+            "label": "RE-EVOLUTION",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 12,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 5,
+            "label": "Ostankino",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 9,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 6,
+            "label": "Hubarch",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 7,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          }
+        ],
+        "totalVisibleLetters": 60,
+        "inkLayerCount": 3
+      }
+    },
+    {
+      "t": 2488,
+      "frame": 68,
+      "type": "FLASH_DETECTED",
+      "reason": "visible_letters_while_intro_hidden",
+      "hudVisibility": 1,
+      "hubLifecycle": "entering",
+      "stackVisibility": 1,
+      "snapshot": {
+        "layerCount": 7,
+        "layers": [
+          {
+            "index": 0,
+            "label": "НИПИГАЗ",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 7,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 1,
+            "label": "Troof",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 5,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 2,
+            "label": "MMK-1",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 5,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 3,
+            "label": "Belka Production",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 15,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 4,
+            "label": "RE-EVOLUTION",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 12,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 5,
+            "label": "Ostankino",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 9,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 6,
+            "label": "Hubarch",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 7,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          }
+        ],
+        "totalVisibleLetters": 60,
+        "inkLayerCount": 3
+      }
+    },
+    {
+      "t": 2488,
+      "frame": 68,
+      "type": "frame_state",
+      "hudVisibility": 1,
+      "hubLifecycle": "entering",
+      "stackVisibility": 1,
+      "snapshot": {
+        "layerCount": 7,
+        "layers": [
+          {
+            "index": 0,
+            "label": "НИПИГАЗ",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 7,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 1,
+            "label": "Troof",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 5,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 2,
+            "label": "MMK-1",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 5,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 3,
+            "label": "Belka Production",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 15,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 4,
+            "label": "RE-EVOLUTION",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 12,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 5,
+            "label": "Ostankino",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 9,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 6,
+            "label": "Hubarch",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 7,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          }
+        ],
+        "totalVisibleLetters": 60,
+        "inkLayerCount": 3
+      }
+    },
+    {
+      "t": 2620,
+      "frame": 78,
+      "type": "FLASH_DETECTED",
+      "reason": "visible_letters_while_intro_hidden",
+      "hudVisibility": 1,
+      "hubLifecycle": "entering",
+      "stackVisibility": 1,
+      "snapshot": {
+        "layerCount": 7,
+        "layers": [
+          {
+            "index": 0,
+            "label": "НИПИГАЗ",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 7,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 1,
+            "label": "Troof",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 5,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 2,
+            "label": "MMK-1",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 5,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 3,
+            "label": "Belka Production",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 15,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 4,
+            "label": "RE-EVOLUTION",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 12,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 5,
+            "label": "Ostankino",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 9,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 6,
+            "label": "Hubarch",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 7,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          }
+        ],
+        "totalVisibleLetters": 60,
+        "inkLayerCount": 3
+      }
+    },
+    {
+      "t": 2740,
+      "frame": 86,
+      "type": "FLASH_DETECTED",
+      "reason": "visible_letters_while_intro_hidden",
+      "hudVisibility": 1,
+      "hubLifecycle": "entering",
+      "stackVisibility": 1,
+      "snapshot": {
+        "layerCount": 7,
+        "layers": [
+          {
+            "index": 0,
+            "label": "НИПИГАЗ",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 7,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 1,
+            "label": "Troof",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 5,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 2,
+            "label": "MMK-1",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 5,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 3,
+            "label": "Belka Production",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 15,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 4,
+            "label": "RE-EVOLUTION",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 12,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 5,
+            "label": "Ostankino",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 9,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 6,
+            "label": "Hubarch",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 7,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          }
+        ],
+        "totalVisibleLetters": 60,
+        "inkLayerCount": 3
+      }
+    },
+    {
+      "t": 2872,
+      "frame": 96,
+      "type": "FLASH_DETECTED",
+      "reason": "visible_letters_while_intro_hidden",
+      "hudVisibility": 1,
+      "hubLifecycle": "entering",
+      "stackVisibility": 1,
+      "snapshot": {
+        "layerCount": 7,
+        "layers": [
+          {
+            "index": 0,
+            "label": "НИПИГАЗ",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 7,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 1,
+            "label": "Troof",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 5,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 2,
+            "label": "MMK-1",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 5,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 3,
+            "label": "Belka Production",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 15,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 4,
+            "label": "RE-EVOLUTION",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 12,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 5,
+            "label": "Ostankino",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 9,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 6,
+            "label": "Hubarch",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 7,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          }
+        ],
+        "totalVisibleLetters": 60,
+        "inkLayerCount": 3
+      }
+    },
+    {
+      "t": 2992,
+      "frame": 105,
+      "type": "FLASH_DETECTED",
+      "reason": "visible_letters_while_intro_hidden",
+      "hudVisibility": 1,
+      "hubLifecycle": "entering",
+      "stackVisibility": 1,
+      "snapshot": {
+        "layerCount": 7,
+        "layers": [
+          {
+            "index": 0,
+            "label": "НИПИГАЗ",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 7,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 1,
+            "label": "Troof",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 5,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 2,
+            "label": "MMK-1",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 5,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 3,
+            "label": "Belka Production",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 15,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 4,
+            "label": "RE-EVOLUTION",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 12,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 5,
+            "label": "Ostankino",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 9,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 6,
+            "label": "Hubarch",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 7,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          }
+        ],
+        "totalVisibleLetters": 60,
+        "inkLayerCount": 3
+      }
+    },
+    {
+      "t": 3112,
+      "frame": 114,
+      "type": "FLASH_DETECTED",
+      "reason": "visible_letters_while_intro_hidden",
+      "hudVisibility": 1,
+      "hubLifecycle": "entering",
+      "stackVisibility": 1,
+      "snapshot": {
+        "layerCount": 7,
+        "layers": [
+          {
+            "index": 0,
+            "label": "НИПИГАЗ",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 7,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 1,
+            "label": "Troof",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 5,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 2,
+            "label": "MMK-1",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 5,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 3,
+            "label": "Belka Production",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 15,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 4,
+            "label": "RE-EVOLUTION",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 12,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 5,
+            "label": "Ostankino",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 9,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 6,
+            "label": "Hubarch",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 7,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          }
+        ],
+        "totalVisibleLetters": 60,
+        "inkLayerCount": 3
+      }
+    },
+    {
+      "t": 3245,
+      "frame": 124,
+      "type": "FLASH_DETECTED",
+      "reason": "visible_letters_while_intro_hidden",
+      "hudVisibility": 1,
+      "hubLifecycle": "entering",
+      "stackVisibility": 1,
+      "snapshot": {
+        "layerCount": 7,
+        "layers": [
+          {
+            "index": 0,
+            "label": "НИПИГАЗ",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 7,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 1,
+            "label": "Troof",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 5,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 2,
+            "label": "MMK-1",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 5,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 3,
+            "label": "Belka Production",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 15,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 4,
+            "label": "RE-EVOLUTION",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 12,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 5,
+            "label": "Ostankino",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 9,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 6,
+            "label": "Hubarch",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 7,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          }
+        ],
+        "totalVisibleLetters": 60,
+        "inkLayerCount": 3
+      }
+    },
+    {
+      "t": 3366,
+      "frame": 133,
+      "type": "FLASH_DETECTED",
+      "reason": "visible_letters_while_intro_hidden",
+      "hudVisibility": 1,
+      "hubLifecycle": "entering",
+      "stackVisibility": 1,
+      "snapshot": {
+        "layerCount": 7,
+        "layers": [
+          {
+            "index": 0,
+            "label": "НИПИГАЗ",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 7,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 1,
+            "label": "Troof",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 5,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 2,
+            "label": "MMK-1",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 5,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 3,
+            "label": "Belka Production",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 15,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 4,
+            "label": "RE-EVOLUTION",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 12,
+            "canvasCenterHasInk": true,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 5,
+            "label": "Ostankino",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 9,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          },
+          {
+            "index": 6,
+            "label": "Hubarch",
+            "meshVisible": true,
+            "shaderAlpha": 1,
+            "keepMeshInRender": true,
+            "appearPending": 0,
+            "visibleLetters": 7,
+            "canvasCenterHasInk": false,
+            "animActive": true,
+            "textureNeedsUpdate": false
+          }
+        ],
+        "totalVisibleLetters": 60,
+        "inkLayerCount": 3
+      }
+    },
+    {
+      "t": 3496,
+      "frame": 142,
+      "type": "record_stop",
+      "eventCount": 150,
+      "flashCount": 14
+    }
+  ]
+}

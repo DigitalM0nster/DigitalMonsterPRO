@@ -1,0 +1,41 @@
+.optionalMedia {
+  margin-top: 4px;
+  max-width: 280px;
+  border-radius: 0;
+  overflow: hidden;
+  border: 1px solid rgba(0, 217, 214, 0.25);
+}
+.optionalMedia img,
+.optionalMedia video {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.optionalMedia .playTrigger {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: rgba(0, 217, 214, 0.04);
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.82);
+  transition: background 0.2s ease;
+}
+.optionalMedia .playTrigger:hover {
+  background: rgba(0, 217, 214, 0.08);
+}
+.optionalMedia .poster {
+  width: 100%;
+  opacity: 0.65;
+}
+.optionalMedia .playLabel {
+  padding: 10px 14px 14px;
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #00d9d6;
+}/*# sourceMappingURL=OptionalMedia.module.css.map */

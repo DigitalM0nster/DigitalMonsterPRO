@@ -1,0 +1,63 @@
+.metricRing {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 88px;
+  height: 88px;
+}
+.metricRing .ring {
+  position: absolute;
+  inset: 0;
+}
+.metricRing .ringSvg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+.metricRing .ringTrack {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.06);
+  stroke-width: 2;
+}
+.metricRing .ringArc {
+  fill: none;
+  stroke: #00d9d6;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-dasharray: 176;
+  stroke-dashoffset: calc(176 * (1 - var(--ringPct, 75) / 100));
+  filter: drop-shadow(0 0 4px rgba(0, 217, 214, 0.35));
+}
+.metricRing.textOnly .ringArc {
+  stroke-dashoffset: 44;
+  opacity: 0.35;
+}
+.metricRing.textOnly .value {
+  font-size: 10px;
+  line-height: 1.25;
+}
+.metricRing .center {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  max-width: 62px;
+  text-align: center;
+}
+.metricRing .value {
+  font-size: 13px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+  color: #fff;
+}
+.metricRing .label {
+  font-size: 7px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  opacity: 0.42;
+  line-height: 1.2;
+}/*# sourceMappingURL=MetricRing.module.css.map */

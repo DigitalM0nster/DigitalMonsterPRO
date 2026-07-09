@@ -1,0 +1,334 @@
+@charset "UTF-8";
+@media (min-width: 769px) {
+  body.dotCursorActive {
+    --siteCursor: url("/cursor/dotCursor.png") 16 16, auto;
+    cursor: var(--siteCursor) !important;
+  }
+  body.dotCursorActive,
+  body.dotCursorActive * {
+    cursor: var(--siteCursor) !important;
+  }
+}
+.cursor {
+  position: fixed;
+  justify-content: center;
+  align-items: center;
+  width: 70px;
+  height: 70px;
+  opacity: 1;
+  transform: translate(-50%, -50%);
+  --pointsDistance: 200px;
+  transition: width var(--menuFloatDuration, 1.35s) var(--menuFloatEase, cubic-bezier(0.19, 1, 0.22, 1)), height var(--menuFloatDuration, 1.35s) var(--menuFloatEase, cubic-bezier(0.19, 1, 0.22, 1)), opacity var(--menuFloatDuration, 1.35s) var(--menuFloatEase, cubic-bezier(0.19, 1, 0.22, 1));
+}
+.cursor * {
+  position: absolute;
+  justify-content: center;
+  align-items: center;
+}
+.cursor.hover {
+  width: 110px;
+  height: 110px;
+  opacity: 0.25;
+}
+.cursor.hover.menuMerged {
+  opacity: 1;
+}
+.cursor.hover.menuMerged .littleCircle {
+  width: 40%;
+  height: 40%;
+  transform: scale(1) rotate(270deg);
+  transition: 1s 0s;
+}
+.cursor.hover.click {
+  opacity: 1;
+  transition: opacity 0.035s linear;
+}
+.cursor.hover .mainCircle {
+  width: 65%;
+  height: 65%;
+}
+.cursor.hover .littleCircle {
+  transform: scale(1.5) rotate(180deg);
+}
+.cursor.hover.click .littleCircle {
+  transform: scale(1) rotate(180deg);
+  transition: 0.07s ease-in-out;
+}
+.cursor.hover .bigCircle {
+  width: 45%;
+  height: 45%;
+}
+.cursor.hover .points {
+  width: 80%;
+  height: 80%;
+  transform: rotate(270deg);
+}
+.cursor.hover.click .points {
+  width: 65%;
+  height: 65%;
+  transform: rotate(270deg);
+  transition: 0.07s ease;
+}
+.cursor.hover .points1 {
+  transform: rotate(-45deg);
+}
+.cursor.hover .points2 {
+  transform: rotate(45deg);
+}
+.cursor.menuMerged .mainCircle {
+  width: 100%;
+  height: 100%;
+  transform: rotate(180deg);
+  transition: 1s 0s;
+}
+.cursor.menuMerged .mainCircle .halfCircle1 {
+  clip-path: inset(0 0 40% 0);
+  transition: 1s 0s;
+}
+.cursor.menuMerged .mainCircle .halfCircle2 {
+  clip-path: inset(40% 0 0 0);
+  transition: 1s 0s;
+}
+.cursor.menuMerged .point1 {
+  top: 125%;
+}
+.cursor.menuMerged .point2 {
+  top: -25%;
+}
+.cursor.menuMerged .bigCircle {
+  width: 200%;
+  height: 200%;
+  opacity: 0;
+  transition: 0.5s 0s;
+}
+.cursor.menuMerged .littleCircle .halfCircle1 {
+  clip-path: inset(0 0 40% 0);
+}
+.cursor.menuMerged .littleCircle .halfCircle2 {
+  clip-path: inset(40% 0 0 0);
+}
+.cursor {
+  /** Плитка портфолио — внешние кольца у указателя, inner (littleCircle + точки) к «Подробнее». */
+}
+.cursor.caseHovered {
+  width: 110px;
+  height: 110px;
+  opacity: 1;
+  overflow: visible;
+}
+.cursor.caseHovered .mainCircle,
+.cursor.caseHovered .bigCircle {
+  opacity: 0.16;
+}
+.cursor.caseHovered .mainCircle {
+  width: 100%;
+  height: 100%;
+  transform: rotate(180deg);
+  transition: all 1s 0s;
+}
+.cursor.caseHovered .mainCircle .halfCircle1 {
+  clip-path: inset(0 0 40% 0);
+  transition: all 1s 0s;
+}
+.cursor.caseHovered .mainCircle .halfCircle2 {
+  clip-path: inset(40% 0 0 0);
+  transition: all 1s 0s;
+}
+.cursor.caseHovered .caseInner {
+  width: 100%;
+  height: 100%;
+  transform: translate(var(--caseInnerX, 0px), var(--caseInnerY, 0px));
+}
+.cursor.caseHovered .littleCircle {
+  width: 40%;
+  height: 40%;
+  opacity: 1;
+  transform: scale(1) rotate(270deg);
+  transition: width 1s 0s, height 1s 0s, opacity 1s 0s;
+}
+.cursor.caseHovered .littleCircle .halfCircle1 {
+  clip-path: inset(0 0 40% 0);
+}
+.cursor.caseHovered .littleCircle .halfCircle2 {
+  clip-path: inset(40% 0 0 0);
+}
+.cursor.caseHovered .bigCircle {
+  opacity: 0;
+  transition: 1s 0s;
+}
+.cursor.caseHovered .points {
+  opacity: 1;
+  width: 100%;
+  height: 100%;
+  transform: none;
+}
+.cursor.caseHovered .points1,
+.cursor.caseHovered .points2 {
+  transform: none;
+}
+.cursor.caseHovered .points1 .point1 {
+  top: 50%;
+  left: 50%;
+  transform: translate(calc(-50% + var(--casePoint1X, 0px)), calc(-50% + var(--casePoint1Y, 0px))) rotate(45deg);
+}
+.cursor.caseHovered .points1 .point2 {
+  top: 50%;
+  left: 50%;
+  transform: translate(calc(-50% + var(--casePoint2X, 0px)), calc(-50% + var(--casePoint2Y, 0px))) rotate(45deg);
+}
+.cursor.caseHovered .points2 .point1 {
+  top: 50%;
+  left: 50%;
+  transform: translate(calc(-50% + var(--casePoint3X, 0px)), calc(-50% + var(--casePoint3Y, 0px))) rotate(45deg);
+}
+.cursor.caseHovered .points2 .point2 {
+  top: 50%;
+  left: 50%;
+  transform: translate(calc(-50% + var(--casePoint4X, 0px)), calc(-50% + var(--casePoint4Y, 0px))) rotate(45deg);
+}
+.cursor.caseHovered.click {
+  opacity: 1;
+  transition: opacity 0.035s linear;
+}
+.cursor.caseHovered.click .littleCircle {
+  transform: scale(1) rotate(270deg);
+  transition: 0.07s ease-in-out;
+}
+.cursor.click .mainCircle {
+  width: 80%;
+  height: 80%;
+  transition: 0.05s ease-in-out;
+}
+.cursor.click.hover .mainCircle {
+  width: 65%;
+  height: 65%;
+  transition: 0s;
+}
+.cursor .mainCircle {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  transform: rotate(0deg);
+  transition: width var(--menuFloatDuration, 1.35s) var(--menuFloatEase, cubic-bezier(0.19, 1, 0.22, 1)), height var(--menuFloatDuration, 1.35s) var(--menuFloatEase, cubic-bezier(0.19, 1, 0.22, 1)), transform var(--menuFloatDuration, 1.35s) var(--menuFloatEase, cubic-bezier(0.19, 1, 0.22, 1)), clip-path var(--menuFloatDuration, 1.35s) var(--menuFloatEase, cubic-bezier(0.19, 1, 0.22, 1));
+}
+.cursor .mainCircle .halfCircle1 {
+  width: 100%;
+  height: 100%;
+  transform: translate(0, -60%);
+  clip-path: inset(0 0 0% 0);
+  overflow: hidden;
+  transition: 0.3s 0s;
+}
+.cursor .mainCircle .halfCircle1 .inCircle {
+  width: 100%;
+  height: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: 50%;
+  transform: translate(0, 60%);
+  transition: opacity var(--menuFloatDuration, 1.35s) var(--menuFloatEase, cubic-bezier(0.19, 1, 0.22, 1));
+}
+.cursor .mainCircle .halfCircle2 {
+  width: 100%;
+  height: 100%;
+  transform: translate(0, 60%);
+  clip-path: inset(0% 0 0 0);
+  overflow: hidden;
+  transition: 0.3s 0s;
+}
+.cursor .mainCircle .halfCircle2 .inCircle {
+  width: 100%;
+  height: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: 50%;
+  transform: translate(0, -60%);
+  transition: opacity var(--menuFloatDuration, 1.35s) var(--menuFloatEase, cubic-bezier(0.19, 1, 0.22, 1));
+}
+.cursor .littleCircle {
+  width: 25.5%;
+  height: 25.5%;
+  transform: scale(1) rotate(90deg);
+  transition: transform var(--menuFloatDuration, 1.35s) var(--menuFloatEase, cubic-bezier(0.19, 1, 0.22, 1)), opacity var(--menuFloatDuration, 1.35s) var(--menuFloatEase, cubic-bezier(0.19, 1, 0.22, 1)), width var(--menuFloatDuration, 1.35s) var(--menuFloatEase, cubic-bezier(0.19, 1, 0.22, 1)), height var(--menuFloatDuration, 1.35s) var(--menuFloatEase, cubic-bezier(0.19, 1, 0.22, 1));
+}
+.cursor .littleCircle .halfCircle1 {
+  width: 100%;
+  height: 100%;
+  transform: translate(0, -65%);
+  clip-path: inset(0 0 0% 0);
+  overflow: hidden;
+  transition: 0.3s 0s;
+}
+.cursor .littleCircle .halfCircle1 .inCircle {
+  width: 100%;
+  height: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: 50%;
+  transform: translate(0, 65%);
+}
+.cursor .littleCircle .halfCircle2 {
+  width: 100%;
+  height: 100%;
+  transform: translate(0, 65%);
+  clip-path: inset(0% 0 0 0);
+  overflow: hidden;
+  transition: 0.3s 0s;
+}
+.cursor .littleCircle .halfCircle2 .inCircle {
+  width: 100%;
+  height: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: 50%;
+  transform: translate(0, -65%);
+}
+.cursor .bigCircle {
+  width: 124%;
+  height: 124%;
+  border-radius: 50%;
+  border: 1px dotted rgba(255, 255, 255, 0.75);
+  transition: width var(--menuFloatDuration, 1.35s) var(--menuFloatEase, cubic-bezier(0.19, 1, 0.22, 1)), height var(--menuFloatDuration, 1.35s) var(--menuFloatEase, cubic-bezier(0.19, 1, 0.22, 1)), opacity var(--menuFloatDuration, 1.35s) var(--menuFloatEase, cubic-bezier(0.19, 1, 0.22, 1));
+}
+.cursor .caseInner {
+  width: 100%;
+  height: 100%;
+}
+.cursor .points {
+  width: 24%;
+  height: 24%;
+  transform: rotate(90deg);
+  transition: transform 0.4s ease-in-out, width 0.5s ease-in-out, height 0.5s ease-in-out, opacity var(--menuFloatDuration, 1.35s) var(--menuFloatEase, cubic-bezier(0.19, 1, 0.22, 1));
+}
+.cursor .points1,
+.cursor .points2 {
+  width: 100%;
+  height: 100%;
+  transform: rotate(0deg);
+  transition: 0.35s ease-in-out;
+}
+.cursor .point1,
+.cursor .point2 {
+  width: 3px;
+  height: 3px;
+  border-left: 2px solid rgba(255, 255, 255, 0);
+  border-top: 2px solid rgba(255, 255, 255, 0);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.75);
+  transform: translate(0, -50%) scaleY(1) rotate(45deg);
+  transition: 0.35s 0s;
+}
+.cursor .point1 {
+  top: 100%;
+}
+.cursor .point2 {
+  top: 0%;
+}
+
+@media (max-width: 768px) {
+  body {
+    cursor: auto;
+  }
+  body a {
+    cursor: auto;
+  }
+  .cursor {
+    display: none !important;
+  }
+}/*# sourceMappingURL=cursor.css.map */

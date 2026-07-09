@@ -1,0 +1,229 @@
+	.mobileShell {
+		display: flex;
+		position: absolute;
+	inset: 0;
+	z-index: 6;
+	pointer-events: none;
+	flex-direction: column;
+
+	.modelStageHeader {
+		display: none;
+	}
+
+	.sceneHeader {
+		display: flex;
+		position: relative;
+		flex-shrink: 0;
+		align-items: center;
+		justify-content: space-between;
+		gap: 12px;
+		padding: 10px 16px 8px;
+		pointer-events: auto;
+	}
+
+	.sceneCounter,
+	.brandLabel {
+		font-family: var(--fontBody, "Jura", sans-serif);
+		font-size: 0.68rem;
+		letter-spacing: 0.16em;
+		color: rgba(0, 217, 214, 0.85);
+		text-transform: uppercase;
+	}
+
+	.progressRail {
+		display: flex;
+		flex: 1;
+		justify-content: center;
+		gap: 8px;
+	}
+
+	.progressDot {
+		width: 28px;
+		height: 2px;
+		padding: 0;
+		border: none;
+		background: rgba(255, 255, 255, 0.18);
+		cursor: pointer;
+		pointer-events: auto;
+
+		&.active {
+			background: rgba(0, 217, 214, 0.95);
+			box-shadow: 0 0 8px rgba(0, 217, 214, 0.45);
+		}
+	}
+
+	.cardsViewport {
+		position: relative;
+		flex: 1;
+		min-height: 0;
+		padding: 12px 0 20px 16px;
+		overflow: hidden;
+		pointer-events: auto;
+		touch-action: pan-y;
+	}
+
+	.cardsTrack {
+		display: flex;
+		height: 100%;
+		will-change: transform;
+	}
+
+	.sceneCard {
+		display: flex;
+		height: 100%;
+		padding: 18px 18px 16px;
+		flex-direction: column;
+		gap: 10px;
+		border: 1px solid rgba(255, 255, 255, 0.12);
+		background: rgba(4, 10, 16, 0.72);
+		overflow: hidden;
+	}
+
+	.sceneBadge {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.35em;
+		margin: 0 0 12px;
+		font-family: var(--fontBody, "Jura", sans-serif);
+		font-size: 0.72rem;
+		letter-spacing: 0.14em;
+		text-transform: uppercase;
+	}
+
+	.sceneBadgeChapter {
+		color: rgba(0, 217, 214, 0.95);
+	}
+
+	.sceneBadgeRest {
+		color: rgba(255, 255, 255, 0.42);
+	}
+
+	.sceneTitle {
+		margin: 0 0 12px;
+		font-family: var(--fontDisplay, "Aquire", sans-serif);
+		font-size: clamp(1.15rem, 4.8vw, 1.55rem);
+		font-weight: 300;
+		line-height: 1.15;
+		color: #ffffff;
+		text-transform: uppercase;
+	}
+
+	.sceneDescription {
+		font-family: var(--fontBody, "Jura", sans-serif);
+		font-size: 0.88rem;
+		line-height: 1.5;
+		color: rgba(255, 255, 255, 0.72);
+	}
+
+	.featureList {
+		display: flex;
+		margin-top: auto;
+		flex-direction: column;
+		gap: 0;
+		list-style: none;
+		padding: 0;
+	}
+
+	.traitsList {
+		display: flex;
+		margin-top: auto;
+		flex-direction: column;
+		gap: 0;
+		list-style: none;
+		padding: 0;
+	}
+
+	.traitItem {
+		display: flex;
+		align-items: flex-start;
+		gap: 14px;
+		padding: 14px 0;
+		border-top: 1px solid rgba(255, 255, 255, 0.1);
+	}
+
+	.traitGlyph {
+		flex: 0 0 44px;
+		font-family: var(--fontDisplay, "Aquire", sans-serif);
+		font-size: 2.6rem;
+		line-height: 1;
+		color: rgba(0, 217, 214, 0.95);
+	}
+
+	.traitCopy {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+	}
+
+	.traitTop {
+		font-family: var(--fontDisplay, "Aquire", sans-serif);
+		font-size: 0.82rem;
+		color: rgba(0, 217, 214, 0.95);
+	}
+
+	.traitBottom {
+		font-family: var(--fontBody, "Jura", sans-serif);
+		font-size: 0.74rem;
+		line-height: 1.35;
+		color: rgba(255, 255, 255, 0.58);
+	}
+
+	.featureItem {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		padding: 14px 0;
+		border-top: 1px solid rgba(255, 255, 255, 0.1);
+	}
+
+	.featureTitle {
+		font-family: var(--fontDisplay, "Aquire", sans-serif);
+		font-size: 0.82rem;
+		color: rgba(0, 217, 214, 0.95);
+	}
+
+	.featureSubtitle {
+		font-family: var(--fontBody, "Jura", sans-serif);
+		font-size: 0.74rem;
+		color: rgba(255, 255, 255, 0.58);
+	}
+
+	.detailsButton {
+		margin-top: 8px;
+		padding: 0;
+		align-self: flex-start;
+		border: none;
+		background: transparent;
+		font-family: var(--fontBody, "Jura", sans-serif);
+		font-size: 0.74rem;
+		letter-spacing: 0.1em;
+		color: rgba(0, 217, 214, 0.9);
+		text-transform: uppercase;
+		cursor: pointer;
+	}
+
+	.swipeHint {
+		position: absolute;
+		right: 18px;
+		bottom: 8px;
+		font-family: var(--fontBody, "Jura", sans-serif);
+		font-size: 0.68rem;
+		letter-spacing: 0.08em;
+		color: rgba(255, 255, 255, 0.42);
+		pointer-events: none;
+		animation: hintPulse 2.4s ease infinite;
+	}
+}
+
+@keyframes hintPulse {
+	0%,
+	100% {
+		opacity: 0.35;
+		transform: translateX(0);
+	}
+
+	50% {
+		opacity: 0.85;
+		transform: translateX(4px);
+	}
+}

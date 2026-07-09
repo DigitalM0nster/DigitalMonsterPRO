@@ -1,0 +1,79 @@
+.audioContainer {
+	display: none;
+	position: fixed;
+	left: 7vw;
+	top: 50%;
+	transform: translate(calc(-50% + 7vw), calc(-50% + 12.5vw));
+	opacity: 0;
+	pointer-events: none;
+	transition:
+		all 0.45s,
+		transform 0.25s 1s,
+		opacity 0.25s 1s;
+}
+
+.audioContainer.active {
+	opacity: 1;
+	pointer-events: auto;
+	transform: translate(calc(-50% + 0vw), calc(-50% + 12.5vw));
+}
+
+.audioPicture {
+	position: relative;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	width: 5vw;
+	height: 3vw;
+	margin: 0px 0px 0px 0px;
+}
+
+.audioText {
+	width: auto;
+	font-size: 13px;
+	line-height: 1.2;
+	color: white;
+	text-align: center;
+	transition: all 0.3s width 0s;
+}
+
+.audio-line {
+	position: relative;
+	margin: 1px;
+	width: 1vw;
+	height: 1.5vw;
+	background: url("/images/music-on.svg") 50% 50% no-repeat;
+	background-size: contain;
+	position: relative;
+	z-index: -1;
+}
+.audioContainer.off .audio-line {
+	background: url("/images/music-off.svg") 50% 50% no-repeat;
+	background-size: contain;
+}
+
+.audio-line:before {
+	content: "";
+	display: block;
+	position: absolute;
+	left: 50%;
+	top: 50%;
+	transform: translate(-50%, -50%);
+	width: 4.3vw;
+	height: 4.3vw;
+	background: url("/images/audio-back.svg") 50% 50% no-repeat;
+	background-size: contain;
+	opacity: 0.5;
+	transition: 0.35s;
+}
+.off .audioPicture .audio-line:before {
+	opacity: 0.35;
+}
+
+.off .audioPicture:hover .audio-line:before {
+	opacity: 1;
+}
+
+.on .audioPicture .audio-line:before {
+	opacity: 1;
+}

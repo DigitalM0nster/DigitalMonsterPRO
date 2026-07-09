@@ -1,0 +1,398 @@
+/* PORTFOLIO PAGE */
+.page.portfolio .topNavigationPanel{
+    opacity: 0;
+    transition: 0.35s;
+}
+.page.portfolio.active .topNavigationPanel{
+    opacity: 1;
+    transition: 0.35s;
+}
+.page.portfolio.active .topNavigationPanel{
+
+
+.page.portfolio .caseCountBlock .caseLogo{
+    transform: scaleY(0.7) translate(-50%, -150%);
+    opacity: 0;
+    transition: 0.15s;
+}
+.page.portfolio .caseCountBlock.active .caseLogo{
+    transform: scaleY(0.7) translate(-50%, -150%);
+    opacity: 0;
+    transition: 0.15s;
+}
+.page.portfolio.active .caseCountBlock.active .caseLogo{
+    transform: scaleY(1) translate(-50%, -150%);
+    opacity: 1;
+    transition: 0.15s 0s;
+}
+.page.portfolio.active .caseCountBlock.active .caseLogo{
+
+
+
+.page.portfolio .caseLine.n1{
+    transform: scaleX(0);
+    transition: 0.075s 0.45s;
+}
+.page.portfolio .caseLine.n2{
+    transform: scaleX(0);
+    transition: 0.075s 0.52s;
+}
+.page.portfolio .caseLine.n3{
+    transform: scaleX(0);
+    transition: 0.075s 0.59s;
+}
+.page.portfolio .caseLine.n4{
+    transform: scaleX(0);
+    transition: 0.075s 0.66s;
+}
+.page.portfolio .caseLine.n5{
+    transform: scaleX(0);
+    transition: 0.075s 0.73s;
+}
+
+.page.portfolio.active .caseLine.n1{
+    transform: scaleX(1);
+    transition: 0.075s 0.45s;
+}
+.page.portfolio.active .caseLine.n2{
+    transform: scaleX(1);
+    transition: 0.075s 0.52s;
+}
+.page.portfolio.active .caseLine.n3{
+    transform: scaleX(1);
+    transition: 0.075s 0.59s;
+}
+.page.portfolio.active .caseLine.n4{
+    transform: scaleX(1);
+    transition: 0.075s 0.66s;
+}
+.page.portfolio.active .caseLine.n5{
+    transform: scaleX(1);
+    transition: 0.075s 0.73s;
+}
+
+.page.portfolio.active .caseLine.n1{
+    transform: scaleX(1);
+    transition: 0.075s 0.45s;
+}
+.page.portfolio.active .caseLine.n2{
+    transform: scaleX(1);
+    transition: 0.075s 0.52s;
+}
+.page.portfolio.active .caseLine.n3{
+    transform: scaleX(1);
+    transition: 0.075s 0.59s;
+}
+.page.portfolio.active .caseLine.n4{
+    transform: scaleX(1);
+    transition: 0.075s 0.66s;
+}
+.page.portfolio.active .caseLine.n5{
+	transform: scaleX(1);
+    transition: 0.075s 0.73s;
+}
+
+
+
+
+
+
+
+.page.portfolio .caseCountBlock.n1 .caseCircle{
+    opacity: 0;
+    transform: scale(0);
+    transition: all 0.15s 0s, opacity 0.15s 0.45s, transform 0.15s 0.45s;
+}
+.page.portfolio .caseCountBlock.n2 .caseCircle{
+    opacity: 0;
+    transform: scale(0);
+    transition: all 0.15s 0s, opacity 0.15s 0.52s, transform 0.15s 0.52s;
+}
+.page.portfolio .caseCountBlock.n3 .caseCircle{
+    opacity: 0;
+    transform: scale(0);
+    transition: all 0.15s 0s, opacity 0.15s 0.59s, transform 0.15s 0.59s;
+}
+.page.portfolio .caseCountBlock.n4 .caseCircle{
+    opacity: 0;
+    transform: scale(0);
+    transition: all 0.15s 0s, opacity 0.15s 0.66s, transform 0.15s 0.66s;
+}
+.page.portfolio .caseCountBlock.n5 .caseCircle{
+    opacity: 0;
+    transform: scale(0);
+    transition: all 0.15s 0s, opacity 0.15s 0.73s, transform 0.15s 0.73s;
+}
+
+.page.portfolio.active .caseCountBlock.n1 .caseCircle{
+    opacity: 1;
+    transform: scale(1);
+    transition: all 0.15s 0s, opacity 0.15s 0.45s, transform 0.15s 0.45s;
+}
+.page.portfolio.active .caseCountBlock.n2 .caseCircle{
+    opacity: 1;
+    transform: scale(1);
+    transition: all 0.15s 0s, opacity 0.15s 0.52s, transform 0.15s 0.52s;
+}
+.page.portfolio.active .caseCountBlock.n3 .caseCircle{
+    opacity: 1;
+    transform: scale(1);
+    transition: all 0.15s 0s, opacity 0.15s 0.59s, transform 0.15s 0.59s;
+}
+.page.portfolio.active .caseCountBlock.n4 .caseCircle{
+    opacity: 1;
+    transform: scale(1);
+    transition: all 0.15s 0s, opacity 0.15s 0.66s, transform 0.15s 0.66s;
+}
+.page.portfolio.active .caseCountBlock.n5 .caseCircle{
+    opacity: 1;
+    transform: scale(1);
+    transition: all 0.15s 0s, opacity 0.15s 0.73s, transform 0.15s 0.73s;
+}
+
+.page.portfolio.active .caseCountBlock.n1 .caseCircle{
+    opacity: 1;
+    transform: scale(1);
+    transition: 0.15s 0.45s;
+}
+.page.portfolio.active .caseCountBlock.n2 .caseCircle{
+    opacity: 1;
+    transform: scale(1);
+    transition: 0.15s 0.52s;
+}
+.page.portfolio.active .caseCountBlock.n3 .caseCircle{
+    opacity: 1;
+    transform: scale(1);
+    transition: 0.15s 0.59s;
+}
+.page.portfolio.active .caseCountBlock.n4 .caseCircle{
+    opacity: 1;
+    transform: scale(1);
+    transition: 0.15s 0.66s;
+}
+.page.portfolio.active .caseCountBlock.n5 .caseCircle{
+
+
+
+
+
+
+
+
+.page.portfolio .caseCountBlock.n1 .caseNumber{
+    opacity: 0;
+    transform: translate(-50%, -50%);
+    transition: 0.2s 0.45s;
+}
+.page.portfolio .caseCountBlock.n2 .caseNumber{
+    opacity: 0;
+    transform: translate(-50%, -50%);
+    transition: 0.2s 0.52s;
+}
+.page.portfolio .caseCountBlock.n3 .caseNumber{
+    opacity: 0;
+    transform: translate(-50%, -50%);
+    transition: 0.2s 0.59s;
+}
+.page.portfolio .caseCountBlock.n4 .caseNumber{
+    opacity: 0;
+    transform: translate(-50%, -50%);
+    transition: 0.2s 0.66s;
+}
+.page.portfolio .caseCountBlock.n5 .caseNumber{
+    opacity: 0;
+    transform: translate(-50%, -50%);
+    transition: 0.2s 0.73s;
+}
+
+
+.page.portfolio.active .caseCountBlock.n1 .caseNumber{
+    opacity: 1;
+    transform: translate(-50%, -50%);
+    transition: 0.2s 0.45s;
+}
+.page.portfolio.active .caseCountBlock.n2 .caseNumber{
+    opacity: 1;
+    transform: translate(-50%, -50%);
+    transition: 0.2s 0.52s;
+}
+.page.portfolio.active .caseCountBlock.n3 .caseNumber{
+    opacity: 1;
+    transform: translate(-50%, -50%);
+    transition: 0.2s 0.59s;
+}
+.page.portfolio.active .caseCountBlock.n4 .caseNumber{
+    opacity: 1;
+    transform: translate(-50%, -50%);
+    transition: 0.2s 0.66s;
+}
+.page.portfolio.active .caseCountBlock.n5 .caseNumber{
+    opacity: 1;
+    transform: translate(-50%, -50%);
+    transition: 0.2s 0.73s;
+}
+
+.page.portfolio.active .caseCountBlock.n1 .caseNumber{
+    opacity: 1;
+    transform: translate(-50%, -50%);
+    transition: 0.2s 0.45s;
+}
+.page.portfolio.active .caseCountBlock.n2 .caseNumber{
+    opacity: 1;
+    transform: translate(-50%, -50%);
+    transition: 0.2s 0.52s;
+}
+.page.portfolio.active .caseCountBlock.n3 .caseNumber{
+    opacity: 1;
+    transform: translate(-50%, -50%);
+    transition: 0.2s 0.59s;
+}
+.page.portfolio.active .caseCountBlock.n4 .caseNumber{
+    opacity: 1;
+    transform: translate(-50%, -50%);
+    transition: 0.2s 0.66s;
+}
+.page.portfolio.active .caseCountBlock.n5 .caseNumber{
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+.page.portfolio .topRightPanel {
+    transform: translate(7vw, 0vw);
+    opacity: 0;
+    transition: 0.3s 0.15s;
+}
+.page.portfolio.active .topRightPanel {
+    transform: translate(0vw, 0vw);
+    opacity: 1;
+    transition: 0.3s 0.15s;
+}
+.page.portfolio.active .topRightPanel {
+
+
+.caseOverlay {
+    opacity: 0;
+    transform: translate(7vw, 0vw);
+    transition: 0.25s 0s;
+}
+.page.portfolio.active .caseOverlay, .page.portfolio.active .caseOverlay{
+
+
+.caseContentBlock {
+    opacity: 0;
+    transform: translate(7vw, 0vw);
+    transition: 0.25s 0s;
+}
+.page.portfolio.active .caseContentBlock, .page.portfolio.active .caseContentBlock{
+    opacity: 1;
+    transform: translate(0vw, 0vw);
+    transition: 0.25s 0.75s;
+}
+.page.portfolio.active .__removed__.caseContentBlock.exit {
+    opacity: 0;
+    transform: translate(-7vw, 0vw);
+    transition: 0.25s 0s;
+}
+
+
+.topContainerOverlay {
+    background: linear-gradient(to bottom, rgba(0, 0, 0, 1) 30%, rgba(0, 0, 0, 0) 100%);
+}
+
+.page.portfolio.active .topContainerOverlay {
+
+
+
+
+.page.portfolio .caseStartBlock.active .skillLeftBorder {
+    transform-origin: 0 0%;
+    transform: scaleY(0);
+    opacity: 0;
+    transition: 0.15s 0.2s;
+}
+.page.portfolio.active .caseStartBlock.active .skillLeftBorder {
+    transform: scaleY(1);
+    opacity: 1;
+    transition: all 0.15s 1s , opacity 0.1s 0.3s;
+}
+
+.page.portfolio .caseStartBlock.active .skillLeftBottomBorder {
+    height: 0%;
+    transition: 0.1s 0.1s;
+}
+.page.portfolio.active .caseStartBlock.active .skillLeftBottomBorder {
+    height: 25%;
+    transition: 0.15s 1.15s;
+}
+
+.page.portfolio .caseStartBlock.active .skillLeftBottomBorder:after {
+    height: 0px;
+    transition: 0.1s 0s;
+}
+.page.portfolio.active .caseStartBlock.active .skillLeftBottomBorder:after {
+    height: 100px;
+    transition: 0.15s 1.3s;
+}
+
+
+
+
+
+.page.portfolio.active .caseContentBlock .caseStartBlock.active .skillLeftBorder {
+    transform-origin: 0 0%;
+    transform: scaleY(0);
+    opacity: 0;
+    transition: 0.15s 0.2s;
+}
+.page.portfolio.active .caseContentBlock .caseStartBlock.active .skillLeftBorder {
+    transform: scaleY(1);
+    opacity: 1;
+    transition: all 0.15s 1s , opacity 0.1s 0.3s;
+}
+
+.page.portfolio.active .caseContentBlock .caseStartBlock.active .skillLeftBottomBorder {
+    height: 0%;
+    transition: 0.1s 0.1s;
+}
+.page.portfolio.active .caseContentBlock .caseStartBlock.active .skillLeftBottomBorder {
+    height: 25%;
+    transition: 0.15s 1.15s;
+}
+
+.page.portfolio.active .caseContentBlock .caseStartBlock.active .skillLeftBottomBorder:after {
+    height: 0px;
+    transition: 0.1s 0s;
+}
+.page.portfolio.active .caseContentBlock .caseStartBlock.active .skillLeftBottomBorder:after {
+    height: 100px;
+    transition: 0.15s 1.3s;
+}
+
+
+.page.portfolio .caseStartBlock.active .scrollBlock {
+    opacity: 0;
+    transition: 0.15s 0s;
+}
+.page.portfolio.active .caseStartBlock.active .scrollBlock {
+    opacity: 1;
+    transition: 0.25s 2.5s;
+}
+
+.page.portfolio.active .caseContentBlock .caseStartBlock.active .scrollBlock {
+    opacity: 0;
+    transition: 0.15s 0s;
+}
+.page.portfolio.active .caseContentBlock .caseStartBlock.active .scrollBlock {

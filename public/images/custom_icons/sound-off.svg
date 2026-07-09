@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" aria-labelledby="title" role="img">
+  <title id="title">Sound off</title>
+  <g stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="24" cy="32" r="5.5"/>
+    <path d="M33 25.5 C37.5 27.5 40 32 40 32 C40 32 37.5 36.5 33 38.5"/>
+    <path d="M37.5 21 C43.5 24.5 46.5 32 46.5 32" stroke-width="2"/>
+    <path d="M17 17 L47 47" stroke-width="2.5"/>
+  </g>
+</svg>

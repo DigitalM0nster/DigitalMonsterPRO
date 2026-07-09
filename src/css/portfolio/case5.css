@@ -1,0 +1,69 @@
+.case5 .caseBlock1 .imageBlock {
+    width: 36vw;
+    min-width: 36vw;
+    height: 19.5vw;
+}
+
+
+
+.ST_Norilsk .fontName {
+    font-family: "ST_Norilsk";
+    font-size: 1.65vw;
+    font-weight: 500;
+    line-height: 1;
+    left: -0.2vw;
+}
+.ST_Norilsk .columnLettersBlock , .ST_Norilsk .fontCircle {
+    font-family: "ST_Norilsk";
+    font-weight: 300;
+}
+
+
+.case5 .fontCircle {
+    border: 1px solid rgba(228, 19, 133, 1);
+}
+
+.case5 .squareFrame:before {
+    background: linear-gradient(to left, rgba(228, 19, 133, 1) 0%, rgba(228, 19, 133, 1) 70%, rgba(228, 19, 133, 0) 100%);
+}
+
+.case5 .caseBlock7 .squareFrame:before {
+    background: linear-gradient(to right, rgba(228, 19, 133, 1) 0%, rgba(228, 19, 133, 1) 70%, rgba(228, 19, 133, 0) 100%);
+}
+
+.case5 .squareLinesBlock {
+    color: white;
+    text-shadow: 0 0 4px rgb(138, 138, 138);
+}
+
+.case5 .squareLineLeft, .case5 .squareLineRight {
+    background: linear-gradient(to bottom, rgba(228, 19, 133, 1) 0%, rgba(228, 19, 133, 1) 50%, rgba(228, 19, 133, 0) 100%);
+}
+
+.case5 .squareLineBottom {
+    background: rgba(228, 19, 133, 0.25);
+}
+
+.case5 .colorTable {
+    border: 1px solid rgba(218, 218, 218, 0.384);
+}
+
+.case5 .color1 {
+    border-bottom: 1px solid rgba(218, 218, 218, 0.384);
+}
+
+.case5 .lineBlock .line {
+    background: linear-gradient(to right, rgba(228, 19, 133, 1) 0%, rgba(228, 19, 133, 1) 70%, rgba(228, 19, 133, 0) 100%);
+}
+
+.case5 .videoBlock .squareBlock {
+    bottom: 30%;
+}
+
+.case5 .caseBlock.caseBlock7 {
+    margin: 250px 5vw 80px 5vw;
+}
+
+.case5 .caseBlock.caseBlock3 {
+    background-image: url('/images/case5/frameLines.svg')
+}

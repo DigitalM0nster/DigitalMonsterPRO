@@ -1,0 +1,43 @@
+---
+description: Правила Portfolio Exploration Engine — 3D-поведение, видео, investigation
+globs:
+  - "src/portfolio/**"
+  - "docs/PORTFOLIO*.md"
+alwaysApply: false
+---
+
+# Portfolio Exploration Engine
+
+## Investigation ≠ tooltip ≠ камера
+
+Investigation — **поведение 3D-модели** (`hotspot.investigation.behavior`).
+UI-текст (`uiTitle`, `uiDescription`) опционален. Главное — что делает модель.
+
+## State / subStage
+
+- `state.scene` — поведение модели на главе
+- `state.subStages[]` — разное поведение **внутри** главы
+- Камера — опциональное поле внутри `SceneBehavior`, не главный инструмент
+
+## Видео
+
+- Max **1** видео на проект
+- Только **onDemand** (клик пользователя)
+- Не autoplay, не несколько video в states
+- Компонент: `OptionalMedia.jsx`
+
+## Контент
+
+- Не выдумывать тексты и медиа
+- `contentStatus: needsContent` — placeholder (Belka Production)
+- CRE-RETAIL **не использовать**
+
+## scene.js
+
+Единственный файл специфичной 3D-логики. Читает `SceneBehavior` из конфигов.
+
+## Документы
+
+- `docs/PORTFOLIO_RULES.md`
+- `docs/PORTFOLIO_ARCHITECTURE.md`
+- `docs/PORTFOLIO_UI.md` — компоновка экрана (30% | center | arc)

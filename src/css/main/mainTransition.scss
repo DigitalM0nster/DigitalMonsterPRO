@@ -1,0 +1,66 @@
+/* Главная: hidden → activating/active (enter) → removing/remove (scroll) → leaving (route exit) */
+
+$mainShiftX: 5vw;
+
+@mixin mainItemTransition($mode) {
+	@if $mode == enter {
+		transition-property: opacity, transform;
+		transition-duration: var(--routeEnterElementDuration);
+		transition-timing-function: ease;
+		transition-delay: calc(var(--routeEnterStaggerStep) * var(--stagger-i));
+	} @else {
+		transition-property: opacity, transform;
+		transition-duration: var(--routeExitElementDuration);
+		transition-timing-function: ease;
+		transition-delay: calc(var(--routeExitStaggerStep) * var(--stagger-i));
+	}
+}
+
+@mixin mainPageVisibleElements {
+	.transitionAnimatedElement {
+		opacity: 1;
+		transform: translate(0, 0);
+		@include mainItemTransition(enter);
+
+		&.mainPageLogoBlock {
+			transform: none;
+		}
+	}
+}
+
+@mixin mainPageHiddenElements($exitMode: leave) {
+	.transitionAnimatedElement {
+		opacity: 0;
+		transform: translateX(-$mainShiftX);
+		@include mainItemTransition($exitMode);
+
+		&.mainPageLogoBlock {
+			transform: none;
+		}
+	}
+}
+
+.page {
+	&.hidden {
+		.transitionAnimatedElement {
+			opacity: 0;
+			transform: translateX($mainShiftX);
+			transition: 0s;
+
+			&.mainPageLogoBlock {
+				transform: none;
+			}
+		}
+	}
+
+	&.active,
+	&.activating {
+		@include mainPageVisibleElements;
+	}
+
+	&.leaving,
+	&.removing,
+	&.remove {
+		@include mainPageHiddenElements(leave);
+	}
+}

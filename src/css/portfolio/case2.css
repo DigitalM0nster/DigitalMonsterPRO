@@ -1,0 +1,86 @@
+.case2 .crossLine {
+    left: 10px;
+}
+
+.Montserrat .fontName {
+    font-family: "Montserrat";
+    font-size: 2.5vw;
+    font-weight: 500;
+    line-height: 1;
+    left: -0.2vw;
+}
+.Montserrat .columnLettersBlock , .Montserrat .fontCircle {
+    font-family: "Montserrat";
+    font-weight: 300;
+}
+.ST_Norilsk .fontName {
+    font-family: "ST_Norilsk";
+    font-size: 1.65vw;
+    font-weight: 500;
+    line-height: 1;
+    left: -0.2vw;
+}
+.ST_Norilsk .columnLettersBlock , .ST_Norilsk .fontCircle {
+    font-family: "ST_Norilsk";
+    font-weight: 300;
+}
+
+
+.case2 .fontCircle {
+    border: 1px solid rgba(114, 121, 128, 1);
+}
+
+.case2 .squareFrame:before {
+    background: linear-gradient(to right, rgba(114, 121, 128, 1) 0%, rgba(114, 121, 128, 1) 70%, rgba(114, 121, 128, 0) 100%);
+}
+
+.case2 .caseBlock2 .squareFrame:before {
+    background: linear-gradient(to left, rgba(114, 121, 128, 1) 0%, rgba(114, 121, 128, 1) 70%, rgba(114, 121, 128, 0) 100%);
+}
+
+.case2 .caseBlock.caseBlock7 .squareFrame:before {
+    left: 30px;
+}
+
+.case2 .caseBlock.caseBlock7 .bigText {
+    top: -21%;
+    left: -4.5vw;
+}
+
+.case2 .squareLinesBlock {
+    color: rgba(114, 121, 128, 1);
+    text-shadow: 0 0 4px rgb(138, 138, 138);
+}
+
+.case2 .squareLineLeft, .case2 .squareLineRight {
+    background: linear-gradient(to bottom, rgba(114, 121, 128, 1) 0%, rgba(114, 121, 128, 1) 50%, rgba(114, 121, 128, 0) 100%);
+}
+
+.case2 .squareLineBottom {
+    background: rgba(114, 121, 128, 0.25);
+}
+
+.case2 .colorTable {
+    border: 1px solid rgba(218, 218, 218, 0.384);
+}
+
+.case2 .color1 {
+    border-bottom: 1px solid rgba(218, 218, 218, 0.384);
+}
+
+.case2 .lineBlock .line {
+    background: linear-gradient(to right, rgba(114, 121, 128, 1) 0%, rgba(114, 121, 128, 1) 70%, rgba(114, 121, 128, 0) 100%);
+}
+
+.case2 .videoBlock .squareBlock {
+    bottom: 30%;
+}
+
+.case2 .caseBlock.caseBlock7 {
+    margin: 250px 5vw 80px 5vw;
+}
+
+
+.case2 .caseBlock.caseBlock3 {
+    background-image: url('/images/case2/frameLines.svg')
+}

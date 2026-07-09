@@ -1,0 +1,344 @@
+.leftMenu {
+	--menuFloatDuration: 1.35s;
+	--menuFloatEase: cubic-bezier(0.19, 1, 0.22, 1);
+	--menuCircleIdleSize: calc(var(--leftMenuButtonWidth) * var(--menuCircleIdleScale, 0.78));
+	--menuCircleHoverSize: calc(var(--leftMenuButtonWidth) * var(--menuCircleHoverScale, 1.14));
+
+	position: fixed;
+	left: 0;
+	top: 0;
+	width: var(--leftMenuWidth);
+	height: 100vh;
+	display: flex;
+	flex-direction: column;
+	justify-content: space-between;
+	align-items: center;
+	padding: 50px 0;
+	z-index: 30;
+	pointer-events: auto;
+	border-right: 1px solid rgba(255, 255, 255, 0.1);
+
+	.topSection {
+		flex-shrink: 0;
+		align-items: center;
+		justify-content: center;
+		margin-bottom: 28px;
+	}
+
+	.logoLink {
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		width: 100%;
+		height: auto;
+		padding: 0 10px;
+		gap: 12px;
+		text-decoration: none;
+	}
+
+	.logoImg {
+		width: calc(var(--leftMenuButtonWidth) * 1.35);
+		height: calc(var(--leftMenuButtonWidth) * 1.35);
+		object-fit: contain;
+		pointer-events: none;
+	}
+
+	.brandWordmark {
+		flex-direction: column;
+		align-items: center;
+		gap: 2px;
+		width: 100%;
+	}
+
+	.brandLine {
+		display: block;
+		width: 100%;
+		font-family: "Aquire", sans-serif;
+		font-size: 9.5px;
+		font-weight: 300;
+		line-height: 1.15;
+		letter-spacing: 0.2em;
+		text-indent: 0.2em;
+		text-align: center;
+		text-transform: uppercase;
+		white-space: nowrap;
+		background: linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(110, 212, 255, 0.92) 100%);
+		background-clip: text;
+		-webkit-background-clip: text;
+		color: transparent;
+		-webkit-text-fill-color: transparent;
+		filter: drop-shadow(0 0 8px rgba(55, 175, 235, 0.22));
+	}
+
+	.iconRail {
+		flex: 1;
+		min-height: 0;
+		flex-direction: column;
+		justify-content: center;
+		align-items: center;
+		gap: 15px;
+	}
+
+	.bottomSection {
+		flex-shrink: 0;
+		flex-direction: column;
+		align-items: center;
+		justify-content: flex-end;
+		gap: 15px;
+		margin-top: 28px;
+	}
+
+	// SoundComponent — глобальные классы из sound.css, переопределяем под слот в меню
+	.soundSlot {
+		display: flex;
+		justify-content: center;
+		align-items: center;
+
+		:global(.audioContainer) {
+			display: block;
+			position: relative;
+			left: auto;
+			top: auto;
+			transform: none;
+			opacity: 1;
+			pointer-events: auto;
+			transition: opacity 0.35s ease;
+		}
+
+		:global(.audioContainer.active) {
+			transform: none;
+			opacity: 1;
+		}
+
+		:global(.audioPicture) {
+			width: var(--leftMenuButtonWidth);
+			height: var(--leftMenuButtonWidth);
+			margin: 0;
+		}
+
+		:global(.audio-line) {
+			width: 22px;
+			height: 22px;
+		}
+
+		:global(.audio-line::before) {
+			width: var(--leftMenuButtonWidth);
+			height: var(--leftMenuButtonWidth);
+		}
+	}
+
+	.itemButton {
+		position: relative;
+		z-index: 1;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: var(--leftMenuButtonWidth);
+		height: var(--leftMenuButtonWidth);
+		padding: 0;
+		border: none;
+		background: transparent;
+		cursor: pointer;
+		overflow: visible;
+
+		&.disabled {
+			opacity: 0.22;
+			cursor: default;
+			pointer-events: none;
+		}
+
+		&.active {
+			.iconSvg {
+				opacity: 0.8;
+				stroke: var(--mainColor);
+			}
+
+			.iconImg {
+				opacity: 0.8;
+				filter: brightness(0) saturate(100%) invert(72%) sepia(52%) saturate(1200%) hue-rotate(130deg);
+			}
+
+			&:hover {
+				.iconSvg {
+					opacity: 1;
+				}
+
+				.iconImg {
+					opacity: 1;
+				}
+			}
+		}
+
+		&:hover {
+			.itemCircle {
+				width: var(--menuCircleHoverSize);
+				height: var(--menuCircleHoverSize);
+				border-color: var(--mainColor);
+
+				&::after {
+					opacity: 1;
+				}
+			}
+
+			.itemSymbol::before {
+				opacity: 1;
+			}
+
+			.iconSvg {
+				opacity: 1;
+				stroke: var(--mainColor);
+			}
+
+			.iconImg {
+				opacity: 1;
+				filter: brightness(0) saturate(100%) invert(72%) sepia(52%) saturate(1200%) hue-rotate(130deg);
+			}
+		}
+
+		.snapping {
+			width: 100%;
+			height: 100%;
+			align-items: center;
+			justify-content: center;
+			transition: transform var(--menuFloatDuration) var(--menuFloatEase);
+			will-change: transform;
+
+			&.snapEast {
+				transform: translate(var(--menuSnapOffset, 9px), 0);
+			}
+
+			&.snapWest {
+				transform: translate(calc(var(--menuSnapOffset, 9px) * -1), 0);
+			}
+
+			&.snapSouth {
+				transform: translate(0, var(--menuSnapOffset, 9px));
+			}
+
+			&.snapNorth {
+				transform: translate(0, calc(var(--menuSnapOffset, 9px) * -1));
+			}
+		}
+
+		.itemCircle {
+			position: absolute;
+			left: 50%;
+			top: 50%;
+			width: var(--menuCircleIdleSize);
+			height: var(--menuCircleIdleSize);
+			border-radius: 50%;
+			border: 1px solid rgba(255, 255, 255, 0.28);
+			box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+			pointer-events: none;
+			transform: translate(-50%, -50%);
+			transition:
+				width var(--menuFloatDuration) var(--menuFloatEase),
+				height var(--menuFloatDuration) var(--menuFloatEase),
+				border-color var(--menuFloatDuration) var(--menuFloatEase);
+
+			&::after {
+				content: "";
+				position: absolute;
+				inset: 0;
+				border-radius: 50%;
+				border: 1px solid var(--mainColor);
+				box-shadow:
+					0 0 6px var(--mainColor),
+					0 0 14px color-mix(in srgb, var(--mainColor) 50%, transparent),
+					inset 0 0 5px color-mix(in srgb, var(--mainColor) 35%, transparent);
+				opacity: 0;
+				transition: opacity var(--menuFloatDuration) var(--menuFloatEase);
+				pointer-events: none;
+			}
+
+			&.current {
+				border-color: var(--mainColor);
+
+				&::after {
+					opacity: 0.4;
+				}
+			}
+		}
+
+		.itemSymbol {
+			display: flex;
+			z-index: 1;
+			align-items: center;
+			justify-content: center;
+			pointer-events: none;
+
+			&::before {
+				content: "";
+				position: absolute;
+				width: 110%;
+				height: 110%;
+				border-radius: 50%;
+				background: radial-gradient(circle, color-mix(in srgb, var(--mainColor) 55%, transparent) 0%, transparent 68%);
+				opacity: 0;
+				transition: opacity var(--menuFloatDuration) var(--menuFloatEase);
+				pointer-events: none;
+			}
+		}
+
+		.iconSvg {
+			width: var(--leftMenuIconSize);
+			height: var(--leftMenuIconSize);
+			fill: none;
+			stroke: rgba(255, 255, 255, 0.88);
+			stroke-width: 1.2;
+			stroke-linecap: round;
+			stroke-linejoin: round;
+			opacity: 0.5;
+			transition:
+				opacity var(--menuFloatDuration) var(--menuFloatEase),
+				stroke var(--menuFloatDuration) var(--menuFloatEase);
+		}
+
+		.iconImg {
+			width: var(--leftMenuIconSize);
+			height: var(--leftMenuIconSize);
+			opacity: 0.5;
+			filter: brightness(0) invert(1);
+			transition:
+				opacity var(--menuFloatDuration) var(--menuFloatEase),
+				filter var(--menuFloatDuration) var(--menuFloatEase);
+		}
+
+		.itemLabel {
+			position: absolute;
+			left: calc(100% + 14px);
+			top: 50%;
+			transform: translateY(-50%);
+			display: block;
+			pointer-events: none;
+			opacity: 0;
+			visibility: hidden;
+			transition: opacity var(--menuFloatDuration) var(--menuFloatEase);
+
+			&.visible {
+				opacity: 1;
+				visibility: visible;
+			}
+		}
+
+		&.utilityButton {
+			.itemSymbol::before {
+				display: none;
+			}
+		}
+	}
+
+	.langLabel {
+		font-family: "Jost", sans-serif;
+		font-size: 11px;
+		font-weight: 500;
+		letter-spacing: 0.08em;
+		color: rgba(255, 255, 255, 0.5);
+		transition: color var(--menuFloatDuration) var(--menuFloatEase);
+	}
+
+	.itemButton:hover .langLabel,
+	.itemButton.active .langLabel {
+		color: var(--mainColor);
+	}
+}

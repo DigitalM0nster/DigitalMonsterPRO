@@ -1,0 +1,91 @@
+.case3 .crossLine {
+    left: 10px;
+}
+
+.case3 .caseBlock.caseBlock8 {
+    flex-direction: column;
+    padding: 0px 0px 5vh 0px;
+}
+.case3 .caseBlock.caseBlock8 {
+    justify-content: flex-start;
+}
+.case3 .lineBlock {
+    max-width: 26vw;
+    margin: 0px 0px 80px 0px;
+}
+
+.case3 .caseBlock1 .bigImage {
+    border: none;
+    background-color: unset;
+}
+.case3 .caseBlock7 .bigImage {
+    border: none;
+    background-color: unset;
+}
+.case3 .caseBlock7 .squareBlock {
+    bottom: 45%;
+}
+
+
+
+.Manifold .fontName {
+    font-family: "ManifoldExtended";
+    font-size: 2.5vw;
+    font-weight: 500;
+    line-height: 1;
+    left: -0.2vw;
+}
+.Manifold .columnLettersBlock , .Manifold .fontCircle {
+    font-family: "ManifoldExtended";
+    font-weight: 300;
+}
+
+.Manifold .columnLettersBlock {
+    font-size: 1.3vw;
+}
+
+
+
+
+
+.case3 .fontCircle {
+    border: 1px solid rgba(255, 80, 0, 1);
+}
+
+.case3 .squareFrame:before {
+    background: linear-gradient(to right, rgba(255, 80, 0, 1) 0%, rgba(255, 80, 0, 1) 70%, rgba(255, 80, 0, 0) 100%);
+}
+
+.case3 .caseBlock2 .squareFrame:before {
+    background: linear-gradient(to left, rgba(255, 80, 0, 1) 0%, rgba(255, 80, 0, 1) 70%, rgba(255, 80, 0, 0) 100%);
+}
+
+.case3 .squareLinesBlock {
+    color: rgba(255, 255, 255, 1);
+    text-shadow: 0 0 4px rgb(255, 255, 255);
+}
+
+.case3 .squareLineLeft, .case3 .squareLineRight {
+    background: linear-gradient(to bottom, rgba(255, 80, 0, 1) 0%, rgba(255, 80, 0, 1) 50%, rgba(255, 80, 0, 0) 100%);
+}
+
+.case3 .squareLineBottom {
+    background: rgba(255, 80, 0, 0.25);
+}
+
+.case3 .colorTable {
+    border: 1px solid rgba(255, 255, 255, 0.384);
+}
+
+.case3 .color1 {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.384);
+}
+
+.case3 .lineBlock .line {
+    background: linear-gradient(to right, rgba(255, 80, 0, 1) 0%, rgba(255, 80, 0, 1) 70%, rgba(255, 80, 0, 0) 100%);
+}
+
+
+.case3 .caseBlock.caseBlock3 {
+    background-image: url('/images/case3/frameLines.svg')
+}

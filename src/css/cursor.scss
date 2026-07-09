@@ -1,0 +1,414 @@
+@use "sass:list";
+
+$cursorSizeIdle: 70px;
+$cursorSizeHover: 110px;
+$cursorRingLine: rgba(255, 255, 255, 0.6);
+$cursorDotFill: rgba(255, 255, 255, 0.75);
+$cursorDottedRing: rgba(255, 255, 255, 0.75);
+$cursorDesktopMin: 769px;
+$cursorMobileMax: 768px;
+
+$menuFloatDuration: var(--menuFloatDuration, 1.35s);
+$menuFloatEase: var(--menuFloatEase, cubic-bezier(0.19, 1, 0.22, 1));
+$menuFloatTransition: $menuFloatDuration $menuFloatEase;
+
+@mixin menuFloatTransition($properties...) {
+	$declarations: ();
+
+	@each $property in $properties {
+		$declaration: list.join($property, $menuFloatTransition, $separator: space);
+		$declarations: list.append($declarations, $declaration, $separator: comma);
+	}
+
+	transition: $declarations;
+}
+
+@mixin hudRingHalves($halfShift: -60%, $circleShift: 60%, $animateLine: false) {
+	.halfCircle1 {
+		width: 100%;
+		height: 100%;
+		transform: translate(0, $halfShift);
+		clip-path: inset(0 0 0% 0);
+		overflow: hidden;
+		transition: 0.3s 0s;
+
+		.inCircle {
+			width: 100%;
+			height: 100%;
+			border: 1px solid $cursorRingLine;
+			border-radius: 50%;
+			transform: translate(0, $circleShift);
+
+			@if $animateLine {
+				@include menuFloatTransition(opacity);
+			}
+		}
+	}
+
+	.halfCircle2 {
+		width: 100%;
+		height: 100%;
+		transform: translate(0, -$halfShift);
+		clip-path: inset(0% 0 0 0);
+		overflow: hidden;
+		transition: 0.3s 0s;
+
+		.inCircle {
+			width: 100%;
+			height: 100%;
+			border: 1px solid $cursorRingLine;
+			border-radius: 50%;
+			transform: translate(0, -$circleShift);
+
+			@if $animateLine {
+				@include menuFloatTransition(opacity);
+			}
+		}
+	}
+}
+
+@media (min-width: $cursorDesktopMin) {
+	body.caseNavPointerActive,
+	body.caseNavPointerActive * {
+		cursor: pointer !important;
+	}
+
+	body.dotCursorActive {
+		--siteCursor: url("/cursor/dotCursor.png") 16 16, auto;
+		cursor: var(--siteCursor) !important;
+
+		&,
+		* {
+			cursor: var(--siteCursor) !important;
+		}
+	}
+}
+
+.cursor {
+	position: fixed;
+	justify-content: center;
+	align-items: center;
+	width: $cursorSizeIdle;
+	height: $cursorSizeIdle;
+	opacity: 1;
+	transform: translate(-50%, -50%);
+	--pointsDistance: 200px;
+	@include menuFloatTransition(width, height, opacity);
+
+	* {
+		position: absolute;
+		justify-content: center;
+		align-items: center;
+	}
+
+	&.hover {
+		width: $cursorSizeHover;
+		height: $cursorSizeHover;
+		opacity: 0.25;
+
+		&.menuMerged {
+			opacity: 1;
+
+			.littleCircle {
+				width: 40%;
+				height: 40%;
+				transform: scale(1) rotate(270deg);
+				transition: 1s 0s;
+			}
+		}
+
+		&.click {
+			opacity: 1;
+			transition: opacity 0.035s linear;
+		}
+
+		.mainCircle {
+			width: 65%;
+			height: 65%;
+		}
+
+		.littleCircle {
+			transform: scale(1.5) rotate(180deg);
+		}
+
+		&.click .littleCircle {
+			transform: scale(1) rotate(180deg);
+			transition: 0.07s ease-in-out;
+		}
+
+		.bigCircle {
+			width: 45%;
+			height: 45%;
+		}
+
+		.points {
+			width: 80%;
+			height: 80%;
+			transform: rotate(calc(270deg + var(--cursor-points-rotation, 0deg)));
+		}
+
+		&.click .points {
+			width: 65%;
+			height: 65%;
+			transform: rotate(calc(270deg + var(--cursor-points-rotation, 0deg)));
+			transition: 0.07s ease;
+		}
+
+		.points1 {
+			transform: rotate(-45deg);
+		}
+
+		.points2 {
+			transform: rotate(45deg);
+		}
+	}
+
+	&.menuMerged {
+		.mainCircle {
+			width: 100%;
+			height: 100%;
+			transform: rotate(180deg);
+			transition: 1s 0s;
+
+			.halfCircle1 {
+				clip-path: inset(0 0 40% 0);
+				transition: 1s 0s;
+			}
+
+			.halfCircle2 {
+				clip-path: inset(40% 0 0 0);
+				transition: 1s 0s;
+			}
+		}
+
+		.point1 {
+			top: 125%;
+		}
+
+		.point2 {
+			top: -25%;
+		}
+
+		.bigCircle {
+			width: 200%;
+			height: 200%;
+			opacity: 0;
+			transition: 0.5s 0s;
+		}
+
+		.littleCircle {
+			.halfCircle1 {
+				clip-path: inset(0 0 40% 0);
+			}
+			.halfCircle2 {
+				clip-path: inset(40% 0 0 0);
+			}
+		}
+	}
+
+	/** Плитка портфолио — расширенный HUD без привязки к 3D-якорям. */
+	&.caseHovered {
+		width: $cursorSizeHover;
+		height: $cursorSizeHover;
+		opacity: 1;
+		overflow: visible;
+
+		.mainCircle,
+		.bigCircle {
+			opacity: 0.16;
+		}
+
+		.mainCircle {
+			width: 100%;
+			height: 100%;
+			transform: rotate(180deg);
+			transition: all 1s 0s;
+
+			.halfCircle1 {
+				clip-path: inset(0 0 40% 0);
+				transition: all 1s 0s;
+			}
+
+			.halfCircle2 {
+				clip-path: inset(40% 0 0 0);
+				transition: all 1s 0s;
+			}
+		}
+
+		.caseInner {
+			width: 100%;
+			height: 100%;
+		}
+
+		.littleCircle {
+			width: 40%;
+			height: 40%;
+			opacity: 1;
+			transform: scale(1) rotate(270deg);
+			transition:
+				width 1s 0s,
+				height 1s 0s,
+				opacity 1s 0s;
+
+			.halfCircle1 {
+				clip-path: inset(0 0 40% 0);
+			}
+
+			.halfCircle2 {
+				clip-path: inset(40% 0 0 0);
+			}
+		}
+
+		.bigCircle {
+			opacity: 0;
+			transition: 1s 0s;
+		}
+
+		.points {
+			opacity: 1;
+			width: 80%;
+			height: 80%;
+			transform: rotate(calc(270deg + var(--cursor-points-rotation, 0deg)));
+		}
+
+		.points1 {
+			transform: rotate(-45deg);
+		}
+
+		.points2 {
+			transform: rotate(45deg);
+		}
+
+		.points1 .point1 {
+			top: 125%;
+		}
+
+		.points1 .point2 {
+			top: -25%;
+		}
+
+		&.click {
+			opacity: 1;
+			transition: opacity 0.035s linear;
+
+			.littleCircle {
+				transform: scale(1) rotate(270deg);
+				transition: 0.07s ease-in-out;
+			}
+		}
+	}
+
+	&.click {
+		.mainCircle {
+			width: 80%;
+			height: 80%;
+			transition: 0.05s ease-in-out;
+		}
+
+		&.hover .mainCircle {
+			width: 65%;
+			height: 65%;
+			transition: 0s;
+		}
+	}
+
+	.mainCircle {
+		width: 100%;
+		height: 100%;
+		border-radius: 50%;
+		transform: rotate(0deg);
+		@include menuFloatTransition(width, height, transform, clip-path);
+		@include hudRingHalves(-60%, 60%, true);
+	}
+
+	.littleCircle {
+		width: 25.5%;
+		height: 25.5%;
+		transform: scale(1) rotate(90deg);
+		@include menuFloatTransition(transform, opacity, width, height);
+		@include hudRingHalves(-65%, 65%, false);
+	}
+
+	.bigCircle {
+		width: 124%;
+		height: 124%;
+		border-radius: 50%;
+		border: 1px dotted $cursorDottedRing;
+		@include menuFloatTransition(width, height, opacity);
+	}
+
+	.caseInner {
+		width: 100%;
+		height: 100%;
+	}
+
+	.points {
+		width: 24%;
+		height: 24%;
+		transform: rotate(calc(90deg + var(--cursor-points-rotation, 0deg)));
+		transition:
+			transform 0.4s ease-in-out,
+			width 0.5s ease-in-out,
+			height 0.5s ease-in-out,
+			opacity $menuFloatTransition;
+	}
+
+	.points1,
+	.points2 {
+		width: 100%;
+		height: 100%;
+		transform: rotate(0deg);
+		transition: 0.35s ease-in-out;
+	}
+
+	.point1,
+	.point2 {
+		width: 3px;
+		height: 3px;
+		border-left: 2px solid rgba(255, 255, 255, 0);
+		border-top: 2px solid rgba(255, 255, 255, 0);
+		border-radius: 50%;
+		background: $cursorDotFill;
+		transform: translate(0, -50%) scaleY(1) rotate(45deg);
+		transition: 0.35s 0s;
+	}
+
+	.point1 {
+		top: 100%;
+	}
+
+	.point2 {
+		top: 0%;
+	}
+}
+
+// Системный курсор остаётся видимым. Кастомный проявляется только у левого меню.
+.cursor.menuOnlyCursor {
+	opacity: 0 !important;
+	transition:
+		width $menuFloatTransition,
+		height $menuFloatTransition,
+		opacity 0.45s ease;
+}
+
+.cursor.menuOnlyCursor.menuAnchorVisible {
+	opacity: 1 !important;
+	transition:
+		width $menuFloatTransition,
+		height $menuFloatTransition,
+		opacity 0.16s ease-out;
+}
+
+@media (max-width: $cursorMobileMax) {
+	body {
+		cursor: auto;
+
+		a {
+			cursor: auto;
+		}
+	}
+
+	.cursor {
+		display: none !important;
+	}
+}

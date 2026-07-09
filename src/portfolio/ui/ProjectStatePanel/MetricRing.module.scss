@@ -1,0 +1,78 @@
+$hudCyan: #00d9d6;
+$hudCyanDim: rgba(0, 217, 214, 0.35);
+$hudLine: rgba(0, 217, 214, 0.2);
+
+.metricRing {
+	position: relative;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 88px;
+	height: 88px;
+
+	.ring {
+		position: absolute;
+		inset: 0;
+	}
+
+	.ringSvg {
+		width: 100%;
+		height: 100%;
+		transform: rotate(-90deg);
+	}
+
+	.ringTrack {
+		fill: none;
+		stroke: rgba(255, 255, 255, 0.06);
+		stroke-width: 2;
+	}
+
+	.ringArc {
+		fill: none;
+		stroke: $hudCyan;
+		stroke-width: 2;
+		stroke-linecap: round;
+		stroke-dasharray: 176;
+		stroke-dashoffset: calc(176 * (1 - var(--ringPct, 75) / 100));
+		filter: drop-shadow(0 0 4px $hudCyanDim);
+	}
+
+	&.textOnly {
+		.ringArc {
+			stroke-dashoffset: 44;
+			opacity: 0.35;
+		}
+
+		.value {
+			font-size: 10px;
+			line-height: 1.25;
+		}
+	}
+
+	.center {
+		position: relative;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: 2px;
+		max-width: 62px;
+		text-align: center;
+	}
+
+	.value {
+		font-size: 13px;
+		font-weight: 500;
+		font-variant-numeric: tabular-nums;
+		line-height: 1.1;
+		color: #fff;
+	}
+
+	.label {
+		font-size: 7px;
+		letter-spacing: 0.14em;
+		text-transform: uppercase;
+		opacity: 0.42;
+		line-height: 1.2;
+	}
+}

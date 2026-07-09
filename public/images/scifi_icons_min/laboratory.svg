@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" aria-labelledby="title">
+  <title id="title">Лаборатория</title>
+  <g stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M26 18l6-4 6 4v7l4 4v6l-4 4v7l-6 4-6-4v-7l-4-4v-6l4-4v-7Z" stroke-width="1.5"/>
+    <circle cx="32" cy="32" r="4.5" stroke-width="1.5"/>
+    <path d="M32 22v3M32 39v3" stroke-width="0.9"/>
+    <path d="M23 32h3M38 32h3" stroke-width="0.9"/>
+    <path d="M20 21.5A15.5 15.5 0 0 1 24 17.5M44 46.5A15.5 15.5 0 0 1 40 50.5" stroke-width="0.9"/>
+  </g>
+  <circle cx="32" cy="32" r="1.6" fill="currentColor"/>
+</svg>

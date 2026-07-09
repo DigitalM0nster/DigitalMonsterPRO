@@ -1,0 +1,166 @@
+.page.portfolio .pageContent {
+  position: relative;
+}
+.page.portfolio .pageContent .portfolioProjectsList {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translate(0%, -50%);
+  width: 37vw;
+  height: 100%;
+  padding: 35px 0;
+  pointer-events: auto;
+  z-index: 5;
+}
+.page.portfolio .pageContent .portfolioProjectsList.hub.hitOnly .item {
+  opacity: 1;
+  cursor: pointer;
+}
+.page.portfolio .pageContent .portfolioProjectsList.hub.hitOnly .item .itemName {
+  visibility: hidden;
+  pointer-events: none;
+}
+.page.portfolio .pageContent .portfolioProjectsList .listViewport {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  z-index: 2;
+  overflow: hidden;
+}
+.page.portfolio .pageContent .portfolioProjectsList .list {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 25px;
+  padding-right: 2.2em;
+  transform: translateY(calc(var(--menuScrollOffset, 0) * var(--projectMenuItemHeight) * -1));
+  transition: transform 0.35s ease-out;
+}
+.page.portfolio .pageContent .portfolioProjectsList .item {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 14px;
+  height: var(--projectMenuItemHeight);
+  min-height: var(--projectMenuItemHeight);
+  padding: 4px 0;
+  box-sizing: border-box;
+  cursor: pointer;
+  opacity: 0.32;
+  transition: opacity 0.35s ease;
+}
+.page.portfolio .pageContent .portfolioProjectsList .item.active {
+  opacity: 1;
+}
+.page.portfolio .pageContent .portfolioProjectsList .item.active .itemName {
+  color: #f4fbff;
+}
+.page.portfolio .pageContent .portfolioProjectsList .item:hover, .page.portfolio .pageContent .portfolioProjectsList .item.hovered {
+  opacity: 0.72;
+}
+.page.portfolio .pageContent .portfolioProjectsList .item:hover.active, .page.portfolio .pageContent .portfolioProjectsList .item.hovered.active {
+  opacity: 1;
+}
+.page.portfolio .pageContent .portfolioProjectsList .item .itemContent {
+  position: relative;
+  width: -moz-fit-content;
+  width: fit-content;
+  height: 100%;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+}
+.page.portfolio .pageContent .portfolioProjectsList .item .itemName {
+  font-family: "ManifoldExtended", sans-serif;
+  font-size: 2vw;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1vw;
+  color: rgba(255, 255, 255, 0.55);
+  text-align: left;
+  white-space: nowrap;
+  transition: letter-spacing 0.25s, color 0.3s;
+  text-shadow: 0 0 24px rgba(0, 0, 0, 0.85);
+  width: -moz-fit-content;
+  width: fit-content;
+}
+.page.portfolio .pageContent .portfolioProjectsList .item .itemName.wordContainer {
+  position: relative;
+  display: flex;
+  justify-content: flex-end;
+}
+.page.portfolio .pageContent .portfolioProjectsList .item .itemName .languageGroup {
+  display: flex;
+  flex-wrap: nowrap;
+  position: relative;
+  pointer-events: none;
+}
+.page.portfolio .pageContent .portfolioProjectsList .item .itemName .letterContainer {
+  position: relative;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+}
+.page.portfolio .pageContent .portfolioProjectsList .item .itemName .letterContainer.space {
+  width: 0.35em;
+}
+.page.portfolio .pageContent .portfolioProjectsList .item .itemName .letterContainer .mainLetter {
+  position: relative;
+  z-index: 2;
+  opacity: 1;
+  color: inherit;
+  transition: opacity 0.1s;
+}
+.page.portfolio .pageContent .portfolioProjectsList .item .itemName .letterContainer .mainLetter.hidden {
+  opacity: 0;
+}
+.page.portfolio .pageContent .portfolioProjectsList .item .itemName .letterContainer .additionalLetter {
+  position: absolute;
+  font-family: "ManifoldExtended", sans-serif;
+  font-weight: 700;
+  color: rgb(0, 204, 255);
+  text-shadow: 0 0 5px rgb(0, 204, 255);
+  opacity: 0;
+  transform: scaleX(-1) scaleY(-1) translateY(-5%);
+  transition: opacity 0.015s;
+  pointer-events: none;
+}
+.page.portfolio .pageContent .portfolioProjectsList .item .itemName .letterContainer .additionalLetter.visible {
+  opacity: 1;
+}
+.page.portfolio .pageContent .caseScrollProgress {
+  position: absolute;
+  right: 50px;
+  top: 50%;
+  transform: translate(0%, -50%);
+  width: 2px;
+  height: calc(100% - var(--borderRadius) * 2);
+  background-color: rgba(255, 255, 255, 0.2);
+  z-index: 4;
+  pointer-events: auto;
+}
+.page.portfolio .pageContent .caseScrollProgress .scroll {
+  position: relative;
+  width: 2px;
+  height: 100%;
+  background-color: rgba(255, 255, 255, 0.05);
+  z-index: -1;
+}
+.page.portfolio .pageContent .caseScrollProgress .scrollProgress {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: calc(var(--scrollProgress, 0) * 100%);
+  background-color: rgb(0, 217, 214);
+  box-shadow: 0 0 8px rgb(0, 174, 250);
+  transition: 0.1s;
+  z-index: 2;
+}/*# sourceMappingURL=portfolio.css.map */

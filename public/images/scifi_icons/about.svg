@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" aria-labelledby="title">
+  <title id="title">О компании — архитектура единой цифровой системы</title>
+  <g stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M32 7.5l4 5v8l6 4v15l-6 4v8l-4 5-4-5v-8l-6-4v-15l6-4v-8l4-5Z"/>
+    <path d="M27 18.5l-8 5v17l8 5"/>
+    <path d="M37 18.5l8 5v17l-8 5"/>
+    <path d="M24 14.5l-9 5v25l9 5" stroke-width=".85"/>
+    <path d="M40 14.5l9 5v25l-9 5" stroke-width=".85"/>
+    <path d="M29 27l3-2.2 3 2.2v10l-3 2.2-3-2.2V27Z"/>
+    <path d="M32 10v10M32 44v10" stroke-width=".9"/>
+    <path d="M12 27.5A22 22 0 0 1 18 16" stroke-width=".85"/>
+    <path d="M46 16A22 22 0 0 1 52 27.5" stroke-width=".85"/>
+    <path d="M52 36.5A22 22 0 0 1 46 48" stroke-width=".85"/>
+    <path d="M18 48A22 22 0 0 1 12 36.5" stroke-width=".85"/>
+    <path d="M7.5 32H12M52 32h4.5" stroke-width=".9"/>
+  </g>
+  <g fill="currentColor">
+    <circle cx="32" cy="32" r="1.4"/>
+    <circle cx="16" cy="32" r=".7"/>
+    <circle cx="48" cy="32" r=".7"/>
+    <rect x="31.3" y="14.2" width="1.4" height="1.4" rx=".25"/>
+    <rect x="31.3" y="48.4" width="1.4" height="1.4" rx=".25"/>
+  </g>
+</svg>

@@ -1,0 +1,64 @@
+// Кейс — fullscreen shell поверх 3D (LeftMenu остаётся глобальным)
+.page.portfolio.case {
+	.topContainer,
+	.topContainerOverlay,
+	.vLines,
+	.bottomPanel {
+		display: none;
+	}
+
+	.pageContent {
+		overflow-x: visible;
+		overflow-y: hidden;
+	}
+}
+
+
+.portfolioProject {
+
+	--portfolioAccent: #008890;
+
+	--portfolioAccentSoft: color-mix(in srgb, var(--portfolioAccent) 35%, transparent);
+
+	--portfolioEnterMs: 500ms;
+
+	--portfolioExitMs: 500ms;
+
+
+
+	opacity: 0;
+
+	transform: translateY(12px);
+
+	transition:
+
+		opacity var(--portfolioEnterMs) ease,
+
+		transform var(--portfolioEnterMs) ease;
+
+
+
+	&.entering,
+
+	&.active {
+
+		opacity: 1;
+
+		transform: translateY(0);
+
+	}
+
+
+
+	&.exiting {
+
+		opacity: 0;
+
+		transform: translateY(-8px);
+
+		transition-duration: var(--portfolioExitMs);
+
+	}
+
+}
+

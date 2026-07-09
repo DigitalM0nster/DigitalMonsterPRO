@@ -1,0 +1,264 @@
+.projectStatePanel {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: clamp(40px, 7vh, 88px) clamp(20px, 3.5vw, 56px) clamp(28px, 5vh, 56px);
+  pointer-events: auto;
+  color: #fff;
+}
+.projectStatePanel.inactive {
+  opacity: 0.6;
+}
+.projectStatePanel.compact {
+  padding: 20px 24px;
+  background: rgba(4, 10, 16, 0.72);
+  border: 1px solid rgba(0, 217, 214, 0.14);
+}
+.projectStatePanel.metricsOnly {
+  padding: 16px 20px;
+  background: rgba(4, 10, 16, 0.78);
+  border: 1px solid rgba(0, 217, 214, 0.14);
+}
+.projectStatePanel.metricsOnly .stateBadge {
+  margin-bottom: 12px;
+}
+.projectStatePanel.metricsOnly .analysisBlock {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+.projectStatePanel .stateBadge {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: clamp(24px, 4vh, 40px);
+}
+.projectStatePanel .badgeDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #00d9d6;
+  box-shadow: 0 0 12px rgba(0, 217, 214, 0.55);
+  animation: badgePulse 2.2s ease-in-out infinite;
+}
+.projectStatePanel .badgeLabel {
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  opacity: 0.72;
+}
+.projectStatePanel .content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  justify-content: center;
+  max-width: 100%;
+  animation: panelContentIn 0.42s ease forwards;
+}
+.projectStatePanel .categoryLabel {
+  margin: 0 0 14px;
+  font-size: 9px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  opacity: 0.42;
+}
+.projectStatePanel .projectTitle {
+  font-size: clamp(30px, 3.4vw, 48px);
+  line-height: 1.02;
+  font-weight: 300;
+  margin: 0 0 20px;
+  letter-spacing: -0.02em;
+  max-width: 14ch;
+}
+.projectStatePanel .description {
+  font-size: 14px;
+  line-height: 1.68;
+  font-weight: 300;
+  opacity: 0.62;
+  margin: 0 0 24px;
+  max-width: 36ch;
+}
+.projectStatePanel .tagRow {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 28px;
+  padding: 0;
+  list-style: none;
+}
+.projectStatePanel .tagPill {
+  padding: 6px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 2px;
+  font-size: 8px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  opacity: 0.55;
+  transition: border-color 0.2s ease, opacity 0.2s ease;
+}
+.projectStatePanel .tagPill:hover {
+  border-color: rgba(0, 217, 214, 0.14);
+  opacity: 0.82;
+}
+.projectStatePanel .subStages {
+  margin-bottom: 24px;
+}
+.projectStatePanel .sectionLabel {
+  display: block;
+  margin-bottom: 12px;
+  font-size: 8px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  opacity: 0.35;
+}
+.projectStatePanel .subStageList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.projectStatePanel .subStageItem {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+.projectStatePanel .subStageIndex {
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.32;
+  min-width: 18px;
+}
+.projectStatePanel .subStageTitle {
+  font-size: 11px;
+  opacity: 0.68;
+}
+.projectStatePanel .analysisBlock {
+  margin-top: 8px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+.projectStatePanel .sysRow {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.projectStatePanel .sysLabel {
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  opacity: 0.45;
+  min-width: 72px;
+}
+.projectStatePanel .sysTrack {
+  flex: 1;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+}
+.projectStatePanel .sysFill {
+  height: 100%;
+  width: var(--sysLevel, 0%);
+  background: #00d9d6;
+  box-shadow: 0 0 8px rgba(0, 217, 214, 0.35);
+  transition: width 0.35s ease;
+}
+.projectStatePanel .metrics {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+.projectStatePanel .media {
+  margin-top: 16px;
+  max-width: 260px;
+}
+.projectStatePanel .studioFooter {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 14px;
+  margin-top: 20px;
+  padding-top: 14px;
+}
+.projectStatePanel .studioMark {
+  font-size: 8px;
+  letter-spacing: 0.2em;
+  opacity: 0.32;
+}
+.projectStatePanel .studioMeter {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-end;
+  gap: 2px;
+  flex: 1;
+  height: 12px;
+}
+.projectStatePanel .studioTick {
+  flex: 1;
+  max-width: 3px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 1px;
+}
+.projectStatePanel .studioTick:nth-child(1) {
+  height: 4px;
+}
+.projectStatePanel .studioTick:nth-child(2) {
+  height: 5px;
+}
+.projectStatePanel .studioTick:nth-child(3) {
+  height: 6px;
+}
+.projectStatePanel .studioTick:nth-child(4) {
+  height: 7px;
+}
+.projectStatePanel .studioTick:nth-child(5) {
+  height: 3px;
+}
+.projectStatePanel .studioTick:nth-child(6) {
+  height: 4px;
+}
+.projectStatePanel .studioTick:nth-child(7) {
+  height: 5px;
+}
+.projectStatePanel .studioTick:nth-child(8) {
+  height: 6px;
+}
+.projectStatePanel .studioTick:nth-child(9) {
+  height: 7px;
+}
+.projectStatePanel .studioTick:nth-child(10) {
+  height: 3px;
+}
+.projectStatePanel .studioTick:nth-child(11) {
+  height: 4px;
+}
+.projectStatePanel .studioTick:nth-child(12) {
+  height: 5px;
+}
+
+@keyframes panelContentIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes badgePulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}/*# sourceMappingURL=ProjectStatePanel.module.css.map */

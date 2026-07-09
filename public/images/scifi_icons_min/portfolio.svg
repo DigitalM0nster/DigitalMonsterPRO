@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" aria-labelledby="title">
+  <title id="title">Портфолио</title>
+  <g stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M20 19l16-3 2 26-16 3-2-26Z" stroke-width="3"/>
+    <path d="M27 22.5l17-3 2 22-17 3" stroke-width="3"/>
+    <path d="M24.5 27.5h8" stroke-width="3"/>
+    <path d="M24.5 32h8" stroke-width="3"/>
+    <path d="M24.5 36.5h6" stroke-width="3"/>
+    
+  </g>
+  <circle cx="40.5" cy="24.5" r="1.2" fill="currentColor"/>
+</svg>

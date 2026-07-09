@@ -1,0 +1,741 @@
+.mainScreen {
+    justify-content: center;
+    position: relative;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background-image: url('/images/case1/background_1_1.webp');
+    background-size: 100% 100%;
+    background-position: center;
+    -webkit-perspective: 750px;
+    overflow: hidden;
+    transition: all 0.35s;
+}
+.mainScreen.hidden {
+    -webkit-perspective: 750px;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.bg-part {
+    position: relative;
+    margin: 100vh 0 0 0;
+    height: 100vh;
+    width: 25%;
+    background-attachment: fixed;
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-position: center;
+    transition: all 1.25s ease-in-out;
+}
+
+.bg-part.active {
+    margin: 0 0 0 0;
+}
+
+
+
+
+
+
+
+/* АНИМАЦИИ */
+
+@keyframes glowingText {
+    0% {
+        text-shadow: 0 0 4px white;
+    }
+
+    50% {
+        text-shadow: 0 0 15px white;
+    }
+
+    100% {
+        text-shadow: 0 0 4px white;
+    }
+}
+
+@-webkit-keyframes load3 {
+    0% {
+        -webkit-transform: translate(-50%, -50%) rotate(0deg);
+        transform: translate(-50%, -50%) rotate(0deg);
+    }
+    100% {
+        -webkit-transform: translate(-50%, -50%) rotate(360deg);
+        transform: translate(-50%, -50%) rotate(360deg);
+    }
+}
+@keyframes load3 {
+0% {
+    -webkit-transform: translate(-50%, -50%) rotate(0deg);
+    transform: translate(-50%, -50%) rotate(0deg);
+}
+100% {
+    -webkit-transform: translate(-50%, -50%) rotate(360deg);
+    transform: translate(-50%, -50%) rotate(360deg);
+}
+}
+
+@keyframes historyArrowMargins {
+    0% {
+        transform: translate(0px, -4px);
+    }
+
+    50% {
+        transform: translate(-5px, -4px);
+    }
+
+    100% {
+        transform: translate(0, -4px);
+    }
+}
+
+@keyframes scrollDown {
+    0% {
+        transform: translate(0, 0);
+    }
+
+    50% {
+        transform: translate(0, 10px);
+    }
+
+    100% {
+        transform: translate(0, 0);
+    }
+}
+
+@keyframes flaring {
+    0% {
+        opacity: 0.5;
+    }
+
+    50% {
+        opacity: 1;
+    }
+
+    100% {
+        opacity: 0.5;
+    }
+}
+
+
+
+
+.tabletBlock {
+    width: 100%;
+    justify-content: center;
+}
+.tabletImage {
+    width: 43vw;
+    height: 33vw;
+    pointer-events: none;
+}
+
+.circleImage {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, 50%);
+    width: 44vw;
+    height: 44vw;
+    animation: circleAnimation 150s linear infinite alternate;
+}
+
+@keyframes circleAnimation {
+    0% {
+        transform: translate(-50%, -50%) rotate(0deg);
+    }
+    100% {
+        transform: translate(-50%, -50%) rotate(360deg);
+    }
+}
+
+.tabletScreenBlock {
+    position: absolute;
+    top: 0.5vw;
+    width: 42vw;
+    height: 32vw;
+    transition: 0.5s;
+}
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* СЦЕНА */
+.page.mainPage {
+    position: relative;
+    width: calc(100% - 0px);
+    height: 100%;
+    padding: 0 235px;
+    -webkit-transform-style: preserve-3d;
+    transform: translateY(120%) translateX(-70%) rotateX(0deg);
+    opacity: 1;
+    pointer-events: auto;
+    z-index: 999;
+    transition: all 1s 0s, z-index 0s 3.5s , opacity 0.5s 1.5s , transform 3.5s 0s;
+}
+
+.page.mainPage.active {
+    transform: translateY(0%) translateX(0%) rotateX(0deg);
+    opacity: 1;
+    transition: all 1s 0s, z-index 0s 3.5s , opacity 2s 0s , transform 2s 0.5s;
+}
+
+.page.mainPage.start {
+    transform: translateY(0%) translateX(0%) rotateX(0deg);
+}
+
+.screen {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    left: 0;
+    transform-style: preserve-3d;
+    pointer-events: none;
+    transition: all 1.25s ease-out;
+}
+
+.screen.active {
+    pointer-events: auto;
+    transition: all 2s ease-out;
+}
+
+.circle {
+    pointer-events: none;
+}
+
+.nipigasMainPageBlock {
+    font-family: "Montserrat";
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* SCREEN2 */
+.screen2 {
+    transform: translate3d(40px, 0px, -900px) scale(0.8);
+}
+.screen2 .circleContainer {
+    pointer-events: none;
+}
+.screen2 .circleContainer.circleContainer1 {
+    position: fixed;
+    left: 50%;
+    top: 40%;
+    width: 1100px;
+    height: 11000px;
+    transform: translate3d(-50%, -50%, -70px) rotateX(70deg) rotateY(20deg) rotateZ(0deg) scale(1);
+    transform-style: preserve-3d;
+    /* animation: rotationCircle1 400s linear; */
+}
+.screen2 .circleContainer.circleContainer2 {
+    position: fixed;
+    left: 50%;
+    top: 40%;
+    width: 900px;
+    height: 900px;
+    transform: translate3d(-55%, -48%, 0px) rotateX(60deg) rotateY(-30deg) rotateZ(0deg) scale(1);
+    transform-style: preserve-3d;
+    /* animation: rotationCircle2 400s linear infinite; */
+}
+
+.screen2 .circleHoverBlock {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    transform: translate3d(0px, 0px, 0px) rotateX(0deg) rotateY(0deg) rotateZ(0deg);
+    transform-style: preserve-3d;
+    transition: 1.25s ease;
+}
+@keyframes rotationCircle1 {
+    0% {
+        transform: translate3d(-50%, -50%, -70px) rotateX(70deg) rotateY(20deg) rotateZ(0deg) scale(1);
+    }
+
+    100% {
+        transform: translate3d(-50%, -50%, -70px) rotateX(70deg) rotateY(20deg) rotateZ(360deg) scale(1);
+    }
+}
+@keyframes rotationCircle2 {
+    0% {
+        transform: translate3d(-55%, -48%, 0px) rotateX(60deg) rotateY(-30deg) rotateZ(0deg) scale(1);
+    }
+
+    100% {
+        transform: translate3d(-55%, -48%, 0px) rotateX(60deg) rotateY(-30deg) rotateZ(360deg) scale(1);;
+    }
+}
+
+.screen2 .circle0 {
+    position: fixed;
+    width: 100%;
+    height: 100%;
+    transform: translate3d(0px, 0px, 0px) rotateX(0deg) rotateY(0deg) rotateZ(0deg) scale(0);
+    background-image: url('/images/case1/circle5.webp');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    opacity: 0;
+    transition: 1.25s;
+}
+.screen2 .circle0.active {
+    transform: translate3d(0px, 0px, 0px) rotateX(0deg) rotateY(0deg) rotateZ(0deg) scale(1);
+    opacity: 0.6;
+}
+
+.screen2 .circle1 {
+    position: fixed;
+    width: 100%;
+    height: 100%;
+    transform: translate3d(0px, 0px, 0px) rotateX(0deg) rotateY(0deg) rotateZ(0deg) scale(1);
+    background-image:url('/images/case1/circle1.webp');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    opacity: 0;
+    transition: 1.25s;
+}
+.screen2 .circle1.active {
+    transform: translate3d(0px, 0px, 0px) rotateX(0deg) rotateY(0deg) rotateZ(0deg) scale(1);
+    opacity: 0.6;
+}
+
+
+.screen2 .circle2 {
+    position: fixed;
+    left: 50%;
+    top: 40%;
+    width: 1000px;
+    height: 1000px;
+    transform: translate3d(-40%, -36%, 0px) rotateX(-50deg) rotateY(-56deg) rotateZ(190deg) scale(0);;
+    background-image:url('/images/case1/circle1.webp');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    opacity: 0;
+    transition: 1.25s;
+}
+.screen2 .circle2.active {
+    animation: s2c2 900s ease-in-out infinite;
+    opacity: 0.15;
+}
+
+
+.screen2 .circle3 {
+    position: fixed;
+    left: 50%;
+    top: 40%;
+    width: 1000px;
+    height: 1000px;
+    transform: translate3d(-63%, -42%, 0px) rotateX(-55deg) rotateY(50deg) rotateZ(190deg) scale(0);
+    background-image:url('/images/case1/circle1.webp');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    opacity: 0;
+    transition: 1.25s;
+
+}
+.screen2 .circle3.active {
+    animation: s2c3 900s ease-in-out infinite;
+    opacity: 0.15;
+}
+
+@keyframes s2c2 {
+    0% {
+        transform: translate3d(-40%, -36%, 0px) rotateX(-50deg) rotateY(-56deg) rotateZ(190deg) scale(1);;
+    }
+    50% {
+        transform: translate3d(-40%, -36%, 0px) rotateX(-50deg) rotateY(-56deg) rotateZ(-190deg) scale(1);
+    }
+    100% {
+        transform: translate3d(-40%, -36%, 0px) rotateX(-50deg) rotateY(-56deg) rotateZ(190deg) scale(1);
+    }
+}
+
+
+@keyframes s2c3 {
+    0% {
+        transform: translate3d(-63%, -42%, 0px) rotateX(-55deg) rotateY(50deg) rotateZ(190deg) scale(1);
+    }
+    50% {
+        transform: translate3d(-63%, -42%, 0px) rotateX(-55deg) rotateY(50deg) rotateZ(380deg) scale(1);
+    }
+    100% {
+        transform: translate3d(-63%, -42%, 0px) rotateX(-55deg) rotateY(50deg) rotateZ(190deg) scale(1);
+    }
+}
+
+
+
+
+
+.chaptersContainer {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    position: fixed;
+    left: 50%;
+    top: 50%;
+    width: 1100px;
+    height: 100px;
+    color: white;
+    -webkit-transform-style: preserve-3d;
+    transform: translate(-50%, -50%);
+}
+
+.chaptersContainer.hidden {
+    display: none;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.chapter-front {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    transform: translate3d(0px, 0px, 380px);
+}
+
+.chapter {
+    position: absolute;
+    text-shadow: 0 0 3px rgb(0 140 149);
+    width: fit-content;
+    height: auto;
+    transform-style: preserve-3d;
+    transition: 0.5s;
+    opacity: 0;
+}
+
+.chapter.active {
+    transition: 0.75s;
+    opacity: 1;
+}
+
+.chapter-name-block {
+    flex-direction: column;
+    padding: 10px;
+    transition: 0.35s;
+}
+
+.chapter-name {
+    line-height: 18px;
+    font-size: 16px;
+    text-transform: uppercase;
+    text-shadow: 0 0 0px white;
+    letter-spacing: 1.5px;
+    color: white;
+    transition: 0.35s;
+}
+.chapter:hover .chapter-name {
+    text-shadow: 0 0 4px white;
+}
+
+.chapter:hover .chapter-border {
+    filter: drop-shadow(0 0 1px white)
+}
+
+.chapter:after {
+    content: "";
+    display: none;
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 3px;
+    height: 30px;
+    background-color: white;
+}
+
+.chapter-description {
+    position: relative;
+    color: rgba(153, 204, 0, 1);
+    text-shadow: 0 0 3px black;
+    font-size: 12px;
+    line-height: 15px;
+    font-weight: 400;
+    left: 0px;
+    top: 0px;
+    margin: 5px 0 0 0;
+    padding: 0px 5px 0px 0px;
+    width: calc(100% - 5px);
+    max-width: 130px;
+}
+
+.chapter:nth-child(4) .chapter-description {
+    max-width: 160px;
+}
+
+.chapter-border {
+    position: absolute;
+    transition: 0.3s;
+}
+
+.chapter-border.left-top {
+    left: 0px;
+    top: 0px;
+    width: 5px;
+    height: 3px;
+    border: 2px solid transparent;
+    border-top: 2px solid rgba(153, 204, 0, 1);
+    border-left: 2px solid rgba(153, 204, 0, 1);
+}
+
+.chapter-border.right-top {
+    right: 0px;
+    top: 0px;
+    width: 5px;
+    height: 3px;
+    border: 2px solid transparent;
+    border-top: 2px solid rgba(153, 204, 0, 1);
+    border-right: 2px solid rgba(153, 204, 0, 1);
+}
+
+.chapter-border.right-bottom {
+    right: 0px;
+    bottom: 0px;
+    width: 5px;
+    height: 3px;
+    border: 2px solid transparent;
+    border-bottom: 2px solid rgba(153, 204, 0, 1);
+    border-right: 2px solid rgba(153, 204, 0, 1);
+}
+
+.chapter-border.left-bottom {
+    left: 0px;
+    bottom: 0px;
+    width: 5px;
+    height: 3px;
+    border: 2px solid transparent;
+    border-bottom: 2px solid rgba(153, 204, 0, 1);
+    border-left: 2px solid rgba(153, 204, 0, 1);
+}
+
+.logo-text {
+    position: absolute;
+    bottom: 45px;
+    left: 50%;
+    transform: translateX(-46%);
+    width: 100%;
+    color: white;
+    font-size: 14px;
+    letter-spacing: 1.5px;
+}
+
+.logo-text:before {
+    content: '';
+    display: block;
+    position: absolute;
+    top: 15px;
+    width: 100%;
+    height: 2px;
+}
+
+.bottomText {
+    position: absolute;
+    left: 50%;
+    transform: translate(-50%, 0);
+    bottom: 60px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    transition: 1s;
+    pointer-events: none;
+}
+.bottomText.hidden {
+    transition: 1s;
+    bottom: -200px;
+}
+
+.bottom-text1 {
+    position: absolute;
+    left: 50%;
+    transform: translate(-50%, 0);
+    bottom: -200px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    transition: 1s;
+    pointer-events: none;
+}
+.bottom-text1.active {
+    bottom: 60px;
+}
+
+.bottom-text .text, .bottom-text1 .text {
+    position: relative;
+    margin: 0 0 10px 0;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+/* CHAPTERS */
+.chaptersContainer {
+    transform: translate3d(-50%, -50%, 0);
+}
+
+.chapter:nth-child(1) {  
+    transform: translate3d(-10px, 150px, 0px) scale(0.5);
+}
+.chapter:nth-child(1).active {
+    transform: translate3d(-10px, 150px, 0px) scale(1);
+}
+.chapter:nth-child(1):hover.active {
+    transform: translate3d(-10px, 150px, 0px) scale(1.1);
+}
+
+.chapter:nth-child(2) {
+    transform: translate3d(-340px, 10px, 0px) scale(0.5);
+}
+.chapter:nth-child(2).active {
+    transform: translate3d(-340px, 10px, 0px) scale(1);
+}
+.chapter:nth-child(2):hover.active {
+    transform: translate3d(-340px, 10px, 0px) scale(1.1);
+}
+
+.chapter:nth-child(3) {
+    transform: translate3d(-290px, -195px, 0px) scale(0.5);
+}
+.chapter:nth-child(3).active {
+    transform: translate3d(-290px, -195px, 0px) scale(1);
+}
+.chapter:nth-child(3):hover.active {
+    transform: translate3d(-290px, -195px, 0px) scale(1.1);
+}
+
+.chapter:nth-child(4) {
+    transform: translate3d(50px, -160px, 0px) scale(0.5);
+}
+.chapter:nth-child(4).active {
+    transform: translate3d(50px, -160px, 0px) scale(1);
+}
+.chapter:nth-child(4):hover.active {
+    transform: translate3d(50px, -160px, 0px) scale(1.1);
+}
+
+.chapter:nth-child(5) {
+    transform: translate3d(320px, -60px, 0px) scale(0.5);
+}
+.chapter:nth-child(5).active {
+    transform: translate3d(320px, -60px, 0px) scale(1);
+}
+.chapter:nth-child(5):hover.active {
+    transform: translate3d(320px, -60px, 0px) scale(1.1);
+}
+
+.chapter:nth-child(6) {
+    transform: translate3d(360px, 180px, 0px) scale(0.5);
+}
+.chapter:nth-child(6).active {
+    transform: translate3d(360px, 180px, 0px) scale(1);
+}
+.chapter:nth-child(6):hover.active {
+    transform: translate3d(360px, 180px, 0px) scale(1.1);
+}
+
+
+/* наведение на 1 чаптер */
+.screen3 .circle1.active.chapter1hover {
+    transform: translate3d(-50%, -50%, -140px) rotateX(67deg) rotateY(20deg) rotateZ(185deg) scale(1);
+}
+.screen3 .circle2.active.chapter1hover {
+    transform: translate3d(-55%, -48%, 0px) rotateX(58deg) rotateY(-32deg) rotateZ(195deg) scale(1);
+}
+
+/* наведение на 2 чаптер */
+.screen3 .circle1.active.chapter2hover {
+    transform: translate3d(-50%, -50%, -140px) rotateX(67deg) rotateY(18deg) rotateZ(198deg) scale(1);
+}
+.screen3 .circle2.active.chapter2hover {
+    transform: translate3d(-55%, -48%, 0px) rotateX(63deg) rotateY(-27deg) rotateZ(195deg) scale(1);
+}
+
+/* наведение на 3 чаптер */
+.screen3 .circle1.active.chapter3hover {
+    transform: translate3d(-50%, -50%, -140px) rotateX(67deg) rotateY(24deg) rotateZ(198deg) scale(1);
+}
+.screen3 .circle2.active.chapter3hover {
+    transform: translate3d(-55%, -48%, 0px) rotateX(55deg) rotateY(-28deg) rotateZ(183deg) scale(1);
+}
+
+/* наведение на 4 чаптер */
+.screen3 .circle1.active.chapter4hover {
+    transform: translate3d(-50%, -50%, -140px) rotateX(64deg) rotateY(18deg) rotateZ(198deg) scale(1);
+}
+.screen3 .circle2.active.chapter4hover {
+    transform: translate3d(-55%, -48%, 0px) rotateX(55deg) rotateY(-33deg) rotateZ(182deg) scale(1);
+}
+
+/* наведение на 5 чаптер */
+.screen3 .circle1.active.chapter5hover {
+    transform: translate3d(-50%, -50%, -140px) rotateX(65deg) rotateY(15deg) rotateZ(183deg) scale(1);
+}
+.screen3 .circle2.active.chapter5hover {
+    transform: translate3d(-55%, -48%, 0px) rotateX(64deg) rotateY(-27deg) rotateZ(185deg) scale(1);
+}
+
+/* наведение на 6 чаптер */
+.screen3 .circle1.active.chapter6hover {
+    transform: translate3d(-50%, -50%, -140px) rotateX(65deg) rotateY(24deg) rotateZ(183deg) scale(1);
+}
+.screen3 .circle2.active.chapter6hover {
+    transform: translate3d(-55%, -48%, 0px) rotateX(52deg) rotateY(-26deg) rotateZ(193deg) scale(1);
+}

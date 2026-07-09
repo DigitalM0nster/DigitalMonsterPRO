@@ -1,0 +1,109 @@
+.hotspotLayer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 8;
+}
+.hotspotLayer .marker {
+  position: absolute;
+  width: 32px;
+  height: 32px;
+  margin: -16px 0 0 -16px;
+  pointer-events: auto;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  padding: 0;
+  transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.hotspotLayer .marker:hover, .hotspotLayer .marker.hovered {
+  transform: scale(1.15);
+  z-index: 2;
+}
+.hotspotLayer .leaderLine {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 28px;
+  height: 1px;
+  margin-top: -0.5px;
+  background: linear-gradient(to right, rgba(255, 255, 255, 0.55), transparent);
+  transform-origin: left center;
+  transform: rotate(-32deg);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+.hotspotLayer .ringOuter {
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  opacity: 0;
+  animation: none;
+}
+.hotspotLayer .ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.15);
+  animation: hotspotPulse 2.8s ease-out infinite;
+}
+.hotspotLayer .core {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 5px;
+  height: 5px;
+  margin: -2.5px 0 0 -2.5px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.7);
+  transition: background 0.2s ease, box-shadow 0.2s ease;
+}
+.hotspotLayer .label {
+  position: absolute;
+  left: calc(100% + 10px);
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 4px 10px;
+  border: 1px solid rgba(0, 217, 214, 0.35);
+  border-radius: 2px;
+  background: rgba(4, 10, 16, 0.82);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.88);
+  white-space: nowrap;
+  pointer-events: none;
+}
+.hotspotLayer .marker:hover .leaderLine, .hotspotLayer .marker.hovered .leaderLine {
+  opacity: 1;
+}
+.hotspotLayer .marker:hover .ringOuter, .hotspotLayer .marker.hovered .ringOuter {
+  opacity: 1;
+  animation: hotspotPulse 2.8s ease-out infinite;
+}
+.hotspotLayer .marker:hover .ring, .hotspotLayer .marker.hovered .ring {
+  border-color: #00d9d6;
+  box-shadow: 0 0 16px rgba(0, 217, 214, 0.45);
+}
+.hotspotLayer .marker:hover .core, .hotspotLayer .marker.hovered .core {
+  background: #00d9d6;
+  box-shadow: 0 0 14px rgba(0, 217, 214, 0.75);
+}
+
+@keyframes hotspotPulse {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.85;
+  }
+  70% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}/*# sourceMappingURL=HotspotLayer.module.css.map */

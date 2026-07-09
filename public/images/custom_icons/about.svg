@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg"
+     viewBox="0 0 64 64"
+     fill="none"
+     aria-labelledby="title"
+     role="img">
+  <title id="title">About icon — smooth curves</title>
+
+  <g stroke="currentColor"
+     stroke-width="4"
+     stroke-linecap="round"
+     stroke-linejoin="round">
+
+    <!-- central upper circle -->
+    <circle cx="32" cy="21" r="8"/>
+
+    <!-- upper side curved brackets — симметрия относительно cy=21 -->
+    <path d="M21 14
+             C14.8 15.5 13 18.7 13 21
+             C13 23.2 14.8 27.4 21 28"/>
+
+    <path d="M43 14
+             C49.2 15.5 51 18.7 51 21
+             C51 23.2 49.2 27.4 43 28"/>
+
+    <!-- lower side accents -->
+    <path d="M19.5 35.5
+             C15.2 36 12.5 38.3 12.5 41.5
+             C12.5 43.8 13.8 45.6 16 46.5"/>
+
+    <path d="M44.5 35.5
+             C48.8 36 51.5 38.3 51.5 41.5
+             C51.5 43.8 50.2 45.6 48 46.5"/>
+
+    <!-- lower oval — асимметричные дуги, отражено по вертикали -->
+    <path stroke-linecap="butt"
+          transform="matrix(1, 0, 0, -1, 0, 89)"
+          d="M 43.5 45.5
+             A 8.5 7 0 1 1 20.5 45.5
+             A 11.5 7 0 1 1 43.5 45.5"/>
+  </g>
+</svg>

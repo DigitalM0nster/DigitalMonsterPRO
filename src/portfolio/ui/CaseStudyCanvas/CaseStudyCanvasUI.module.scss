@@ -1,0 +1,175 @@
+.caseStudyCanvasHost {
+	position: absolute;
+	top: 0;
+	left: 0;
+	z-index: 5;
+	width: 100%;
+	height: 100%;
+	pointer-events: none;
+	overflow: visible;
+}
+
+.caseStudyPanelCanvas,
+.caseStudyArcCanvas {
+	position: absolute;
+	top: 0;
+	left: 0;
+	pointer-events: none;
+	overflow: visible;
+}
+
+.caseStudyArcCanvas {
+	z-index: 1;
+}
+
+.selectableText {
+	position: absolute;
+	z-index: 2;
+	display: flex;
+	flex-direction: column;
+	box-sizing: border-box;
+	color: transparent;
+	-webkit-text-fill-color: transparent;
+	font-family: Jura, "Segoe UI", system-ui, sans-serif;
+	pointer-events: auto;
+	user-select: text;
+	cursor: text;
+	overflow: hidden;
+}
+
+.selectableText::selection,
+.selectableText *::selection {
+	color: transparent;
+	-webkit-text-fill-color: transparent;
+	background: rgba(0, 194, 255, 0.32);
+}
+
+.selectableBadge {
+	min-height: var(--badge-size, 13px);
+	margin-bottom: var(--badge-gap, 30px);
+	font-size: var(--badge-size, 13px);
+	line-height: 1;
+	letter-spacing: 0.14em;
+	text-transform: uppercase;
+}
+
+.selectableCategory {
+	margin-bottom: var(--category-gap, 14px);
+	font-size: var(--category-size, 13px);
+	line-height: var(--category-line, 16px);
+	letter-spacing: 0.14em;
+	text-transform: uppercase;
+}
+
+.selectableTitle {
+	margin-bottom: var(--title-gap, 24px);
+	font-family: ManifoldExtended, "Segoe UI", system-ui, sans-serif;
+	font-size: var(--title-size, 36px);
+	font-weight: 300;
+	line-height: var(--title-line, 1.05);
+	letter-spacing: var(--title-spacing, 2px);
+	white-space: pre-wrap;
+	overflow-wrap: normal;
+}
+
+.selectableDescription {
+	display: block;
+	margin-bottom: var(--description-gap, 12px);
+	font-size: var(--description-size, 16px);
+	font-weight: 300;
+	line-height: var(--description-line, 22px);
+}
+
+.selectableDescription p {
+	margin: 0 0 calc(var(--description-gap, 12px) * 0.65);
+}
+
+.selectableDescription p:last-child {
+	margin-bottom: 0;
+}
+
+.selectableTags {
+	font-size: 11px;
+	line-height: 20px;
+}
+
+.selectableBottom {
+	display: flex;
+	flex-direction: column;
+	margin-top: 0;
+}
+
+.selectableBottomAnchored {
+	position: absolute;
+	top: var(--bottom-top, auto);
+	left: 0;
+	right: 0;
+	box-sizing: border-box;
+	padding-top: var(--stats-gap, 36px);
+	margin-top: 0;
+}
+
+.selectableMetric {
+	display: grid;
+	grid-template-columns: var(--trait-glyph-col, 64px) 1fr;
+	align-items: center;
+	box-sizing: border-box;
+	min-height: calc(var(--trait-glyph-size, 32px) + var(--trait-row-pad, 12px) * 2);
+	padding: var(--trait-row-pad, 12px) 0;
+}
+
+.selectableMetric + .selectableMetric {
+	border-top: 1px solid transparent;
+}
+
+.selectableGlyph {
+	display: block;
+	width: calc(var(--trait-number-align, 22px) * 2);
+	font-size: var(--trait-glyph-size, 32px);
+	font-weight: 300;
+	line-height: 1;
+	text-align: center;
+}
+
+.selectableFeature .selectableGlyph {
+	width: auto;
+	text-align: left;
+}
+
+.selectableMetricText {
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	gap: var(--trait-text-gap, 2px);
+}
+
+.selectableMetricTop {
+	font-size: var(--trait-top-size, 12px);
+	font-weight: 400;
+	line-height: 1.2;
+}
+
+.selectableMetricBottom {
+	font-size: var(--trait-bottom-size, 13px);
+	font-weight: 400;
+	line-height: 1.25;
+}
+
+.selectableFooter {
+	margin-top: 14px;
+	padding-bottom: 4px;
+	font-family: ManifoldExtended, "Segoe UI", system-ui, sans-serif;
+	font-size: var(--badge-size, 13px);
+	line-height: 1;
+	letter-spacing: 0.16em;
+	text-transform: uppercase;
+}
+
+.selectableFooterAnchored {
+	position: absolute;
+	top: var(--footer-top, auto);
+	left: 0;
+	right: 0;
+	margin-top: 0;
+	padding-bottom: 0;
+}

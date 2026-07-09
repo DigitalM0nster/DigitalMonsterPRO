@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" aria-labelledby="title">
+  <title id="title">Лаборатория — экспериментальный реактор</title>
+  <g stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M24 12.5l8-5 8 5v8l5 5v13l-5 5v8l-8 5-8-5v-8l-5-5v-13l5-5v-8Z"/>
+    <path d="M27 17v8l-3 3v8l3 3v8"/>
+    <path d="M37 17v8l3 3v8l-3 3v8"/>
+    <circle cx="32" cy="32" r="6"/>
+    <path d="M32 18v7M32 39v7"/>
+    <path d="M23 32h3M38 32h3"/>
+    <path d="M28.5 14.5h7M28.5 49.5h7" stroke-width=".9"/>
+    <path d="M13 24A21 21 0 0 1 22 13.5" stroke-width=".85"/>
+    <path d="M42 13.5A21 21 0 0 1 51 24" stroke-width=".85"/>
+    <path d="M51 40A21 21 0 0 1 42 50.5" stroke-width=".85"/>
+    <path d="M22 50.5A21 21 0 0 1 13 40" stroke-width=".85"/>
+    <path d="M8 32h6M50 32h6M32 6v4M32 54v4" stroke-width=".9"/>
+  </g>
+  <g fill="currentColor">
+    <circle cx="32" cy="32" r="1.8"/>
+    <circle cx="18.2" cy="32" r=".75"/>
+    <circle cx="45.8" cy="32" r=".75"/>
+    <rect x="31.3" y="14" width="1.4" height="1.4" rx=".25"/>
+    <rect x="31.3" y="48.6" width="1.4" height="1.4" rx=".25"/>
+  </g>
+</svg>

@@ -1,0 +1,23 @@
+/** Procedural hex grid overlay — scene texture mix (A → B). */
+export const hexGridOverlayDefaults = {
+	hexScale: 18,
+	fisheyeStrength: 0.4,
+	progress: 0,
+	innerMaxRadius: 1,
+	innerMinRadius: 0,
+	innerSoftness: 0.055,
+	innerRevealPower: 2.5,
+	innerTextureScale: 2.75,
+	innerDistortStrength: 0.4,
+	outerTextureScale: 1,
+	outerDistortStrength: 0.31,
+	rowSoftness: 0.08,
+	rowRandomStrength: 0.175,
+	cellRevealSpan: 2,
+	lineWidth: 0.008,
+	lineInset: 0.033,
+	lineColor: [0.1411764705882353, 0.5843137254901961, 1],
+	lineOpacity: 1,
+	lineGlowBoost: 5,
+	lineRandomStrength: 0.7,
+};

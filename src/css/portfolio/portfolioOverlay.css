@@ -1,0 +1,149 @@
+.caseTitleButton {
+    top: 40%;
+    transform: translate(0%, -50%);
+}
+.caseStartBlock.active .caseTitleButton {
+    top: 0;
+    transform: translate(0, 0);
+    pointer-events: auto;
+    transition: 0.25s 0s;
+}
+
+.caseButton{
+    opacity: 1;
+    transform: translate(0vw, 30%);
+    transition: 0.15s;
+}
+.caseStartBlock.active .caseButton {
+    opacity: 0;
+    transform: translate(0, 0);
+    pointer-events: none;
+    transition: 0.15s 0s;
+}
+.caseStartBlock.active .caseButton.back {
+    opacity: 1;
+    transform: translate(0, 0);
+    pointer-events: auto;
+    transition: 0.15s 0s;
+}
+
+
+.caseType {
+    opacity: 0;
+    transform: translate(0, -100%);
+    pointer-events: none;
+    transition: 0.15s 0s;
+}
+
+.caseStartBlock.active .caseType {
+    opacity: 1;
+    transform: translate(0, 0%);
+    pointer-events: auto;
+    transition: 0.15s 0.2s;
+}
+
+.caseYear {
+    opacity: 0;
+    transform: translate(0, -100%);
+    pointer-events: none;
+    transition: 0.15s 0s;
+}
+.caseStartBlock.active .caseYear {
+    opacity: 1;
+    transform: translate(0, 0);
+    pointer-events: auto;
+    transition: 0.15s 0.25s;
+}
+.caseYearOverlay{
+    opacity: 0;
+    transition: 0.15s 0s;
+    pointer-events: none;
+}
+.caseStartBlock.active .caseYearOverlay{
+    opacity: 1;
+    transition: 0.15s 0.25s;
+}
+
+.caseYearFrame{
+    opacity: 0;
+    transition: 0.15s 0s;
+    pointer-events: none;
+}
+.caseStartBlock.active .caseYearFrame{
+    opacity: 1;
+    transition: 0.15s 0.25s;
+}
+
+
+
+
+.caseDescription span:nth-child(1) {
+    transform: translate(0, -100%);
+    opacity: 0;
+    transition: 0.15s 0s;
+}
+.caseDescription span:nth-child(2){
+    transform: translate(0, -100%);
+    opacity: 0;
+    transition: 0.15s 0s;
+}
+.caseDescription span:nth-child(3){
+    transform: translate(0, -100%);
+    opacity: 0;
+    transition: 0.15s 0s;
+}
+.caseDescription span:nth-child(4){
+    transform: translate(0, -100%);
+    opacity: 0;
+    transition: 0.15s 0s;
+}
+
+.caseStartBlock.active .caseDescription span:nth-child(1) {
+    transform: translate(0, 0%);
+    opacity: 1;
+    transition: 0.15s 0.3s;
+}
+.caseStartBlock.active .caseDescription span:nth-child(2){
+    transform: translate(0, 0%);
+    opacity: 1;
+    transition: 0.15s 0.35s;
+}
+.caseStartBlock.active .caseDescription span:nth-child(3){
+    transform: translate(0, 0%);
+    opacity: 1;
+    transition: 0.15s 0.4s;
+}
+.caseStartBlock.active .caseDescription span:nth-child(4){
+    transform: translate(0, 0%);
+    opacity: 1;
+    transition: 0.15s 0.45s;
+}
+
+
+
+.caseLineBlock .caseLine:first-child {
+    height: calc(0% - var(--caseLineNumberHeight));
+    transition: 0.2s 0.25s;
+}
+.caseLineBlock .caseLine:last-child {
+    height: calc(0% - var(--caseLineNumberHeight));
+    transition: 0.2s 0s;
+}
+.caseStartBlock.active .caseLineBlock .caseLine:first-child {
+    height: calc(50% - var(--caseLineNumberHeight));
+    transition: 0.2s 0s;
+}
+.caseStartBlock.active .caseLineBlock .caseLine:last-child {
+    height: calc(50% - var(--caseLineNumberHeight));
+    transition: 0.2s 0.25s;
+}
+
+
+.caseLineNumber {
+    opacity: 0;
+    transition: 0.25s 0.25s;
+}
+.caseStartBlock.active .caseLineNumber {
+    opacity: 1;
+    transition:  0.25s 0.25s;
+}

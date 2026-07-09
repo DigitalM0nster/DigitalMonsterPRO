@@ -1,0 +1,141 @@
+.domDistortDemo {
+  width: 100%;
+  height: 100%;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  padding: 24px 32px;
+  overflow-y: auto;
+  pointer-events: auto;
+  z-index: 20;
+}
+.domDistortDemo .demoHeader {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 28px;
+}
+.domDistortDemo .demoTitle {
+  font-size: clamp(22px, 3vw, 36px);
+  font-weight: 600;
+  color: #fff;
+}
+.domDistortDemo .demoHint {
+  max-width: 720px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.65);
+}
+.domDistortDemo .demoCode {
+  font-size: 13px;
+  color: #00d9d6;
+}
+.domDistortDemo .demoBackLink {
+  margin-top: 8px;
+  font-size: 14px;
+  color: #00d9d6;
+  cursor: pointer;
+  text-decoration: none;
+}
+.domDistortDemo .demoBackLink:hover {
+  text-decoration: underline;
+}
+.domDistortDemo .demoError {
+  margin-top: 12px;
+  padding: 12px 16px;
+  max-width: 720px;
+  font-size: 14px;
+  line-height: 1.45;
+  color: #ffb4b4;
+  background: rgba(255, 80, 80, 0.12);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 120, 120, 0.35);
+}
+.domDistortDemo .demoScene {
+  width: 100%;
+  flex-direction: column;
+}
+.domDistortDemo .distortViewport {
+  position: relative;
+  width: 100%;
+  min-height: 280px;
+  height: min(44vh, 380px);
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.domDistortDemo .distortViewport::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: inherit;
+  pointer-events: none;
+}
+.domDistortDemo .distortViewport .distortSource {
+  opacity: 0.2;
+}
+.domDistortDemo .distortViewport.distortReady .distortSource {
+  opacity: 0;
+}
+.domDistortDemo .distortSource {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  pointer-events: none;
+  z-index: 1;
+}
+.domDistortDemo .distortSampleTitle {
+  font-size: clamp(32px, 6vw, 56px);
+  font-weight: 700;
+  color: #fff;
+  text-align: center;
+}
+.domDistortDemo .distortSampleText {
+  margin-top: 8px;
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.75);
+  text-align: center;
+}
+.domDistortDemo .distortCanvas {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  z-index: 2;
+  pointer-events: auto;
+}
+.domDistortDemo .distortStatus {
+  position: absolute;
+  left: 12px;
+  bottom: 10px;
+  z-index: 3;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.45);
+  pointer-events: none;
+}
+
+.contentContainer.demoLab {
+  z-index: 2;
+  background: #1a1a1e;
+}
+.contentContainer.demoLab.routeEntering .page, .contentContainer.demoLab.routeExiting .page {
+  opacity: 1;
+  filter: none;
+  transform: none;
+}
+.contentContainer.demoLab .canvasParent {
+  display: none;
+}/*# sourceMappingURL=domDistortDemo.css.map */

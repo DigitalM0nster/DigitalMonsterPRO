@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 315 354" fill="none" aria-labelledby="title">
+  <title id="title">DNA circuit icon</title>
+
+  <!-- circuit lines behind the helix -->
+  <g stroke="currentColor" stroke-width="16" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M71 135h43"/>
+    <path d="M201 135h34l13-13"/>
+    <path d="M66 178h62"/>
+    <path d="M187 178h63"/>
+    <path d="M72 221h42"/>
+    <path d="M202 221h33l13 13"/>
+  </g>
+
+  <!-- circuit terminals -->
+  <g stroke="currentColor" stroke-width="14" fill="none">
+    <circle cx="51" cy="178" r="16"/>
+    <circle cx="264" cy="178" r="16"/>
+  </g>
+
+  <!-- horizontal inner bars -->
+  <g stroke="currentColor" stroke-width="14" stroke-linecap="round">
+    <path d="M107 64h100"/>
+    <path d="M114 92h86"/>
+    <path d="M120 121h75"/>
+    <path d="M127 233h60"/>
+    <path d="M114 262h86"/>
+    <path d="M107 290h100"/>
+  </g>
+
+  <!-- helix strands — одна линия по центру, без замкнутого контура -->
+  <g stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <path stroke-width="23"
+          d="M93 59
+             C93 109 107 137 130 166
+             C165 191 189 216 198 230
+             C220 267 223 286 223 300"/>
+    <path stroke-width="23"
+          transform="matrix(-1, 0, 0, 1, 315, 0)"
+          d="M93 59
+             C93 109 107 137 130 166
+             C165 191 189 216 198 230
+             C220 267 223 286 223 300"/>
+  </g>
+</svg>

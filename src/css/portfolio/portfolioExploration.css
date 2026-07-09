@@ -1,0 +1,28 @@
+.page.portfolio.case.exploration .topContainer,
+.page.portfolio.case.exploration .topContainerOverlay,
+.page.portfolio.case.exploration .vLines,
+.page.portfolio.case.exploration .bottomPanel {
+  display: none;
+}
+.page.portfolio.case.exploration .pageContent {
+  overflow: hidden;
+}
+
+.portfolioExploration {
+  --portfolioAccent: #008890;
+  --portfolioAccentSoft: color-mix(in srgb, var(--portfolioAccent) 35%, transparent);
+  --portfolioEnterMs: 500ms;
+  --portfolioExitMs: 500ms;
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity var(--portfolioEnterMs) ease, transform var(--portfolioEnterMs) ease;
+}
+.portfolioExploration.entering, .portfolioExploration.active {
+  opacity: 1;
+  transform: translateY(0);
+}
+.portfolioExploration.exiting {
+  opacity: 0;
+  transform: translateY(-8px);
+  transition-duration: var(--portfolioExitMs);
+}/*# sourceMappingURL=portfolioExploration.css.map */

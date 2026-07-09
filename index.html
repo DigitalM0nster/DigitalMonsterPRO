@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="/images/DM_logo.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DigitalMonster</title>
+    <style>
+      @font-face{font-family:Aquire;src:url('/fonts/aquire/AquireLight.otf') format('opentype');font-weight:300;font-display:swap}
+      @font-face{font-family:ManifoldExtended;src:url('/fonts/ManifoldExtended/ManifoldExtendedCF-Light.woff') format('woff');font-weight:300;font-display:swap}
+      @font-face{font-family:MazzardM;src:url('/fonts/MazzardM/MazzardM-Light.woff') format('woff');font-weight:300;font-display:swap}
+      html,body,#root{width:100%;height:100%;margin:0;background:#000204}
+      .digitalMonsterLoader{position:fixed;inset:0;z-index:4;display:grid;place-items:center;overflow:hidden;color:#f6fbff;background:#000204}
+      .digitalMonsterLoaderOrb{position:relative;width:min(80vh,48vw);min-width:620px;aspect-ratio:1;border-radius:50%;transform:scale(.75);transform-origin:center;overflow:visible}
+      .loaderOuterOrbit,.loaderMiddleOrbit{position:absolute;left:50%;top:50%;border-radius:50%;transform:translate(-50%,-50%) rotate(0);pointer-events:none;will-change:transform}
+      .loaderOuterOrbit{--loader-orbit-arcs:conic-gradient(from 0deg,transparent 0 12%,rgba(0,83,190,.08) 15%,rgba(0,128,255,.42) 22%,rgba(0,174,255,.92) 27%,#36cfff 30%,rgba(0,174,255,.92) 33%,rgba(0,128,255,.42) 38%,rgba(0,83,190,.08) 45%,transparent 48% 67%,rgba(0,83,190,.08) 68%,rgba(0,128,255,.42) 74%,rgba(0,174,255,.92) 79%,#36cfff 82%,rgba(0,174,255,.92) 85%,rgba(0,128,255,.42) 90%,rgba(0,83,190,.08) 97%,transparent 100%);--loader-orbit-bloom:conic-gradient(from 0deg,transparent 0 20%,rgba(0,75,255,.18) 25%,#007eff 30%,#9af6ff 31.5%,#007eff 33%,rgba(0,75,255,.18) 37%,transparent 40% 70%,rgba(0,75,255,.18) 77%,#007eff 81%,#9af6ff 84%,#007eff 85%,rgba(0,75,255,.18) 90%,transparent 92% 100%);width:110%;height:110%;animation:loaderOuterOrbitRotate 24s linear infinite;animation-delay:var(--loader-animation-offset,0s)}
+      .loaderMiddleOrbit{--loader-orbit-arcs:conic-gradient(from 0deg,transparent 0 12%,rgba(0,83,190,.08) 15%,rgba(0,128,255,.42) 22%,rgba(0,174,255,.92) 27%,#36cfff 30%,rgba(0,174,255,.92) 33%,rgba(0,128,255,.42) 38%,rgba(0,83,190,.08) 45%,transparent 48% 100%);--loader-orbit-bloom:conic-gradient(from 0deg,transparent 0 22%,rgba(0,75,255,.18) 25%,#007eff 31%,#9af6ff 33%,#007eff 34%,rgba(0,75,255,.18) 37.6%,transparent 43% 100%);width:94%;height:94%;animation:loaderMiddleOrbitRotate 30s linear infinite;animation-delay:var(--loader-animation-offset,0s)}
+      .loaderOuterOrbitCore,.loaderOuterOrbitGlow{position:absolute;inset:0;border-radius:inherit;pointer-events:none}
+      .loaderOuterOrbitCore{background:var(--loader-orbit-arcs);-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 2px),#000 calc(100% - 1px));mask:radial-gradient(farthest-side,transparent calc(100% - 2px),#000 calc(100% - 1px))}
+      .loaderOuterOrbitGlowNear{opacity:1;filter:brightness(1.8) drop-shadow(0 0 2px rgba(174,248,255,1)) drop-shadow(0 0 4px rgba(0,207,255,1)) drop-shadow(0 0 8px rgba(0,113,255,1)) drop-shadow(0 0 14px rgba(0,55,255,.85))}
+      .loaderOuterOrbitGlowSource{position:absolute;inset:0;border-radius:inherit;background:var(--loader-orbit-bloom);-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 4px),#000 calc(100% - 2px),transparent 100%);mask:radial-gradient(farthest-side,transparent calc(100% - 4px),#000 calc(100% - 2px),transparent 100%)}
+      @keyframes loaderOuterOrbitRotate{to{transform:translate(-50%,-50%) rotate(360deg)}}
+      @keyframes loaderMiddleOrbitRotate{to{transform:translate(-50%,-50%) rotate(360deg)}}
+      .digitalMonsterLoaderRings{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none}
+      .digitalMonsterLoaderRings circle{vector-effect:non-scaling-stroke;fill:none}
+      .loaderRingInner{stroke:rgba(0,184,255,.25);stroke-width:1}
+      .loaderRingDotted{stroke:rgba(0,174,255,.7);stroke-width:2;stroke-linecap:round;stroke-dasharray:1 8}
+      .digitalMonsterLoaderContent{position:absolute;inset:0;font-family:MazzardM,sans-serif;text-align:center}
+      .digitalMonsterLoaderBrand{position:absolute;top:19.5%;left:50%;display:flex;flex-direction:column;color:#f5f9ff;font-family:Aquire,ManifoldExtended,sans-serif;font-size:clamp(48px,3.35vw,68px);font-weight:300;line-height:1.06;letter-spacing:10px;white-space:nowrap;transform:translateX(-50%)}
+      .digitalMonsterLoaderLanguageLabel{position:absolute;top:41.2%;left:50%;color:rgba(218,224,230,.64);font:300 17px/1 MazzardM,sans-serif;white-space:nowrap;transform:translateX(-50%)}
+      .digitalMonsterLoaderLanguages{position:absolute;top:47%;left:50%;display:grid;grid-template-columns:repeat(3,1fr);gap:16px;width:74%;transform:translateX(-50%)}
+      .digitalMonsterLoaderLanguages button{position:relative;height:54px;overflow:hidden;border:1px solid rgba(121,144,153,.28);border-radius:2px;color:rgba(174,188,194,.34);background:rgba(2,7,10,.7);box-shadow:inset 0 0 12px rgba(0,0,0,.72);font:300 17px/1 MazzardM,sans-serif;white-space:nowrap;cursor:not-allowed}
+      .digitalMonsterLoaderLanguages button:disabled:hover{color:transparent}.digitalMonsterLoaderLanguages button:disabled:hover::after{content:attr(data-loading-label);position:absolute;inset:0;display:grid;place-items:center;color:rgba(99,218,240,.72);font-size:10px;line-height:1;white-space:nowrap}
+      .digitalMonsterLoaderProgress{position:absolute;top:60.8%;left:50%;display:flex;flex-direction:column;align-items:center;width:100%;transform:translateX(-50%)}
+      .digitalMonsterLoaderProgress strong{color:#f4f8ff;font:300 clamp(35px,3.25vw,46px)/1 ManifoldExtended,sans-serif}
+      .digitalMonsterLoaderProgress>span{margin-top:12px;color:rgba(211,219,230,.7);font:300 16px/1 MazzardM,sans-serif;letter-spacing:1px}
+      .digitalMonsterLoaderTrack{position:relative;width:54%;height:1px;margin-top:29px;background:rgba(231,235,238,.55)}
+      .digitalMonsterLoaderTrack i{position:absolute;inset:0 auto 0 0;width:var(--loader-progress,0%);background:#11cfff}
+      .digitalMonsterLoaderTrack i::after{content:"";position:absolute;top:50%;right:-2px;width:5px;height:5px;border-radius:50%;background:#79f4ff;transform:translateY(-50%)}
+      @media(max-width:900px),(max-height:720px){.digitalMonsterLoaderOrb{width:min(92vw,88vh);min-width:0}.digitalMonsterLoaderBrand{font-size:clamp(34px,8vw,52px)}.digitalMonsterLoaderLanguageLabel{font-size:clamp(11px,2.4vw,15px)}.digitalMonsterLoaderLanguages{gap:8px}.digitalMonsterLoaderLanguages button{height:46px;font-size:13px}.digitalMonsterLoaderProgress strong{font-size:clamp(32px,8vw,48px)}}
+    </style>
+  </head>
+  <body>
+    <div id="root">
+      <div class="digitalMonsterLoader" aria-label="Loading" style="--loader-progress:0%;--loader-animation-offset:0s">
+        <div class="digitalMonsterLoaderOrb">
+          <div class="loaderOuterOrbit" aria-hidden="true">
+            <div class="loaderOuterOrbitGlow loaderOuterOrbitGlowNear"><div class="loaderOuterOrbitGlowSource"></div></div>
+            <div class="loaderOuterOrbitCore"></div>
+          </div>
+          <div class="loaderMiddleOrbit" aria-hidden="true">
+            <div class="loaderOuterOrbitGlow loaderOuterOrbitGlowNear"><div class="loaderOuterOrbitGlowSource"></div></div>
+            <div class="loaderOuterOrbitCore"></div>
+          </div>
+          <svg class="digitalMonsterLoaderRings" viewBox="0 0 1000 1000" aria-hidden="true">
+            <circle class="loaderRingInner" cx="500" cy="500" r="470"></circle>
+            <circle class="loaderRingDotted" cx="500" cy="500" r="438"></circle>
+          </svg>
+          <div class="digitalMonsterLoaderContent">
+            <div class="digitalMonsterLoaderBrand"><span>DIGITAL</span><span>MONSTER</span></div>
+            <div class="digitalMonsterLoaderLanguageLabel">ВЫБЕРИТЕ ЯЗЫК / SELECT LANGUAGE / 选择语言</div>
+            <div class="digitalMonsterLoaderLanguages"><button type="button" data-loading-label="Дождитесь загрузки" disabled>РУССКИЙ</button><button type="button" data-loading-label="Please wait" disabled>ENGLISH</button><button type="button" data-loading-label="请等待加载" disabled>中文</button></div>
+            <div class="digitalMonsterLoaderProgress">
+              <strong id="bootstrapLoaderPercent">0%</strong>
+              <span>ЗАГРУЗКА / LOADING</span>
+              <div class="digitalMonsterLoaderTrack"><i id="bootstrapLoaderTrack"></i></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script>
+      window.__loaderBootstrapStartedAt=Date.now();
+      window.__loaderBootstrapProgress=0;
+      window.__loaderBootstrapResourceBonus=0;
+      if("PerformanceObserver" in window){
+        window.__loaderBootstrapObserver=new PerformanceObserver(function(list){
+          list.getEntries().forEach(function(entry){
+            var bytes=entry.transferSize||entry.encodedBodySize||0;
+            window.__loaderBootstrapResourceBonus+=.08+Math.min(1.2,bytes/1048576*.2);
+          });
+        });
+        try{window.__loaderBootstrapObserver.observe({type:"resource",buffered:true})}catch(error){}
+      }
+      window.__loaderBootstrapTimer=setInterval(function(){
+        var elapsed=(Date.now()-window.__loaderBootstrapStartedAt)/1000;
+        var continuous=Math.min(98.5,Math.min(12,elapsed*1.5)+Math.max(0,elapsed-8)*.45);
+        var progress=Math.min(98.5,continuous+window.__loaderBootstrapResourceBonus);
+        window.__loaderBootstrapProgress=progress;
+        var percent=document.getElementById("bootstrapLoaderPercent");
+        var loader=document.querySelector(".digitalMonsterLoader");
+        if(percent)percent.textContent=Math.floor(progress)+"%";
+        if(loader)loader.style.setProperty("--loader-progress",progress+"%");
+      },80);
+    </script>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

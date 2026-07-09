@@ -1,0 +1,250 @@
+$cyan: #00cfff;
+
+.navigation {
+	position: absolute;
+	inset: auto 0 clamp(38px, 5.2vh, 64px);
+	z-index: 18;
+	pointer-events: none;
+	font-family: "ManifoldExtended", "Segoe UI", sans-serif;
+	font-weight: 400;
+	letter-spacing: 0.045em;
+}
+
+.allProjects,
+.projectButton {
+	appearance: none;
+	padding: 0;
+	border: 0;
+	color: inherit;
+	background: transparent;
+	font: inherit;
+	cursor: pointer;
+	pointer-events: auto;
+}
+
+.allProjects {
+	position: absolute;
+	left: calc(var(--leftMenuWidth, 120px) + 5.5vw);
+	bottom: -8px;
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	align-items: flex-start;
+	height: clamp(48px, 3.65vw, 70px);
+	min-width: clamp(220px, 18vw, 350px);
+	text-align: left;
+}
+
+.allTitle {
+	font-size: clamp(10px, 0.72vw, 14px);
+	line-height: 1.2;
+	letter-spacing: 0.12em;
+	color: rgba(255, 255, 255, 0.84);
+	transition: color 180ms ease, text-shadow 180ms ease;
+}
+
+.allBottomRow {
+	display: flex;
+	align-items: center;
+	width: 100%;
+	margin-top: 7px;
+}
+
+.allSubtitle {
+	flex: 0 0 auto;
+	font-family: "Jura", "Segoe UI", sans-serif;
+	font-size: clamp(9px, 0.62vw, 12px);
+	letter-spacing: 0.065em;
+	color: rgba(255, 255, 255, 0.34);
+	transition: color 180ms ease;
+}
+
+.returnMarker {
+	display: flex;
+	align-items: center;
+	width: clamp(58px, 4.4vw, 85px);
+	margin-left: 16px;
+}
+
+.returnDot {
+	width: 3px;
+	height: 3px;
+	border-radius: 50%;
+	background: $cyan;
+	box-shadow: 0 0 8px rgba($cyan, 0.8);
+}
+
+.returnLine {
+	flex: 1;
+	height: 1px;
+	background: linear-gradient(90deg, rgba($cyan, 0.95), rgba($cyan, 0.12));
+}
+
+.allProjects:hover {
+	.allTitle {
+		color: $cyan;
+		text-shadow: 0 0 10px rgba($cyan, 0.45);
+	}
+
+	.allSubtitle {
+		color: rgba(255, 255, 255, 0.64);
+	}
+}
+
+.projectSwitches {
+	position: absolute;
+	right: clamp(38px, 4.1vw, 80px);
+	bottom: -8px;
+	display: flex;
+	align-items: center;
+	gap: clamp(17px, 1.45vw, 28px);
+}
+
+.projectButton {
+	display: flex;
+	align-items: center;
+	gap: clamp(12px, 1vw, 19px);
+	color: rgba(255, 255, 255, 0.74);
+}
+
+.projectText {
+	display: flex;
+	flex-direction: column;
+	gap: 7px;
+	min-width: clamp(150px, 11vw, 210px);
+}
+
+.previousButton .projectText {
+	align-items: flex-end;
+	text-align: right;
+}
+
+.nextButton .projectText {
+	align-items: flex-start;
+	text-align: left;
+}
+
+.projectDirection {
+	font-family: "Jura", "Segoe UI", sans-serif;
+	font-size: clamp(9px, 0.65vw, 12px);
+	font-weight: 400;
+	line-height: 1;
+	letter-spacing: 0.14em;
+	white-space: nowrap;
+	transition: color 180ms ease;
+}
+
+.projectName {
+	font-size: clamp(10px, 0.72vw, 14px);
+	line-height: 1;
+	letter-spacing: 0.14em;
+	white-space: nowrap;
+	color: rgba(255, 255, 255, 0.9);
+	transition: color 180ms ease, text-shadow 180ms ease;
+}
+
+.node {
+	position: relative;
+	display: block;
+	flex: 0 0 auto;
+	width: clamp(48px, 3.65vw, 70px);
+	aspect-ratio: 1;
+}
+
+.nodeOuter,
+.nodeInner,
+.nodeCore,
+.nodeTick {
+	position: absolute;
+	pointer-events: none;
+}
+
+.nodeOuter {
+	inset: 0;
+	border: 1px solid rgba($cyan, 0.22);
+	border-radius: 50%;
+	transition: border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.nodeInner {
+	inset: 8px;
+	border: 1px solid rgba($cyan, 0.1);
+	border-radius: 50%;
+}
+
+.nodeCore {
+	left: 50%;
+	top: 50%;
+	width: 7px;
+	height: 7px;
+	border: 1px solid rgba($cyan, 0.8);
+	border-radius: 50%;
+	background: rgba($cyan, 0.95);
+	box-shadow: 0 0 5px #fff, 0 0 13px $cyan, 0 0 24px rgba($cyan, 0.55);
+	transform: translate(-50%, -50%);
+}
+
+.nodeTick {
+	top: 50%;
+	width: clamp(13px, 1vw, 19px);
+	height: 1px;
+	background: linear-gradient(90deg, rgba($cyan, 0.15), $cyan);
+}
+
+.nodeTick::after {
+	position: absolute;
+	top: -1px;
+	width: 3px;
+	height: 3px;
+	border-radius: 50%;
+	background: $cyan;
+	box-shadow: 0 0 7px rgba($cyan, 0.8);
+	content: "";
+}
+
+.previous .nodeTick {
+	right: calc(100% + 2px);
+}
+
+.previous .nodeTick::after {
+	right: 0;
+}
+
+.next .nodeTick {
+	left: calc(100% + 2px);
+	background: linear-gradient(90deg, $cyan, rgba($cyan, 0.15));
+}
+
+.next .nodeTick::after {
+	left: 0;
+}
+
+.projectButton:hover {
+	.projectDirection,
+	.projectName {
+		color: $cyan;
+		text-shadow: 0 0 10px rgba($cyan, 0.42);
+	}
+
+	.nodeOuter {
+		border-color: rgba($cyan, 0.75);
+		box-shadow: inset 0 0 13px rgba($cyan, 0.08), 0 0 16px rgba($cyan, 0.16);
+	}
+}
+
+.projectButton:focus-visible,
+.allProjects:focus-visible {
+	outline: 1px solid rgba($cyan, 0.8);
+	outline-offset: 7px;
+}
+
+@media (max-width: 1180px), (max-height: 680px) {
+	.projectSwitches {
+		right: 28px;
+		gap: 12px;
+	}
+
+	.projectText {
+		min-width: 125px;
+	}
+}

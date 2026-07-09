@@ -1,0 +1,92 @@
+import { getSiteCopy } from "@/i18n/siteCopy.js";
+import { normalizeSiteLocale } from "@/utils/siteLocale.js";
+import { store } from "@/store.jsx";
+
+/** Названия проектов в списке /portfolio (HUD + плиты) — всегда CAPS. */
+export const PORTFOLIO_PROJECT_NAMES = {
+	"01": {
+		ru: "НИПИГАЗ",
+		en: "NIPIGAS",
+		zh: "NIPIGAS",
+	},
+	"02": {
+		ru: "TROOF",
+		en: "TROOF",
+		zh: "TROOF",
+	},
+	"03": {
+		ru: "MMK-1",
+		en: "MMK-1",
+		zh: "MMK-1",
+	},
+	"04": {
+		ru: "СТУДИЯ БЕЛКИ",
+		en: "BELKA PRODUCTION",
+		zh: "BELKA PRODUCTION",
+	},
+	"05": {
+		ru: "RE-EVOLUTION",
+		en: "RE-EVOLUTION",
+		zh: "RE-EVOLUTION",
+	},
+	"06": {
+		ru: "ОСТАНКИНО",
+		en: "OSTANKINO",
+		zh: "OSTANKINO",
+	},
+	"07": {
+		ru: "HUBARCH",
+		en: "HUBARCH",
+		zh: "HUBARCH",
+	},
+};
+
+/** Белая подпись на плите хаба (secondary, над названием проекта). */
+export const PORTFOLIO_PROJECT_PLATE_SECONDARY = {
+	"01": {
+		ru: "интерактивный юбилейный сайт",
+		en: "interactive anniversary website",
+		zh: "互动周年纪念网站",
+	},
+};
+
+/** Кнопка «Смотреть кейс» на плитах портфолио и в мобильных кейсах. */
+export const PORTFOLIO_VIEW_CASE_BUTTON_COPY = {
+	ru: "Смотреть кейс",
+	en: "View case",
+	zh: "查看案例",
+};
+
+export function getPortfolioLocale() {
+	return normalizeSiteLocale(store.siteLocale);
+}
+
+/** @param {string} projectId @param {unknown} [locale] */
+export function getPortfolioProjectName(projectId, locale = getPortfolioLocale()) {
+	const copy = PORTFOLIO_PROJECT_NAMES[projectId];
+	if (!copy) {
+		return "";
+	}
+
+	return getSiteCopy(copy, locale);
+}
+
+/** @param {string} projectId @param {unknown} [locale] */
+export function getPortfolioProjectPlateSecondary(projectId, locale = getPortfolioLocale()) {
+	const copy = PORTFOLIO_PROJECT_PLATE_SECONDARY[projectId];
+	if (!copy) {
+		return "";
+	}
+
+	return getSiteCopy(copy, locale);
+}
+
+/** Список проектов на canvas всегда в CAPS (как hero title). */
+export function getPortfolioProjectListUppercase() {
+	return true;
+}
+
+/** @param {unknown} [locale] */
+export function getPortfolioViewCaseButtonLabel(locale = getPortfolioLocale()) {
+	return getSiteCopy(PORTFOLIO_VIEW_CASE_BUTTON_COPY, locale);
+}

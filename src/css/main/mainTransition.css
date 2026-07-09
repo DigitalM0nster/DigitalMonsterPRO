@@ -1,0 +1,32 @@
+@charset "UTF-8";
+/* Главная: справа (hidden) → по центру (active) → влево (leaving) */
+.page.hidden .transitionAnimatedElement {
+  opacity: 0;
+  transform: translateX(5vw);
+  transition: 0s;
+}
+.page.hidden .transitionAnimatedElement.mainPageLogoBlock {
+  transform: none;
+}
+.page.active .transitionAnimatedElement {
+  opacity: 1;
+  transform: translate(0, 0);
+  transition-property: opacity, transform;
+  transition-duration: var(--routeEnterElementDuration);
+  transition-timing-function: ease;
+  transition-delay: calc(var(--routeEnterStaggerStep) * var(--stagger-i));
+}
+.page.active .transitionAnimatedElement.mainPageLogoBlock {
+  transform: none;
+}
+.page.leaving .transitionAnimatedElement {
+  opacity: 0;
+  transform: translateX(-5vw);
+  transition-property: opacity, transform;
+  transition-duration: var(--routeExitElementDuration);
+  transition-timing-function: ease;
+  transition-delay: calc(var(--routeExitStaggerStep) * var(--stagger-i));
+}
+.page.leaving .transitionAnimatedElement.mainPageLogoBlock {
+  transform: none;
+}/*# sourceMappingURL=mainTransition.css.map */

@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" aria-labelledby="title">
+  <title id="title">Главная</title>
+  <g stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="32" cy="32" r="6" stroke-width="1.5"/>
+    <path d="M19 24.5A17 17 0 0 1 32 17" stroke-width="1.5"/>
+    <path d="M39.5 18.8A17 17 0 0 1 47 32" stroke-width="1.5"/>
+    <path d="M45.2 39.8A17 17 0 0 1 32 47" stroke-width="1.5"/>
+    <path d="M23.8 45.2A17 17 0 0 1 17 32" stroke-width="0.9"/>
+    <path d="M32 12.5v4M48 32h4" stroke-width="0.9"/>
+    <path d="M22 32h3M32 22v3" stroke-width="0.9"/>
+  </g>
+  <circle cx="32" cy="32" r="1.7" fill="currentColor"/>
+</svg>

@@ -1,0 +1,1648 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+@media (max-width: 1900px) {
+    .caseBlock.caseBlock7 {
+        flex-direction: row;
+        justify-content: flex-start;
+        margin: 170px 0px 80px 0px;
+    }
+
+    .caseBlock.caseBlock7 .bigText {
+        top: -20%;
+        left: 37.3vw;
+    }
+
+    .case3 .caseBlock.caseBlock7 .squareFrame:before {
+        left: 0px;
+    }
+
+    .case3 .caseBlock.caseBlock7 {
+        justify-content: center;
+    }
+
+    .caseBlock.caseBlock7 .squareBlock {
+        left: 40vw;
+        bottom: 10%;
+        width: 33vw;
+    }
+
+    .case3 .caseBlock.caseBlock7 .bigText {
+        text-align: center;
+        left: unset;
+        top: -10%;
+    }
+
+    .case3 .caseBlock.caseBlock7 .squareBlock {
+        position: relative;
+        left: unset;
+        bottom: 45%;
+        width: 33vw;
+    }
+
+    .case3 .caseBlock7 .squareBlock .squareText {
+        padding: 20px 60px 0px 0px;
+    }
+    .case3 .caseBlock7 .squareBlock .squareTitle {
+        padding: 0px 0px 7px 0px;
+        letter-spacing: 3px;
+    }
+
+    .csae4 .caseBlock.caseBlock7 .bigText {
+        top: -27%;
+        left: -3vw;
+    }
+}
+
+
+@media (max-width: 1680px) {
+
+    .caseBlock.caseBlock7 .bigText {
+        left: -2vw;
+        top: 0;
+        transform: translate(0px, -90%);
+    }
+
+    .squareBlock {
+        margin: 0px 5vw 0px 0px;
+    }
+
+    .squareText {
+        padding: 20px 30px 0px 30px;
+    }
+
+    .caseColumnBlock.fonts {
+        margin: 200px 5vw 30px 5vw;
+    }
+
+    .caseStartBlock {
+        width: 40vw;
+    }
+    .contactsSocials {
+        position: relative;
+        left: unset;
+        top: unset;
+        transform: translate(0);
+        margin: 30px 0px 10px 0px;
+    }
+
+    .digitalMonsterText{
+        margin: 20px 0px 20px 0px;
+    }
+
+    .caseType {
+        max-width: 27vw;
+    }
+
+    .caseBlock.caseBlock4 {
+        margin: 100px 5vw 85px 5vw;
+    }
+}
+
+@media (max-width: 1440px) {
+    .startButton {
+        width: 150px;
+        height: 40px;
+        font-size: 15px;
+    }
+    .mainPageDescription {
+        font-size: 20px;
+    }
+    .oLetter {
+        margin: 4px 1px 0px 2px;
+        width: 26px;
+        height: 11px;
+    }
+    #hud {
+        max-height: 350px;
+        max-width: 350px;
+    }
+    :root {
+        --logoSize: 100px;
+    }
+    .loadingProgress {
+        font-size: 10px;
+    }
+    .caseStartBlock {
+        width: 50vw;
+    }
+
+    .caseBlock.caseBlock7 .squareBlock .squareText {
+        padding: 20px 30px 0px 30px;
+    }
+
+    .caseBlock.caseBlock7 .squareFrame:before {
+        left: 0px;
+    }
+
+    .caseBlock.caseBlock7 .squareFrame:before {
+        left: 30px;
+    }
+
+    .caseBlock.caseBlock7 .bigText {
+        transform: translate(0px, -165%);
+    }
+    .case4 .caseBlock.caseBlock7 .bigText {
+        transform: translate(0px, -95%);
+    }
+
+    .case3 .lineBlock {
+        max-width: 30vw;
+    }
+
+    .case2 .caseBlock.caseBlock7 .bigText {
+        top: 0%;
+        left: -2.5vw;
+    }
+
+    .case4 .caseBlock.caseBlock7 .squareBlock {
+        left: 40vw;
+    }
+}
+
+@media (max-width: 1280px) {
+    :root {
+        --leftMenuWidth: 7vw;
+    }
+
+    .audioPicture {
+        width: 7vw;
+        height: 7vw;
+    }
+
+    .audio-line {
+        width: 2vw;
+        height: 2vw;
+    }
+
+    .audio-line:before {
+        width: 6.5vw;
+        height: 6.5vw;
+    }
+
+    .audioContainer.active {
+        transform: translate(calc(-50% + 0vw), calc(-50% + 17.25vw));
+    }
+
+    .case4 .caseBlock.caseBlock7 .squareBlock {
+        left: unset;
+    }
+
+    .case4 .caseBlock.caseBlock7 .bigText {
+        top: -8%;
+    }
+
+    .case1 .caseBlock.caseBlock8 .rightBlock {
+        flex-direction: column;
+        width: calc(100%);
+        margin: 50px 0px 0px 0px;
+    }
+
+    .case2 .caseBlock.caseBlock4 .bigText {
+        font-size: 2.6vw;
+        left: -5vw;
+    }
+
+    .case3 .lineTitle {
+        font-size: 17px;
+    }
+
+    .case3 .caseBlock.caseBlock7 .squareBlock {
+        bottom: unset;
+        top: 0%;
+        width: 100%;
+        max-width: unset;
+    }
+
+    .case3 .caseBlock.caseBlock7 {
+        flex-direction: row;
+    }
+
+    .case3 .caseBlock.caseBlock7 .imageBlock {
+        width: 15vw;
+        height: 15vw;
+    }
+
+    .case3 .caseBlock.caseBlock7 .squareBlock .squareText {
+        padding: 20px 40px 0px 0px;
+    }
+
+    .case3 .caseBlock7 .squareBlock .squareTitle {
+        letter-spacing: 2px;
+        font-size: 17px;
+    }
+
+    .bigImage {
+        border-radius: 0px;
+    }
+    .caseDescription {
+        margin: 10px 0px 0px 0px;
+        overflow: auto;
+        max-width: 600px;
+    }
+
+    .digitalMonsterText {
+        transform: translate(7vw, 0vw);
+    }
+    .page.contacts .digitalMonsterText {
+
+    .logoBlock {
+        width: 65px;
+        height: 25px;
+    }
+
+    .caseRowBlock.caseBlock2 {
+        flex-direction: column;
+    }
+
+    .squareBlock {
+        width: 100%;
+        max-width: 600px;
+        margin: 0px 0px 70px 0px;
+    }
+
+    .caseBlock.caseBlock4 {
+        margin: 130px 5vw 85px 5vw
+    }
+
+    .caseBlock.caseBlock4 .imageBlock {
+        top: -25%;
+    }
+
+    .caseBlock.caseBlock7 {
+        flex-direction: column;
+        align-items: center;
+        margin: 200px 0px 80px 0px;
+    }
+
+    .caseBlock.caseBlock7 .squareBlock {
+        align-self: flex-start;
+        position: relative;
+        left: 5vw;
+        bottom: -1vw;
+        width: 100%;
+        max-width: 65vw;
+    }
+
+    .caseRowBlock.caseBlock7 .imageBlock {
+        place-self: center;
+        position: relative;
+        width: 65vw;
+        height: 33vw;
+    }
+    
+    .caseBlock.caseBlock7 .bigText {
+        left: 2.8vw;
+        top: -2%;
+        transform: translate(0px, -135%);
+        width: 70vw;
+        text-align: center;
+        font-size: 2.5vw;
+        line-height: 1.4;
+    }
+    .squareTitle {
+        font-size: 18px;
+    }
+    .squareText {
+        font-size: 16px;
+    }
+
+    .textBlock.bigText{
+        font-size: 1.5vw;
+    }
+
+    .caseColumnBlock.fonts {
+        margin: 220px 5vw 30px 5vw;
+    }
+
+    .squareLinesBlock {
+        min-width: 62px;
+        width: 62px;
+        height: 66px;
+    }
+
+    .caseBlock.caseBlock7 .squareBlock .squareText {
+        padding: 20px 40px 0px 30px;
+    }
+
+    .caseBlock.caseBlock8 {
+        margin: 50px 0px 0vh 0px;
+        flex-direction: column;
+    }
+
+    .caseRowBlock .leftBlock {
+        flex-direction: column;
+        width: calc(100%);
+        margin: 0 0 0px 0;
+    }
+    .caseRowBlock .rightBlock {
+        flex-direction: column;
+        width: calc(100%);
+        margin: 0;
+    }
+
+    .lineTitle {
+        font-size: 18px;
+    }
+
+    .caseBlock4 .bigImage {
+        width: 50vw;
+        height: 30vw;
+    }
+
+    .lineBlock {
+        width: calc(50% - 50px);
+        height: 100%;
+        max-width: unset;
+        margin: 0px 50px 50px 0px;
+    }
+
+    .caseType {
+        max-width: 380px;
+        text-shadow: 0 0 4px black;
+    }
+
+    .caseTitle {
+        text-shadow: 0 0 4px black;
+    }
+
+    .menuLiNameBlock {
+        font-size: 8px;
+    }
+}
+
+@media(max-width: 1080px) {
+    .aboutContentBlock, .about .topContainer {
+        width: 70%;
+    }
+    .topRightPanelTitle {
+        font-size: 16px;
+    }
+
+    .about .lavaLogoPanel {
+        width: 100px;
+        height: 50px;
+    }
+
+    .aboutTextBlock {
+        font-size: 16px;
+    }
+}
+
+@media(max-width: 980px) {
+
+    .case4 .bigText br {
+        display: none;
+    }
+
+    .case2 .caseBlock .rightBlock {
+        margin: 50px 0px 0px 0px;
+    }
+
+    .case2 .caseBlock.caseBlock7 .bigText {
+        left: unset;
+    }
+
+    .case2 .lineTitle {
+        font-size: 16px;
+    }
+
+    .case3 .caseBlock.caseBlock7 {
+        flex-direction: column;
+    }
+
+    .caseStartBlock {
+        width: 100%;
+    }
+
+    .caseRowBlock.center {
+        align-items: center;
+        justify-content: center;
+    }
+
+    .caseDescription {
+        max-width: 70vw;
+    }
+
+    .socialIcon {
+        width: 50px;
+        height: 50px;
+        margin: 0vw 7px;
+    }
+
+    .aboutTitle {
+        font-size: 30px;
+    }
+
+    .aboutTextBlock {
+        font-size: 16px;
+    }
+
+    .caseOverlay.active .caseStartBlock {
+        overflow: auto;
+    }
+
+    .caseDescription {
+        height: fit-content;
+        overflow: initial;
+    }
+
+    .caseSkillsBlock {
+        position: relative;
+        left: unset;
+        bottom: unset;
+        margin: 50px 0px 80px 0px;
+        overflow: initial;
+        height: fit-content;
+    }
+
+    .mainPageDescription {
+        font-size: 2.2vw;
+    }
+    .oLetter {
+        width: 2.4vw;
+        height: 1.2vw;
+        margin: 0.5vw 1px 0px 2px;
+    }
+
+    .caseMoreBlock {
+        margin: 100px 0px 0px 0px;
+    }
+
+    .bigImage {
+        width: 70vw;
+        height: 35vw;
+    }
+
+    .textBlock.bigText {
+        font-size: 17px;
+    }
+
+    .caseBlock .bigText {
+        position: absolute;
+        justify-content: center;
+        text-align: center;
+        width: 100%;
+        left: unset;
+        top: unset;
+    }
+
+    .caseBlock.caseBlock1 .bigText {
+        left: unset;
+        top: -28%;
+    }
+    .caseBlock.caseBlock4 .bigText {
+        text-align: left;
+        justify-content: left;
+        left: -6.5vw;
+        top: -7%;
+        font-size: 16px;
+    }
+
+    .caseBlock4 .bigImage {
+        width: 70vw;
+        height: 42vw;
+    }
+
+    .squareBlock {
+        max-width: 63vw;
+    }
+
+    .squareLinesBlock {
+        font-size: 3vw;
+        min-width: 6vw;
+        width: 6vw;
+        height: 6.6vw;
+    }
+
+    .caseRowBlock.synergy {
+        width: 70vw;
+        height: 13vw;
+    }
+
+    .synergyLogo {
+        height: 5vw;
+        width: 7vw;
+        margin: 0px 2.3vw;
+    }
+    .synergyLogo.circleLogo {
+        width: 3.7vw;
+    }
+    .caseBlock.caseBlock7 .squareBlock {
+        align-self: center;
+        position: relative;
+        left: 0vw;
+        bottom: -1.25vw;
+        width: 100%;
+        max-width: 70vw;
+    }
+
+    .caseBlock.caseBlock7 .bigText {
+        left: unset;
+        transform: translate(0px, -135%);
+        width: 600px;
+        text-align: center;
+    }
+
+    .caseRowBlock.caseBlock7 .bigImage {
+        position: relative;
+        left: 0;
+        top: 0;
+        width: 70vw;
+    }
+
+    .caseBlock.caseBlock7 {
+        margin: 220px 0px 80px 0px;
+    }
+
+    .caseRowBlock.spaceBetween {
+        flex-direction: column;
+        margin: 60px 0px 0px 0px;
+    }
+
+    .caseRowBlock .leftBlock {
+        width: 100%;
+        max-width: 100%;
+        margin: 0;
+    }
+    .caseRowBlock .rightBlock {
+        width: 100%;
+        max-width: 100%;
+        margin: 0;
+    }
+
+    .lineBlock {
+        width: 330px;
+        height: 100%;
+        max-width: unset;
+        margin: 0px 50px 50px 0px;
+    }
+
+    .menuLiNameBlock {
+        display: none;
+        font-size: 9px;
+    }
+
+    .case5 .caseBlock1 .imageBlock {
+        width: 70vw;
+        height: 37vw;
+    }
+
+}
+
+@media (max-width: 768px) {
+
+    .audioContainer.active {
+        top: 0;
+        transform: translate(calc(-50% + 0vw), calc(-50% + 5.25vw));
+    }
+
+    .audioPicture {
+        width: 8vw;
+        height: 8vw;
+    }
+
+    .audio-line {
+        width: 3.5vw;
+        height: 3.5vw;
+    }
+
+    .audio-line:before {
+        width: 10vw;
+        height: 10vw;
+    }
+
+    .case4 .caseBlock.caseBlock8 {
+        margin: 60px 0px 70vh 0px;
+    }
+
+    .case4 .squareLinesBlock {
+        background-color: unset;
+    }
+    .case3 .lineBlock {
+        max-width: unset;
+    }
+    .mainPageTitle {
+        font-size: 9vw;
+        font-weight: 700;
+    }
+    .mainPageDescription {
+        font-size: 17px;
+    }
+
+    .mainPageLogoBlock {
+        right: unset;
+        top: 0;
+        left: 50%;
+        transform: translate(-50%, -1px);
+        width: 300px;
+        height: 50px;
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        border-radius: 0px 0px 50px 50px;
+        background-color: rgba(0, 0, 0, 0.25);
+    }
+    .mainPageLogo {
+        width: 100px;
+        height: 25px;
+    }
+    .mainPageLogoText {
+        font-size: 7px;
+        letter-spacing: 1px;
+    }
+
+    .page .mainPageAddress {
+        right: unset;
+        left: 50%;
+        top: 55px;
+        transform: translate(-50%, 0);
+        font-size: 10px;
+        letter-spacing: 1px;
+    }
+
+    .caseBlock.caseBlock7 .bigText
+    .caseTitleButton {
+        top: 0;
+    }
+
+    .page.portfolio .topContainerOverlay {
+        top: 0;
+        height: 15px;
+        background: linear-gradient(to bottom, rgba(0, 0, 0, 1) 10%, rgba(0, 0, 0, 0) 100%);
+    }
+
+    
+
+    .contentContainer, .glowContentContainer {
+        border: none;
+        border-radius: 0;
+        width: 100%;
+        height: 100%;
+    }
+
+    .glowContentContainer {
+        box-shadow: inset 0px 0px 30px #0E22957A;
+    }
+
+    .caseDescription span {
+        font-size: 15px;
+    }
+
+    .leftMenuActivePage {
+        display: none;
+    }
+
+    .leftMenuLi img {
+        width: 30%;
+        height: 30%;
+        transform: translate(-50%, -100%) scale(1);
+    }
+
+    .leftMenuLi:hover img {
+        transform: translate(-50%, -100%) scale(1);
+    }
+
+    .caseTitle {
+        font-size: 30px;
+        text-shadow: 0 0 5px black;
+    }
+
+    .page {
+        padding: 20px 0px;
+    }
+
+    .caseContentBlock {
+        align-items: center;
+    }
+
+    .caseNavigation .caseLogo {
+        display: none;
+    }
+
+    .caseMoreBlock {
+        width: calc(100% - 40px);
+        margin: 150px 0px 0px 0px;
+    }
+
+    .about .topContainer {
+        width: 100%;
+    }
+
+    .caseButtonText {
+        margin: 0px 10px 0px 0px;
+    }
+    .back .caseButtonText {
+        margin: 0px 0px 0px 10px;
+    }
+    .arrowLine {
+        width: 20px;
+        height: 1px;
+    }
+    .arrowImg {
+        width: 4px;
+        height: 5px;
+    }
+
+    .aboutContentBlock {
+        width: 100%;
+    }
+    .aboutUsBlock {
+        height: 72vh;
+    }
+
+    .bigImage {
+        width: 88vw;
+        height: 44vw;
+    }
+
+    .squareBlock {
+        max-width: 87vw;
+    }
+
+    .caseBlock.caseBlock7 .bigText {
+        transform: translate(0px, -135%);
+        left: unset;
+        width: 80vw;
+    } 
+
+    .caseBlock.caseBlock7 .squareBlock {
+        bottom: -2.25vw;
+        max-width: 75vw;
+    }
+
+    .fontsBlock {
+        flex-direction: column;
+        margin: 0px 0px 40px 0px;
+    }
+
+    .fontsBlock:last-child {
+        margin: 0;
+    }
+
+    .paddingBlock {
+        margin: 0px 0vw 85px 0vw;
+    }
+
+    .colorNumber {
+        font-size: 17px;
+    }
+
+    .fontLeftBlock {
+        width: 100%;
+        flex-direction: column-reverse;
+    }
+
+    .columnTitle, .fontText {
+        font-size: 15px;
+        height: auto;
+        align-items: flex-end;
+        margin: 0px 0px 5px 0px;
+    }
+
+    .columnLettersBlock, .fontName {
+        margin: 0px;
+        height: auto;
+    }
+
+    .fontName {
+        font-size: 30px;
+    }
+
+    .fontCircle {
+        width: 80px;
+        min-width: 80px;
+        height: 80px;
+        font-size: 30px;
+    }
+
+    .fontLettersColumn {
+        margin: 0px 0px 0px 10px;
+    }
+
+    .columnLettersBlock {
+        font-size: 2vw;
+    }
+
+    .caseColumnBlock.fonts {
+        margin: 100px 0px 30px 0px;
+    }
+
+    .caseBlock.caseBlock8 {
+        flex-direction: column;
+        margin: 60px 0px 0px 0px;
+        align-items: flex-start;
+    }
+
+    .caseRowBlock .leftBlock , .caseRowBlock .rightBlock {
+        width: 90%;
+        max-width: unset;
+        margin: 0;
+    }
+
+    .caseContentBlock {
+        width: calc(100% - 22.6vw);
+        padding: 0;
+    }
+
+    .caseNavigation {
+        flex-direction: column;
+        height: 100%;
+        width: 50px;
+    }
+
+    .topContainer {
+        position: absolute;
+        align-items: center;
+        width: 50px;
+        left: calc(100% - 70px);
+        height: calc(100% - 30px);
+        padding: 15px 0px;
+        margin: 0px 0px 0px 0px;
+    }
+
+    .topRightPanel {
+        position: fixed;
+        right: 3.7vw;
+        width: auto;
+        height: calc(100% - 30px);
+        padding: 15px 0px;
+        pointer-events: none;
+    }
+
+    .topRightPanelTitle {
+        position: absolute;
+        min-width: 200px;
+        font-size: 16px;
+        left: -155px;
+        top: unset;
+        transform: rotate(-90deg);
+    }
+    .portfolio .lavaLogoPanel {
+        display: none;
+    }
+
+    .caseLine {
+        width: 1px;
+        height: 8vh;
+        border-bottom: unset;
+        border-left: 1px solid rgba(255, 255, 255, 0.5);
+    }
+
+    .caseCountBlock:last-child {
+        width: auto;
+    }
+
+    .caseStartBlock {
+        margin: 0vh 0px 25vh 0px;
+    }
+
+    .caseTitleButton {
+        top: -20px;
+        transform: translate(0%, 0%);
+    }
+
+    /* .portfolio .caseLine.n1 {
+        transform: scaleX(0) rotate(90deg);
+    }
+    .page.portfolio .caseLine.n1 {
+        transform: scaleX(1) rotate(90deg);
+    } */
+
+    .caseBlock.caseBlock7 .bigText {
+        font-size: 16px;
+    }
+
+    .case3 .caseBlock.caseBlock8 {
+        margin: 0px 0px 70dvh 0px;
+    }
+
+    .page.portfolio {
+        padding: 00px 0px 0px 0px;
+    }
+
+    .case5 .squareBlock {
+        max-width: 100%;
+    }
+
+    .case5 .caseRowBlock .leftBlock, .case5 .caseRowBlock .rightBlock {
+        width: 100%;
+    }
+
+    .case5 .lineBlock {
+        width: 100%;
+    }
+
+    .case5 .caseBlock.caseBlock8 {
+        margin: 60px 0px 300px 0px;
+    }
+
+}
+
+@media (max-width: 640px) {
+    :root {
+        --leftMenuWidth: 70vw;
+    }
+
+    .audioContainer.active {
+        top: 100%;
+        left: 100%;
+        transform: translate(calc(0% + -12.5vw), calc(-50% + -11vw));
+    }
+
+    .audioPicture {
+        width: 10vw;
+        height: 10vw;
+    }
+
+    .audio-line {
+        width: 3.5vw;
+        height: 3.5vw;
+    }
+
+    .audio-line:before {
+        width: 15vw;
+        height: 15vw;
+    }
+
+    .case5 .caseBlock.caseBlock8 {
+        margin: 60px 0px 70vh 0px;
+    }
+
+    .case2 .caseBlock.caseBlock4 .bigText {
+        font-size: 16px;
+        left: -35px;
+    }
+
+    .case3 .caseBlock.caseBlock7 .imageBlock {
+        width: 40vw;
+        height: 40vw;
+    }
+
+    .case4 .caseBlock8 .lineBlock {
+        width: 100%;
+    }
+
+    .caseBlock8 .squareFrame {
+        flex-direction: row-reverse;
+    }
+    .caseBlock8 .squareFrame:before {
+        background: linear-gradient(to right, rgba(241, 90, 37, 1) 0%, rgba(241, 90, 37, 1) 70%, rgba(241, 90, 37, 0) 100%)
+    }
+
+    .caseBlock8 .squareTitle {
+        padding: 0px 0px 7px 0px;
+    }
+
+    .caseBlock8 .squareText {
+        padding: 20px 15px 0px 30px;
+    }
+
+    .page.portfolio {
+        padding: 20px 0px 0px 0px;
+    }
+    .page.portfolio .topContainerOverlay {
+        top: 0;
+        height: 140px;
+        background: linear-gradient(to bottom, rgba(0, 0, 0, 1) 50%, rgba(0, 0, 0, 0) 100%);
+    }
+    .leftMenuContainer {
+        flex-direction: row;
+        left: 50%;
+        top: 100%;
+        transform: translate(-50%, calc(-100% + 1px));
+        height: 9vw;
+        border-radius: 10vw 10vw 0vw 0vw;
+    }
+    .leftMenuUl {
+        flex-direction: row;
+        justify-content: center;
+        height: 100%;
+        border-radius: 10vw 10vw 0vw 0vw;
+        box-shadow: 0 0 8px #008eff;
+        background-color: rgba(0, 0, 0, 0.75);
+    }
+    .leftMenuLi {
+        height: 100%;
+        width: 23%;
+    }
+
+    .menuLiNameBlock {
+        display: flex;
+        font-size: 9px;
+        left: 50%;
+        transform: translate(-50%, -35%) scaleX(0.8) scaleY(1);
+    }
+    .menuLiNameBlock.active {
+        font-weight: 600;
+        text-shadow: 0 0 4px white;
+    }
+
+    .liNameOverflow {
+        font-size: 1.7vw;
+        transform: translate(0px, 80%);
+        width: 100%;
+    }
+
+    .leftMenuLi:hover .liLine , .liLine{
+        display: none;
+    }
+
+
+
+
+
+
+    .topNavigationPanel {
+        flex-direction: row;
+        width: 100%;
+    }
+
+    .topContainer {
+        flex-direction: column-reverse;
+        align-items: baseline;
+        left: unset;
+        width: calc(100% - 40px);
+        height: 60px;
+        margin: 0px;
+    }
+    .topRightPanel {   
+        position: relative;
+        right: unset; 
+        width: 100%;
+        height: 20px;
+        margin: 0px 0px 10px 0px;
+        padding: 0;
+    }
+
+    .topRightPanelTitle {
+        position: relative;
+        min-width: unset;
+        left: unset;
+        transform: none;
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 1.5px;
+    }
+
+    .portfolio .lavaLogoPanel {
+        display: flex;
+    }
+
+    .lavaLogoPanel,
+    .about .lavaLogoPanel {
+        width: 70px;
+        height: 17px;
+        margin: 0px 10px 0px 0px;
+    }
+
+    .caseLine {
+        width: 100%;
+        height: 0px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.5);
+        border-left: none;
+    }
+
+
+
+
+
+    .caseContentBlock {
+        width: 100%;
+    }
+
+
+
+    .caseStartBlock {
+        width: calc(100% - 40px);
+        height: 100%;
+        margin: 100px 0px 0px 0px;
+        transition: all 0.25s 0s, height 0s 0s;
+    }
+
+    .caseOverlay.active .caseStartBlock {
+        height: 100%;
+        overflow-y: auto;
+        transition: all 0.25s 0s, height 0.25s 0.25s;
+    }
+
+
+
+
+
+    .aboutContentBlock, .contactsContainer {
+        backdrop-filter: unset;
+    }
+    .contactsContainer {
+        border-radius: 0;
+        border: none;
+        left: unset;
+        top: unset;
+        transform: translate(7vw, 0vw);
+        max-height: unset;
+    }
+    .page.contacts .contactsContainer {
+
+    .personSocials {
+        justify-content: center;
+    }
+    .personSocials .socialIcon {
+        width: 50px;
+        height: 50px;
+    }
+
+    .digitalMonsterText {
+        display: none;
+        margin: 0px 0px 15px 0px;
+    }
+
+    .cityBlock {
+        display: none;
+        position: relative;
+        justify-content: center;
+        transform: translate(-7vw, 0vw);
+        opacity: 0;
+    }
+    .page.contacts .cityBlock {
+        position: relative;
+        transform: translate(0vw, 0vw);
+        opacity: 1;
+    }
+
+    .mainPageTitle {
+        font-size: 12vw;
+        font-weight: 700;
+    }
+    .mainPageDescription {
+        font-size: 4vw;
+    }
+    .oLetter {
+        margin: 1vw 0.5vw 0px 0.5vw;
+        width: 4vw;
+        height: 2vw;
+        border: 1px solid white;
+    }
+    .leftMenuContainer {
+        width: 75vw;
+        height: 11vw;
+        border-radius: 15vw 15vw 0vw 0vw;
+    }
+
+    .leftMenuUl {
+        border-radius: 15vw 15vw 0vw 0vw;
+        justify-content: center;
+    }
+
+    .leftMenuLi {
+        width: calc(25% - 10px);
+        margin: 0px 2px;
+    }
+
+    .leftMenuActivePage {
+        width: 13vw;
+        transform: translate(-50%, -40%);
+    }
+
+    .contactsContainer {
+        justify-content: center;
+        height: 100%;
+        width: 100%;
+        padding: 0px 20px;
+    }
+
+    .logoBlock {
+        width: 100%;
+        margin: 20px 0px 20px 0px;
+    }
+
+    .contactsContain {
+        flex-direction: row;
+        flex-wrap: wrap;
+    }
+    .lineSeparator {
+        width: 1px;
+        height: 25vh;
+        margin: 0;
+    }
+    .contactsPerson {
+        width: calc(50% - 1px);
+        text-align: center;
+        align-items: center;
+        align-self: center;
+    }
+    .contactsPerson:last-child {
+        text-align: center;
+        align-items: center;
+    }
+
+    .liNameOverflow {
+        font-size: 9px;
+    }
+
+    .page.contacts, .page.about {
+        background-color: rgba(0, 0, 0, 0.0);
+        transition: all 0.25s, background-color 1s;
+    }
+    .page.page.contacts , .page.page.about{
+
+    .page.about {
+        padding: var(--paddingY) calc(var(--paddingX) * 0.5) 0 var(--paddingX);
+    }
+
+    .aboutUsBlock {
+        width: 100%;
+        height: 100%;
+    }
+
+    .aboutContent {
+        height: 100%;
+        padding: 3vw 0px calc(40px + 11vw) 0px;
+        overflow-x: hidden;
+        overflow-y: auto;
+    }
+
+    .aboutContentBlock {
+        border: none;
+        border-radius: none;
+    }
+
+    .about .historyNavigation {
+        width: 100%;
+        min-height: 33px;
+        overflow-x: scroll;
+        overflow-y: hidden;
+    }
+
+    .case1Block1 .page.mainPage.active {
+        transform: translateY(0%) translateX(0%) rotateX(0deg) scale(0.2);
+    }
+
+    .topContainer {
+        padding: 0;
+    }
+
+    .caseContentBlock {
+        padding: 0;
+    }
+
+    .bigImage {
+        width: 90vw;
+    }
+
+    .caseBlock4 .bigImage {
+        width: 90vw;
+        height: 53vw;
+    }
+
+    .caseBlock.caseBlock1 .bigText {
+        position: absolute;
+        left: -2vw;
+        top: -50%;
+    }
+
+    .squareLinesBlock {
+        font-size: 24px;
+        min-width: 40px;
+        width: 40px;
+        height: 45px;
+    }
+
+    .caseRowBlock.synergy {
+        flex-direction: column;
+        width: 100%;
+        height: 27vw;
+    }
+    .synergyLeft {
+        align-items: center;
+    }
+
+    .synergyLogo {
+        height: 9vw;
+        width: 16vw;
+        margin: 0px 3vw;
+    }
+
+    .synergyLogo.circleLogo {
+        width: 7vw;
+    }
+
+    .caseRowBlock .bigText {
+        width: 100%;
+    }
+
+    .caseBlock.caseBlock7 .bigText {
+        transform: translate(0px, -115%);
+        width: 100%;
+    }
+
+    .caseBlock.caseBlock7 .squareBlock .squareText {
+        padding: 20px 15px 0px 30px;
+    }
+
+    .caseRowBlock.caseBlock7 .bigImage {
+        width: 90vw;
+        height: 47vw;
+    }
+
+    .squareTitle {
+        font-size: 16px;
+        letter-spacing: 3px;
+    }
+
+    .lineBlock {
+        width: 270px;
+    }
+
+    .case3 .lineBlock {
+        width: 100%;
+        max-width: 70vw;
+    }
+
+    .caseBlock.caseBlock7 .squareBlock {
+        max-width: 90vw;
+    }
+
+    .page.portfolio .topContainerOverlay {
+        top: 0;
+        height: 110px;
+        background: linear-gradient(to bottom, rgba(0, 0, 0, 1) 60%, rgba(0, 0, 0, 0) 100%);
+    }
+
+    .caseTitleButton {
+        top: 0%;
+    }
+}
+
+@media (max-width: 480px) {
+
+    .mainPageLogoText {
+        display: none;
+    }
+
+    .page.contacts {
+        padding: 0px 0px 16vw 0px;
+    }
+
+    .audioContainer.active {
+        top: 100%;
+        left: 100%;
+        transform: translate(calc(0% + -15vw), calc(-50% + -23vw));
+    }
+
+    .audioPicture {
+        width: 15vw;
+        height: 15vw;
+    }
+
+    .audio-line {
+        width: 5vw;
+        height: 5vw;
+    }
+
+    .audio-line:before {
+        width: 22vw;
+        height: 22vw;
+    }
+
+    .case5 .caseBlock1 .imageBlock {
+        width: 90vw;
+        height: 50vw;
+    }
+
+    .case5 .caseBlock.caseBlock3 {
+        margin: 15px 0px 25px 0px;
+    }
+
+    .case4 .caseBlock.caseBlock7 .squareFrame:before {
+        left: 0px;
+    }
+
+    .case1 .caseBlock.caseBlock4 .bigText {
+        font-size: 12px;
+    }
+
+    .case1 .caseBlock.caseBlock7 .squareFrame:before {
+        left: 0px;
+    }
+
+    .case4 .caseBlock.caseBlock7 .squareBlock {
+        width: 90vw;
+        left: 0.5vw;
+    }
+
+    .case3 .caseBlock.caseBlock7 {
+        margin: 180px 0px 80px 0px;
+    }
+
+    .caseBlock8 .squareText {
+        padding: 10px 0px 0px 10px;
+    }
+
+    .contactsContainer {
+        justify-content: center;
+        height: calc(100% - 16vw);
+    }
+    .contactsContain {
+        justify-content: center;
+        height: auto;
+        margin: 2.5vh 0px 2.5vh 0px;
+    }
+    .digitalMonsterText {
+        display: flex;
+    }
+
+    .contactsPerson {
+        flex-direction: column;
+        justify-content: center;
+        flex-wrap: wrap;
+        width: 100%;
+        /* max-width: 200px; */
+        margin: 0px 0px 5vh 0px;
+        text-align: center;
+        align-items: center;
+    }
+    .contactsPerson br {
+        display: none;
+    }
+
+    .contactsPerson:last-child {
+        text-align: center;
+        align-items: center;
+    }
+
+    .logoBlock {
+        margin: 0px 0px 50px 0px;
+    }
+
+    .contactsWho {
+        /* top: 23px; */
+        /* width: 100%; */
+        margin: 0px 0px 5px 0px;
+    }
+    .contactsDescription {
+        margin: 0px 0px 10px 0px;
+    }
+    .contactsPerson:last-child {
+        margin: 0px 0px 0px 0px;
+    }
+
+    .contactsContacts {
+        flex-direction: column-reverse;
+        gap: 10px;
+    }
+
+    .synergyLogo {
+        height: 9vw;
+        width: 22vw;
+        margin: 0px 3vw;
+    }
+    .synergyLogo.circleLogo {
+        width: 14vw;
+        height: 10vw;
+    }
+
+    .crossLine {
+        height: 6px;
+    }
+    .caseBlock.caseBlock1 .bigText {
+        position: absolute;
+        left: 0;
+        top: 0;
+        transform: translate(0, -90%);
+    }
+
+    .caseBlock.caseBlock4 {
+        margin: 190px 5vw 115px 5vw;
+    }
+
+    .caseBlock.caseBlock7 {
+        margin: 220px 0px 0px 0px;
+    }
+
+    .caseBlock.caseBlock8 {
+        margin: 500px 0px 10vh 0px;
+    }
+
+    .case4 .caseBlock.caseBlock8 {
+        margin: 80px 0px 70vh 0px;
+    }
+
+    .lineBlock {
+        width: 100%;
+    }
+
+    .caseBlock.caseBlock4 .bigText {
+        text-align: left;
+        justify-content: left;
+        left: -5vw;
+        top: 0;
+        transform: translate(0, -60%);
+    }
+
+    .caseRowBlock .leftBlock, .caseRowBlock .rightBlock {
+        width: 95%;
+        max-width: unset;
+        margin: 0;
+    }
+
+    .leftMenuContainer {
+        width: 90vw;
+        height: 16vw;
+        border-radius: 15vw 15vw 0vw 0vw;
+    }
+
+    .leftMenuUl {
+        border-radius: 15vw 15vw 0vw 0vw;
+    }
+
+    .contactsContainer {
+        padding: 0px 20px;
+        overflow-y: auto;
+    }
+
+    .contactsSocials {
+        margin: 30px 0px 50px 0px;
+    }
+
+    .digitalMonsterText {    
+        position: relative;
+        left: unset;
+        top: unset;
+        transform: translate(7vw, 0vw);
+    }
+    .page.contacts .digitalMonsterText {
+
+    .lineSeparator {
+        display: none;        
+    }
+
+    .squareBlock {
+        max-width: 100%;
+    }
+
+    .squareText {
+        font-size: 16px;
+        padding: 10px 15px 0px 10px;
+    }
+
+    .caseBlock.caseBlock7 .squareBlock .squareText {
+        padding: 10px 15px 0px 0px;
+    }
+
+    .squareTitle {
+        font-size: 15px;
+        font-weight: 400;
+        letter-spacing: 3px;
+        padding: 0px 0px 7px 10px;
+    }
+
+    .caseBlock7 .squareTitle {
+        padding: 10px 0px 7px 0px;
+    }
+
+    .caseRowBlock.synergy {
+        height: 135px;
+    }
+
+    .textBlock.bigText {
+        font-size: 14px;
+        letter-spacing: 2px;
+    }
+
+    .fontCircle {
+        width: 16vw;
+        min-width: 16vw;
+        height: 16vw;
+    }
+
+    .colorNumber {
+        font-size: 15px;
+    }
+
+    .case4 .fontCircle {
+        font-size: 18px;
+    }
+}
+
+
+
+
+

@@ -1,0 +1,273 @@
+$hudCyan: #00d9d6;
+$hudCyanDim: rgba(0, 217, 214, 0.35);
+$hudCyanGlow: rgba(0, 217, 214, 0.55);
+$hudLine: rgba(0, 217, 214, 0.14);
+
+.projectStatePanel {
+	position: relative;
+	width: 100%;
+	height: 100%;
+	flex-direction: column;
+	justify-content: space-between;
+	padding: clamp(40px, 7vh, 88px) clamp(20px, 3.5vw, 56px) clamp(28px, 5vh, 56px);
+	pointer-events: auto;
+	color: #fff;
+
+	&.inactive {
+		opacity: 0.6;
+	}
+
+	&.compact {
+		padding: 20px 24px;
+		background: rgba(4, 10, 16, 0.72);
+		border: 1px solid $hudLine;
+	}
+
+	&.metricsOnly {
+		padding: 16px 20px;
+		background: rgba(4, 10, 16, 0.78);
+		border: 1px solid $hudLine;
+
+		.stateBadge {
+			margin-bottom: 12px;
+		}
+
+		.analysisBlock {
+			margin-top: 0;
+			padding-top: 0;
+			border-top: none;
+		}
+	}
+
+	.stateBadge {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		gap: 10px;
+		margin-bottom: clamp(24px, 4vh, 40px);
+	}
+
+	.badgeDot {
+		width: 8px;
+		height: 8px;
+		border-radius: 50%;
+		background: $hudCyan;
+		box-shadow: 0 0 12px $hudCyanGlow;
+		animation: badgePulse 2.2s ease-in-out infinite;
+	}
+
+	.badgeLabel {
+		font-size: 10px;
+		letter-spacing: 0.22em;
+		opacity: 0.72;
+	}
+
+	.content {
+		display: flex;
+		flex-direction: column;
+		flex: 1;
+		justify-content: center;
+		max-width: 100%;
+		animation: panelContentIn 0.42s ease forwards;
+	}
+
+	.categoryLabel {
+		margin: 0 0 14px;
+		font-size: 9px;
+		letter-spacing: 0.24em;
+		text-transform: uppercase;
+		opacity: 0.42;
+	}
+
+	.projectTitle {
+		font-size: clamp(30px, 3.4vw, 48px);
+		line-height: 1.02;
+		font-weight: 300;
+		margin: 0 0 20px;
+		letter-spacing: -0.02em;
+		max-width: 14ch;
+	}
+
+	.description {
+		font-size: 14px;
+		line-height: 1.68;
+		font-weight: 300;
+		opacity: 0.62;
+		margin: 0 0 24px;
+		max-width: 36ch;
+	}
+
+	.tagRow {
+		display: flex;
+		flex-direction: row;
+		flex-wrap: wrap;
+		gap: 8px;
+		margin: 0 0 28px;
+		padding: 0;
+		list-style: none;
+	}
+
+	.tagPill {
+		padding: 6px 10px;
+		border: 1px solid rgba(255, 255, 255, 0.14);
+		border-radius: 2px;
+		font-size: 8px;
+		letter-spacing: 0.14em;
+		text-transform: uppercase;
+		opacity: 0.55;
+		transition: border-color 0.2s ease, opacity 0.2s ease;
+
+		&:hover {
+			border-color: $hudLine;
+			opacity: 0.82;
+		}
+	}
+
+	.subStages {
+		margin-bottom: 24px;
+	}
+
+	.sectionLabel {
+		display: block;
+		margin-bottom: 12px;
+		font-size: 8px;
+		letter-spacing: 0.18em;
+		text-transform: uppercase;
+		opacity: 0.35;
+	}
+
+	.subStageList {
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	.subStageItem {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		gap: 10px;
+		padding: 6px 0;
+		border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+	}
+
+	.subStageIndex {
+		font-size: 9px;
+		font-variant-numeric: tabular-nums;
+		opacity: 0.32;
+		min-width: 18px;
+	}
+
+	.subStageTitle {
+		font-size: 11px;
+		opacity: 0.68;
+	}
+
+	.analysisBlock {
+		margin-top: 8px;
+		padding-top: 20px;
+		border-top: 1px solid rgba(255, 255, 255, 0.06);
+	}
+
+	.sysRow {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		gap: 12px;
+		margin-bottom: 18px;
+	}
+
+	.sysLabel {
+		font-size: 9px;
+		letter-spacing: 0.14em;
+		opacity: 0.45;
+		min-width: 72px;
+	}
+
+	.sysTrack {
+		flex: 1;
+		height: 1px;
+		background: rgba(255, 255, 255, 0.08);
+	}
+
+	.sysFill {
+		height: 100%;
+		width: var(--sysLevel, 0%);
+		background: $hudCyan;
+		box-shadow: 0 0 8px $hudCyanDim;
+		transition: width 0.35s ease;
+	}
+
+	.metrics {
+		display: flex;
+		flex-direction: row;
+		flex-wrap: wrap;
+		gap: 4px 12px;
+	}
+
+	.media {
+		margin-top: 16px;
+		max-width: 260px;
+	}
+
+	.studioFooter {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		gap: 14px;
+		margin-top: 20px;
+		padding-top: 14px;
+	}
+
+	.studioMark {
+		font-size: 8px;
+		letter-spacing: 0.2em;
+		opacity: 0.32;
+	}
+
+	.studioMeter {
+		display: flex;
+		flex-direction: row;
+		align-items: flex-end;
+		gap: 2px;
+		flex: 1;
+		height: 12px;
+	}
+
+	.studioTick {
+		flex: 1;
+		max-width: 3px;
+		background: rgba(255, 255, 255, 0.1);
+		border-radius: 1px;
+
+		@for $i from 1 through 12 {
+			&:nth-child(#{$i}) {
+				height: #{3 + ($i % 5)}px;
+			}
+		}
+	}
+}
+
+@keyframes panelContentIn {
+	from {
+		opacity: 0;
+		transform: translateY(12px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+@keyframes badgePulse {
+	0%,
+	100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.45;
+	}
+}

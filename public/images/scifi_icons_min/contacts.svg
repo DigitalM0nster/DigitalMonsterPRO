@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" aria-labelledby="title">
+  <title id="title">Контакты</title>
+  <g stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M21 23v18h5l4-4v-10l-4-4h-5Z" stroke-width="1.5"/>
+    <path d="M43 23v18h-5l-4-4v-10l4-4h5Z" stroke-width="1.5"/>
+    <path d="M30 32h4" stroke-width="1.5"/>
+    <path d="M17 32h-4M47 32h4" stroke-width="0.9"/>
+    <path d="M32 21.5v-3M32 45.5v-3" stroke-width="0.9"/>
+  </g>
+  <circle cx="32" cy="32" r="1.8" fill="currentColor"/>
+</svg>

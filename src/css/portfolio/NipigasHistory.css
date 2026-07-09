@@ -1,0 +1,578 @@
+/* СТРАНИЦА ИСТОРИЯ */
+.historyPage {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    z-index: 999;
+    pointer-events: none;
+    display: flex;
+    justify-content: center;
+}
+.history-screen::-webkit-scrollbar {
+    width: 8px;
+    background-color: rgba(255, 255, 255, 0.2);
+    border-radius: 10px;
+}
+
+.history-screen::-webkit-scrollbar-thumb {
+    width: 8px;
+    background-color: rgba(0, 140, 149, 1);
+    border-radius: 10px;
+}
+
+.historyContent {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 63.5vw;
+    height: 135vw;
+    transform: translate(-50%, -50%) scale(0.5);
+    background-image: url(/images/case1/historyBack1.webp);
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: cover;
+    border-radius: 175px;
+    overflow: hidden;
+}
+
+.historyPage .overlay {
+    position: fixed;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,1);
+    opacity: 0;
+}
+
+.historyPage .overlay.active {
+    opacity: 0.65;
+}
+
+.historyPageBlock {
+    width: 100%;
+    height: 100%;
+}
+
+.history-screen {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    /* width: calc(100% - 450px); */
+    width: 100%;
+    height: 100%;
+    padding: 100px 30px 0px 100px;
+    overflow-y: scroll;
+}
+
+.historyPage-name-block {
+    position: relative;
+    display: flex;
+    flex-wrap: wrap;
+    font-size: 55px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: white;
+    font-weight: 800;
+    margin: 0px 0px 30px 0px;
+}
+
+.historyPage-year {
+    margin: 0px 50px 0px 0px;
+}
+
+.historyPage-name {
+    color: rgba(153, 204, 0, 1);
+}
+
+.historyRowContainer {
+    position: relative;
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    margin: 65px 0;
+}
+.history0 .historyRowContainer {
+    margin: 60px 0;
+}
+.historyRowContainer.history4-row2 {
+    margin: 65px 0px 0px 0px;
+}
+.historyRowContainer.history4-row3 {
+    margin: 0px 0px 65px 0px;
+}
+
+.historyColumn-container {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.historyRowContainer:first-child {
+    width: 100%;
+    justify-content: center;
+    margin: 0 0 50px 0px;
+}
+
+.historyRowContainer:last-child {
+    padding: 0 0 150px 0;
+}
+
+.historyRowContainer.long-image-container {
+    margin: 100px 0;
+}
+
+.history0-row4 {
+    margin: 100px 0px 0px 0px;
+}
+.history0-row5 {
+    margin: 150px 0px 0px 0px;
+}
+.history0-row6 {
+    margin: 150px 0px 0px 0px;
+}
+.history0-row7 {
+    margin: 150px 0px 0px 0px;
+}
+
+.history1-row5 {
+    margin: 20px 0 60px 0;
+}
+
+.history1-row9 {
+    margin: 70px 0 20px 0;
+}
+
+.historyContentBlock {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    width: 50%;
+}
+.historyContentBlock.justify-flex-start {
+    justify-content: flex-start;
+}
+
+.historyContentBlock.row-block {
+    flex-direction: row;
+}
+
+.historyContentBlock.twoPictures {
+    flex-direction: row;
+}
+
+.historyRowContainer .historyContentBlock:first-child {
+    width: calc(50% - 60px);
+    margin: 0 60px 0 0;
+}
+.history-screen .historyRowContainer.history4-row2 .historyContentBlock {
+    width: calc(100% - 60px);
+}
+.history-screen .historyRowContainer.history4-row5 .historyContentBlock {
+    width: calc(100% - 60px);
+}
+
+.historyRowContainer.history5-row0 .historyContentBlock {
+    width: 100%;
+    margin: 0px;
+}
+
+.historyRowContainer .historyContentBlock.long-image-block {
+    width: 88%;
+    height: 450px;
+    margin: 0;
+}
+
+.historyImageContainer {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+}
+.twoPictures .historyImageContainer {
+    height: 22vw;
+    margin: 0px 1vw 0px 0px;
+}
+.long-image-block .historyImageContainer{
+    overflow: hidden;
+}
+
+.history8-row6 .historyContentBlock:nth-child(2) .historyImageContainer {
+    margin: 2vw 0px 0px 0px;
+}
+
+.historyImageBlock {
+    position: relative;
+    width: calc(100% - 30px);
+    height: calc(100% - 30px);
+    border: 15px solid #e6e6e6;
+    display: flex;
+    flex-direction: column;
+    margin: 0px 0px 0px 0px;
+    transition: 0.35s;
+    overflow: hidden;
+}
+.historyImageBlock img {
+    object-fit: cover;
+    transition: 0.35s ease;
+}
+.historyContentBlock img {
+    object-fit: cover;
+}
+.historyImageBlock.horizonImage {
+    width: calc(35vw - 30px);
+    height: calc(22vw - 30px);
+}
+.historyImageBlock.verticalImage {
+    width: calc(26vw - 30px);
+    height: calc(36.5vw - 30px);
+}
+.historyRowContainer .historyContentBlock .historyImageBlock.verticalImage {
+    transform: translate(25%, 0px);
+}
+.historyRowContainer .historyContentBlock .historyImageBlock.verticalImage.rotate-left {
+    transform: translate(25%, 0px) rotate(-2deg);
+}
+
+.historyImageBlock.column-block {
+    flex-direction: column;
+}
+.historyImageBlock:hover img{
+    transform: translate(-50%, -50%) scale(1.03); 
+}
+
+
+.two-pictures .historyImageBlock {
+    margin: 0px 30px 0px 0px;
+    height: 440px;
+}
+
+.historyPage .long-image-block img {
+    width: 100%;
+    height: 100%;
+    border: 0;
+}
+
+.history-image {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: fit-content;
+    height: fit-content;
+}
+
+.history0-row7 .historyImageBlock.right-picture {
+    transform: translate(0, -80px);
+}
+
+.historyPage img {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    object-fit: cover;
+    object-position: center;
+    width: 100%;
+    height: 100%;
+
+}
+
+.rotate-left {
+    transform: rotate(-2deg);
+}
+
+.history-text-block {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    justify-content: center;
+    margin: 0px 0px 70px 0px;
+}
+.history0-row5 .historyContentBlock .history-text-block:nth-child(2) {
+    margin: 0;
+}
+.history5-row3 .history-text-block:nth-child(2) {
+    margin: 50px 0px 0px 0px;
+}
+
+
+.prize-block {
+    position: relative;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    background: rgba(0, 140, 149, 1);
+    padding: 20px 30px;
+    clip-path: polygon(100% 0%, 0% 0%, 0% 100%, 95% 100%);
+}
+.prize-icon {
+    min-width: 90px;
+    min-height: 90px;
+    width: 90px;
+    height: 90px;
+    position: relative;
+    margin: 0px 30px 0px 0px;
+}
+.historyPage .prize-icon img {
+    border: none;
+    border: none;
+    width: 100%;
+    height: 100%;
+    object-fit: container;
+    object-position: center;
+}
+
+.history-image-description {
+    position: absolute;
+    left: 0;
+    bottom: 100px;
+    color: white;
+    font-size: 35px;
+    background-color: rgba(153, 204, 0, 1);
+    padding: 15px 15px 15px 250px;
+}
+
+.historyImageText {
+    position: relative;
+    align-self: flex-end;
+    font-family: 'laptev-brush';
+    font-size: 22px;
+    line-height: 1.5;
+    transform: translate(0px, 10px);
+    width: 370px;
+    color: white;
+    text-align: left;
+    transition: 0.35s;
+}
+
+.long-image-block .historyImageText {
+    bottom: -40px;
+}
+.historyImageText.image-long-text {
+    width: 500px;
+    font-size: 20px;
+}
+.historyImageText.image-medium-text {
+    width: 450px;
+}
+
+.twoPictures .historyImageText {
+    width: 100%;
+    text-align: center;
+    margin: 0px 0px 20px 0px;
+}
+
+.verticalImage .historyImageText {
+    transform: translate(-30px, 15px);
+    align-self: flex-end;
+}
+
+.historyImageText:before {
+    display: block;
+    content: '';
+    position: absolute;
+    margin: 0px 0px 0px 0px;
+    left: 0px;
+    transform: translate(-120%, -75%);
+    top: 0;
+    width: 70px;
+    height: 70px;
+    background-image: url("/images/case1/left-arrow.webp");
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+}
+
+.twoPictures .historyImageText:before {
+    display: none;
+}
+
+.history0-row4 .historyContentBlock.row-block .historyImageText {
+    position: relative;
+    height: auto;
+    bottom: unset;
+    margin: 0 0 16px;
+    transform: unset;
+}
+
+.history-text-year {
+    position: relative;
+    top: 0px;
+    font-family: 'Jost';
+    font-size: 60px;
+    color: white;
+    line-height: 1;
+    background: rgba(153, 204, 0, 1);
+    width: fit-content;
+    padding: 5px 20px 5px 60px;
+    margin: 0px 0px 20px 0px;
+}
+
+.history-text-description {
+    color: white;
+    line-height: 1.3;
+    font-size: 20px;
+}
+
+
+.history-text-quotes {
+    font-family: 'NipigasBasic-Bold';
+    color: rgba(153, 204, 0, 1);
+    text-transform: uppercase;
+    font-size: 25px;
+    line-height: 1.3;
+    font-weight: 900;
+    background-color: white;
+    width: 540px;
+    padding: 20px 15px 10px 20px;
+    margin: 20px 0;
+    clip-path: polygon(100% 0%, 0% 0%, 0% 100%, 95% 100%);
+}
+
+.history-text-quotes.extra-text {
+    color: rgba(0, 140, 149, 1);
+    text-transform: inherit;
+    font-size: 24px;
+    width: 700px;
+    padding: 40px 45px 30px 60px;
+    clip-path: polygon(100% 0%, 5% 0%, 0% 100%, 95% 100%);
+}
+
+.image-plashka {
+    position: absolute;
+    width: calc(100% - 40px);
+    bottom: -20px;
+    left: 80px;
+    transform: translate(0px, 0px);
+    font-size: 18px;
+    padding: 20px 20px;
+    background: rgb(125 183 22);
+    color: white;
+}
+
+.history4-row6 .history-text-quotes {
+    text-transform: initial;
+    font-size: 20px;
+}
+
+.history-next-button {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 50px 0px 0px 0px;
+    padding: 0px 0px 50px 0px;
+    width: 100%;
+    min-height: 100px;
+    text-align: center;
+    color: white;
+    font-size: 30px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    text-shadow: 0 0 5px white;
+    transition: 0.15s;
+}
+
+.history-next-button:hover {
+    text-shadow: 0 0 10px white;
+}
+/* /////////////////// */
+.history-text-block-old {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    justify-content: center;
+    margin: 0 0 0 100px;
+}
+
+.history-text.text-description {
+    position: relative;
+    height: 550px;
+    overflow-Y: scroll;
+    color: white;
+    font-size: 16px;
+}
+
+.history-text.text-description::-webkit-scrollbar {
+    width: 8px;
+    background-color: rgba(255, 255, 255, 0.2);
+    border-radius: 10px;
+}
+
+.history-text.text-description::-webkit-scrollbar-thumb {
+    width: 8px;
+    background-color: rgba(0, 140, 149, 1);
+    border-radius: 10px;
+}
+
+.history-text.text-year {
+    font-size: 60px;
+    color: white;
+    text-shadow: 0 0 5px white;
+    transform: translate(-9px, 0);
+    margin: 0 0 10px 0;
+}
+
+.history-text.text-name {
+    font-size: 30px;
+    font-weight: 600;
+    color: rgba(0, 140, 149, 1);
+    text-shadow: 0 0 4px rgb(0 140 149);
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    margin: 0 0 30px 0;
+    width: fit-content;
+}
+
+.historyBackgrounds {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    pointer-events: none;
+    transition: all 1s;
+}
+
+.historyBackgrounds.active {
+    opacity: 1;
+    pointer-events: auto;
+    transition: all 1s;
+}
+
+.historyBack {
+    position: absolute;
+    left: 0px;
+    top: 0px;
+    width: 100%;
+    height: 100%;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: cover;
+    opacity: 0;
+    pointer-events: none;
+    -webkit-clip-path: circle(0vw at 100% 0%);
+    clip-path: circle(0vw at 100% 0%);
+    transition: all 0.5s 0s, z-index 0s 1.8s , opacity 0s 3.5s , clip-path 1.8s 0s;
+    z-index: 1;
+}
+.historyBack.active {
+    opacity: 1;
+    pointer-events: auto;
+    -webkit-clip-path: circle(350vw at 100% 0%);
+    clip-path: circle(350vw at 100% 0%);
+    transition: all 0.5s 0s, z-index 0s 0s , opacity 2s 0s , clip-path 3.5s 0s;
+    z-index: 2;
+}
+
+.historyBack1 {
+    background-image: url('/images/case1/historyBack1.png');
+}

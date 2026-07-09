@@ -1,0 +1,633 @@
+:root {
+    --bigImageBlockWidth: 40vw;
+    --bigImageBlockHeight: calc(40vw * 0.61);
+}
+
+
+.caseMoreBlock {
+    top: 1000px;
+    display: flex;
+    flex-direction: column;
+    margin: 33vh 0px 0px 0px;
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    opacity: 0;
+    pointer-events: none;
+    transition: 0.15s;
+}
+.caseMoreBlock.active {
+    top: 0;
+    opacity: 1;
+    pointer-events: auto;
+    transition: 1s 0.25s;
+}
+
+.caseMoreContent {
+    flex-direction: column;
+    margin: 0px 0px 150px 0px;
+}
+
+.caseRowBlock {
+    flex-direction: row;
+}
+.caseRowBlock.center {
+    align-items: center;
+}
+.caseRowBlock.videoBlock {
+    align-items: flex-end;
+    margin: 250px 0px 0px 0px;
+}
+.caseBlock.caseBlock7 {
+    margin: 250px 5vw 0px 5vw;
+}
+.caseRowBlock.rightImageBlock {
+    justify-content: flex-end;
+}
+.caseColumnBlock , .caseRowBlock {
+    margin: 0px 0px 85px 0px;
+}
+.caseColumnBlock.fonts {
+    margin : 200px 5vw 0px 5vw;
+}
+.paddingBlock {
+    margin: 0px 5vw 85px 5vw;
+}
+.caseBlock.caseBlock4 {
+    margin: 120px 5vw 120px 5vw;
+}
+
+.bigImage {
+    width: var(--bigImageBlockWidth);
+    min-width: var(--bigImageBlockWidth);
+    height: var(--bigImageBlockHeight);
+    border: 1px solid rgba(255,255,255, 0.1);
+    /* border-radius: 0.2vw; */
+    background-color: #003333;
+    overflow: hidden;
+}
+.bigImage * {
+    object-fit: cover;
+}
+.bigImage video {
+    width: 100%;
+    height: 100%;
+}
+.caseRowBlock .bigImage:nth-child(2) {
+    align-self: flex-start;
+}
+
+.textBlock {
+    font-weight: 300;
+    z-index: 2;
+}
+.textBlock.bigText {
+    font-family: 'ManifoldExtended';
+    text-transform: uppercase;
+    font-size: 1.3vw;
+    letter-spacing: 0.25vw;
+    line-height: 2;
+    font-weight: 900;
+    color: white;
+    text-shadow: 0 0 3px black;
+}
+.caseBlock.caseBlock7 .bigText {
+    pointer-events: none;
+}
+.caseRowBlock.videoBlock .bigText {
+    top: -12%;
+}
+.caseRowBlock .bigText {
+    position: absolute;
+    width: calc(100% - var(--bigImageBlockWidth));
+    left: 0;
+    width: var(--bigImageBlockWidth);
+    z-index: 2;
+}
+.caseBlock.caseBlock1 .bigText{
+    left: 38vw;
+}
+
+.squareBlock {
+    flex-direction: column;
+    margin: 0px 9vw 0px 0px;
+    width: 34vw;
+    z-index: 2;
+}
+
+.squareBlock:last-child {
+    margin: 0px 0px 0px 0px;
+}
+
+.videoBlock .squareBlock {
+    position: absolute;
+    left: 0;
+    bottom: 10%;
+    width: 26.5vw;
+}
+
+.caseBlock8 .squareBlock {
+    margin: 0px 0px 100px 0px
+}
+.caseBlock8 .squareBlock:last-child {
+    margin: 0px 0px 0px 0px
+}
+
+
+.videoBlock .squareBlock .squareText {
+    padding: 20px 60px 0px 30px;
+}
+
+.squareTitle {
+    font-size: 20px;
+    font-weight: 300;
+    text-transform: uppercase;
+    letter-spacing: 4px;
+    padding: 0px 0px 7px 30px;
+    transform: scaleY(0.95);
+}
+
+.squareText {
+    flex-direction: column;
+    font-size: 17px;
+    font-weight: 200;
+    padding: 20px 100px 0px 30px;
+}
+.squareText p {
+    margin: 0px 0px 20px 0px;
+}
+
+.squareText p:last-child {
+    margin: 0;
+}
+
+.squareFrame:before {
+    content: '';
+    display: block;
+    position: absolute;
+    right: 0px;
+    top: 0;
+    width: 100%;
+    height: 1px;
+    background: linear-gradient(to left, rgba(16, 175, 224, 1) 0%, rgba(16, 175, 224, 1) 70%, rgba(16, 175, 224, 0) 100%);
+    background-size: 100%;
+    background-repeat: repeat-x;
+    background-position: right;
+}
+
+.caseBlock.caseBlock7 .squareFrame:before {
+    right: unset;
+    left: 30px;
+    width: 90%;
+}
+
+.case1 .caseBlock.caseBlock7 .squareFrame:before {
+    background: linear-gradient(to right, rgba(16, 175, 224, 1) 0%, rgba(16, 175, 224, 1) 70%, rgba(16, 175, 224, 0) 100%);
+}
+
+.case1 .caseBlock.caseBlock8 .squareFrame:before {
+    background: linear-gradient(to right, rgba(16, 175, 224, 1) 0%, rgba(16, 175, 224, 1) 70%, rgba(16, 175, 224, 0) 100%);
+}
+
+.case1 .lineBlock .line {
+    background: linear-gradient(to right, rgba(16, 175, 224, 1) 0%, rgba(16, 175, 224, 1) 70%, rgba(16, 175, 224, 0) 100%);
+}
+
+
+.squareLinesBlock {
+    justify-content: center;
+    align-items: center;
+    font-size: 32px;
+    font-family: "ManifoldExtended";
+    color: var(--additionalColor);
+    font-weight: 900;
+    min-width: 82px;
+    width: 82px;
+    height: 87px;
+}
+.squareLinesBlock img {
+    width: 50%;
+    height: 50%;
+}
+
+.squareLineLeft {
+    position: absolute;
+    left: 0;
+    bottom: -1px;
+    width: 1px;
+    height: 100%;
+    background: linear-gradient(to bottom, rgba(16, 175, 224, 1) 0%, rgba(16, 175, 224, 1) 50%, rgba(16, 175, 224, 0.25) 100%);
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-position: bottom;
+}
+.squareLineRight {
+    position: absolute;
+    right: 0;
+    bottom: -1px;
+    width: 1px;
+    height: 100%;
+    background: linear-gradient(to bottom, rgba(16, 175, 224, 1) 0%, rgba(16, 175, 224, 1) 50%, rgba(16, 175, 224, 0.25) 100%);
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-position: bottom;
+}
+.squareLineBottom {
+    position: absolute;
+    left: 1px;
+    bottom: -1px;
+    width: calc(100% - 2px);
+    height: 1px;
+    background: rgba(16, 175, 224, 0.25);
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-position: bottom;
+}
+
+.synergyLeft {
+    flex-direction: column;
+}
+
+.synergyLeft p {
+    font-size: 14px;
+    font-weight: 300;
+}
+
+.synergyLogo {
+    height: 48px;
+    width: 100px;
+    margin: 0px 20px;
+}
+.synergyLogo.circleLogo {
+    width: 65px;
+}
+.synergyLogo img {
+    object-fit: contain;
+}
+
+.synergyRight {
+    align-items: center;
+}
+.cross {
+    width: 15px;
+    height: 15px;
+}
+.crossLine {
+    position: absolute;
+    align-items: center;
+    justify-content: center;
+    width: 1px;
+    height: 8px;
+    background-color: white;
+}
+.crossLine:nth-child(1) {
+    transform-origin: 0 100%;
+    transform: rotate(-45deg) translate(0px, -4px);
+}
+.crossLine:nth-child(2) {
+    transform-origin: 0 100%;
+    transform: rotate(45deg) translate(-1px, -4px);
+}
+.crossLine:nth-child(3) {
+    transform-origin: 0 100%;
+    transform: rotate(135deg) translate(-1px, -3px);
+}
+.crossLine:nth-child(4) {
+    transform-origin: 0 100%;
+    transform: rotate(225deg) translate(0px, -3px);
+}
+
+
+
+
+.caseBlock.caseBlock3 {
+    align-self: center;
+    justify-content: space-evenly;
+    align-items: center;
+    width: 800px;
+    height: 120px;
+    margin: 85px 0px 85px 0px;
+    background-image: url('/images/case1/frameLines.svg');
+    background-size: cover;
+}
+
+.caseColumnBlock {
+    flex-direction: column;
+}
+.fonts {
+    flex-direction: column;
+}
+
+.fontsBlock {
+    flex-direction: row;
+    margin: 0px 0px 2.5vw 0px;
+}
+
+.fontBlock:last-child {
+    margin: 0;
+}
+
+.fontLeftBlock{
+    flex-direction: column;
+    justify-content: center;
+    width: 20vw;
+}
+
+.fontText {
+    font-size: 1vw;
+}
+
+.fontRightBlock {
+    flex-direction: row;
+    width: calc(100% - 20vw);
+}
+
+.fontCircle {
+    justify-content: center;
+    align-items: center;
+    width: 8vw;
+    min-width: 8vw;
+    height: 8vw;
+    border-radius: 50%;
+    border: 1px solid var(--additionalColor);
+    font-size: 3vw;
+}
+
+.fontLettersColumn {
+    flex-direction: column;
+    justify-content: center;
+    margin: 0px 0px 0px 1vw;
+}
+
+.columnTitle {
+    text-transform: uppercase;
+}
+
+.columnLettersBlock {
+    font-size: 1vw;
+    line-height: 1.2;
+    flex-direction: column;
+    justify-content: flex-end;
+}
+
+.columnBigLetters {
+    text-transform: uppercase;
+}
+
+.fontName {
+    font-size: 3vw;
+    font-weight: 600;
+    align-items: flex-end;
+}
+.DINPro .fontName {
+    font-family: "DINPro";
+    font-weight: 500;
+    line-height: 1;
+}
+.laptev .fontName {
+    line-height: 0.8;
+}
+.ST_Norilsk .fontName {
+    font-family: "ST_Norilsk";
+    font-weight: 500;
+    line-height: 1;
+    left: -0.2vw;
+}
+
+.columnLettersBlock, .fontName {
+    margin: 0.2vw 0px 0px 0px;
+    height: 3vw;
+}
+
+.columnLittleLetters {
+    align-self: flex-start;
+}
+
+.columnTitle, .fontText {
+    font-weight: 1vw;
+    height: 1.5vw;
+    align-items: flex-end;
+    margin: 0px 0px 0.5vw 0px;
+}
+.columnTitle {
+    text-transform: uppercase;
+}
+
+.laptev .columnLettersBlock , .laptev .fontName, .laptev .fontCircle {
+    font-family: "laptev-brush";
+    font-weight: 300;
+}
+.DINPro .columnLettersBlock , .DINPro .fontCircle {
+    font-family: "DINPro";
+    font-weight: 300;
+}
+
+.colorBlock {
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    margin: 0px 0.7vw 0px 0px;
+    z-index: 2;
+}
+.colorBlock:last-child {
+    margin: 0px 0px 0px 0px;
+}
+
+.colorNumber {
+    font-size: 20px;
+    margin: 0px 0px 5px 0px;
+}
+.colorTable {
+    flex-direction: column;
+    width: 100%;
+    height: 7vw;
+    border: 1px solid #18A2AB;
+}
+.color1 {
+    height: 42%;
+    border-bottom: 1px solid #18A2AB;
+}
+.color2 {
+    height: 58%;
+}
+
+.caseBlock.caseBlock8 {
+    margin: 170px 0px 0px 0px;
+    padding: 0px 0px 15vh 0px;
+    justify-content: space-between;
+}
+
+.caseBlock8 .leftBlock, .caseBlock8 .rightBlock {
+    flex-direction: column;
+}
+
+.lineBlock {
+    flex-direction: column;
+    margin: 0px 0px 120px 0px;
+    max-width: 20vw;
+    height: 50%;
+}
+.lineBlock:last-child {
+    margin: 0px;
+}
+
+.lineBlock .line {
+    width: 100%;
+    height: 1px;
+    background: linear-gradient(to left, rgba(16, 175, 224, 1) 0%, rgba(16, 175, 224, 1) 70%, rgba(16, 175, 224, 0) 100%);
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-position: left;
+    margin: 0px 0px 5px 0px;
+}
+
+.lineTitle {
+    font-size: 20px;
+    font-weight: 300;
+    text-transform: uppercase;
+    letter-spacing: 4px;
+    padding: 0px 0px 7px 0px;
+    transform: scaleY(0.95);
+}
+.lineText {
+    font-size: 15px;
+}
+
+.centerBlock {
+    width: 33vw;
+    height: 33vw;
+    justify-content: center;
+    align-items: center;
+}
+
+.imageBlock {
+    z-index: 1;
+}
+
+.imageBlock.backImage {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    animation: rotatingCircle 150s linear infinite;
+}
+.transformDiv {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+}
+@keyframes rotatingCircle {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+.imageBlock.lastImage {
+    position: absolute;
+    width: 30%;
+    height: 70%;
+}
+
+.elementImage {
+    position: absolute;
+    left: 70%;
+    top: 15%;
+    width: 85px;
+    height: 85px;
+    animation: cubeAnim 3s linear infinite alternate;
+}
+@keyframes cubeAnim {
+    0% {
+        transform: translate(0px, 0px);
+    }
+    25% {
+        transform: translate(5px, 0px);
+    }
+    50% {
+        transform: translate(5px, 5px);
+    }
+    75% {
+        transform: translate(0px, 5px);
+    }
+    100% {
+        transform: translate(0px, 0px);
+    }
+}
+.gridLines {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    width: -webkit-fill-available;
+    height: 100%;
+    pointer-events: none;
+    z-index: -1;
+}
+.hLines {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+}
+.hLine {
+    position: absolute;
+    left: 50%;
+    top: 0;
+    transform: translate(-50%, 0);
+    width: 100vw;
+    height: 1px;
+    background: rgba(255, 255, 255, 0.07);
+    z-index: 0;
+    transition: 0.5s ease-out;
+}
+
+.vLines {
+    position: fixed;
+    width: var(--contentContainerWidth);
+    height: var(--contentContainerHeight);
+    overflow: hidden;
+    border-radius: var(--borderRadius);
+    pointer-events: none;
+    z-index: -1;
+    /* transform: translate(0, -50%); */
+}
+
+.vLine {
+    position: absolute;
+    width: 1px;
+    height: 100%;
+    background-color: rgba(255, 255, 255, 0.04);
+    transition: all 0.5s ease-in-out;
+    z-index: 0;
+}
+
+
+
+
+
+.transformBlock {
+    position: absolute;
+    transform: translate(0px, 0px);
+    left: 0;
+    top: 0;
+    transition: 1s;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

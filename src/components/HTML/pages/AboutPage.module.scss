@@ -1,0 +1,20 @@
+:global(.page.about).aboutPage {
+	display: block;
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	padding: 0;
+	overflow: hidden;
+	touch-action: none;
+	overscroll-behavior: none;
+	pointer-events: none;
+	background: transparent;
+	contain: layout paint style;
+}
+
+@media (max-width: 768px) {
+	:global(.page.about).aboutPage {
+		padding: 0;
+	}
+}

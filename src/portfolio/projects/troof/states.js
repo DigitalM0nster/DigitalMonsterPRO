@@ -1,69 +1,93 @@
 /** @type {import('@/portfolio/core/types.js').PortfolioState[]} */
 const states = [
 	{
-		id: "state_00",
-		title: "Troof",
-		pathSubtitle: "Overview",
-		subtitle: "Сайт для строительной компании",
+		id: "state_01",
+		pathTitle: "О ПРОЕКТЕ",
+		title: "КРОВЛЯ КАК\nЦИФРОВАЯ СИСТЕМА",
+		descriptionParagraphs: [
+			"TROOF работает с кровельными системами, плоскими крышами и гидроизоляцией с 2016 года. На одном сайте нужно было представить материалы, монтаж и комплексные решения компании.",
+			"DigitalMonster подключился на этапе фронтенда и за полтора месяца сверстал крупный многостраничный проект, сохранив заданную визуальную систему и динамичный характер интерфейса.",
+		],
 		traits: [
-			{ label: "Год", value: "2022" },
-			{ label: "Навыки", values: ["MySql", "Figma", "PS", "HTML", "CSS", "JavaScript"] },
+			{ label: "год", value: "2022" },
+			{ label: "срок", value: "1,5 месяца" },
+			{ label: "роль", value: "вёрстка" },
 		],
 		scrollAnchor: 0,
 		scene: {
-			model: { platforms: { visible: true, layout: "stack" }, roof: { visible: true } },
-		},
-	},
-	{
-		id: "state_01",
-		title: "О проекте",
-		pathSubtitle: "Context",
-		description:
-			"TROOF — кровельные системы, плоские крыши, гидроизоляция с 2016 года. Цель — минималистичный футуристичный сайт для премиум аудитории. Клиент: TROOF · Веб-разработка: DigitalMonster",
-		scrollAnchor: 0.25,
-		scene: {
-			model: { platforms: { speed: 0.02, alignCenter: true }, roof: { idle: true } },
+			model: { roofSystem: { phase: "overview", platformsVisible: true } },
 		},
 	},
 	{
 		id: "state_02",
-		title: "Дизайн",
-		pathSubtitle: "Design",
-		description: "Дизайн, подчеркивающий современность компании: Montserrat, ST_Norilsk и сдержанная палитра серых.",
-		media: { type: "image", src: "/images/case2/case2Image.webp" },
-		traits: [
-			{ label: "Шрифты", values: ["Montserrat", "ST_Norilsk"] },
-			{ label: "Цвета", values: ["#3A424A", "#727980", "#ADB1B6", "#D1D5D8"] },
+		pathTitle: "ВИЗУАЛЬНЫЙ ЯЗЫК",
+		title: "СТРОГОСТЬ, СОБРАННАЯ\nИЗ СЛОЁВ",
+		descriptionParagraphs: [
+			"В основе интерфейса — холодная серо-стальная палитра, крупная типографика Montserrat и ST_Norilsk, свободное пространство и точные геометрические линии.",
+			"Задача вёрстки состояла в том, чтобы перенести этот язык в адаптивный интерфейс и сохранить ощущение технологичности на страницах с разным объёмом контента.",
 		],
-		scrollAnchor: 0.5,
+		features: [
+			{ title: "Сдержанная палитра", subtitle: "холодные серые оттенки" },
+			{ title: "Контрастная типографика", subtitle: "Montserrat и ST_Norilsk" },
+			{ title: "Слоистая геометрия", subtitle: "связь с конструкцией кровли" },
+		],
+		scrollAnchor: 0.25,
 		scene: {
-			model: { roof: { hoverEnabled: true }, lines: { idle: true }, materials: { palette: ["#3A424A", "#727980", "#ADB1B6"] } },
-			background: { shaderOpacity: 0.2 },
+			model: { roofSystem: { phase: "materialLayers", layerSpread: 0.35 } },
 		},
 	},
 	{
 		id: "state_03",
-		title: "Интерактив",
-		pathSubtitle: "Experience",
-		description:
-			"Футуристичность, брутальность и минимализм: 3D-платформы, линии и крыша реагируют на pointer.",
-		scrollAnchor: 0.75,
+		pathTitle: "ИНТЕРАКТИВНЫЙ ОПЫТ",
+		title: "ГЕОМЕТРИЯ, КОТОРАЯ\nРЕАГИРУЕТ НА ДВИЖЕНИЕ",
+		descriptionParagraphs: [
+			"Проект включал большое количество анимаций и интерактивных эффектов. Центральная композиция объединяла крышу, линии и шесть парящих платформ.",
+			"Платформы воспринимались как декоративная пространственная система: они добавляли глубину и поддерживали футуристичный характер сайта, не дублируя структуру разделов.",
+		],
+		features: [
+			{ title: "Реакция на курсор", subtitle: "движение элементов" },
+			{ title: "Пространственная композиция", subtitle: "крыша, линии и платформы" },
+			{ title: "Микроанимации", subtitle: "динамика интерфейса" },
+		],
+		scrollAnchor: 0.5,
 		scene: {
-			model: { platforms: { float: true }, lines: { expandOnHover: true }, roof: { active: true } },
-			playAnimations: ["linesExpand"],
+			model: { roofSystem: { phase: "interactive", pointerTilt: true } },
 		},
 	},
 	{
 		id: "state_04",
-		title: "Принципы",
-		pathSubtitle: "Outcome",
-		traits: [
-			{ label: "Фокус", values: ["Акцент на важном", "Динамика и минимализм", "Уникальный контент", "Эффект WOW"] },
+		pathTitle: "КОНТЕНТНАЯ СИСТЕМА",
+		title: "МНОГО РАЗДЕЛОВ —\nОДИН РИТМ",
+		descriptionParagraphs: [
+			"Сайт объединял большой объём информации о направлениях, продуктах и услугах TROOF. Разные по содержанию страницы должны были восприниматься как части одного продукта.",
+			"Повторяемая сетка, типографическая иерархия и единое поведение интерактивных элементов помогли удержать общий ритм на всём сайте.",
+		],
+		features: [
+			{ title: "Материалы", subtitle: "кровельные решения" },
+			{ title: "Монтаж", subtitle: "услуги компании" },
+			{ title: "Структура", subtitle: "большое количество разделов" },
+		],
+		scrollAnchor: 0.75,
+		scene: {
+			model: { roofSystem: { phase: "contentSections", platformsSpread: true } },
+		},
+	},
+	{
+		id: "state_05",
+		pathTitle: "ИНЖЕНЕРИЯ ПРОЕКТА",
+		title: "СЛОЖНЫЙ МАКЕТ,\nТОЧНАЯ СБОРКА",
+		descriptionParagraphs: [
+			"Основной вклад DigitalMonster — фронтенд-вёрстка большого сайта с анимациями, интерактивными состояниями и нестандартной пространственной композицией.",
+			"Итогом стал готовый интерфейс, в котором информационная плотность сочетается с визуальной динамикой.",
+		],
+		features: [
+			{ title: "HTML", subtitle: "структура страниц" },
+			{ title: "CSS", subtitle: "адаптив и визуальные состояния" },
+			{ title: "JavaScript", subtitle: "интерактив и анимации" },
 		],
 		scrollAnchor: 1,
 		scene: {
-			model: { platforms: { spread: true } },
-			camera: { position: [0, -12, 9], lookAt: [0, -12, 0] },
+			model: { roofSystem: { phase: "engineeringWireframe", wireframe: true } },
 		},
 	},
 ];

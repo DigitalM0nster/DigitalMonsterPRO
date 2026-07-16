@@ -1,6 +1,9 @@
 import {
 	resolveCaseStudyLeftPanelPreset,
 } from "./caseStudyLeftPanelPresets.js";
+import { caseStudyReferencePanelPreset } from "@/portfolio/core/caseStudyReferencePanelPreset.js";
+
+const referenceMosaic = caseStudyReferencePanelPreset.leftPanel;
 
 /**
  * @typedef {{
@@ -102,12 +105,12 @@ export const caseStudyLeftPanelConfig = {
 	traitListGlyphColW: 56,
 	traitListTextGap: 4,
 
-	mosaicColumns: 10,
-	mosaicRows: 18,
-	mosaicLiftStrength: 1,
-	mosaicRandomLift: 120,
-	mosaicScatterX: 28,
-	mosaicDelay: 0.32,
+	mosaicColumns: referenceMosaic.mosaicColumns,
+	mosaicRows: referenceMosaic.mosaicRows,
+	mosaicLiftStrength: referenceMosaic.mosaicLiftStrength,
+	mosaicRandomLift: referenceMosaic.mosaicRandomLift,
+	mosaicScatterX: referenceMosaic.mosaicScatterX,
+	mosaicDelay: referenceMosaic.mosaicDelay,
 };
 
 const LAYOUT_KEYS = [

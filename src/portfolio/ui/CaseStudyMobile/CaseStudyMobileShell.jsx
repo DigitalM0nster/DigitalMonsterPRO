@@ -80,9 +80,16 @@ export default function CaseStudyMobileShell() {
 	return (
 		<div className={styles.mobileShell} data-case-study-mobile>
 			<div className={styles.sceneHeader}>
-				<span className={styles.sceneCounter}>
-					{String(activeStateIndex + (caseStudy.chapterBase ?? 1)).padStart(2, "0")} / {String(project.states.length).padStart(2, "0")}
-				</span>
+				<div className={styles.sceneIdentity}>
+					<span className={styles.sceneCounter}>
+						{String(activeStateIndex + (caseStudy.chapterBase ?? 1)).padStart(2, "0")} / {String(project.states.length).padStart(2, "0")}
+					</span>
+					{caseStudy.footerLabel && (
+						<span className={styles.brandLabel}>
+							{caseStudy.footerLabelCopy?.[locale] ?? caseStudy.footerLabel}
+						</span>
+					)}
+				</div>
 				<div className={styles.progressRail} aria-hidden="true">
 					{project.states.map((state, index) => (
 						<button
@@ -94,11 +101,6 @@ export default function CaseStudyMobileShell() {
 						/>
 					))}
 				</div>
-				{caseStudy.footerLabel && (
-					<span className={styles.brandLabel}>
-						{caseStudy.footerLabelCopy?.[locale] ?? caseStudy.footerLabel}
-					</span>
-				)}
 			</div>
 
 			<div

@@ -48,6 +48,36 @@ export const PORTFOLIO_PROJECT_PLATE_SECONDARY = {
 		en: "interactive anniversary website",
 		zh: "互动周年纪念网站",
 	},
+	"02": {
+		ru: "кровельные системы и услуги",
+		en: "roofing systems and services",
+		zh: "屋面系统与服务",
+	},
+	"03": {
+		ru: "аренда башенных кранов",
+		en: "tower crane rental",
+		zh: "塔式起重机租赁",
+	},
+	"04": {
+		ru: "продакшн-студия полного цикла",
+		en: "full-cycle production studio",
+		zh: "全流程制作工作室",
+	},
+	"05": {
+		ru: "креативное агентство полного цикла",
+		en: "full-cycle creative agency",
+		zh: "全方位创意代理机构",
+	},
+	"06": {
+		ru: "интерактивный каталог офисов",
+		en: "interactive office catalogue",
+		zh: "互动式办公室目录",
+	},
+	"07": {
+		ru: "архитектурное портфолио",
+		en: "architecture portfolio",
+		zh: "建筑作品集",
+	},
 };
 
 /** Кнопка «Смотреть кейс» на плитах портфолио и в мобильных кейсах. */

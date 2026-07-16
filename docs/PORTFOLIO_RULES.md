@@ -31,7 +31,8 @@
 ## Belka Production
 
 - CRE-RETAIL **удалён** из конфигов
-- `contentStatus: needsContent` — placeholder до получения материалов
+- Контент оформлен как кейс Belka Production / СТУДИЯ БЕЛКИ: корпоративный сайт и портфолио продакшн-студии полного цикла.
+- Старые `shoe.gltf`, `locationIconModel.fbx`, изображения и тексты CRE-RETAIL не использовать как материалы Belka Production.
 
 ## plannedInteractives.js — для кого?
 

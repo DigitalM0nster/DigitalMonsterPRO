@@ -1,9 +1,15 @@
 import * as THREE from "three";
 import { applyScreenTextureColorSpace, blitTextureToRenderTarget } from "../composerUtils.js";
 import { applyGrainBlurToBlitMaterial, createViewportMaskBlitMaterial } from "./viewportMask/blitMaterial.js";
+import {
+	applyCaseStudyEdgeShadeUniforms,
+	createCaseStudyEdgeShadeMaterial,
+} from "./caseStudyEdgeShadeMaterial.js";
 
 const bgScene = new THREE.Scene();
 const modelsScene = new THREE.Scene();
+const overlayScene = new THREE.Scene();
+const edgeShadeScene = new THREE.Scene();
 const screenCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 
 function createLayerRenderTarget(width, height) {
@@ -41,10 +47,46 @@ export class ScreenCompositor {
 		this.modelsMaskMaterial = createViewportMaskBlitMaterial();
 		this.modelsMesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.modelsMaskMaterial);
 		modelsScene.add(this.modelsMesh);
+
+		this.caseEdgeShadeMaterial = createCaseStudyEdgeShadeMaterial();
+		this.caseEdgeShadeMesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.caseEdgeShadeMaterial);
+		edgeShadeScene.add(this.caseEdgeShadeMesh);
+		/** @type {{ enabled: boolean, opacity: number, right: boolean, bottom: boolean }} */
+		this._caseEdgeShade = { enabled: false, opacity: 0, right: true, bottom: true, delta: 1 / 60 };
+
+		// UI canvases already contain display-referred sRGB colours. They must not
+		// pass through the scene tone mapper, otherwise text becomes dull and its
+		// antialiased edges lose contrast.
+		this.overlayMaterial = createViewportMaskBlitMaterial();
+		this.overlayMaterial.toneMapped = false;
+		this.overlayMaterial.needsUpdate = true;
+		this.overlayMesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.overlayMaterial);
+		overlayScene.add(this.overlayMesh);
+	}
+
+	/**
+	 * Case pages: darken bg+models at right/bottom. HUD overlays after and stay bright.
+	 * @param {{ enabled?: boolean, right?: boolean, bottom?: boolean, delta?: number }} opts
+	 */
+	setCaseStudyEdgeShade(opts = {}) {
+		const enabled = Boolean(opts.enabled);
+		this._caseEdgeShade.enabled = enabled;
+		this._caseEdgeShade.right = opts.right !== false;
+		this._caseEdgeShade.bottom = opts.bottom !== false;
+		const target = enabled ? 1 : 0;
+		const delta = Number.isFinite(opts.delta) ? Math.max(0, opts.delta) : 1 / 60;
+		this._caseEdgeShade.delta = delta;
+		// ~680ms ease-in to match former HTML caseStudyShadeIn.
+		const k = 1 - Math.exp(-3.2 * delta);
+		this._caseEdgeShade.opacity += (target - this._caseEdgeShade.opacity) * k;
+		if (this._caseEdgeShade.opacity < 0.001 && !enabled) {
+			this._caseEdgeShade.opacity = 0;
+		}
 	}
 
 	_drawLayers(gl, bgTexture, modelsTexture, renderTarget, grainBlur, overlayTexture = null) {
 		this.modelsMaskMaterial.uniforms.maskEnabled.value = 0;
+		this.modelsMaskMaterial.uniforms.mapRegionEnabled.value = 0;
 		applyGrainBlurToBlitMaterial(this.modelsMaskMaterial, grainBlur);
 
 		const prevTarget = gl.getRenderTarget();
@@ -71,13 +113,44 @@ export class ScreenCompositor {
 			gl.render(modelsScene, screenCamera);
 		}
 
-		if (overlayTexture) {
-			applyScreenTextureColorSpace(overlayTexture, gl);
-			applyGrainBlurToBlitMaterial(this.modelsMaskMaterial, { enabled: false, radius: 0 });
-			this.modelsMaskMaterial.uniforms.map.value = overlayTexture;
+		// Only on true bg+models composite. Final drawToScreen(null, fullFrame) must not re-shade.
+		if (bgTexture && modelsTexture && this._caseEdgeShade.opacity > 0.001) {
+			applyCaseStudyEdgeShadeUniforms(this.caseEdgeShadeMaterial, {
+				opacity: this._caseEdgeShade.opacity,
+				viewportW: this.size.w || 1,
+				viewportH: this.size.h || 1,
+				right: this._caseEdgeShade.right,
+				bottom: this._caseEdgeShade.bottom,
+				delta: this._caseEdgeShade.delta,
+			});
 			gl.setRenderTarget(renderTarget);
 			gl.autoClear = false;
-			gl.render(modelsScene, screenCamera);
+			gl.render(edgeShadeScene, screenCamera);
+		}
+
+		if (overlayTexture) {
+			applyScreenTextureColorSpace(overlayTexture, gl);
+			const overlayUniforms = this.overlayMaterial.uniforms;
+			overlayUniforms.maskEnabled.value = 0;
+			const region = overlayTexture.userData?.screenRegion;
+			if (region?.viewportWidth > 0 && region?.viewportHeight > 0) {
+				const x = region.x / region.viewportWidth;
+				const y = 1 - (region.y + region.height) / region.viewportHeight;
+				overlayUniforms.mapRegion.value.set(
+					x,
+					y,
+					region.width / region.viewportWidth,
+					region.height / region.viewportHeight,
+				);
+				overlayUniforms.mapRegionEnabled.value = 1;
+			} else {
+				overlayUniforms.mapRegionEnabled.value = 0;
+			}
+			applyGrainBlurToBlitMaterial(this.overlayMaterial, { enabled: false, radius: 0 });
+			overlayUniforms.map.value = overlayTexture;
+			gl.setRenderTarget(renderTarget);
+			gl.autoClear = false;
+			gl.render(overlayScene, screenCamera);
 		}
 
 		gl.setRenderTarget(prevTarget);
@@ -134,8 +207,12 @@ export class ScreenCompositor {
 		this.layerTargets.b?.dispose();
 		this.layerTargets = { a: null, b: null };
 		this.modelsMaskMaterial.dispose();
+		this.caseEdgeShadeMaterial.dispose();
+		this.overlayMaterial.dispose();
 		this.bgMesh.geometry.dispose();
 		this.bgMesh.material.dispose();
 		this.modelsMesh.geometry.dispose();
+		this.caseEdgeShadeMesh.geometry.dispose();
+		this.overlayMesh.geometry.dispose();
 	}
 }

@@ -34,6 +34,7 @@ import { createHeroTitleText } from "./heroText/createHeroTitleText.js";
  */
 export class DigitalWhaleScene {
 	constructor() {
+		this._disposed = false;
 		this.oceanDisposables = [];
 
 		this.threeScene = new THREE.Scene();
@@ -41,6 +42,12 @@ export class DigitalWhaleScene {
 		this.smoothPointer = new THREE.Vector2(0, 0);
 		this.cameraPos = new THREE.Vector3();
 		this.lookAtTarget = new THREE.Vector3();
+		this._soundSnapshot = {
+			whaleWorld: new THREE.Vector3(),
+			cameraWorld: new THREE.Vector3(),
+			lookAtWorld: new THREE.Vector3(),
+			distance: 0,
+		};
 		this._gridCols = 0;
 		this._gridRows = 0;
 		this._meshSegX = 0;
@@ -127,7 +134,7 @@ export class DigitalWhaleScene {
 		this._rebuildOceanGrid();
 		this._applyWhaleIntroPose();
 		this.applyConfig();
-		this._loadWhale();
+		this.readyPromise = this._loadWhale();
 	}
 
 	/** Screen-space hero title (digital-monster TextMesh). */
@@ -337,7 +344,7 @@ export class DigitalWhaleScene {
 		const w = digitalWhaleConfig.whale;
 		const loadToken = ++this._whaleLoadToken;
 
-		loadAnimatedWhale({ edgeSpacing: w.edgeSpacing, renderMode: this.whaleRenderMode })
+		return loadAnimatedWhale({ edgeSpacing: w.edgeSpacing, renderMode: this.whaleRenderMode })
 			.then((whale) => {
 				if (this._disposed || loadToken !== this._whaleLoadToken) {
 					disposeWhaleRoot(whale.root);
@@ -361,6 +368,7 @@ export class DigitalWhaleScene {
 			})
 			.catch((error) => {
 				console.error("[DigitalWhaleScene] whale load failed", error);
+				return null;
 			});
 	}
 
@@ -392,7 +400,8 @@ export class DigitalWhaleScene {
 
 	/** Позиция кита и камеры — для spatial underwater-звука. */
 	getWhaleSoundSnapshot() {
-		const whaleWorld = new THREE.Vector3();
+		const snapshot = this._soundSnapshot;
+		const whaleWorld = snapshot.whaleWorld;
 		if (this.whaleGroup) {
 			this.whaleGroup.updateMatrixWorld(true);
 			this.whaleGroup.getWorldPosition(whaleWorld);
@@ -400,12 +409,10 @@ export class DigitalWhaleScene {
 			whaleWorld.copy(this._whaleBasePos);
 		}
 
-		return {
-			whaleWorld,
-			cameraWorld: this.cameraPos.clone(),
-			lookAtWorld: this.lookAtTarget.clone(),
-			distance: whaleWorld.distanceTo(this.cameraPos),
-		};
+		snapshot.cameraWorld.copy(this.cameraPos);
+		snapshot.lookAtWorld.copy(this.lookAtTarget);
+		snapshot.distance = whaleWorld.distanceTo(this.cameraPos);
+		return snapshot;
 	}
 
 	_usesShaderOcean() {
@@ -826,6 +833,9 @@ export class DigitalWhaleScene {
 	}
 
 	_publishSceneProgressDebug(frame, sceneProgress) {
+		if (!import.meta.env.DEV) {
+			return;
+		}
 		const drift = getHeroSceneProgressDrift(sceneProgress);
 		appStore.homeSceneProgressDebug = {
 			...drift,

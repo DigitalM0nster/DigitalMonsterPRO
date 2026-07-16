@@ -30,6 +30,20 @@
 		text-transform: uppercase;
 	}
 
+	.sceneIdentity {
+		display: flex;
+		min-width: 0;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 4px;
+	}
+
+	.brandLabel {
+		max-width: 46vw;
+		font-size: 0.58rem;
+		white-space: normal;
+	}
+
 	.progressRail {
 		display: flex;
 		flex: 1;

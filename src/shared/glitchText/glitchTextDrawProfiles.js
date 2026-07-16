@@ -8,8 +8,9 @@ import {
 	resolveHeroReplacementDisplayChar,
 	resolveHeroReplacementMetrics,
 } from "@/three/scenes/home/heroText/heroTextGlitchConfig.js";
+import { SITE_MAIN_COLOR } from "@/constants/siteMainColor.js";
 
-/** @typedef {'hud' | 'hero'} GlitchTextDrawProfile */
+/** @typedef {'hud' | 'hero' | 'caseStudyNav'} GlitchTextDrawProfile */
 
 export const GLITCH_DRAW_PROFILES = {
 	hud: {
@@ -52,6 +53,23 @@ export const GLITCH_DRAW_PROFILES = {
 		get replacementGlowStrength() {
 			return heroTextGlitchConfig.replacementGlowStrength;
 		},
+	},
+	/**
+	 * Case study arc / prev-next: same size & baseline as main Manifold letters.
+	 * Hero metrics (scaleX 0.68 + offset) look tiny/low at ~9px arc labels.
+	 */
+	caseStudyNav: {
+		mainFontFamily: SCREEN_TEXT_FONT_FAMILY,
+		replacementFontFamily: SCREEN_TEXT_FONT_FAMILY,
+		replacementFontWeight: 500,
+		replacementOffsetYEm: 0,
+		replacementScaleX: 1,
+		replacementScaleY: 1,
+		/** Keep upright — hero/hub flip is for large flipped meshes. */
+		replacementFlipAxes: false,
+		replacementColor: SITE_MAIN_COLOR,
+		replacementShadowColor: SITE_MAIN_COLOR,
+		replacementGlowStrength: 1,
 	},
 };
 

@@ -12,14 +12,23 @@ export const heroTextShaderConfig = {
 	taglineMasterAlpha: 0.62,
 	taglineGamma: 2.2,
 	taglineTint: "#ffffff",
-	// Tech stack — яркий cyan
-	stackFillBrightness: 0.95,
-	stackMasterAlpha: 0.88,
-	stackGamma: 1.8,
-	stackTint: "#45d8ff",
+	// Tech stack — белый, без soft-cyan gamma (иначе мылится в bloom)
+	stackFillBrightness: 1.05,
+	stackMasterAlpha: 1,
+	stackGamma: 1,
+	stackTint: "#ffffff",
 	titleGradientTop: "#ffffff",
 	titleGradientBottom: "#37afeb",
 	titleShimmer: 0.045,
+	// Local click wave over the title. Energy stacks on repeated clicks, but is capped.
+	titleClickImpulse: 0.42,
+	titleClickMaxStrength: 1,
+	titleClickAttack: 24,
+	titleClickDecay: 2.8,
+	titleClickRadiusNDC: 0.16,
+	titleClickWaveSpeedNDC: 0.72,
+	titleClickWaveWidthNDC: 0.085,
+	titleClickOffset: 0.009,
 };
 
 export function applyHeroTitleShaderUniforms(uniforms, config = heroTextShaderConfig, profile = "title") {

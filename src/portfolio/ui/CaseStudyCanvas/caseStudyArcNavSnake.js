@@ -5,6 +5,8 @@ import { caseStudyArcConfig } from "./caseStudyArcConfig.js";
 const layers = new Map();
 let repaint = null;
 let repaintRaf = 0;
+/** New layers start hidden until playCaseStudyArcNavSnakeAppear. */
+let pendingAppear = false;
 
 function scheduleRepaint() {
 	if (!repaint || repaintRaf) {
@@ -47,11 +49,12 @@ function getLayer(id, text, style) {
 			letterSpacing: style.letterSpacing,
 			fontFamily: style.fontFamily,
 			color: style.color,
-			drawProfile: "hero",
+			drawProfile: "caseStudyNav",
 			replacementGlowStrength: caseStudyArcConfig.snakeGlowStrength,
 			replacementShadowBlur: caseStudyArcConfig.snakeGlowBlur,
 			replacementHaloAlpha: caseStudyArcConfig.snakeGlowAlpha,
 			passedLetterHighlightAlpha: caseStudyArcConfig.snakePassedLetterAlpha,
+			initialHidden: pendingAppear,
 			onRedraw: scheduleRepaint,
 		});
 		layer = { glitch, desiredText: text, switching: false, disposed: false };
@@ -103,11 +106,13 @@ function getStateLayers(stateId) {
 }
 
 export function playCaseStudyArcNavSnakeHover(id) {
+	const slowMotion = 1 / Math.max(0.1, caseStudyArcConfig.snakeHoverSpeed ?? 1);
 	getStateLayers(id).forEach((layer, index) => {
 		if (!layer.switching) {
 			layer.glitch.runHover({
 				soundPan: CASE_STUDY_RIGHT_SOUND_PAN,
 				playSound: index === 0,
+				slowMotion,
 			});
 		}
 	});
@@ -117,13 +122,86 @@ export function clearCaseStudyArcNavSnakeHover(id) {
 	getStateLayers(id).forEach((layer) => layer.glitch.clearHoverPassed());
 }
 
+/** Hide all arc titles for a later snake appear (no flash of full text). */
+export function armCaseStudyArcNavSnakeAppear() {
+	pendingAppear = true;
+	for (const layer of layers.values()) {
+		if (!layer.disposed) {
+			layer.glitch.prepareAppear();
+		}
+	}
+	scheduleRepaint();
+}
+
+/**
+ * Snake-in all arc chapter titles.
+ * @param {number} [timeBudgetMs]
+ * @returns {Promise<void>}
+ */
+export function playCaseStudyArcNavSnakeAppear(timeBudgetMs) {
+	pendingAppear = false;
+	let maxMs = 0;
+	for (const layer of layers.values()) {
+		if (layer.disposed) {
+			continue;
+		}
+		const durationMs = Number(layer.glitch.playAppear(timeBudgetMs)) || 0;
+		maxMs = Math.max(maxMs, durationMs);
+	}
+	scheduleRepaint();
+	if (maxMs <= 0) {
+		return Promise.resolve();
+	}
+	return new Promise((resolve) => {
+		window.setTimeout(resolve, maxMs);
+	});
+}
+
+/**
+ * Snake-out all arc chapter titles (leave case / hex start).
+ * @param {number} [timeBudgetMs]
+ * @returns {Promise<void>}
+ */
+export function playCaseStudyArcNavSnakeDisappear(timeBudgetMs) {
+	pendingAppear = false;
+	let maxMs = 0;
+	for (const layer of layers.values()) {
+		if (layer.disposed) {
+			continue;
+		}
+		const durationMs = Number(layer.glitch.playDisappear(timeBudgetMs)) || 0;
+		maxMs = Math.max(maxMs, durationMs);
+	}
+	scheduleRepaint();
+	if (maxMs <= 0) {
+		return Promise.resolve();
+	}
+	return new Promise((resolve) => {
+		window.setTimeout(resolve, maxMs);
+	});
+}
+
+/** Cancel disappear / show titles again (interrupted hex reverse). */
+export function restoreCaseStudyArcNavSnakeVisible() {
+	pendingAppear = false;
+	for (const layer of layers.values()) {
+		if (!layer.disposed) {
+			layer.glitch.restoreVisible();
+		}
+	}
+	scheduleRepaint();
+}
+
 export function previewCaseStudyArcNavSnakeGlow() {
 	const layer = [...layers.values()].find((candidate) => !candidate.disposed && !candidate.switching);
 	if (!layer) {
 		return;
 	}
 	layer.glitch.engine.abort();
-	layer.glitch.runHover({ soundPan: CASE_STUDY_RIGHT_SOUND_PAN });
+	layer.glitch.runHover({
+		soundPan: CASE_STUDY_RIGHT_SOUND_PAN,
+		slowMotion: 1 / Math.max(0.1, caseStudyArcConfig.snakeHoverSpeed ?? 1),
+	});
 }
 
 export function registerCaseStudyArcNavSnakeRepaint(callback) {
@@ -140,6 +218,7 @@ export function disposeCaseStudyArcNavSnake() {
 		cancelAnimationFrame(repaintRaf);
 		repaintRaf = 0;
 	}
+	pendingAppear = false;
 	for (const layer of layers.values()) {
 		layer.disposed = true;
 		layer.glitch.dispose();

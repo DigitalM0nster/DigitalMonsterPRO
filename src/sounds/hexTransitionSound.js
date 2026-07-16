@@ -451,7 +451,14 @@ class HexTransitionSoundController {
 			isCarouselRoutePage(currentPage) || isCarouselRoutePage(teleportPage);
 		const hexNavActive = carousel?.isHexNavigationActive?.() === true;
 
-		if (!isPageSoundAllowed(true) || store.openedCase) {
+		if (!isPageSoundAllowed(true)) {
+			this._stop(true, { immediate: true });
+			return;
+		}
+
+		// Case page owns its SFX, but hex leave must keep playing while openedCase
+		// stays true for HUD mosaic exit compositing.
+		if (store.openedCase && !hexNavActive) {
 			this._stop(true, { immediate: true });
 			return;
 		}

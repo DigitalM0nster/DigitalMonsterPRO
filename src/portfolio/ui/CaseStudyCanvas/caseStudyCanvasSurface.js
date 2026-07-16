@@ -2,12 +2,7 @@
  * Подготовка canvas: CSS-размер, pixel buffer, DPR transform.
  */
 
-/** HUD 2D поверх 3D — ниже DPR, чем WebGL (меньше пикселей на shadowBlur). */
-const CASE_STUDY_DPR_CAP = {
-	low: 1,
-	medium: 1,
-	high: 1.5,
-};
+import { getGraphicsConfig, resolveRendererPixelRatio } from "@/utils/getGraphicsTier.js";
 
 /** Множитель bleed справа — на слабых tier меньше площадь отрисовки. */
 const CASE_STUDY_BLEED_MUL = {
@@ -20,13 +15,26 @@ const CASE_STUDY_BLEED_MUL = {
  * @param {'low' | 'medium' | 'high'} [graphicsTier]
  */
 export function resolveCaseStudyCanvasPixelRatio(graphicsTier = "medium") {
-	const cap = CASE_STUDY_DPR_CAP[graphicsTier] ?? CASE_STUDY_DPR_CAP.medium;
 	const device =
 		typeof window !== "undefined" && Number.isFinite(window.devicePixelRatio)
 			? window.devicePixelRatio
 			: 1;
 
-	return Math.min(device, cap);
+	const resolved = resolveRendererPixelRatio(graphicsTier, device);
+	const cap = getGraphicsConfig(graphicsTier).caseCanvasDprCap ?? resolved;
+	return Math.min(resolved, cap);
+}
+
+/**
+ * WebGL panel HUD only — match drawing-buffer DPR. Safe because textures upload on content change, not scroll.
+ * @param {'low' | 'medium' | 'high'} [graphicsTier]
+ */
+export function resolveCaseStudyPanelHudPixelRatio(graphicsTier = "medium") {
+	const device =
+		typeof window !== "undefined" && Number.isFinite(window.devicePixelRatio)
+			? window.devicePixelRatio
+			: 1;
+	return resolveRendererPixelRatio(graphicsTier, device);
 }
 
 /**

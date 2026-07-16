@@ -20,6 +20,15 @@ uniform float uIsAppearing;
 uniform float uFillBrightness;
 uniform float uMasterAlpha;
 uniform float uGlitchStrength;
+#define CLICK_WAVE_COUNT 8
+uniform vec2 uClickPositions[CLICK_WAVE_COUNT];
+uniform float uClickStrengths[CLICK_WAVE_COUNT];
+uniform float uClickAges[CLICK_WAVE_COUNT];
+uniform float uClickRadiusNDC;
+uniform float uClickWaveSpeedNDC;
+uniform float uClickWaveWidthNDC;
+uniform float uClickOffset;
+uniform float uClickMaxStrength;
 uniform vec3 uOutlineBoost;
 uniform float uOutlineThreshold;
 uniform vec3 uFillGradientTop;
@@ -60,6 +69,16 @@ vec2 calculateVirtualCursorOffsetNDC(vec2 cursorNDC, vec2 fragmentNDC, float ban
 	return randomDirection * influence * (baseOffset + dynamicOffset);
 }
 
+float calculateClickWaveInfluenceNDC(vec2 clickNDC, vec2 fragmentNDC, float aspectRatio, float strength, float age) {
+	vec2 delta = clickNDC - fragmentNDC;
+	float d = length(vec2(delta.x * aspectRatio * 0.75, delta.y * 0.75));
+	float core = 1.0 - smoothstep(0.0, uClickRadiusNDC, d);
+	float waveFront = age * uClickWaveSpeedNDC;
+	float ring = 1.0 - smoothstep(0.0, uClickWaveWidthNDC, abs(d - waveFront));
+	float influence = max(core * 0.62, ring);
+	return influence * strength;
+}
+
 vec2 uvToNDC(vec2 uv) {
 	float aspectRatio = uResolution.x / uResolution.y;
 	return vec2(-1.0 + 2.0 * uv.x + 2.0 * uPositionOffset.x, -1.0 + 2.0 * uv.y - 2.0 * uPositionOffset.y * aspectRatio);
@@ -86,8 +105,19 @@ void main() {
 	vec2 offsetVirtual1 = calculateVirtualCursorOffsetNDC(uvToNDC(uVirtualCursor1), vNDC, bandHalfW, bandHalfH, randomDirection);
 	vec2 offsetVirtual2 = calculateVirtualCursorOffsetNDC(uvToNDC(uVirtualCursor2), vNDC, bandHalfW, bandHalfH, randomDirection);
 	vec2 offsetVirtual3 = calculateVirtualCursorOffsetNDC(uvToNDC(uVirtualCursor3), vNDC, bandHalfW, bandHalfH, randomDirection);
+	float clickInfluence = 0.0;
+	for (int i = 0; i < CLICK_WAVE_COUNT; i++) {
+		clickInfluence += calculateClickWaveInfluenceNDC(
+			2.0 * uClickPositions[i] - 1.0,
+			vNDC,
+			aspectRatio,
+			uClickStrengths[i],
+			uClickAges[i]
+		);
+	}
+	vec2 offsetClick = randomDirection * uClickOffset * min(clickInfluence, uClickMaxStrength);
 
-	vec2 totalOffset = offsetMouse + offsetVirtual1 + offsetVirtual2 + offsetVirtual3;
+	vec2 totalOffset = offsetMouse + offsetVirtual1 + offsetVirtual2 + offsetVirtual3 + offsetClick;
 	vec2 autoOffset = vec2(sin(uTime * 0.5 + sampleUv.y * 5.0) * 0.00115 * uGlitchStrength, 0.0);
 	vec2 offset = totalOffset + autoOffset;
 

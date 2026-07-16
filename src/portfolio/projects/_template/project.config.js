@@ -18,6 +18,9 @@ export default {
 			lookAt: [0, 0, 0],
 		},
 	},
+	caseStudy: {
+		renderTextInScene: true,
+	},
 	meta: {
 		year: 2024,
 		type: "",

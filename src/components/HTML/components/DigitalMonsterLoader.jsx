@@ -1,15 +1,20 @@
 /* eslint-disable react/prop-types */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { DefaultLoadingManager } from "three";
 import { preloadSoundDesign } from "../../../sounds/soundDesign.js";
 import { store } from "../../../store.jsx";
 
 const SHOW_LEGACY_LOADER = false;
 
+function readBootstrapNumber(value, fallback = 0) {
+	const next = Number(value);
+	return Number.isFinite(next) ? next : fallback;
+}
+
 export default function DigitalMonsterLoader(props) {
 	const [removeLoader, setRemoveLoader] = useState(false);
-	const initialProgressRef = useRef(Math.min(99, Number(window.__loaderBootstrapProgress) || 0));
-	const animationOffsetRef = useRef(`-${Math.max(0, (Date.now() - (Number(window.__loaderBootstrapStartedAt) || Date.now())) / 1000)}s`);
+	const initialProgressRef = useRef(Math.min(99, readBootstrapNumber(window.__loaderBootstrapProgress, 0)));
+	const animationOffsetRef = useRef(`-${Math.max(0, (Date.now() - readBootstrapNumber(window.__loaderBootstrapStartedAt, Date.now())) / 1000)}s`);
 	const [loadingProgress, setLoadingProgress] = useState(initialProgressRef.current);
 	const [isFullScreen, setIsFullScreen] = useState(false);
 	const lastTickTsRef = useRef(Date.now());
@@ -17,6 +22,17 @@ export default function DigitalMonsterLoader(props) {
 	const progressStoppedRef = useRef(false);
 	const progressRef = useRef(initialProgressRef.current);
 	const intervalIdRef = useRef(null);
+	const loaderRootRef = useRef(null);
+	// Keep 0 as a valid bootstrap value — `||` would wrongly jump tail/head to progress.
+	const snakeTailRef = useRef(readBootstrapNumber(window.__loaderBootstrapSnakeTail, 0));
+	const snakeHeadRef = useRef(
+		readBootstrapNumber(
+			window.__loaderBootstrapSnakeHead,
+			readBootstrapNumber(window.__loaderBootstrapProgress, initialProgressRef.current)
+		)
+	);
+	const snakeRafRef = useRef(0);
+	const snakeLastTsRef = useRef(0);
 	const renderedRef = useRef(props.rendered);
 	const startAppRef = useRef(props.startApp);
 	const removeLoaderRef = useRef(removeLoader);
@@ -239,6 +255,78 @@ export default function DigitalMonsterLoader(props) {
 
 	const showLoadingProgress = !props.startApp && !removeLoader;
 
+	const applySnakeCssVars = (root = loaderRootRef.current) => {
+		if (!root) {
+			return;
+		}
+		const progress = Math.min(100, Math.max(0, progressRef.current));
+		const head = Math.min(100, Math.max(0, snakeHeadRef.current));
+		const tail = Math.min(head, Math.max(0, snakeTailRef.current));
+		root.style.setProperty("--loader-progress", `${progress}%`);
+		root.style.setProperty("--loader-snake-head", `${head}%`);
+		root.style.setProperty("--loader-snake-tail", `${tail}%`);
+		root.style.setProperty("--loader-tip-opacity", head >= 99.9 ? "0" : "1");
+	};
+
+	// Cheap CSS-var lerp only (no canvas): tail catches up to the progress head.
+	// useLayoutEffect: paint with bootstrap head/tail before the first frame (no 0% flash).
+	useLayoutEffect(() => {
+		if (!showLoadingProgress) {
+			if (snakeRafRef.current) {
+				cancelAnimationFrame(snakeRafRef.current);
+				snakeRafRef.current = 0;
+			}
+			return undefined;
+		}
+
+		const tick = (now) => {
+			snakeRafRef.current = requestAnimationFrame(tick);
+			const root = loaderRootRef.current;
+			if (!root) {
+				return;
+			}
+			const last = snakeLastTsRef.current || now;
+			snakeLastTsRef.current = now;
+			const dt = Math.max(0.001, Math.min(0.05, (now - last) / 1000));
+			const target = Math.min(100, Math.max(0, progressRef.current));
+			// Smooth follow — fill + snake tip share head, never snap to stepped progress.
+			snakeHeadRef.current += (target - snakeHeadRef.current) * (1 - Math.exp(-7.5 * dt));
+			if (snakeHeadRef.current > target) {
+				snakeHeadRef.current = target;
+			}
+			const head = snakeHeadRef.current;
+			const gap = head - snakeTailRef.current;
+			const catchRate = gap > 0.2 ? 3.2 : 10;
+			snakeTailRef.current += gap * (1 - Math.exp(-catchRate * dt));
+			if (snakeTailRef.current > head) {
+				snakeTailRef.current = head;
+			}
+			if (head - snakeTailRef.current > 12) {
+				snakeTailRef.current += (head - 12 - snakeTailRef.current) * (1 - Math.exp(-8 * dt));
+			}
+			if (head >= 99.9) {
+				snakeHeadRef.current = target;
+				snakeTailRef.current = head;
+			}
+			applySnakeCssVars(root);
+		};
+
+		snakeLastTsRef.current = performance.now();
+		snakeHeadRef.current = readBootstrapNumber(
+			window.__loaderBootstrapSnakeHead,
+			Math.min(100, Math.max(0, progressRef.current))
+		);
+		snakeTailRef.current = readBootstrapNumber(window.__loaderBootstrapSnakeTail, snakeTailRef.current);
+		applySnakeCssVars();
+		snakeRafRef.current = requestAnimationFrame(tick);
+		return () => {
+			if (snakeRafRef.current) {
+				cancelAnimationFrame(snakeRafRef.current);
+				snakeRafRef.current = 0;
+			}
+		};
+	}, [showLoadingProgress]);
+
 	const canShowStart = loadingProgress >= 99.5 && props.rendered;
 	const progressPercent = Math.min(100, Math.floor(loadingProgress));
 	const languageButtonsEnabled = progressPercent === 100 && props.rendered && fontsReadyRef.current;
@@ -268,10 +356,16 @@ export default function DigitalMonsterLoader(props) {
 	return (
 		<>
 			<div
+				ref={loaderRootRef}
 				className={`digitalMonsterLoader${removeLoader ? " removed" : ""}`}
 				style={{
-					"--loader-progress": `${loadingProgress}%`,
+					// Must list snake vars every render: a partial style object lets the
+					// first paint (and style reconciliation) fall back to 0% while % text stays.
 					"--loader-animation-offset": animationOffsetRef.current,
+					"--loader-progress": `${Math.min(100, Math.max(0, progressRef.current))}%`,
+					"--loader-snake-head": `${Math.min(100, Math.max(0, snakeHeadRef.current))}%`,
+					"--loader-snake-tail": `${Math.min(100, Math.max(0, snakeTailRef.current))}%`,
+					"--loader-tip-opacity": snakeHeadRef.current >= 99.9 ? "0" : "1",
 				}}
 			>
 				<div className="digitalMonsterLoaderOrb">
@@ -367,6 +461,7 @@ export default function DigitalMonsterLoader(props) {
 							<span>ЗАГРУЗКА / LOADING</span>
 							<div className="digitalMonsterLoaderTrack" aria-hidden="true">
 								<i />
+								<span className="digitalMonsterLoaderSnake" />
 							</div>
 						</div>
 					</div>

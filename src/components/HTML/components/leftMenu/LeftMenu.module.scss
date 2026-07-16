@@ -17,6 +17,7 @@
 	z-index: 30;
 	pointer-events: auto;
 	border-right: 1px solid rgba(255, 255, 255, 0.1);
+	background: rgba(0, 0, 0, 0.87);
 
 	.topSection {
 		flex-shrink: 0;
@@ -340,5 +341,69 @@
 	.itemButton:hover .langLabel,
 	.itemButton.active .langLabel {
 		color: var(--mainColor);
+	}
+}
+
+@media (max-width: 768px) {
+	.leftMenu.aboutLayout {
+		--leftMenuButtonWidth: 38px;
+		--leftMenuIconSize: 16px;
+
+		left: 50%;
+		top: auto;
+		bottom: max(8px, env(safe-area-inset-bottom));
+		width: min(420px, calc(100vw - 24px));
+		height: 58px;
+		transform: translateX(-50%);
+		flex-direction: row;
+		justify-content: center;
+		padding: 6px 8px;
+		border: 1px solid rgba(255, 255, 255, 0.12);
+		border-radius: 18px;
+		background: rgba(0, 8, 13, 0.94);
+		box-shadow:
+			0 12px 40px rgba(0, 0, 0, 0.38),
+			inset 0 1px 0 rgba(255, 255, 255, 0.035);
+
+		.topSection {
+			display: none;
+		}
+
+		.iconRail {
+			flex: 1 1 auto;
+			min-width: 0;
+			flex-direction: row;
+			justify-content: center;
+			gap: clamp(1px, 1vw, 5px);
+		}
+
+		.bottomSection {
+			flex: 0 0 auto;
+			flex-direction: row;
+			justify-content: center;
+			gap: clamp(1px, 1vw, 5px);
+			margin: 0;
+		}
+
+		.itemButton {
+			flex: 0 0 var(--leftMenuButtonWidth);
+
+			.itemLabel {
+				display: none;
+			}
+		}
+	}
+}
+
+@media (max-width: 420px) {
+	.leftMenu.aboutLayout {
+		--leftMenuButtonWidth: 36px;
+		--leftMenuIconSize: 15px;
+
+		bottom: max(6px, env(safe-area-inset-bottom));
+		width: calc(100vw - 16px);
+		height: 56px;
+		padding: 5px 6px;
+		border-radius: 16px;
 	}
 }

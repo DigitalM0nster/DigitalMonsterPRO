@@ -18,6 +18,10 @@
 	overflow: visible;
 }
 
+.caseStudyPanelCanvas {
+	z-index: 1;
+}
+
 .caseStudyArcCanvas {
 	z-index: 1;
 }
@@ -46,7 +50,6 @@
 
 .selectableBadge {
 	min-height: var(--badge-size, 13px);
-	margin-bottom: var(--badge-gap, 30px);
 	font-size: var(--badge-size, 13px);
 	line-height: 1;
 	letter-spacing: 0.14em;
@@ -156,20 +159,11 @@
 }
 
 .selectableFooter {
-	margin-top: 14px;
-	padding-bottom: 4px;
+	min-height: calc(var(--badge-size, 13px) + 8px);
+	margin-bottom: var(--badge-gap, 30px);
 	font-family: ManifoldExtended, "Segoe UI", system-ui, sans-serif;
 	font-size: var(--badge-size, 13px);
 	line-height: 1;
 	letter-spacing: 0.16em;
 	text-transform: uppercase;
-}
-
-.selectableFooterAnchored {
-	position: absolute;
-	top: var(--footer-top, auto);
-	left: 0;
-	right: 0;
-	margin-top: 0;
-	padding-bottom: 0;
 }

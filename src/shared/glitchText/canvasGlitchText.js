@@ -32,7 +32,8 @@ const MIN_CANVAS_HEIGHT = 64;
  * @property {number} [maxReplacementShadowBlur]
  * @property {number} [stableCanvasWidth]
  * @property {number} [stableCanvasHeight]
- * @property {'hud' | 'hero'} [drawProfile]
+ * @property {number} [pixelRatio] Device pixel ratio for sharp compositing into DPR canvases
+ * @property {'hud' | 'hero' | 'caseStudyNav'} [drawProfile]
  * @property {string} [fontFamily]
  * @property {boolean} [splitCanvases]
  * @property {(flags: { main?: boolean, snake?: boolean }) => void} [onRedraw]
@@ -67,6 +68,12 @@ export class CanvasGlitchText {
 			passedLetterHighlightAlpha: options.passedLetterHighlightAlpha ?? 0,
 		};
 
+		const rawPr = Number(options.pixelRatio);
+		this.pixelRatio = Number.isFinite(rawPr) && rawPr > 0 ? rawPr : 1;
+		/** CSS-space size of the bitmap (canvas.width / pixelRatio). */
+		this._cssWidth = MIN_CANVAS_WIDTH;
+		this._cssHeight = MIN_CANVAS_HEIGHT;
+
 		this.canvas = document.createElement("canvas");
 		this.ctx = this.canvas.getContext("2d");
 		this.splitCanvases = options.splitCanvases === true;
@@ -82,10 +89,13 @@ export class CanvasGlitchText {
 		this._glowPreviewActive = false;
 		this._mainOpacity = 1;
 		this._replacementFullOpacity = false;
+		/** Coalesce snake onChange → max 1 Canvas2D draw + texture upload per frame. */
+		this._drawCoalesceRaf = 0;
+		this._pendingDrawLayer = null;
 		/** @type {HeroTextGlitchController | null} */
 		this._localeSwitchController = null;
 		this.engine = new GlitchSnakeEngine(() => {
-			this.drawInPlace("both");
+			this._requestDrawInPlace("both");
 		});
 
 		this.engine.setSlots(this.slots);
@@ -95,6 +105,51 @@ export class CanvasGlitchText {
 		} else {
 			this.redraw();
 		}
+	}
+
+	/**
+	 * Keep cache resolution in sync with the destination canvas DPR.
+	 * @param {number} pixelRatio
+	 */
+	setPixelRatio(pixelRatio) {
+		const next = Number.isFinite(pixelRatio) && pixelRatio > 0 ? pixelRatio : 1;
+		if (Math.abs(next - this.pixelRatio) < 0.001) {
+			return;
+		}
+		this.pixelRatio = next;
+		this.ensureCanvasSize();
+		this.drawInPlace();
+	}
+
+	/**
+	 * Batch snake engine redraws into one rAF tick (intro/hover letter storms).
+	 * @param {'both' | 'main' | 'snake'} layer
+	 */
+	_requestDrawInPlace(layer = "both") {
+		if (this._pendingDrawLayer == null) {
+			this._pendingDrawLayer = layer;
+		} else if (this._pendingDrawLayer !== layer) {
+			this._pendingDrawLayer = "both";
+		}
+
+		if (this._drawCoalesceRaf) {
+			return;
+		}
+
+		this._drawCoalesceRaf = requestAnimationFrame(() => {
+			this._drawCoalesceRaf = 0;
+			const pending = this._pendingDrawLayer ?? "both";
+			this._pendingDrawLayer = null;
+			this.drawInPlace(pending);
+		});
+	}
+
+	_cancelPendingDrawInPlace() {
+		if (this._drawCoalesceRaf) {
+			cancelAnimationFrame(this._drawCoalesceRaf);
+			this._drawCoalesceRaf = 0;
+		}
+		this._pendingDrawLayer = null;
 	}
 
 	getDrawStyle() {
@@ -144,7 +199,18 @@ export class CanvasGlitchText {
 			return;
 		}
 
-		drawCanvasGlitchText(ctx, slots, style, drawOptions);
+		const dpr = this.pixelRatio;
+		const shouldClear = drawOptions.clear !== false;
+		if (shouldClear) {
+			ctx.setTransform(1, 0, 0, 1, 0, 0);
+			ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+		}
+		if (dpr !== 1) {
+			ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+		} else {
+			ctx.setTransform(1, 0, 0, 1, 0, 0);
+		}
+		drawCanvasGlitchText(ctx, slots, style, { ...drawOptions, clear: false });
 	}
 
 	/** Dev-preview: показать второстепенные буквы с текущим glow. */
@@ -267,11 +333,11 @@ export class CanvasGlitchText {
 			this.drawInPlace();
 		}
 
-		ctx.drawImage(
-			this.canvas,
-			x - this.options.paddingLeft,
-			y - this.options.paddingTop,
-		);
+		const dx = x - this.options.paddingLeft;
+		const dy = y - this.options.paddingTop;
+		// Destination ctx is usually DPR-transformed (CSS units). Draw the hi-res
+		// cache into CSS box size so it stays 1:1 with device pixels — no upscale blur.
+		ctx.drawImage(this.canvas, dx, dy, this._cssWidth, this._cssHeight);
 	}
 
 	_drawLocaleSwitchFrames(controller) {
@@ -282,21 +348,21 @@ export class CanvasGlitchText {
 		const style = this.getDrawStyle();
 
 		if (!this.splitCanvases) {
+			this.ctx.setTransform(1, 0, 0, 1, 0, 0);
 			this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-
 			for (const group of controller.primaryGroups) {
 				this._drawToContext(this.ctx, group.slots, style, { clear: false, layer: "both" });
 			}
-
 			for (const group of controller.secondaryGroups ?? []) {
 				this._drawToContext(this.ctx, group.slots, style, { clear: false, layer: "both" });
 			}
-
 			this._notifyRedraw({ main: true, snake: false });
 			return;
 		}
 
+		this.ctx.setTransform(1, 0, 0, 1, 0, 0);
 		this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+		this.snakeCtx.setTransform(1, 0, 0, 1, 0, 0);
 		this.snakeCtx.clearRect(0, 0, this.snakeCanvas.width, this.snakeCanvas.height);
 
 		for (const group of controller.primaryGroups) {
@@ -322,27 +388,34 @@ export class CanvasGlitchText {
 			return;
 		}
 
+		const dpr = this.pixelRatio;
 		const stableWidth = this.options.stableCanvasWidth;
 		const stableHeight = this.options.stableCanvasHeight;
 
 		if (stableWidth && stableHeight) {
-			if (this.canvas.width !== stableWidth) {
-				this.canvas.width = stableWidth;
+			this._cssWidth = stableWidth;
+			this._cssHeight = stableHeight;
+			const pixelW = Math.max(1, Math.round(stableWidth * dpr));
+			const pixelH = Math.max(1, Math.round(stableHeight * dpr));
+			if (this.canvas.width !== pixelW) {
+				this.canvas.width = pixelW;
 			}
-			if (this.canvas.height !== stableHeight) {
-				this.canvas.height = stableHeight;
+			if (this.canvas.height !== pixelH) {
+				this.canvas.height = pixelH;
 			}
 			if (this.splitCanvases && this.snakeCanvas) {
-				if (this.snakeCanvas.width !== stableWidth) {
-					this.snakeCanvas.width = stableWidth;
+				if (this.snakeCanvas.width !== pixelW) {
+					this.snakeCanvas.width = pixelW;
 				}
-				if (this.snakeCanvas.height !== stableHeight) {
-					this.snakeCanvas.height = stableHeight;
+				if (this.snakeCanvas.height !== pixelH) {
+					this.snakeCanvas.height = pixelH;
 				}
 			}
 			return;
 		}
 
+		// Measure in CSS px (identity transform).
+		this.ctx.setTransform(1, 0, 0, 1, 0, 0);
 		const style = this.getMeasureStyle();
 		let measured = measureCanvasGlitchTextSize(this.ctx, primarySlots, style);
 
@@ -354,8 +427,12 @@ export class CanvasGlitchText {
 			};
 		}
 
-		const nextWidth = Math.max(MIN_CANVAS_WIDTH, measured.width);
-		const nextHeight = Math.max(MIN_CANVAS_HEIGHT, measured.height);
+		const cssW = Math.max(MIN_CANVAS_WIDTH, measured.width);
+		const cssH = Math.max(MIN_CANVAS_HEIGHT, measured.height);
+		this._cssWidth = cssW;
+		this._cssHeight = cssH;
+		const nextWidth = Math.max(1, Math.round(cssW * dpr));
+		const nextHeight = Math.max(1, Math.round(cssH * dpr));
 
 		if (this.canvas.width !== nextWidth) {
 			this.canvas.width = nextWidth;
@@ -456,6 +533,25 @@ export class CanvasGlitchText {
 		return this.redraw();
 	}
 
+	/**
+	 * Replace text and keep glyphs hidden for a following playAppear.
+	 * Avoids a 1-frame flash of the full next string after disappear.
+	 */
+	setTextForAppear(text, uppercase = this.options.uppercase) {
+		this._abortLocaleSwitch();
+		this._cancelPendingDrawInPlace();
+		this.options.text = String(text);
+		this.options.uppercase = uppercase;
+		this.engine.abort();
+		this._cancelPendingDrawInPlace();
+		this.slots = createGlitchTextSlots(this.options.text, this.options.uppercase);
+		this.engine.setSlots(this.slots);
+		this.prepareAppear();
+		this._cancelPendingDrawInPlace();
+		this.drawInPlace();
+		return this;
+	}
+
 	/** Смена текста змейкой — тот же HeroTextGlitchController, что на главной. */
 	switchLocaleWithSnake(nextText, options = {}) {
 		this._abortLocaleSwitch();
@@ -524,6 +620,7 @@ export class CanvasGlitchText {
 	}
 
 	dispose() {
+		this._cancelPendingDrawInPlace();
 		this._abortLocaleSwitch();
 		this.engine.abort();
 	}

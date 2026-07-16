@@ -1,5 +1,7 @@
 import { useEffect, useMemo } from "react";
 import { useLocation, Routes, Route } from "react-router-dom";
+import "@/css/portfolio/portfolio.scss";
+import "@/css/portfolio/portfolioExploration.scss";
 
 import PortfolioHubContent from "../components/portfolio/PortfolioHubContent.jsx";
 import { isPortfolioHubPath } from "@/three/scenes/portfolio/hub/projectsData.js";

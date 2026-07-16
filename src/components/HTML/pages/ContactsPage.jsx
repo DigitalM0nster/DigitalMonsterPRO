@@ -89,3 +89,4 @@ export default function ContactsPage() {
         </div>
     </>
 }
+import "@/css/contacts/contactsTransition.css";

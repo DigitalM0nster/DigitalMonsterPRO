@@ -7,6 +7,10 @@ if (window.__loaderBootstrapTimer) {
 	clearInterval(window.__loaderBootstrapTimer);
 	window.__loaderBootstrapTimer = null;
 }
+if (window.__loaderBootstrapRaf) {
+	cancelAnimationFrame(window.__loaderBootstrapRaf);
+	window.__loaderBootstrapRaf = 0;
+}
 window.__loaderBootstrapObserver?.disconnect();
 window.__loaderBootstrapObserver = null;
 

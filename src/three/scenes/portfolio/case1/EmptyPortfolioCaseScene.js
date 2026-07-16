@@ -23,6 +23,10 @@ export class EmptyPortfolioCaseScene {
 		return false;
 	}
 
+	requiresContinuousRender() {
+		return false;
+	}
+
 	getScene() {
 		return this.threeScene;
 	}

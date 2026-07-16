@@ -22,6 +22,7 @@ const projectConfig = {
 		accentColor: "#00bfff",
 	},
 	caseStudy: {
+		renderTextInScene: true,
 		chapterBase: 1,
 		useSectionBadge: true,
 		hideCategoryLabel: true,
@@ -67,8 +68,8 @@ const projectConfig = {
 			badgeFontSize: 13,
 			badgeLetterSpacing: 0.16,
 			footerAllCyan: true,
-			mosaicColumns: 20,
-			mosaicRows: 15,
+			mosaicColumns: 28,
+			mosaicRows: 24,
 			mosaicLiftStrength: 0.005,
 			mosaicRandomLift: 150,
 			mosaicScatterX: 0,

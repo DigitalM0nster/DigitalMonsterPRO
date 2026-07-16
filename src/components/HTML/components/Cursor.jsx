@@ -35,6 +35,11 @@ export default function Cursor(props) {
 		() => store.cursor.caseHovered,
 		() => false,
 	);
+	const stageNavigationHidden = useSyncExternalStore(
+		(cb) => subscribe(store.cursor, cb),
+		() => store.cursor.stageNavigationHidden,
+		() => false,
+	);
 	const isHoverVisual = hovered || menuAnchored;
 	const isMenuMerged = menuAnchored && menuAnchorDiameter > 0;
 
@@ -185,6 +190,7 @@ export default function Cursor(props) {
 		"cursor",
 		"menuOnlyCursor",
 		menuAnchored && "menuAnchorVisible",
+		stageNavigationHidden && "stageNavigationHidden",
 		isHoverVisual && "hover",
 		isMenuMerged && "menuMerged",
 		caseHovered && "caseHovered",

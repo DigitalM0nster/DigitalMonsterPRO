@@ -16,7 +16,8 @@ function SelectableMetricRow({ glyph, topText, bottomText, feature = false }) {
 
 function BottomText({ frame }) {
 	if (frame.features?.length) {
-		return frame.features.slice(0, 3).map((feature, index) => (
+		const maxFeatures = Math.max(1, Math.round(frame.leftPanelOverrides?.maxFeatures ?? 3));
+		return frame.features.slice(0, maxFeatures).map((feature, index) => (
 			<SelectableMetricRow
 				key={`${feature.title}-${index}`}
 				glyph={index + 1}
@@ -61,6 +62,7 @@ export default function CaseStudySelectableText({ frame, layerRef }) {
 			<div className={styles.selectableBadge}>
 				{frame.sectionBadge ?? `${frame.chapterNum} / ${frame.pathTitle}`}
 			</div>
+			{frame.footerLabel && <div className={styles.selectableFooter}>{frame.footerLabel}</div>}
 			{frame.categoryLabel && <div className={styles.selectableCategory}>{frame.categoryLabel}</div>}
 			<div className={styles.selectableTitle}>{frame.title}</div>
 			<div className={styles.selectableDescription}>
@@ -70,11 +72,6 @@ export default function CaseStudySelectableText({ frame, layerRef }) {
 			<div className={`${styles.selectableBottom} ${frame.anchorFooterBlock ? styles.selectableBottomAnchored : ""}`}>
 				<BottomText frame={frame} />
 			</div>
-			{frame.footerLabel && (
-				<div className={`${styles.selectableFooter} ${frame.anchorFooterBlock ? styles.selectableFooterAnchored : ""}`}>
-					{frame.footerLabel}
-				</div>
-			)}
 		</div>
 	);
 }

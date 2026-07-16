@@ -123,6 +123,9 @@ export function getGraphicsConfig(tier) {
 	const map = {
 		low: {
 			dprCap: 1,
+			caseCanvasDprCap: 1,
+			caseRenderFpsCap: 0,
+			staticCaseRenderFpsCap: 0,
 			sparkles: 240,
 			litePipeline: true,
 			/** Без bloom / liquid / grain на low; hex-mix карусели — всегда. */
@@ -140,6 +143,9 @@ export function getGraphicsConfig(tier) {
 		},
 		medium: {
 			dprCap: 1,
+			caseCanvasDprCap: 1,
+			caseRenderFpsCap: 0,
+			staticCaseRenderFpsCap: 0,
 			sparkles: 400,
 			litePipeline: true,
 			reduceBackgroundBlur: true,
@@ -153,13 +159,16 @@ export function getGraphicsConfig(tier) {
 		},
 		high: {
 			dprCap: 2,
+			caseCanvasDprCap: 1,
+			caseRenderFpsCap: 0,
+			staticCaseRenderFpsCap: 0,
 			sparkles: 1000,
 			litePipeline: false,
 			reduceBackgroundBlur: true,
 			bloomMipmap: true,
 			bloomLevels: 8,
 			bloomRadius: 0.85,
-			bloomResolutionScale: 0.5,
+			bloomResolutionScale: 0.35,
 			bloomHdr: true,
 			antialias: false,
 			powerPreference: "default",

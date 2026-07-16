@@ -84,6 +84,66 @@ const CJK_CHARACTER_RE = /[\u2e80-\u2eff\u3000-\u303f\u3040-\u30ff\u3400-\u4dbf\
 const CJK_LINE_START_FORBIDDEN_RE = /^[、。，．！？；：）》」』】〕〉》）］｝…—]/u;
 const CJK_LINE_END_FORBIDDEN_RE = /[（《「『【〔〈“‘]$/u;
 
+/** Short particles that must not end a line — glued to the following word(s). */
+const HANGING_PARTICLES = new Set([
+	// ru
+	"а", "и", "но", "да", "или", "либо", "ни", "то", "чем", "что", "как",
+	"в", "во", "к", "ко", "с", "со", "у", "о", "об", "обо", "от", "до", "по", "на", "за",
+	"из", "изо", "под", "над", "при", "про", "без", "для", "через", "между", "перед", "после",
+	"не", "же", "ли", "бы",
+	// en
+	"a", "an", "the", "and", "or", "but", "nor", "of", "to", "in", "on", "at", "for", "by", "as",
+	"with", "from", "into", "onto", "over", "under", "via", "per", "vs",
+	// de
+	"und", "oder", "aber", "in", "im", "am", "an", "auf", "aus", "bei", "mit", "nach", "von", "zu",
+	"zum", "zur", "für", "über", "dem", "den", "der", "des", "die", "das",
+	// fr
+	"et", "ou", "à", "au", "aux", "de", "des", "du", "en", "la", "le", "les", "un", "une", "y",
+	// es / it / pt (common shorts)
+	"y", "e", "o", "u", "de", "del", "la", "el", "los", "las", "un", "una", "en", "a", "al",
+	"con", "por", "para", "di", "da", "do", "das", "dos",
+]);
+
+/** Prefer at most this many title lines; shrink font when wrapping exceeds it. */
+export const CASE_STUDY_TITLE_MAX_LINES = 3;
+
+function normalizeHangToken(unit) {
+	return String(unit ?? "")
+		.replace(/^[«"'“‘(\[{«]+/u, "")
+		.replace(/[,.;:!?…»"'”’)\]}]+$/u, "")
+		.toLowerCase();
+}
+
+function isHangingParticle(unit) {
+	const token = normalizeHangToken(unit);
+	return token.length > 0 && token.length <= 6 && HANGING_PARTICLES.has(token);
+}
+
+/** «в мире» / «and the» stay one wrap unit so the particle cannot end a line. */
+function glueHangingParticles(units) {
+	const out = [];
+	let index = 0;
+	while (index < units.length) {
+		if (isHangingParticle(units[index]) && index + 1 < units.length) {
+			let glued = units[index];
+			index += 1;
+			while (index < units.length) {
+				const next = units[index];
+				glued += ` ${next}`;
+				index += 1;
+				if (!isHangingParticle(next) || index >= units.length) {
+					break;
+				}
+			}
+			out.push(glued);
+			continue;
+		}
+		out.push(units[index]);
+		index += 1;
+	}
+	return out;
+}
+
 function createWrapUnits(text) {
 	if (CJK_CHARACTER_RE.test(text)) {
 		return {
@@ -92,9 +152,10 @@ function createWrapUnits(text) {
 		};
 	}
 
+	const words = text.split(/\s+/u).filter(Boolean);
 	return {
 		separator: " ",
-		units: text.split(/\s+/u).filter(Boolean),
+		units: glueHangingParticles(words),
 	};
 }
 
@@ -165,6 +226,96 @@ export function wrapTextLinesWithSpacing(ctx, text, maxWidth, letterSpacingPx) {
 }
 
 /**
+ * All visual title lines after explicit \\n splits and width wrap.
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {string} text
+ * @param {number} maxWidth
+ * @param {number} letterSpacingPx
+ */
+export function getSpacedTitleLines(ctx, text, maxWidth, letterSpacingPx) {
+	const lines = [];
+	for (const segment of String(text ?? "").split("\n")) {
+		const wrapped = wrapTextLinesWithSpacing(ctx, segment.toUpperCase(), maxWidth, letterSpacingPx);
+		if (wrapped.length === 0) {
+			lines.push("");
+		} else {
+			lines.push(...wrapped);
+		}
+	}
+	return lines;
+}
+
+/**
+ * Shrink title font until line count ≤ maxLines (or min size).
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {{
+ *   text: string,
+ *   maxWidth: number,
+ *   fontSize: number,
+ *   fontWeight: number | string,
+ *   fontFamily?: string,
+ *   lineHeightMul: number,
+ *   letterSpacingMul: number,
+ *   maxLines?: number,
+ *   minFontSize?: number,
+ * }} opts
+ */
+export function resolveFittedSpacedTitle(ctx, opts) {
+	const {
+		text,
+		maxWidth,
+		fontSize,
+		fontWeight,
+		fontFamily = CASE_STUDY_DISPLAY_FONT,
+		lineHeightMul,
+		letterSpacingMul,
+		maxLines = CASE_STUDY_TITLE_MAX_LINES,
+		minFontSize,
+	} = opts;
+
+	const floor = Math.max(14, Math.round(minFontSize ?? fontSize * 0.62));
+	let size = Math.max(floor, Math.round(fontSize));
+	/** @type {{ fontSize: number, lineHeight: number, letterSpacing: number, lines: string[] }} */
+	let best = {
+		fontSize: size,
+		lineHeight: size * lineHeightMul,
+		letterSpacing: size * letterSpacingMul,
+		lines: [""],
+	};
+
+	while (size >= floor) {
+		const lineHeight = size * lineHeightMul;
+		const letterSpacing = size * letterSpacingMul;
+		ctx.font = `${fontWeight} ${size}px ${fontFamily}`;
+		const lines = getSpacedTitleLines(ctx, text, maxWidth, letterSpacing);
+		best = { fontSize: size, lineHeight, letterSpacing, lines };
+		if (lines.length <= maxLines) {
+			return best;
+		}
+		size -= 1;
+	}
+
+	return best;
+}
+
+/**
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {string[]} lines
+ * @param {number} x
+ * @param {number} y
+ * @param {number} lineHeight
+ * @param {number} letterSpacingPx
+ */
+export function drawSpacedTitleLines(ctx, lines, x, y, lineHeight, letterSpacingPx) {
+	let cursorY = y;
+	for (const line of lines) {
+		fillTextWithSpacing(ctx, line, x, cursorY, letterSpacingPx);
+		cursorY += lineHeight;
+	}
+	return cursorY - y;
+}
+
+/**
  * @param {CanvasRenderingContext2D} ctx
  * @param {string} text
  * @param {number} maxWidth
@@ -172,15 +323,8 @@ export function wrapTextLinesWithSpacing(ctx, text, maxWidth, letterSpacingPx) {
  * @param {number} letterSpacingPx
  */
 export function measureSpacedTitleHeight(ctx, text, maxWidth, lineHeight, letterSpacingPx) {
-	const segments = text.split("\n");
-	let height = 0;
-
-	for (const segment of segments) {
-		const lines = wrapTextLinesWithSpacing(ctx, segment.toUpperCase(), maxWidth, letterSpacingPx);
-		height += Math.max(lineHeight, lines.length * lineHeight);
-	}
-
-	return height;
+	const lines = getSpacedTitleLines(ctx, text, maxWidth, letterSpacingPx);
+	return Math.max(lineHeight, lines.length * lineHeight);
 }
 
 /**
@@ -193,18 +337,8 @@ export function measureSpacedTitleHeight(ctx, text, maxWidth, lineHeight, letter
  * @param {number} letterSpacingPx
  */
 export function drawSpacedTitle(ctx, text, x, y, maxWidth, lineHeight, letterSpacingPx) {
-	const segments = text.split("\n");
-	let cursorY = y;
-
-	for (const segment of segments) {
-		const lines = wrapTextLinesWithSpacing(ctx, segment.toUpperCase(), maxWidth, letterSpacingPx);
-		for (const line of lines) {
-			fillTextWithSpacing(ctx, line, x, cursorY, letterSpacingPx);
-			cursorY += lineHeight;
-		}
-	}
-
-	return cursorY - y;
+	const lines = getSpacedTitleLines(ctx, text, maxWidth, letterSpacingPx);
+	return drawSpacedTitleLines(ctx, lines, x, y, lineHeight, letterSpacingPx);
 }
 
 /**

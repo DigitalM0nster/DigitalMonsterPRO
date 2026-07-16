@@ -90,6 +90,7 @@
 
 /**
  * @typedef {Object} PortfolioCaseStudyUiConfig
+ * @property {boolean} [renderTextInScene] WebGL left panel (CaseStudyPanelHud) instead of HTML canvas
  * @property {number} [chapterBase] База нумерации глав (1 → 01, 02…)
  * @property {boolean} [useSectionBadge] Бейдж «01 / О ПРОЕКТЕ» вместо STATE
  * @property {boolean} [hideCategoryLabel] Скрыть categoryLabel над заголовком

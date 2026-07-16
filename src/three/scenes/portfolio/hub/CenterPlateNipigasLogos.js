@@ -57,7 +57,10 @@ export class CenterPlateNipigasLogos {
 		this._logoHover = 0;
 		this._logoHoverTarget = 0;
 
-		this._loadAll();
+		this.readyPromise = this._loadAll().catch((error) => {
+			console.error("[HubPlateLogos] prepare failed", error);
+			return false;
+		});
 	}
 
 	_getRevealSeed(projectIndex) {
@@ -112,6 +115,7 @@ export class CenterPlateNipigasLogos {
 		this.loaded = true;
 		this._applySlotTransforms();
 		this._attachPendingPlate();
+		return true;
 	}
 
 	/** Синхронизация uniform-ов и слоёв из portfolioHubLogoConfig (dev-панель / HMR). */

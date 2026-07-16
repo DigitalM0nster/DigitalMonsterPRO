@@ -3,6 +3,13 @@ import { createPlaceholderScene } from "../createPlaceholderScene.js";
 import { applySceneProgressToCamera } from "../utils/applySceneProgressToCamera.js";
 import { computeRouteSceneVisibility } from "../utils/routeSceneVisibility.js";
 import { carouselClickTransitionConfig } from "@/three/render/transition/carouselClickTransitionConfig.js";
+import {
+	createCaseStudyPanelHud,
+	disposeCaseStudyPanelHud,
+	hideCaseStudyPanelHud,
+	syncCaseStudyPanelHud,
+} from "@/three/scenes/portfolio/caseStudyText/caseStudyPanelHudHost.js";
+import { createCaseSceneLifecycle } from "@/three/scenes/portfolio/caseLifecycle/caseSceneLifecycle.js";
 
 const CAMERA_BASE = {
 	position: [0, 0, 9],
@@ -35,14 +42,21 @@ function easeOutCubic(t) {
 
 /** Временная сцена с одной фигурой — до переноса реального контента. */
 export class PlaceholderScene {
-	constructor(def) {
+	constructor(def, store = null) {
 		this.def = def;
+		this.store = store;
 		const entry = createPlaceholderScene(def);
 		this.threeScene = entry.scene;
 		this.mesh = entry.mesh;
+		this.root = this.mesh;
 		this.geometry = entry.geometry;
 		this.material = entry.material;
+		this.loaded = true;
 		this._mixPreview = false;
+		this.showCase = false;
+		this.activePage = false;
+		this.exitHideComplete = false;
+		this._allowExitOverlay = true;
 		this._matchPage = (pathname) => {
 			const path = pathForPlaceholderId(def.id);
 			if (!path) {
@@ -54,10 +68,58 @@ export class PlaceholderScene {
 		/** 0 = далеко (enter start), 1 = дефолтная поза. */
 		this._enterCameraT = 1;
 		this._enterCameraAnimating = false;
-		this._enterCameraPending = false;
+
+		/** Left panel HUD — same WebGL path as Nipigas when caseStudy.renderTextInScene. */
+		this.panelHud = createCaseStudyPanelHud(this.threeScene);
+
+		/** Portfolio cases share enter/exit; carousel pages (contacts) keep the light path. */
+		this._isPortfolioCase = typeof def.id === "string" && def.id.startsWith("case");
+		this.lifecycle = null;
+
+		if (this._isPortfolioCase) {
+			this.lifecycle = createCaseSceneLifecycle(this, {
+				sceneId: def.id,
+				matchPage: this._matchPage,
+				getRoot: () => this.mesh,
+				getStore: () => this.store,
+				getPanelHud: () => this.panelHud,
+				isLoaded: () => true,
+				hideScale: 0.001,
+				resetScrollOnEnter: false,
+				hooks: {
+					onEnterShow: () => {
+						this._enterCameraT = 0;
+						this._enterCameraAnimating = true;
+						this.lifecycle.setActivePage(true);
+						this.mesh.scale.setScalar(1);
+					},
+					onMixPreviewShow: () => {
+						this._enterCameraT = 0;
+						this._enterCameraAnimating = true;
+						this.mesh.scale.setScalar(1);
+					},
+					onExitHold: () => {
+						this.mesh.scale.setScalar(1);
+					},
+					onHide: () => {
+						this._enterCameraAnimating = false;
+						this._enterCameraT = 1;
+					},
+					onReset: () => {
+						this.mesh.rotation.set(0, 0, 0);
+						this._enterCameraT = 0;
+						this._enterCameraAnimating = false;
+					},
+				},
+			});
+			this.lifecycle.hideRoot();
+		}
 	}
 
 	shouldRender() {
+		if (this.lifecycle) {
+			return this.lifecycle.shouldRender();
+		}
 		return true;
 	}
 
@@ -69,29 +131,32 @@ export class PlaceholderScene {
 		return 0;
 	}
 
-	/** Reset — dormant поза + готовность к enter-dolly. */
 	resetCarouselState() {
+		if (this.lifecycle) {
+			this.lifecycle.resetCarouselState();
+			return;
+		}
 		this.mesh.rotation.set(0, 0, 0);
 		this._enterCameraT = 0;
 		this._enterCameraAnimating = false;
-		this._enterCameraPending = true;
+		this.showCase = false;
+		hideCaseStudyPanelHud(this.panelHud);
 	}
 
-	/** Enter: модель уже на экране, камера подъезжает издалека. */
 	playEnterAnimation() {
-		if (!this._enterCameraPending) {
+		if (this.lifecycle) {
+			this.lifecycle.playEnterAnimation();
 			return;
 		}
-		this._enterCameraPending = false;
 		this._enterCameraT = 0;
 		this._enterCameraAnimating = true;
+		this.panelHud?.setVisible(true);
 	}
 
 	applyCamera(camera, frame) {
 		this.applyScrollCamera(camera, frame);
 	}
 
-	/** Анимация скролла — камера по sceneProgress + enter-dolly. */
 	applyScrollCamera(camera, frame) {
 		const sceneProgress = frame?.sceneProgress ?? 0;
 		const enterT = easeOutCubic(this._enterCameraT);
@@ -106,7 +171,13 @@ export class PlaceholderScene {
 		);
 	}
 
-	setRouteState({ currentPage, teleportPage, routePhase }) {
+	setRouteState(routeState) {
+		if (this.lifecycle) {
+			this.lifecycle.setRouteState(routeState);
+			return;
+		}
+
+		const { currentPage, teleportPage, routePhase } = routeState;
 		const { show, shouldWake } = computeRouteSceneVisibility({
 			currentPage,
 			teleportPage,
@@ -114,35 +185,65 @@ export class PlaceholderScene {
 			matchPage: this._matchPage,
 		});
 
+		this.showCase = show;
+
 		if (!show) {
 			this._enterCameraAnimating = false;
-			this._enterCameraPending = false;
 			this._enterCameraT = 1;
+			hideCaseStudyPanelHud(this.panelHud);
 			return;
 		}
 
-		if (shouldWake && this._enterCameraPending) {
+		this.panelHud?.setVisible(true);
+		if (shouldWake) {
 			this.playEnterAnimation();
 		}
 	}
 
 	setMixPreviewActive(active) {
+		if (this.lifecycle) {
+			this.lifecycle.setMixPreviewActive(active);
+			return;
+		}
+
 		this._mixPreview = active === true;
 		if (!this._mixPreview) {
 			return;
 		}
 
-		// Модель уже в hex-кадре; enter = камера издалека → дефолт (как у MMK-1: сразу видна, потом появление).
 		this._enterCameraT = 0;
-		this._enterCameraPending = true;
+		this.panelHud?.setVisible(true);
 		this.playEnterAnimation();
 	}
 
-	shouldKeepUpdating() {
-		return this._enterCameraAnimating || this._mixPreview;
+	shouldRenderOverlay() {
+		if (this.lifecycle) {
+			return this.lifecycle.shouldRenderOverlay();
+		}
+		return false;
 	}
 
-	update(delta) {
+	shouldKeepUpdating() {
+		if (this.lifecycle) {
+			return this.lifecycle.shouldKeepUpdating() || this._enterCameraAnimating;
+		}
+		return this._enterCameraAnimating || this._mixPreview || this.showCase;
+	}
+
+	update(delta, frame) {
+		syncCaseStudyPanelHud(this.panelHud, {
+			showCase: this.showCase,
+			mixPreview: this._mixPreview,
+			store: this.store,
+		});
+
+		if (this.lifecycle) {
+			const phase = this.lifecycle.updateExit(frame);
+			if (phase === "hidden") {
+				return;
+			}
+		}
+
 		const { x, y } = this.def.spinSpeed ?? { x: 0.4, y: 0.6 };
 		this.mesh.rotation.x += delta * x;
 		this.mesh.rotation.y += delta * y;
@@ -160,6 +261,8 @@ export class PlaceholderScene {
 	}
 
 	dispose() {
+		disposeCaseStudyPanelHud(this.panelHud);
+		this.panelHud = null;
 		this.geometry?.dispose();
 		this.material?.dispose();
 	}

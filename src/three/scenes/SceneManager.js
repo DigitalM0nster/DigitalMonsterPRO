@@ -2,16 +2,15 @@ import * as THREE from "three";
 import { PLACEHOLDER_SCENE_DEFINITIONS } from "./sceneDefinitions.js";
 import { resolveSceneId } from "./resolveSceneId.js";
 import { getSceneCarousel } from "../render/transition/carouselPage.js";
-import { CAROUSEL_SCENE_IDS, isCarouselRoutePage } from "../render/transition/SceneCarousel.js";
+import { isCarouselRoutePage } from "../render/transition/SceneCarousel.js";
 import { getHexShaderProgress } from "../render/overlay/hexShaderProgress.js";
 import { SceneCarouselLifecycleDispatcher } from "./lifecycle/SceneCarouselLifecycleDispatcher.js";
 import { DigitalWhaleScene } from "./home/DigitalWhaleScene.js";
 import { PlaceholderScene } from "./types/PlaceholderScene.js";
 import { PortfolioHubScene } from "./portfolio/PortfolioHubScene.js";
-import { EmptyPortfolioCaseScene } from "./portfolio/case1/EmptyPortfolioCaseScene.js";
+import { Case1Scene } from "./portfolio/case1/Case1Scene.js";
 import { Case3Scene } from "./portfolio/case3/Case3Scene.js";
-
-const CAROUSEL_LAYER_IDS = CAROUSEL_SCENE_IDS;
+import { AboutScene } from "./about/AboutScene.js";
 
 function createLayerRenderTarget(renderer, width, height, gfx) {
 	const dpr = renderer.getPixelRatio();
@@ -33,6 +32,7 @@ function createLayerRenderTarget(renderer, width, height, gfx) {
  */
 export class SceneManager {
 	constructor(renderer, camera, options = {}) {
+		this.disposed = false;
 		this.renderer = renderer;
 		this.camera = camera;
 		this.store = options.store;
@@ -48,10 +48,8 @@ export class SceneManager {
 
 		this.scenes = new Map();
 		this.activeId = "home";
-		this.renderTarget = null;
-		this.carouselLayerTargets = Object.fromEntries(CAROUSEL_LAYER_IDS.map((id) => [id, null]));
-		/** A/B RT для hex-mix сцен вне кольца карусели (case→case и т.п.). */
-		this.hexMixLayerTargets = { a: null, b: null };
+		/** Универсальные model-layer RT: A = source/single, B = target во время mix. */
+		this.layerTargets = { a: null, b: null };
 		this.size = { w: 0, h: 0 };
 		this.lastDelta = 0;
 		/** @type {string | null} */
@@ -66,15 +64,23 @@ export class SceneManager {
 		this.scenes.set("home", new DigitalWhaleScene(this.gfx));
 		this.scenes.get("home")?.initHeroText?.(this.renderer);
 		this.scenes.set("portfolioHub", new PortfolioHubScene());
-		this.scenes.set("case01", new EmptyPortfolioCaseScene());
+		this.scenes.set("case01", new Case1Scene(this.renderer, this.store));
 		this.scenes.set("case03", new Case3Scene(this.renderer, this.store));
+		this.scenes.set("about", new AboutScene(this.store));
 
 		for (const def of PLACEHOLDER_SCENE_DEFINITIONS) {
-			if (def.id === "case03") continue;
-			this.scenes.set(def.id, new PlaceholderScene(def));
+			if (def.id === "case03" || def.id === "about") continue;
+			this.scenes.set(def.id, new PlaceholderScene(def, this.store));
 		}
 
-		this.ready = true;
+		this.ready = false;
+		const sceneReadyPromises = [...this.scenes.values()]
+			.map((scene) => scene.readyPromise)
+			.filter((promise) => promise && typeof promise.then === "function");
+		this.readyPromise = Promise.allSettled(sceneReadyPromises).then((results) => {
+			this.ready = true;
+			return results;
+		});
 		this._carouselLifecycle = new SceneCarouselLifecycleDispatcher((sceneId) => this.scenes.get(sceneId));
 	}
 
@@ -119,8 +125,99 @@ export class SceneManager {
 		return this.scenes.get(this.activeId) ?? null;
 	}
 
+	requiresContinuousRender() {
+		return this.getActiveScene()?.requiresContinuousRender?.() !== false;
+	}
+
 	getSceneById(id) {
 		return this.scenes.get(id) ?? null;
+	}
+
+	getSceneOverlayCanvas(sceneId) {
+		return this.scenes.get(sceneId)?.getScreenOverlayCanvas?.() ?? null;
+	}
+
+	getSceneOverlayState(sceneId) {
+		const scene = this.scenes.get(sceneId);
+		return scene?.getScreenOverlayState?.() ?? {
+			canvas: scene?.getScreenOverlayCanvas?.() ?? null,
+			revision: 0,
+		};
+	}
+
+	setSceneOverlayDomPresentation(sceneId, active, container) {
+		this.scenes.get(sceneId)?.setDomPresentation?.(active, container);
+	}
+
+	isSceneOverlayDomPresentationActive(sceneId) {
+		return this.scenes.get(sceneId)?.isDomPresentationActive?.() === true;
+	}
+
+	/** Case panel HUD presenters (WebGL left text) — for compose mode / screen overlay. */
+	forEachCasePanelHud(visitor) {
+		for (const scene of this.scenes.values()) {
+			if (scene?.panelHud) {
+				visitor(scene.panelHud);
+			}
+		}
+	}
+
+	/** Компилирует материалы всех сцен под прелоадером, отдавая браузеру кадр между сценами. */
+	async warmupPrograms() {
+		const cameraState = {
+			position: this.camera.position.clone(),
+			quaternion: this.camera.quaternion.clone(),
+			up: this.camera.up.clone(),
+			fov: this.camera.fov,
+			near: this.camera.near,
+			far: this.camera.far,
+			zoom: this.camera.zoom,
+		};
+
+		try {
+			for (const [id, sceneObj] of this.scenes.entries()) {
+				if (this.disposed) {
+					return;
+				}
+				const scene = sceneObj.getScene?.();
+				if (!scene) {
+					continue;
+				}
+
+				await new Promise((resolve) => requestAnimationFrame(() => resolve()));
+
+				const temporarilyVisible = [];
+				if (id !== "home") {
+					scene.traverse((object) => {
+						if (object.visible === false) {
+							temporarilyVisible.push(object);
+							object.visible = true;
+						}
+					});
+				}
+
+				try {
+					const frame = this._withSceneProgressFrame(this.getFrameContext(), id, getSceneCarousel());
+					sceneObj.applyCamera?.(this.camera, frame);
+					this.renderer.compile(scene, this.camera);
+				} catch (error) {
+					console.warn(`[SceneManager] shader warm-up failed for ${id}`, error);
+				} finally {
+					for (const object of temporarilyVisible) {
+						object.visible = false;
+					}
+				}
+			}
+		} finally {
+			this.camera.position.copy(cameraState.position);
+			this.camera.quaternion.copy(cameraState.quaternion);
+			this.camera.up.copy(cameraState.up);
+			this.camera.fov = cameraState.fov;
+			this.camera.near = cameraState.near;
+			this.camera.far = cameraState.far;
+			this.camera.zoom = cameraState.zoom;
+			this.camera.updateProjectionMatrix();
+		}
 	}
 
 	getBloomRevealForSceneId(sceneId) {
@@ -167,20 +264,39 @@ export class SceneManager {
 		}
 		this.size = { w: width, h: height };
 
-		this.scenes.get("home")?.onViewportResize?.();
-
-		this.renderTarget?.dispose();
-		for (const id of CAROUSEL_LAYER_IDS) {
-			this.carouselLayerTargets[id]?.dispose();
-			this.carouselLayerTargets[id] = createLayerRenderTarget(this.renderer, width, height, this.gfx);
+		for (const scene of this.scenes.values()) {
+			scene.onViewportResize?.(width, height);
 		}
 
 		for (const key of ["a", "b"]) {
-			this.hexMixLayerTargets[key]?.dispose();
-			this.hexMixLayerTargets[key] = createLayerRenderTarget(this.renderer, width, height, this.gfx);
+			this.layerTargets[key]?.dispose();
+			this.layerTargets[key] = createLayerRenderTarget(this.renderer, width, height, this.gfx);
+		}
+	}
+
+	warmupRenderTargets() {
+		const targets = [this.layerTargets.a, this.layerTargets.b].filter(Boolean);
+		if (targets.length === 0 || this._isContextLost()) {
+			return;
 		}
 
-		this.renderTarget = createLayerRenderTarget(this.renderer, width, height, this.gfx);
+		const previousTarget = this.renderer.getRenderTarget();
+		const previousAutoClear = this.renderer.autoClear;
+		const previousClearColor = this.renderer.getClearColor(new THREE.Color());
+		const previousClearAlpha = this.renderer.getClearAlpha();
+
+		try {
+			this.renderer.autoClear = true;
+			this.renderer.setClearColor(0x000000, 0);
+			for (const target of targets) {
+				this.renderer.setRenderTarget(target);
+				this.renderer.clear(true, true, true);
+			}
+		} finally {
+			this.renderer.setRenderTarget(previousTarget);
+			this.renderer.autoClear = previousAutoClear;
+			this.renderer.setClearColor(previousClearColor, previousClearAlpha);
+		}
 	}
 
 	update(delta) {
@@ -199,6 +315,10 @@ export class SceneManager {
 				if (inCarousel) {
 					scene.setPointerState?.({ pointerDown: frame.pointerDown, pointerBlocked: frame.pointerBlocked });
 					scene.update?.(delta, this._withSceneProgressFrame(frame, id, carousel));
+				} else if (scene.shouldKeepUpdating?.()) {
+					// Case scenes leaving via hex still need exit cleanup after the hub is active.
+					scene.setPointerState?.({ pointerDown: frame.pointerDown, pointerBlocked: frame.pointerBlocked });
+					scene.update?.(delta, frame);
 				}
 				continue;
 			}
@@ -250,18 +370,14 @@ export class SceneManager {
 		}
 	}
 
-	_getLayerRenderTarget(sceneId) {
-		return this.carouselLayerTargets[sceneId] ?? this.renderTarget;
+	_getLayerRenderTarget() {
+		return this.layerTargets.a;
 	}
 
-	/**
-	 * RT для слоя hex-mix. Сцены карусели — свои слоты;
-	 * case/внешние — отдельные A/B, иначе source и target пишут в один RT.
-	 * @param {string} sceneId
-	 * @param {'a' | 'b'} mixSlot
-	 */
+	/** Универсальный RT для source/target слоя hex-mix. */
 	_getMixLayerRenderTarget(sceneId, mixSlot) {
-		return this.carouselLayerTargets[sceneId] ?? this.hexMixLayerTargets[mixSlot] ?? this.renderTarget;
+		void sceneId;
+		return this.layerTargets[mixSlot] ?? this.layerTargets.a;
 	}
 
 	renderCarouselMix(options = {}) {
@@ -376,7 +492,7 @@ export class SceneManager {
 
 	renderActiveScene() {
 		const renderScene = this._getSceneToRender();
-		if (!renderScene || !this.renderTarget) {
+		if (!renderScene || !this.layerTargets.a) {
 			return null;
 		}
 
@@ -385,23 +501,18 @@ export class SceneManager {
 			return null;
 		}
 
-		return this._renderSceneLayer(sceneId, this.renderTarget);
+		return this._renderSceneLayer(sceneId, this.layerTargets.a);
 	}
 
 	dispose() {
+		this.disposed = true;
 		for (const scene of this.scenes.values()) {
 			scene.dispose?.();
 		}
 		this.scenes.clear();
-		this.renderTarget?.dispose();
-		for (const id of CAROUSEL_LAYER_IDS) {
-			this.carouselLayerTargets[id]?.dispose();
-			this.carouselLayerTargets[id] = null;
-		}
 		for (const key of ["a", "b"]) {
-			this.hexMixLayerTargets[key]?.dispose();
-			this.hexMixLayerTargets[key] = null;
+			this.layerTargets[key]?.dispose();
+			this.layerTargets[key] = null;
 		}
-		this.renderTarget = null;
 	}
 }

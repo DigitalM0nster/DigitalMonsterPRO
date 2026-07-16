@@ -8,11 +8,11 @@ export const PORTFOLIO_HUB_ROW_COUNT = 5;
 export const PORTFOLIO_HUB_DEPTH_REFERENCE_COUNT = 20;
 /** +10 к D-индексу — legacy, для reference-сетки 20 колонок. */
 export const PORTFOLIO_HUB_PROJECT_DEPTH_OFFSET = 10;
-/** Декоративные плиты сзади проектов (InstancedMesh, 1 draw call). В кадре ~10–12 глубин — 40 избыточно. */
-export const PORTFOLIO_HUB_EXTRA_DEPTH_PLATES = 15;
+/** Декоративные плиты сзади проектов (InstancedMesh, 1 draw call). В кадре ~10–12 глубин. */
+export const PORTFOLIO_HUB_EXTRA_DEPTH_PLATES = 8;
 export const PORTFOLIO_HUB_PLATES_PER_ROW = PORTFOLIO_HUB_DEPTH_REFERENCE_COUNT + PORTFOLIO_HUB_EXTRA_DEPTH_PLATES;
 
-/** Параметры прозрачных плит хаба портфолио. Live-tune: D на /portfolio → «Сетка плит». */
+/** Параметры прозрачных плит хаба портфолио. */
 export const portfolioHubPlatesConfig = {
 	/** Сторона квадратной плиты. */
 	plateSize: 2.7,
@@ -22,17 +22,18 @@ export const portfolioHubPlatesConfig = {
 	/** Зазор между плитами в глубину (ось Z), не counting толщину depth. */
 	depthGap: 3.5,
 	cornerRadius: 0.06,
-	cornerSegments: 4,
+	cornerSegments: 2,
 	gridOffset: [-2.2, 3, 2.4],
 	gridRotation: [-19, 44, 13],
 	/** Сдвиг сетки по глубине в шагах плиты (−1 = на 1 плиту назад от камеры). */
 	gridDepthShiftPlates: -1,
-	/** Появление сетки: from → gridOffset / gridRotation + fade-in плит. */
+	/** Появление сетки: сразу видима, короче списка; listIntroDelayMs — HUD после старта плит. */
 	gridEnter: {
 		fromOffset: [5, 0, -2.1],
 		fromRotation: [-20, 50, 0],
-		durationMs: 2000,
-		fromOpacity: 0,
+		durationMs: 900,
+		fromOpacity: 0.55,
+		listIntroDelayMs: 120,
 	},
 	/** Исчезновение сетки: gridOffset / gridRotation → to + fade-out плит. */
 	gridExit: {
@@ -48,12 +49,20 @@ export const portfolioHubPlatesConfig = {
 		far: 10.2,
 	},
 	material: {
+		/**
+		 * physical | standard | basic.
+		 * decorType — InstancedMesh-декор; basic дешевле (без освещения).
+		 */
+		type: "standard",
+		decorType: "basic",
 		color: "#081421",
 		opacity: 0.7,
-		transmission: 0.01,
-		roughness: 0.14,
+		transmission: 0,
+		roughness: 0.07,
 		metalness: 0,
 		thickness: 0,
+		clearcoat: 0,
+		clearcoatRoughness: 0.15,
 	},
 	/** Blur заднего HUD-текста: верхняя подпись + «Подробнее». */
 	hudBackTextBlur: 0.5,
@@ -254,17 +263,19 @@ export const portfolioHubPlatesConfig = {
 		/** Сдвиг активной плитки по X (world). -0.5 = влево на 0.5 при plateProgress=1. */
 		plateSlideX: -0.75,
 		/** Длительность сдвига всей сетки по Y/Z (сек). */
-		gridSlideDuration: 1,
+		gridSlideDuration: 0.75,
 		/** Длительность выезда карточки по X (сек). */
-		plateSlideDuration: 0.9,
-		/** Длительность появления логотипа (сборка частей), сек. */
-		logoAppearDuration: 0.75,
+		plateSlideDuration: 1.2,
+		/** Длительность появления логотипа / подписей (сборка частей), сек. */
+		logoAppearDuration: 0.8,
 		/** Длительность исчезновения логотипа (fade к плите), сек. */
-		logoFadeDuration: 0.5,
-		/** Карточка стартует после этой доли анимации сетки (0.9 = 90%). */
-		gridStartPlateFraction: 0.4,
-		/** Логотип стартует после этой доли анимации карточки (0.7 = 75%). */
-		plateStartLogoFraction: 0.7,
+		logoFadeDuration: 0.55,
+		/** Карточка стартует сразу после фокуса. */
+		gridStartPlateFraction: 0,
+		/** Доля grid enter, после которой разрешён logo/label reveal. */
+		gridEnterStartPlateFraction: 0,
+		/** Логотип стартует после этой доли выезда плиты. */
+		plateStartLogoFraction: 0.4,
 		/** Курсор: вертикаль → поворот X (±7°), горизонталь → поворот Y (±~3.3°). */
 		cursorGridTilt: {
 			rotXRange: 7,

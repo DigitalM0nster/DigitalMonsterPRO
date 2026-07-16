@@ -8,6 +8,8 @@ import { getHeroGlitchSnakeRunOptions, heroTextGlitchConfig, applyHeroGlitchShad
 import { HeroTextGlitchController } from "./HeroTextGlitchController.js";
 import { drawHeroGlitchLine } from "./drawHeroGlitchText.js";
 
+const HERO_CLICK_WAVE_COUNT = 8;
+
 function measureTextWithSpacing(context, text, letterSpacingPx) {
 	if (!text.length) {
 		return 0;
@@ -88,6 +90,17 @@ export class HeroTextMesh {
 		this.baseWidth = 1920;
 		this.influenceRadius = 0.035;
 		this.mouse = { x: 0, y: 0 };
+		this.clickWaves = Array.from({ length: HERO_CLICK_WAVE_COUNT }, () => ({
+			x: 0.5,
+			y: 0.5,
+			strength: 0,
+			energy: 0,
+			age: 0,
+			active: false,
+		}));
+		this.clickPositionsUniform = Array.from({ length: HERO_CLICK_WAVE_COUNT }, () => new THREE.Vector2(0.5, 0.5));
+		this.clickStrengthsUniform = new Float32Array(HERO_CLICK_WAVE_COUNT);
+		this.clickAgesUniform = new Float32Array(HERO_CLICK_WAVE_COUNT);
 		this._progressAnim = null;
 		this._pendingReveal = null;
 		this._glitchController = null;
@@ -97,12 +110,29 @@ export class HeroTextMesh {
 			this.mouse.x = event.clientX / window.innerWidth;
 			this.mouse.y = -(event.clientY / window.innerHeight) + 1;
 		};
+		this._onPointerDown = (event) => {
+			if (this.shaderProfile !== "title" || (event.button !== undefined && event.button !== 0)) {
+				return;
+			}
+			const cfg = heroTextShaderConfig;
+			const wave = this.clickWaves.find((candidate) => !candidate.active)
+				?? this.clickWaves.reduce((oldest, candidate) => candidate.age > oldest.age ? candidate : oldest);
+			wave.x = event.clientX / window.innerWidth;
+			wave.y = 1 - event.clientY / window.innerHeight;
+			wave.strength = 0;
+			wave.energy = cfg.titleClickImpulse;
+			wave.age = 0;
+			wave.active = true;
+		};
 
 		this.width = window.innerWidth;
 		this.height = window.innerHeight;
 		this.aspectRatio = this.width / this.height;
 
 		window.addEventListener("mousemove", this._onMouseMove);
+		if (this.shaderProfile === "title") {
+			window.addEventListener("pointerdown", this._onPointerDown, { passive: true });
+		}
 		this.createText();
 	}
 
@@ -443,12 +473,20 @@ export class HeroTextMesh {
 			const textTexture = new THREE.CanvasTexture(this.canvas);
 			this._textTexture = textTexture;
 			textTexture.needsUpdate = true;
-			textTexture.minFilter = THREE.LinearMipmapLinearFilter;
-			textTexture.magFilter = THREE.LinearFilter;
+			textTexture.colorSpace = THREE.SRGBColorSpace;
+			if (this.shaderProfile === "stack") {
+				// No mipmaps — small UI glyphs stay crisp in the models RT.
+				textTexture.minFilter = THREE.LinearFilter;
+				textTexture.magFilter = THREE.LinearFilter;
+				textTexture.generateMipmaps = false;
+			} else {
+				textTexture.minFilter = THREE.LinearMipmapLinearFilter;
+				textTexture.magFilter = THREE.LinearFilter;
+				textTexture.generateMipmaps = true;
+				textTexture.anisotropy = Math.min(8, this.renderer.capabilities.getMaxAnisotropy());
+			}
 			textTexture.wrapS = THREE.ClampToEdgeWrapping;
 			textTexture.wrapT = THREE.ClampToEdgeWrapping;
-			textTexture.generateMipmaps = true;
-			textTexture.anisotropy = Math.min(8, this.renderer.capabilities.getMaxAnisotropy());
 
 			const cursorCount = Math.min(3, text.length);
 			const lastIndex = Math.max(0, text.length - 1);
@@ -556,6 +594,7 @@ export class HeroTextMesh {
 	}
 
 	_createInstancedUniforms(textTexture, charCount, sumDu, sumDv, renderPass) {
+		const cfg = heroTextShaderConfig;
 		return {
 			uPlaneSize: { value: new THREE.Vector2(2, 2) },
 			uTime: { value: this.time },
@@ -564,6 +603,14 @@ export class HeroTextMesh {
 			uPositionOffset: { value: new THREE.Vector2(this.offsetX, this.offsetY) },
 			uResolution: { value: new THREE.Vector2(this.width, this.height) },
 			uMouse: { value: new THREE.Vector2(this.mouse.x, this.mouse.y) },
+			uClickPositions: { value: this.clickPositionsUniform },
+			uClickStrengths: { value: this.clickStrengthsUniform },
+			uClickAges: { value: this.clickAgesUniform },
+			uClickRadiusNDC: { value: cfg.titleClickRadiusNDC },
+			uClickWaveSpeedNDC: { value: cfg.titleClickWaveSpeedNDC },
+			uClickWaveWidthNDC: { value: cfg.titleClickWaveWidthNDC },
+			uClickOffset: { value: cfg.titleClickOffset },
+			uClickMaxStrength: { value: cfg.titleClickMaxStrength },
 			uVirtualCursor1: { value: this.uVirtualCursor1 },
 			uVirtualCursor2: { value: this.uVirtualCursor2 },
 			uVirtualCursor3: { value: this.uVirtualCursor3 },
@@ -668,9 +715,11 @@ export class HeroTextMesh {
 			transparent: true,
 			depthTest: false,
 			depthWrite: false,
-			blending: THREE.AdditiveBlending,
+			// Stack is UI chrome — Normal stays sharp; Additive washed cyan into bloom.
+			blending: this.shaderProfile === "stack" ? THREE.NormalBlending : THREE.AdditiveBlending,
+			toneMapped: false,
 		});
-		applyHeroTitleShaderUniforms(this.textMaterial.uniforms);
+		applyHeroTitleShaderUniforms(this.textMaterial.uniforms, heroTextShaderConfig, this.shaderProfile);
 
 		this.textMesh = new THREE.Mesh(textGeometry, this.textMaterial);
 		this.textMesh.frustumCulled = false;
@@ -737,6 +786,28 @@ export class HeroTextMesh {
 	update(deltaTime) {
 		this._tickProgressAnim();
 		this.reveal.update(deltaTime);
+		if (this.shaderProfile === "title") {
+			const cfg = heroTextShaderConfig;
+			const dt = Math.min(Math.max(deltaTime, 0), 0.05);
+			const attack = 1 - Math.exp(-cfg.titleClickAttack * dt);
+			const decay = Math.exp(-cfg.titleClickDecay * dt);
+			for (let i = 0; i < this.clickWaves.length; i += 1) {
+				const wave = this.clickWaves[i];
+				if (wave.active) {
+					wave.strength += (wave.energy - wave.strength) * attack;
+					wave.energy *= decay;
+					wave.age += dt;
+					if (wave.strength < 0.0001 && wave.energy < 0.0001) {
+						wave.strength = 0;
+						wave.energy = 0;
+						wave.active = false;
+					}
+				}
+				this.clickPositionsUniform[i].set(wave.x, wave.y);
+				this.clickStrengthsUniform[i] = wave.strength;
+				this.clickAgesUniform[i] = wave.age;
+			}
+		}
 		if (!this.textMaterial) {
 			return;
 		}
@@ -881,6 +952,7 @@ export class HeroTextMesh {
 
 	dispose() {
 		window.removeEventListener("mousemove", this._onMouseMove);
+		window.removeEventListener("pointerdown", this._onPointerDown);
 		this._glitchController?.dispose();
 		this._glitchController = null;
 		const sharedGeometry = this.textMesh?.geometry;

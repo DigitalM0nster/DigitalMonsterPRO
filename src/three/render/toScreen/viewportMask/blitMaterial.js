@@ -22,6 +22,8 @@ uniform float borderRadius;
 uniform float maskEnabled;
 uniform float grainBlurEnabled;
 uniform float grainBlurRadius;
+uniform float mapRegionEnabled;
+uniform vec4 mapRegion;
 
 varying vec2 vUv;
 
@@ -45,6 +47,14 @@ void main() {
 	}
 
 	vec2 sampleUv = vUv;
+	if (mapRegionEnabled > 0.5) {
+		vec2 regionMin = mapRegion.xy;
+		vec2 regionMax = regionMin + mapRegion.zw;
+		if (vUv.x < regionMin.x || vUv.x > regionMax.x || vUv.y < regionMin.y || vUv.y > regionMax.y) {
+			discard;
+		}
+		sampleUv = (vUv - regionMin) / max(mapRegion.zw, vec2(0.000001));
+	}
 	if (grainBlurEnabled > 0.5) {
 		sampleUv += grainBlurOffset(vUv, grainBlurRadius);
 	}
@@ -67,6 +77,8 @@ export function createViewportMaskBlitMaterial() {
 			maskEnabled: { value: 1 },
 			grainBlurEnabled: { value: 0 },
 			grainBlurRadius: { value: 0 },
+			mapRegionEnabled: { value: 0 },
+			mapRegion: { value: new THREE.Vector4(0, 0, 1, 1) },
 		},
 		vertexShader,
 		fragmentShader,

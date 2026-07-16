@@ -2,7 +2,7 @@ import * as THREE from "three";
 
 /**
  * Placeholder-сцены (кейсы 02–05, about, contacts).
- * case01 — EmptyPortfolioCaseScene (без модели); home и portfolioHub — отдельные классы.
+ * case01 — Case1Scene (rings.glb); home и portfolioHub — отдельные классы.
  */
 export const PLACEHOLDER_SCENE_DEFINITIONS = [
 	{
@@ -50,8 +50,8 @@ export const PLACEHOLDER_SCENE_DEFINITIONS = [
 	{
 		id: "about",
 		label: "О нас",
-		createGeometry: () => new THREE.CylinderGeometry(0.85, 0.85, 2.0, 32),
-		color: 0xff9800,
+		createGeometry: () => new THREE.BufferGeometry(),
+		color: 0x000000,
 		spinSpeed: { x: 0.2, y: 0.9 },
 	},
 	{

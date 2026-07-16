@@ -23,10 +23,9 @@ import { advanceHubMenuAnim, createHubAnimState, getPlateProgressForProject } fr
 import { lerpGridTransform } from "./hub/gridEnterAnimation.js";
 import { clamp01, easeInOutCubic } from "./hub/hubMenuAnimation.js";
 import { easing } from "maath";
-import { portfolioHubLogoConfig } from "./hub/portfolioHubLogoConfig.js";
 import { fadeOutSound, playHubCardMovementSound, playSound } from "../../../sounds/soundDesign.js";
 import { requestPortfolioCaseNavigation } from "../../../utils/portfolioHubNavigate.js";
-import { resetPortfolioHubBackgroundFocus } from "../../../utils/portfolioHubBackground.js";
+import { resetPortfolioHubBackgroundFocus, commitPortfolioHubFocusIndex } from "../../../utils/portfolioHubBackground.js";
 import { getSceneCarousel } from "../../render/transition/carouselPage.js";
 import { getHexShaderProgress } from "../../render/overlay/hexShaderProgress.js";
 import { isCarouselProgressAtSegmentStart } from "@/three/scenes/lifecycle/sceneLifecycle.js";
@@ -113,6 +112,8 @@ export class PortfolioHubScene {
 		this._pendingHubEnter = false;
 		/** Enter отложен до ухода чёрных блоков прелоадера (первый заход на /portfolio). */
 		this._hubEnterDelayTimer = 0;
+		/** Список проектов стартует после начала grid enter (плиты первыми). */
+		this._projectsIntroDelayTimer = 0;
 		this._appStarted = false;
 		this._lastAppStarted = false;
 		this._lastHudTitleVisibility = -1;
@@ -145,6 +146,13 @@ export class PortfolioHubScene {
 		this.platesRenderer = new HubPlatesRenderer(this.platesGroup);
 		this.plates = this.platesRenderer.plates;
 		this.sharedPlateMaterial = null;
+		/** Last applied plate visibility (avoid per-frame opacity writes when idle). */
+		this._lastPlateVisibilityMul = -1;
+		/** Last focus logo sync signature. */
+		this._lastFocusLogoSig = "";
+		/** Last platesGroup Y/Z from menu anim. */
+		this._lastMenuGridY = Number.NaN;
+		this._lastMenuGridZ = Number.NaN;
 		/** true после resetCarouselState — без reset enter не запускаем. */
 		this._carouselEnterPending = false;
 		/** 0…1: анимация gridOffset/gridRotation при заходе на hub; 1 = покой. */
@@ -179,7 +187,7 @@ export class PortfolioHubScene {
 
 		ensureHubRectAreaUniforms();
 		this._buildLights();
-		this._buildPlates();
+		this.readyPromise = this._buildPlates();
 		this.applyFogFromConfig();
 		this._ensureDormantState();
 	}
@@ -376,11 +384,18 @@ export class PortfolioHubScene {
 
 		this._plateGeometryKey = `${cfg.plateSize}:${cfg.depth}`;
 		this._applyGridTransformAtProgress(1);
-		void this.plateProjectLabels.attachToPlates(this.plates, cfg);
-		void this.plateDetailsButtons.attachToPlates(this.plates, cfg);
-		void this.screenTitle.init(cfg).then(() => {
+		const labelsReady = this.plateProjectLabels.attachToPlates(this.plates, cfg);
+		const detailsReady = this.plateDetailsButtons.attachToPlates(this.plates, cfg);
+		const screenTitleReady = this.screenTitle.init(cfg).then(() => {
 			this._syncScreenTitleVisibility();
 		});
+
+		return Promise.allSettled([
+			this.centerPlateLogos.readyPromise,
+			labelsReady,
+			detailsReady,
+			screenTitleReady,
+		]);
 	}
 
 	_getScreenTitleVisibility() {
@@ -423,9 +438,10 @@ export class PortfolioHubScene {
 
 	_syncScreenTitleVisibility() {
 		const visibility = this._getScreenTitleVisibility();
-		if (this._lastHudTitleVisibility !== visibility) {
-			this._lastHudTitleVisibility = visibility;
+		if (this._lastHudTitleVisibility === visibility) {
+			return;
 		}
+		this._lastHudTitleVisibility = visibility;
 		this.screenTitle?.setVisibility(visibility);
 	}
 
@@ -661,7 +677,7 @@ export class PortfolioHubScene {
 		this._playEnterAnimationImmediate();
 	}
 
-	/** Сетка + HUD intro — после curtain или сразу при повторном заходе. */
+	/** Сетка сразу; фокус первой плиты сразу; список — чуть позже. */
 	_playEnterAnimationImmediate() {
 		if (!this._carouselEnterPending) {
 			return;
@@ -674,13 +690,33 @@ export class PortfolioHubScene {
 		this.screenTitle?.setVisibility(0);
 		this._hubLifecycle = "entering";
 		this._wakeHub();
-		this.screenTitle?.requestProjectsIntro?.();
+		// Plate slide + logo/label reveal — сразу, не ждать змейку списка.
+		commitPortfolioHubFocusIndex(appStore, 0);
+
+		this._clearProjectsIntroDelayTimer();
+		const listDelayMs = Math.max(0, portfolioHubPlatesConfig.gridEnter?.listIntroDelayMs ?? 0);
+		if (listDelayMs > 0) {
+			this._projectsIntroDelayTimer = setTimeout(() => {
+				this._projectsIntroDelayTimer = 0;
+				this.screenTitle?.requestProjectsIntro?.();
+			}, listDelayMs);
+		} else {
+			this.screenTitle?.requestProjectsIntro?.();
+		}
 	}
 
 	_clearHubEnterDelayTimer() {
 		if (this._hubEnterDelayTimer) {
 			clearTimeout(this._hubEnterDelayTimer);
 			this._hubEnterDelayTimer = 0;
+		}
+		this._clearProjectsIntroDelayTimer();
+	}
+
+	_clearProjectsIntroDelayTimer() {
+		if (this._projectsIntroDelayTimer) {
+			clearTimeout(this._projectsIntroDelayTimer);
+			this._projectsIntroDelayTimer = 0;
 		}
 	}
 
@@ -917,33 +953,69 @@ export class PortfolioHubScene {
 		this._syncScreenTitleVisibility();
 	}
 
-	_createPlateMaterial(m = portfolioHubPlatesConfig.material) {
+	_createPlateMaterial(m = portfolioHubPlatesConfig.material, role = "project") {
+		const typeKey = role === "decor" ? (m.decorType ?? m.type) : m.type;
+		const type = typeKey === "basic" || typeKey === "standard" || typeKey === "physical"
+			? typeKey
+			: "standard";
+		const color = new THREE.Color(m.color);
+		const opacity = m.opacity ?? 1;
+		const roughness = m.roughness ?? 0.07;
+		const metalness = m.metalness ?? 0;
 		const transmission = m.transmission ?? 0;
+		// Transparent plates must not write depth — logos/labels sit on the surface and z-fight otherwise.
+		const depthWrite = false;
+
+		if (type === "basic") {
+			return new THREE.MeshBasicMaterial({
+				color,
+				transparent: true,
+				opacity,
+				fog: true,
+				depthWrite,
+			});
+		}
+
+		if (type === "standard") {
+			return new THREE.MeshStandardMaterial({
+				color,
+				transparent: true,
+				opacity,
+				roughness,
+				metalness,
+				fog: true,
+				depthWrite,
+			});
+		}
 
 		return new THREE.MeshPhysicalMaterial({
-			color: new THREE.Color(m.color),
+			color,
 			transparent: true,
-			opacity: m.opacity,
+			opacity,
 			transmission,
-			roughness: m.roughness,
-			metalness: m.metalness,
+			roughness,
+			metalness,
 			thickness: m.thickness ?? 0,
 			clearcoat: m.clearcoat ?? 0,
 			clearcoatRoughness: m.clearcoatRoughness ?? 0.15,
 			ior: 1.45,
 			fog: true,
-			depthWrite: transmission <= 0,
+			depthWrite,
 		});
 	}
 
-	/** Декоративные плиты (InstancedMesh) — тот же материал, что у проектных. */
+	/** Декоративные плиты (InstancedMesh) — могут быть lighter (decorType). */
 	_createDecorPlateMaterial(m = portfolioHubPlatesConfig.material) {
-		return this._createPlateMaterial(m);
+		return this._createPlateMaterial(m, "decor");
 	}
 
 	/** Единый материал всех плит × множитель appear/exit (0…1). */
 	_applyPlateOpacity(visibilityMultiplier = 1) {
 		const visibility = clamp01(visibilityMultiplier);
+		if (Math.abs(visibility - this._lastPlateVisibilityMul) < 0.0005) {
+			return;
+		}
+		this._lastPlateVisibilityMul = visibility;
 		const baseOpacity = portfolioHubPlatesConfig.material.opacity;
 		this.platesRenderer.setMaterialOpacity(baseOpacity * visibility);
 		this.sharedPlateMaterial = this.platesRenderer.getMaterial();
@@ -1102,7 +1174,7 @@ export class PortfolioHubScene {
 		requestPortfolioCaseNavigation(project.path);
 	}
 
-	/** pointer.y → rotX, pointer.x → rotY; сглаживание поверх gridRotation. */
+	/** pointer.y → rotX, pointer.x → rotY; сглаживание поверх gridRotation. @returns {boolean} changed */
 	_updateCursorGridTilt(delta, pointer) {
 		const cfg = portfolioHubPlatesConfig.interaction?.cursorGridTilt;
 		const canTilt = cfg && this.showHub && this.root.visible && this._gridEnterProgress >= 1 && !this._gridExitActive;
@@ -1112,8 +1184,18 @@ export class PortfolioHubScene {
 		const smooth = Math.max(cfg?.smoothDuration ?? 0.22, 0.001);
 		const t = 1 - Math.exp(-delta / smooth);
 
+		const prevX = this._cursorTiltRotX;
+		const prevY = this._cursorTiltRotY;
 		this._cursorTiltRotX += (targetX - this._cursorTiltRotX) * t;
 		this._cursorTiltRotY += (targetY - this._cursorTiltRotY) * t;
+
+		if (!canTilt || (Math.abs(this._cursorTiltRotX) < 0.0001 && Math.abs(this._cursorTiltRotY) < 0.0001
+			&& Math.abs(targetX) < 0.0001 && Math.abs(targetY) < 0.0001)) {
+			this._cursorTiltRotX = 0;
+			this._cursorTiltRotY = 0;
+		}
+
+		return Math.abs(this._cursorTiltRotX - prevX) > 0.00005 || Math.abs(this._cursorTiltRotY - prevY) > 0.00005;
 	}
 
 	_setRootTransform(offset, rotationDeg, applyCursorTilt = false) {
@@ -1164,6 +1246,14 @@ export class PortfolioHubScene {
 	}
 
 	_syncFocusPlateLogos(focusIndex, logoAlpha = 0, revealState = {}) {
+		const partLinear = revealState?.partLinear ?? 0;
+		const entering = revealState?.entering ? 1 : 0;
+		const sig = `${focusIndex}|${logoAlpha.toFixed(4)}|${partLinear.toFixed(4)}|${entering}`;
+		if (sig === this._lastFocusLogoSig) {
+			return;
+		}
+		this._lastFocusLogoSig = sig;
+
 		if (focusIndex < 0) {
 			this.centerPlateLogos.updatePlate(null);
 			this.centerPlateLogos.setRevealAlpha(0, revealState);
@@ -1278,6 +1368,8 @@ export class PortfolioHubScene {
 
 		this.platesGroup.position.y = gridY;
 		this.platesGroup.position.z = gridZ;
+		this._lastMenuGridY = gridY;
+		this._lastMenuGridZ = gridZ;
 
 		this.platesRenderer.setProjectPlatePositions((projectIndex) => getPlateProgressForProject(visuals, projectIndex), slideX);
 
@@ -1369,7 +1461,7 @@ export class PortfolioHubScene {
 			const nowSeconds = performance.now() / 1000;
 			const pointer = frame?.pointer ?? { x: 0, y: 0 };
 
-			this._updateCursorGridTilt(_delta, pointer);
+			const tiltChanged = this._updateCursorGridTilt(_delta, pointer);
 			this._updatePlateElementHover(_delta, frame);
 
 			if (this._pointerClickPending) {
@@ -1385,11 +1477,13 @@ export class PortfolioHubScene {
 
 			if (this._gridExitActive) {
 				this._updateGridExitAnimation(nowSeconds);
-			} else {
+			} else if (this._gridEnterProgress < 1) {
 				this._updateGridEnterAnimation(nowSeconds);
 				this._updateMenuInteraction();
-				if (this._gridEnterProgress >= 1) {
-					this._applyPlateOpacity(1);
+			} else {
+				// Enter done: skip per-frame opacity/transform spam; transform only when tilt moves.
+				this._updateMenuInteraction();
+				if (tiltChanged) {
 					this._applyGridTransform();
 				}
 			}

@@ -27,11 +27,14 @@ carousel.setOnHexRouteConfirmed(({ path }) => {
 	handleHexNavigationRouteConfirmed(path);
 });
 
-carousel.setOnCommit(({ toId }) => {
+carousel.setOnCommit(({ fromId, toId, direction, boundaryOverflowProgress }) => {
 	const path = pathForSceneId(toId);
 	if (!path) {
 		return;
 	}
+	store.sceneCarouselLastCommitFromId = fromId;
+	store.sceneCarouselLastCommitDirection = direction;
+	store.sceneCarouselLastCommitBoundaryOverflow = boundaryOverflowProgress;
 	store.sceneCarouselNavigatePath = path;
 });
 

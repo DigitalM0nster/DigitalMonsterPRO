@@ -20,18 +20,6 @@ const _skinnedA = new THREE.Vector3();
 const _skinnedB = new THREE.Vector3();
 const _result = new THREE.Vector3();
 
-function isParticleSource(object) {
-	if (object.isSkinnedMesh) {
-		return Boolean(object.geometry?.attributes?.position);
-	}
-
-	if (object.isMesh) {
-		return Boolean(object.geometry?.attributes?.position);
-	}
-
-	return object.isLineSegments || object.isLine;
-}
-
 /** Уникальные рёбра треугольников — совпадает с линиями wireframe в Blender. */
 function collectTriangleEdges(geometry) {
 	const positionAttr = geometry.attributes.position;
@@ -202,6 +190,20 @@ export function createWhaleParticles(meshes, options = {}) {
 	}
 
 	const count = samples.length;
+	const vertexCacheByMesh = new Map();
+	for (const { mesh, a, b } of samples) {
+		let vertexCache = vertexCacheByMesh.get(mesh);
+		if (!vertexCache) {
+			vertexCache = new Map();
+			vertexCacheByMesh.set(mesh, vertexCache);
+		}
+		if (!vertexCache.has(a)) {
+			vertexCache.set(a, new THREE.Vector3());
+		}
+		if (!vertexCache.has(b)) {
+			vertexCache.set(b, new THREE.Vector3());
+		}
+	}
 	const positions = new Float32Array(count * 3);
 	const baseIntensities = new Float32Array(count);
 	const meshFadePerSample = new Float32Array(count);
@@ -246,10 +248,11 @@ export function createWhaleParticles(meshes, options = {}) {
 	points.frustumCulled = false;
 
 	let particleBounds = null;
+	const particleFadeBox = {};
 
 	function applyRegionIntensityFade() {
 		const region = getWhaleParticleFadeRegion();
-		const box = resolveParticleFadeRegion(region, particleBounds);
+		const box = resolveParticleFadeRegion(region, particleBounds, particleFadeBox);
 		const intensityAttr = geometry.attributes.aIntensity;
 
 		if (!box) {
@@ -279,29 +282,19 @@ export function createWhaleParticles(meshes, options = {}) {
 	}
 
 	function updatePositions() {
-		const meshCaches = new Map();
 		const positionAttr = geometry.attributes.position;
 
-		const getSkinnedVertex = (mesh, vertexIndex) => {
-			let meshCache = meshCaches.get(mesh);
-			if (!meshCache) {
-				meshCache = new Map();
-				meshCaches.set(mesh, meshCache);
-			}
-
-			if (!meshCache.has(vertexIndex)) {
-				const vertex = new THREE.Vector3();
+		for (const [mesh, vertexCache] of vertexCacheByMesh) {
+			for (const [vertexIndex, vertex] of vertexCache) {
 				writeSkinnedVertex(mesh, vertexIndex, vertex);
-				meshCache.set(vertexIndex, vertex);
 			}
-
-			return meshCache.get(vertexIndex);
-		};
+		}
 
 		for (let i = 0; i < samples.length; i++) {
 			const { mesh, a, b, t } = samples[i];
-			_skinnedA.copy(getSkinnedVertex(mesh, a));
-			_skinnedB.copy(getSkinnedVertex(mesh, b));
+			const vertexCache = vertexCacheByMesh.get(mesh);
+			_skinnedA.copy(vertexCache.get(a));
+			_skinnedB.copy(vertexCache.get(b));
 			_result.lerpVectors(_skinnedA, _skinnedB, t);
 			positionAttr.setXYZ(i, _result.x, _result.y, _result.z);
 		}
@@ -311,7 +304,7 @@ export function createWhaleParticles(meshes, options = {}) {
 		if (!particleBounds) {
 			particleBounds = computeParticleBounds(positionAttr, count);
 			const region = getWhaleParticleFadeRegion();
-			const box = resolveParticleFadeRegion(region, particleBounds);
+			const box = resolveParticleFadeRegion(region, particleBounds, particleFadeBox);
 			console.info("[createWhaleParticles] bounds (локальные координаты кита)", particleBounds);
 			if (box) {
 				console.info("[createWhaleParticles] region fade box", box);

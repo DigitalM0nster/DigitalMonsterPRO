@@ -1160,6 +1160,7 @@
         max-height: unset;
     }
     .page.contacts .contactsContainer {
+    }
 
     .personSocials {
         justify-content: center;
@@ -1184,6 +1185,7 @@
     .page.contacts .cityBlock {
         position: relative;
         transform: translate(0vw, 0vw);
+    }
         opacity: 1;
     }
 
@@ -1262,6 +1264,7 @@
         transition: all 0.25s, background-color 1s;
     }
     .page.page.contacts , .page.page.about{
+    }
 
     .page.about {
         padding: var(--paddingY) calc(var(--paddingX) * 0.5) 0 var(--paddingX);
@@ -1589,6 +1592,7 @@
         transform: translate(7vw, 0vw);
     }
     .page.contacts .digitalMonsterText {
+    }
 
     .lineSeparator {
         display: none;        
@@ -1641,7 +1645,6 @@
         font-size: 18px;
     }
 }
-
 
 
 

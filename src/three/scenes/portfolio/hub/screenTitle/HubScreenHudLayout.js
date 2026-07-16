@@ -11,7 +11,6 @@ import { logPortfolioActiveDebug, resetPortfolioActiveDebug } from "./portfolioA
 
 /** Змейка сразу; сдвиг плиты / звук — после паузы на пункте (мс). */
 const PLATE_FOCUS_DEBOUNCE_MS = 100;
-const INTRO_SINGLE_ACTIVE_DELAY_MS = 350;
 
 /**
  * HUD-хаб: слева — тексты из конфига, справа — список проектов.
@@ -50,7 +49,6 @@ export class HubScreenHudLayout {
 		/** Выбранный hover-проект — держится, пока не сменится или не уйдём с /portfolio. */
 		this._activeProjectIndex = -1;
 		this._projectsSingleActivePending = false;
-		this._introSingleActiveDelayTimer = null;
 		this._plateFocusDebounceTimer = null;
 		/** Индекс для отложенного commitPortfolioHubFocusIndex (плита + звук). */
 		this._pendingPlateFocusIndex = -1;
@@ -81,12 +79,14 @@ export class HubScreenHudLayout {
 			return false;
 		}
 
-		this._clearIntroSingleActiveDelay();
 		resetPortfolioActiveDebug({ itemCount: this.projectsColumn.layers.length });
 		this._projectsSingleActivePending = true;
 		this._activeProjectIndex = -1;
 		this.projectsColumn.setActiveProjectIndex(-1, { skipHoverGlitch: true });
-		commitPortfolioHubFocusIndex(store, -1);
+		// Не сбрасывать focus в -1: PortfolioHubScene уже стартовал выезд/логотип первой плиты.
+		if ((store.portfolioHubFocusIndex ?? -1) < 0) {
+			commitPortfolioHubFocusIndex(store, 0);
+		}
 		this._projectsIntroExpectHidden = true;
 		this.projectsColumn.playEnterGlitch({
 			onComplete: () => {
@@ -97,12 +97,8 @@ export class HubScreenHudLayout {
 				if (!this._projectsSingleActivePending) {
 					return;
 				}
-				this._clearIntroSingleActiveDelay();
-				this._introSingleActiveDelayTimer = setTimeout(() => {
-					this._introSingleActiveDelayTimer = null;
-					this._projectsSingleActivePending = false;
-					this._commitSingleActiveProjectAfterIntro();
-				}, INTRO_SINGLE_ACTIVE_DELAY_MS);
+				this._projectsSingleActivePending = false;
+				this._commitSingleActiveProjectAfterIntro();
 			},
 		});
 		// HUD visibility=1 только после prepareAppear на canvas (следующий microtask).
@@ -113,14 +109,12 @@ export class HubScreenHudLayout {
 	}
 
 	playProjectsExitGlitch() {
-		this._clearIntroSingleActiveDelay();
 		this._projectsSingleActivePending = false;
 		this.clearActiveProject();
 		this.projectsColumn.playExitGlitch();
 	}
 
 	stashProjectsHiddenForDormant() {
-		this._clearIntroSingleActiveDelay();
 		this._projectsSingleActivePending = false;
 		this.clearActiveProject();
 		this._projectsIntroExpectHidden = true;
@@ -140,13 +134,6 @@ export class HubScreenHudLayout {
 		if (this._plateFocusDebounceTimer) {
 			clearTimeout(this._plateFocusDebounceTimer);
 			this._plateFocusDebounceTimer = null;
-		}
-	}
-
-	_clearIntroSingleActiveDelay() {
-		if (this._introSingleActiveDelayTimer) {
-			clearTimeout(this._introSingleActiveDelayTimer);
-			this._introSingleActiveDelayTimer = null;
 		}
 	}
 
@@ -307,7 +294,6 @@ export class HubScreenHudLayout {
 		}
 
 		if (hitIndex >= 0 && hitIndex !== this._activeProjectIndex) {
-			this._clearIntroSingleActiveDelay();
 			this._projectsSingleActivePending = false;
 			this._applyActiveProjectIndex(hitIndex, { immediatePlate: true, reason: "hover" });
 		}
@@ -442,7 +428,6 @@ export class HubScreenHudLayout {
 
 	dispose() {
 		store.cursor.projectListHovered = false;
-		this._clearIntroSingleActiveDelay();
 		this._projectsSingleActivePending = false;
 		this._clearPlateFocusDebounceTimer();
 		this.leftColumn.dispose();

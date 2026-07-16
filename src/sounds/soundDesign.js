@@ -2,6 +2,7 @@ import { portfolioHubPlatesConfig } from "../three/scenes/portfolio/hub/portfoli
 import { isPageSoundAllowed, registerPageVisibilitySoundHandlers } from "./pageVisibilitySound.js";
 import { isSoundAudible, registerSiteSoundMuteHandler } from "./siteSoundToggle.js";
 import {
+	bindMediaElementToMasterBus,
 	connectGainWithPanToMasterBus,
 	connectGainWithSpatialToMasterBus,
 	getMasterAudioContext,
@@ -9,6 +10,7 @@ import {
 	resumeMasterAudioContext,
 	suspendMasterAudioContext,
 } from "./masterAudioBus.js";
+import clickSoundUrl from "./clickSound.mp3";
 
 /** Каталог звуков саунддизайна — пути в public/audio. */
 export const SOUND_CATALOG = {
@@ -73,6 +75,9 @@ export const LEFT_MENU_SOUND_PAN = -0.7;
 /** Левое меню — digital_sound с левого канала. */
 export const LEFT_MENU_GLITCH_SOUND_PAN = LEFT_MENU_SOUND_PAN;
 
+/** Правая scroll-навигация — зеркальная панорама glitch-звука меню. */
+export const RIGHT_NAV_GLITCH_SOUND_PAN = 0.7;
+
 /** Верхний route HUD — немного левее центра. */
 export const TOP_HUD_GLITCH_SOUND_PAN = -0.2;
 
@@ -99,6 +104,9 @@ export function setPortfolioSpatialAudio(active) {
 
 /** @type {Map<string, { source: AudioBufferSourceNode, gain: GainNode, panner: StereoPannerNode | null, fadeFrameId: number | null }>} */
 const activePlayback = new Map();
+
+/** @type {Map<string, Promise<ArrayBuffer>>} */
+const audioDataPromises = new Map();
 
 /** @type {Map<string, Promise<AudioBuffer>>} */
 const bufferLoadPromises = new Map();
@@ -133,8 +141,8 @@ function connectWithPan(ctx, gainNode, pan) {
 	return connectGainWithPanToMasterBus(ctx, gainNode, pan);
 }
 
-function loadAudioBuffer(src) {
-	if (!bufferLoadPromises.has(src)) {
+function fetchAudioData(src) {
+	if (!audioDataPromises.has(src)) {
 		const promise = fetch(src)
 			.then((response) => {
 				if (!response.ok) {
@@ -142,12 +150,24 @@ function loadAudioBuffer(src) {
 				}
 				return response.arrayBuffer();
 			})
+			.catch((error) => {
+				audioDataPromises.delete(src);
+				throw error;
+			});
+		audioDataPromises.set(src, promise);
+	}
+	return audioDataPromises.get(src);
+}
+
+function loadAudioBuffer(src) {
+	if (!bufferLoadPromises.has(src)) {
+		const promise = fetchAudioData(src)
 			.then((arrayBuffer) => {
 				const ctx = getAudioContext();
 				if (!ctx) {
 					throw new Error("[soundDesign] AudioContext unavailable");
 				}
-				return ctx.decodeAudioData(arrayBuffer);
+				return ctx.decodeAudioData(arrayBuffer.slice(0));
 			})
 			.catch((error) => {
 				bufferLoadPromises.delete(src);
@@ -156,6 +176,14 @@ function loadAudioBuffer(src) {
 		bufferLoadPromises.set(src, promise);
 	}
 	return bufferLoadPromises.get(src);
+}
+
+/** Сетевой этап до user gesture: скачивает звук, не создавая AudioContext и не запуская decode. */
+export function prefetchSoundDesign() {
+	if (typeof window === "undefined") {
+		return Promise.resolve([]);
+	}
+	return Promise.allSettled(Object.values(SOUND_CATALOG).map((src) => fetchAudioData(src)));
 }
 
 /** Предзагрузка буферов — меньше задержка на первом глитче. */
@@ -425,6 +453,11 @@ export function playLeftMenuGlitchSound(durationMs) {
 	playGlitchTextSound(durationMs, "menu");
 }
 
+/** Тот же digital_sound и gain, что в левом меню, но из правого канала. */
+export function playRightNavigatorGlitchSound(durationMs) {
+	playGlitchTextSound(durationMs, "menu", RIGHT_NAV_GLITCH_SOUND_PAN);
+}
+
 /** Короткий beep при наведении на пункт левого меню — с левого канала. */
 export function playLeftMenuBeepSound() {
 	if (!isPageSoundAllowed()) {
@@ -510,6 +543,22 @@ export function playSound(soundId, panOverride, volumeGain = 1) {
 	}
 
 	playOneShotWebAudio(soundId, panOverride, volumeGain).catch(() => {});
+}
+
+/** Same click as custom cursor — for hit targets that stopPropagation. */
+let uiClickAudio = null;
+
+export function playUiClickSound() {
+	if (!isPageSoundAllowed() || typeof Audio === "undefined") {
+		return;
+	}
+	if (!uiClickAudio) {
+		uiClickAudio = new Audio(clickSoundUrl);
+		bindMediaElementToMasterBus(uiClickAudio);
+	}
+	uiClickAudio.pause();
+	uiClickAudio.currentTime = 0;
+	uiClickAudio.play().catch(() => {});
 }
 
 /**

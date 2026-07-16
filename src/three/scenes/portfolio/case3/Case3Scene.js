@@ -2,18 +2,21 @@ import * as THREE from "three";
 import { easing } from "maath";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { createGLTFLoader } from "@/three/assets/gltfLoader.js";
-import { computeRouteSceneVisibility } from "@/three/scenes/utils/routeSceneVisibility.js";
-import { freezeHiddenRoot, restoreRootForShow } from "@/three/scenes/utils/sceneRoot.js";
-import { isPortfolioCasePath } from "@/three/scenes/portfolio/hub/projectsData.js";
+import { restoreRootForShow } from "@/three/scenes/utils/sceneRoot.js";
 import { createCase3FakeLitMaterial } from "./case3FakeLitMaterial.js";
+import { createCaseStudyPanelHud, disposeCaseStudyPanelHud, syncCaseStudyPanelHud } from "@/three/scenes/portfolio/caseStudyText/caseStudyPanelHudHost.js";
+import { createCaseSceneLifecycle } from "@/three/scenes/portfolio/caseLifecycle/caseSceneLifecycle.js";
 
 const CASE3_PATH = "/portfolio/03";
-const CYAN = new THREE.Color(0x00bfff);
 const GRID_SIZE = 64;
 const GRID_DIVISIONS = 104;
 const ROOT_DESKTOP = new THREE.Vector3(4.15, -3.18, 0);
 const ROOT_MOBILE = new THREE.Vector3(0, -2.15, 0);
 const CRANE_ROTATION_Y = -Math.PI / 2 + 0.35;
+/** Trail length as a fraction of each vertical rail. */
+const BEACON_TRAIL_FRAC = 0.44;
+const BEACON_BASE_Y = 0.05;
+const CONSTRUCTION_GROUP_OFFSET = { x: 0.75, z: -0.85 };
 const CASE3_CAMERA = {
 	x: 0.3,
 	y: -2,
@@ -78,79 +81,172 @@ function createGrid(disposables) {
 	return group;
 }
 
-function createGroundRings(disposables) {
-	const group = new THREE.Group();
-	const groundGlowTexture = createRoundGlowTexture(disposables);
-	const glowGeometry = new THREE.PlaneGeometry(8.4, 8.4);
-	const glowMaterial = new THREE.MeshBasicMaterial({
-		color: 0x006fbd,
-		map: groundGlowTexture,
-		alphaMap: groundGlowTexture,
-		transparent: true,
-		opacity: 0.12,
-		depthWrite: false,
-		blending: THREE.AdditiveBlending,
-		fog: true,
-		toneMapped: true,
-	});
-	const groundGlow = new THREE.Mesh(glowGeometry, glowMaterial);
-	groundGlow.rotation.x = -Math.PI / 2;
-	groundGlow.position.y = -0.018;
-	group.add(groundGlow);
-	disposables.push(glowGeometry, glowMaterial);
-	const ringDefinitions = [
-		{ inner: 2.18, outer: 2.21, opacity: 0.72 },
-		{ inner: 2.55, outer: 2.58, opacity: 0.35 },
-		{ inner: 3.05, outer: 3.07, opacity: 0.18 },
-	];
-
-	for (const definition of ringDefinitions) {
-		const geometry = new THREE.RingGeometry(definition.inner, definition.outer, 128);
-		const material = new THREE.MeshBasicMaterial({
-			color: CYAN,
-			transparent: true,
-			opacity: definition.opacity,
-			depthWrite: false,
-			blending: THREE.AdditiveBlending,
-			side: THREE.DoubleSide,
-			fog: true,
-			toneMapped: false,
-		});
-		const ring = new THREE.Mesh(geometry, material);
-		ring.rotation.x = -Math.PI / 2;
-		group.add(ring);
-		disposables.push(geometry, material);
+function createFogCityBuildings() {
+	const buildings = [];
+	for (let row = 0; row < 4; row += 1) {
+		const z = -6.2 - row * 2.4;
+		for (let column = -7; column <= 7; column += 1) {
+			const hash = Math.abs(column * 37 + row * 71 + column * row * 19);
+			const height = 1.0 + (hash % 9) * 0.34 + row * 0.16;
+			buildings.push({
+				row,
+				column,
+				x: column * 2.25 + (row % 2) * 0.7,
+				z,
+				width: 0.72 + (hash % 4) * 0.2,
+				height,
+				depth: 0.8 + ((hash + 3) % 4) * 0.22,
+				rotation: ((hash % 5) - 2) * 0.025,
+			});
+		}
 	}
-
-	const ticks = [];
-	for (let index = 0; index < 72; index += 1) {
-		if (index % 3 === 2) continue;
-		const angle = (index / 72) * Math.PI * 2;
-		const inner = index % 6 === 0 ? 2.66 : 2.75;
-		const outer = 2.88;
-		ticks.push(Math.cos(angle) * inner, 0.012, Math.sin(angle) * inner, Math.cos(angle) * outer, 0.012, Math.sin(angle) * outer);
-	}
-	const tickGeometry = new THREE.BufferGeometry();
-	tickGeometry.setAttribute("position", new THREE.Float32BufferAttribute(ticks, 3));
-	const tickMaterial = new THREE.LineBasicMaterial({
-		color: 0x00d8ff,
-		transparent: true,
-		opacity: 0.65,
-		blending: THREE.AdditiveBlending,
-		depthWrite: false,
-		fog: true,
-		toneMapped: false,
-	});
-	group.add(new THREE.LineSegments(tickGeometry, tickMaterial));
-	disposables.push(tickGeometry, tickMaterial);
-	return group;
+	return buildings;
 }
 
-function createDigitalNodes(disposables) {
+/**
+ * Random beacons in the strip in front of the camera-facing city row —
+ * past the building fronts, but stopping before the crane / construction stage.
+ * Positions and rail heights are intentionally uneven.
+ * @param {Array<{ row: number, x: number, z: number, width: number, depth: number, rotation?: number }>} buildings
+ * @param {Array<{ x: number, z: number, width: number, depth: number, rotation?: number }>} constructionBlocks
+ */
+function createBeaconSitesInFrontOfCity(buildings, constructionBlocks) {
+	const frontRow = buildings.filter((building) => building.row === 0);
+	if (frontRow.length === 0) {
+		return [];
+	}
+
+	let minX = Infinity;
+	let maxX = -Infinity;
+	let buildingFrontZ = -Infinity;
+	for (const building of frontRow) {
+		minX = Math.min(minX, building.x - building.width * 0.55);
+		maxX = Math.max(maxX, building.x + building.width * 0.55);
+		buildingFrontZ = Math.max(buildingFrontZ, building.z + building.depth * 0.5);
+	}
+
+	// Strip: just past the front façades → stop short of the crane pedestal.
+	const zMin = buildingFrontZ + 0.35;
+	const zMax = -2.85;
+	if (zMax <= zMin) {
+		return [];
+	}
+
+	const footprints = [
+		...buildings,
+		...constructionBlocks.map((block) => ({
+			x: block.x + CONSTRUCTION_GROUP_OFFSET.x,
+			z: block.z + CONSTRUCTION_GROUP_OFFSET.z,
+			width: block.width * 1.08,
+			depth: block.depth * 1.08,
+			rotation: block.rotation ?? 0,
+		})),
+	];
+
+	/**
+	 * @param {number} seed
+	 */
+	const rand = (seed) => {
+		const value = Math.sin(seed * 127.1 + 311.7) * 43758.5453;
+		return value - Math.floor(value);
+	};
+
+	/** @type {Array<{ x: number, z: number, height: number, phase: number }>} */
+	const sites = [];
+	const targetCount = 16;
+	const minSpacing = 1.35;
+
+	for (let attempt = 0; attempt < 80 && sites.length < targetCount; attempt += 1) {
+		const x = minX + 0.4 + rand(attempt * 19.17 + 3.1) * (maxX - minX - 0.8);
+		// Bias depth so sites sit on several “depths”, not one flat row.
+		const depthMix = rand(attempt * 7.91 + 11.3);
+		const z = zMin + (depthMix * depthMix * 0.35 + depthMix * 0.65) * (zMax - zMin);
+		const height = 0.38 + rand(attempt * 4.37 + 29.9) * 1.55;
+		const phase = rand(attempt * 13.7 + 0.77);
+
+		let blocked = false;
+		for (let i = 0; i < footprints.length; i += 1) {
+			if (footprintEdgeDistance(x, z, footprints[i]) < 0.18) {
+				blocked = true;
+				break;
+			}
+		}
+		if (blocked) {
+			continue;
+		}
+		for (let i = 0; i < sites.length; i += 1) {
+			if (Math.hypot(x - sites[i].x, z - sites[i].z) < minSpacing) {
+				blocked = true;
+				break;
+			}
+		}
+		if (blocked) {
+			continue;
+		}
+
+		sites.push({ x, z, height, phase });
+	}
+
+	return sites;
+}
+
+/**
+ * Signed distance to a rotated footprint edge (negative = inside).
+ * @param {number} px
+ * @param {number} pz
+ * @param {{ x: number, z: number, width: number, depth: number, rotation?: number }} foot
+ */
+function footprintEdgeDistance(px, pz, foot) {
+	const cosine = Math.cos(foot.rotation ?? 0);
+	const sine = Math.sin(foot.rotation ?? 0);
+	const dx = px - foot.x;
+	const dz = pz - foot.z;
+	const localX = dx * cosine - dz * sine;
+	const localZ = dx * sine + dz * cosine;
+	const overflowX = Math.abs(localX) - foot.width * 0.5;
+	const overflowZ = Math.abs(localZ) - foot.depth * 0.5;
+	if (overflowX <= 0 && overflowZ <= 0) {
+		return Math.max(overflowX, overflowZ);
+	}
+	if (overflowX > 0 && overflowZ > 0) {
+		return Math.hypot(overflowX, overflowZ);
+	}
+	return Math.max(overflowX, overflowZ);
+}
+
+function createConstructionBlockDefinitions() {
+	const blockRotation = CRANE_ROTATION_Y;
+	const blocks = [
+		{ x: 0, z: 0.08, localX: 0.3, localZ: -0.1, width: 1.85, height: 0.1, depth: 2.55, rotation: blockRotation },
+		{ x: 0, z: 0.0, localX: 0.4, localZ: -0.1, width: 1.3, height: 0.1, depth: 2.0, baseY: 0.1, rotation: blockRotation },
+		{ x: 0, z: -0.04, localX: 0.4, localZ: -0.2, width: 0.95, height: 0.1, depth: 1.5, baseY: 0.2, rotation: blockRotation },
+		{ x: -4.65, z: 0.22, localX: -1.0, localZ: -2.65, width: 0.8, height: 0.2, depth: 0.55, rotation: blockRotation },
+		{ x: -3.4, z: -0.12, localX: -0.4, localZ: -1.95, width: 2.1, height: 0.7, depth: 0.75, rotation: blockRotation },
+		{ x: -2.25, z: 0.28, localX: -0.55, localZ: -1.3, width: 0.95, height: 0.3, depth: 1.5, rotation: blockRotation },
+		{ x: 3.1, z: -0.12, localX: -0.7, localZ: -0.8, width: 1.75, height: 0.7, depth: 2.65, rotation: 0.44 },
+		{ x: 4.45, z: 0.34, localX: 0.3, localZ: 1.5, width: 1.15, height: 0.45, depth: 1.15, rotation: blockRotation },
+	];
+	for (const block of blocks) {
+		block.originX = block.x;
+		block.originZ = block.z;
+		const localX = block.localX ?? 0;
+		const localZ = block.localZ ?? 0;
+		const rotation = block.rotation ?? 0;
+		const cosine = Math.cos(rotation);
+		const sine = Math.sin(rotation);
+		block.x = block.originX + localX * cosine + localZ * sine;
+		block.z = block.originZ - localX * sine + localZ * cosine;
+		block.localX = localX;
+		block.localZ = localZ;
+	}
+	return blocks;
+}
+
+function createDigitalNodes(disposables, cityBuildings, constructionBlocks) {
 	const group = new THREE.Group();
 	const nodePositions = [];
 	const nodeColors = [];
-	const verticalDefinitions = [];
+	const verticalDefinitions = createBeaconSitesInFrontOfCity(cityBuildings, constructionBlocks);
 	const spacing = GRID_SIZE / GRID_DIVISIONS;
 	const halfDivisions = GRID_DIVISIONS / 2;
 	const glowTexture = createRoundGlowTexture(disposables);
@@ -162,9 +258,6 @@ function createDigitalNodes(disposables) {
 			nodePositions.push(x, 0.035, z);
 			const brightness = 0.35 + ((gx * 17 + gz * 29) ** 2 % 19) / 32;
 			nodeColors.push(0, brightness * 0.78, brightness);
-			if (Math.hypot(x, z) > 3 && Math.abs(gx * 41 + gz * 67 + gx * gz * 13 + 997) % 137 === 0) {
-				verticalDefinitions.push({ x, z, height: 0.45 + Math.random() * 1.45, phase: Math.random() });
-			}
 		}
 	}
 
@@ -198,23 +291,25 @@ function createDigitalNodes(disposables) {
 	const lineMaterial = new THREE.LineBasicMaterial({
 		color: 0x00aaff,
 		transparent: true,
-		opacity: 0.68,
+		opacity: 0.7,
 		depthWrite: false,
 		blending: THREE.AdditiveBlending,
 		fog: true,
-		toneMapped: false,
+		toneMapped: true,
 	});
 	group.add(new THREE.LineSegments(lineGeometry, lineMaterial));
 	disposables.push(lineGeometry, lineMaterial);
 
+	const beaconCount = verticalDefinitions.length;
 	const beaconGeometry = new THREE.BufferGeometry();
-	beaconGeometry.setAttribute("position", new THREE.Float32BufferAttribute(new Float32Array(verticalDefinitions.length * 3), 3));
+	beaconGeometry.setAttribute("position", new THREE.Float32BufferAttribute(new Float32Array(beaconCount * 3), 3));
+	beaconGeometry.setAttribute("aFade", new THREE.Float32BufferAttribute(new Float32Array(beaconCount).fill(1), 1));
 	const beaconMaterial = new THREE.PointsMaterial({
 		color: 0xb8f4ff,
 		map: glowTexture,
 		alphaMap: glowTexture,
-		alphaTest: 0.015,
-		size: 0.22,
+		alphaTest: 0.02,
+		size: 0.085,
 		sizeAttenuation: true,
 		transparent: true,
 		opacity: 1,
@@ -223,11 +318,90 @@ function createDigitalNodes(disposables) {
 		fog: true,
 		toneMapped: false,
 	});
+	beaconMaterial.onBeforeCompile = (shader) => {
+		shader.vertexShader = shader.vertexShader
+			.replace(
+				"#include <common>",
+				`#include <common>
+attribute float aFade;
+varying float vBeaconFade;`,
+			)
+			.replace(
+				"#include <begin_vertex>",
+				`#include <begin_vertex>
+vBeaconFade = aFade;`,
+			)
+			.replace(
+				"#include <project_vertex>",
+				`#include <project_vertex>
+// Cap screen size so near-camera beacons stay tiny sparks, not blobs.
+gl_PointSize = min(gl_PointSize, 12.0);`,
+			);
+		shader.fragmentShader = shader.fragmentShader
+			.replace(
+				"#include <common>",
+				`#include <common>
+varying float vBeaconFade;`,
+			)
+			.replace(
+				"#include <map_particle_fragment>",
+				`#include <map_particle_fragment>
+diffuseColor.a *= vBeaconFade;`,
+			);
+	};
+	beaconMaterial.customProgramCacheKey = () => "case3-beacon-path-fade-v2";
 	const beacons = new THREE.Points(beaconGeometry, beaconMaterial);
 	group.add(beacons);
 	disposables.push(beaconGeometry, beaconMaterial);
 
-	return { group, pointsMaterial, verticalDefinitions, beacons };
+	// Snake trail: one gradient segment per beacon (tail → head), clipped to the rail.
+	const trailGeometry = new THREE.BufferGeometry();
+	trailGeometry.setAttribute("position", new THREE.Float32BufferAttribute(new Float32Array(beaconCount * 2 * 3), 3));
+	trailGeometry.setAttribute("aTrailT", new THREE.Float32BufferAttribute(new Float32Array(beaconCount * 2), 1));
+	trailGeometry.setAttribute("aPathFade", new THREE.Float32BufferAttribute(new Float32Array(beaconCount * 2).fill(1), 1));
+	for (let i = 0; i < beaconCount; i += 1) {
+		trailGeometry.attributes.aTrailT.setX(i * 2, 0);
+		trailGeometry.attributes.aTrailT.setX(i * 2 + 1, 1);
+	}
+	const trailMaterial = new THREE.ShaderMaterial({
+		uniforms: {
+			uColor: { value: new THREE.Color(0xb8f4ff) },
+		},
+		vertexShader: /* glsl */ `
+			attribute float aTrailT;
+			attribute float aPathFade;
+			varying float vTrailT;
+			varying float vPathFade;
+			void main() {
+				vTrailT = aTrailT;
+				vPathFade = aPathFade;
+				gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+			}
+		`,
+		fragmentShader: /* glsl */ `
+			uniform vec3 uColor;
+			varying float vTrailT;
+			varying float vPathFade;
+			void main() {
+				// Head-bright directional snake: soft tail, hot tip.
+				float body = pow(clamp(vTrailT, 0.0, 1.0), 1.55);
+				float alpha = body * vPathFade * 0.55;
+				if (alpha < 0.012) discard;
+				vec3 color = mix(uColor * 0.4, vec3(0.92, 0.98, 1.0), body * body);
+				gl_FragColor = vec4(color * alpha, alpha);
+			}
+		`,
+		transparent: true,
+		depthWrite: false,
+		blending: THREE.AdditiveBlending,
+		toneMapped: false,
+	});
+	const trails = new THREE.LineSegments(trailGeometry, trailMaterial);
+	trails.frustumCulled = false;
+	group.add(trails);
+	disposables.push(trailGeometry, trailMaterial);
+
+	return { group, pointsMaterial, verticalDefinitions, beacons, trails };
 }
 
 function createInstancedArchitecture(definitions, disposables, options = {}) {
@@ -345,54 +519,8 @@ function createCityEdgeLines(buildings, disposables) {
 	return lines;
 }
 
-function createFogCity(disposables) {
-	const buildings = [];
-	for (let row = 0; row < 4; row += 1) {
-		const z = -6.2 - row * 2.4;
-		for (let column = -7; column <= 7; column += 1) {
-			const hash = Math.abs(column * 37 + row * 71 + column * row * 19);
-			const height = 1.0 + (hash % 9) * 0.34 + row * 0.16;
-			buildings.push({
-				x: column * 2.25 + (row % 2) * 0.7,
-				z,
-				width: 0.72 + (hash % 4) * 0.2,
-				height,
-				depth: 0.8 + ((hash + 3) % 4) * 0.22,
-				rotation: ((hash % 5) - 2) * 0.025,
-			});
-		}
-	}
-	return createCityEdgeLines(buildings, disposables);
-}
-
 function createNeonConstructionBlocks(disposables) {
-	const blockRotation = CRANE_ROTATION_Y;
-	const blocks = [
-		// Three centered steps; the crane model is lifted onto the upper plinth.
-		{ x: 0, z: 0.08, localX: 0.3, localZ: -0.1, width: 1.85, height: 0.1, depth: 2.55, rotation: blockRotation },
-		{ x: 0, z: 0.0, localX: 0.4, localZ: -0.1, width: 1.3, height: 0.1, depth: 2.0, baseY: 0.1, rotation: blockRotation },
-		{ x: 0, z: -0.04, localX: 0.4, localZ: -0.2, width: 0.95, height: 0.1, depth: 1.5, baseY: 0.2, rotation: blockRotation },
-		// Left composition: small rear block, tall hero block and a low slab towards the crane.
-		{ x: -4.65, z: 0.22, localX: -1.0, localZ: -2.65, width: 0.8, height: 0.2, depth: 0.55, rotation: blockRotation },
-		{ x: -3.4, z: -0.12, localX: -0.4, localZ: -1.95, width: 2.1, height: 0.7, depth: 0.75, rotation: blockRotation },
-		{ x: -2.25, z: 0.28, localX: -0.55, localZ: -1.3, width: 0.95, height: 0.3, depth: 1.5, rotation: blockRotation },
-		// Right composition: one large block close to the crane and a smaller outer block.
-		{ x: 3.1, z: -0.12, localX: -0.7, localZ: -0.8, width: 1.75, height: 0.7, depth: 2.65, rotation: 0.44 },
-		{ x: 4.45, z: 0.34, localX: 0.3, localZ: 1.5, width: 1.15, height: 0.45, depth: 1.15, rotation: blockRotation },
-	];
-	blocks.forEach((block) => {
-		block.originX = block.x;
-		block.originZ = block.z;
-		const localX = block.localX ?? 0;
-		const localZ = block.localZ ?? 0;
-		const rotation = block.rotation ?? 0;
-		const cosine = Math.cos(rotation);
-		const sine = Math.sin(rotation);
-		block.x = block.originX + localX * cosine + localZ * sine;
-		block.z = block.originZ - localX * sine + localZ * cosine;
-		block.localX = localX;
-		block.localZ = localZ;
-	});
+	const blocks = createConstructionBlockDefinitions();
 	const blockMaterial = createCase3FakeLitMaterial("blocks");
 	const group = createInstancedArchitecture(blocks, disposables, {
 		material: blockMaterial,
@@ -405,7 +533,7 @@ function createNeonConstructionBlocks(disposables) {
 		uniforms.uKeyStrength.value = 0.28 + value * 0.14;
 	};
 	// Keep the architectural pedestal behind the crane base and clear of the copy column.
-	group.position.set(0.75, 0, -0.85);
+	group.position.set(CONSTRUCTION_GROUP_OFFSET.x, 0, CONSTRUCTION_GROUP_OFFSET.z);
 
 	const stripGeometry = new THREE.BoxGeometry(1, 1, 1);
 	const coreMaterial = new THREE.MeshBasicMaterial({
@@ -523,32 +651,67 @@ export class Case3Scene {
 		this.root.add(this.modelRoot);
 		this.disposables = [];
 		this.loaded = false;
+		this._disposed = false;
 		this.showCase = false;
 		this.activePage = false;
 		this.exitHideComplete = false;
 		this._mixPreview = false;
-		/** Overlay scale-out только при уходе с кейсов (не case→case). */
-		this._allowExitOverlay = false;
+		this._allowExitOverlay = true;
 		this.elapsed = 0;
 		this.cameraParallax = new THREE.Vector2();
 
 		this.grid = createGrid(this.disposables);
-		this.digital = createDigitalNodes(this.disposables);
-		this.city = createFogCity(this.disposables);
+		const cityBuildings = createFogCityBuildings();
+		const constructionBlocks = createConstructionBlockDefinitions();
+		this.city = createCityEdgeLines(cityBuildings, this.disposables);
 		this.constructionBlocks = createNeonConstructionBlocks(this.disposables);
+		this.digital = createDigitalNodes(this.disposables, cityBuildings, constructionBlocks);
 		this.root.add(this.city, this.grid, this.constructionBlocks, this.digital.group);
 
-		this._hideRoot();
-		this._loadCrane();
+		/** Left panel HUD — same WebGL path as Nipigas (Case1). */
+		this.panelHud = createCaseStudyPanelHud(this.threeScene);
+
+		this.lifecycle = createCaseSceneLifecycle(this, {
+			sceneId: "case03",
+			matchPage: isCase3Path,
+			getRoot: () => this.root,
+			getStore: () => this.store,
+			getPanelHud: () => this.panelHud,
+			isLoaded: () => this.loaded,
+			hideScale: 0.001,
+			resetScrollOnEnter: false,
+			hooks: {
+				onEnterShow: () => {
+					this.lifecycle.setActivePage(true);
+					const mobile = (typeof window !== "undefined" ? window.innerWidth : 1280) <= 768;
+					this.root.scale.setScalar(mobile ? 0.72 : 1);
+				},
+				onMixPreviewShow: () => {
+					this.root.scale.setScalar(1);
+				},
+				onExitHold: (frame) => {
+					const mobile = (frame?.viewportWidth ?? window.innerWidth) <= 768;
+					const scale = mobile ? 0.72 : 1;
+					this.root.scale.setScalar(scale);
+					this.root.position.copy(mobile ? ROOT_MOBILE : ROOT_DESKTOP);
+				},
+				onReset: () => {
+					this.elapsed = 0;
+				},
+			},
+		});
+
+		this.lifecycle.hideRoot();
+		this.readyPromise = this._loadCrane();
 	}
 
 	_applyDevConfig() {}
 
 	_loadCrane() {
-		createGLTFLoader()
+		return createGLTFLoader()
 			.loadAsync("/models/case3/crane1.glb")
 			.then((gltf) => {
-				if (!this.threeScene) return;
+				if (this._disposed || !this.threeScene) return false;
 				const mergedGeometry = mergeCraneGeometry(gltf.scene);
 				if (!mergedGeometry) throw new Error("Crane GLB contains no mesh geometry");
 				const craneMaterial = createCase3FakeLitMaterial("crane");
@@ -568,77 +731,46 @@ export class Case3Scene {
 				crane.position.set(-center.x - 0.38, -box.min.y, -center.z);
 				this.modelRoot.add(crane);
 				this.loaded = true;
-				if (this.showCase || this._mixPreview) {
+				if (this._mixPreview) {
+					this.lifecycle.setMixPreviewActive(true);
+				} else if (this.showCase) {
+					this.lifecycle.setEnterPending(true);
 					this.playEnterAnimation();
 				}
+				return true;
 			})
-			.catch((error) => console.error("[Case3Scene] crane load failed", error));
-	}
-
-	_hideRoot() {
-		this.root.visible = false;
-		this.root.scale.setScalar(0.001);
-		this.activePage = false;
+			.catch((error) => {
+				console.error("[Case3Scene] crane load failed", error);
+				return false;
+			});
 	}
 
 	resetCarouselState() {
-		this.showCase = false;
-		this.exitHideComplete = false;
-		this.elapsed = 0;
-		this._hideRoot();
+		this.lifecycle.resetCarouselState();
 	}
 
 	playEnterAnimation() {
-		if (!this.loaded) return;
-		this.root.visible = true;
-		restoreRootForShow(this.root);
-		this.activePage = true;
-		this.exitHideComplete = false;
+		this.lifecycle.playEnterAnimation();
 	}
 
-	setRouteState({ currentPage, teleportPage, routePhase }) {
-		const { show, shouldWake } = computeRouteSceneVisibility({
-			currentPage,
-			teleportPage,
-			routePhase,
-			matchPage: isCase3Path,
-		});
-		this.showCase = show;
-		// case→case: не перехватывать кадр следующего кейса во время scale-out крана.
-		this._allowExitOverlay = !isPortfolioCasePath(currentPage);
-		if (!show && isPortfolioCasePath(currentPage)) {
-			this.exitHideComplete = true;
-			this._hideRoot();
-			return;
-		}
-		if (show && shouldWake) this.playEnterAnimation();
+	setRouteState(routeState) {
+		this.lifecycle.setRouteState(routeState);
 	}
 
 	setMixPreviewActive(active) {
-		this._mixPreview = active === true;
-		if (this._mixPreview && this.loaded) {
-			this.root.visible = true;
-			this.root.scale.setScalar(1);
-		}
+		this.lifecycle.setMixPreviewActive(active);
 	}
 
 	shouldRender() {
-		return this.loaded && this.root.visible && (this.showCase || this._mixPreview);
+		return this.lifecycle.shouldRender();
 	}
 
 	shouldRenderOverlay() {
-		return (
-			this._allowExitOverlay &&
-			this.loaded &&
-			this.root.visible &&
-			!this.showCase &&
-			!this._mixPreview &&
-			!this.exitHideComplete
-		);
+		return this.lifecycle.shouldRenderOverlay();
 	}
 
 	shouldKeepUpdating() {
-		return this.root.visible || this.showCase || this._mixPreview;
+		return this.lifecycle.shouldKeepUpdating();
 	}
 
 	getScene() {
@@ -655,7 +787,6 @@ export class Case3Scene {
 
 	applyCamera(camera, frame) {
 		const progress = frame?.sceneProgress ?? 0;
-		// Camera sits just above the floor and looks steeply upward at the tower.
 		const parallaxX = this.cameraParallax.x;
 		const parallaxY = this.cameraParallax.y;
 		camera.position.set(CASE3_CAMERA.x + parallaxX * 0.18, CASE3_CAMERA.y - progress * 0.12 + parallaxY * 0.12, CASE3_CAMERA.z);
@@ -665,7 +796,19 @@ export class Case3Scene {
 	}
 
 	update(delta, frame) {
+		syncCaseStudyPanelHud(this.panelHud, {
+			showCase: this.showCase,
+			mixPreview: this._mixPreview,
+			store: this.store,
+		});
+
 		if (!this.loaded) return;
+
+		const phase = this.lifecycle.updateExit(frame);
+		if (phase === "hidden") {
+			return;
+		}
+
 		this.elapsed += delta;
 		const pointer = frame?.pointer ?? { x: 0, y: 0 };
 		const pointerX = frame?.pointerBlocked ? 0 : THREE.MathUtils.clamp(pointer.x ?? 0, -1, 1);
@@ -676,29 +819,43 @@ export class Case3Scene {
 		const target = mobile ? ROOT_MOBILE : ROOT_DESKTOP;
 		easing.damp3(this.root.position, target, 0.6, delta);
 
-		if (this.showCase || this._mixPreview) {
+		if (phase === "active" && (this.showCase || this._mixPreview)) {
 			this.root.visible = true;
 			restoreRootForShow(this.root);
 			easing.damp3(this.root.scale, mobile ? [0.72, 0.72, 0.72] : [1, 1, 1], 0.65, delta);
-		} else {
-			easing.damp3(this.root.scale, [0.001, 0.001, 0.001], 0.22, delta);
-			if (this.root.scale.x < 0.002) {
-				this.root.visible = false;
-				this.exitHideComplete = true;
-				freezeHiddenRoot(this.root);
-			}
 		}
 
 		this.digital.pointsMaterial.opacity = 0.72 + Math.sin(this.elapsed * 1.8) * 0.2;
 		const beaconPositions = this.digital.beacons.geometry.attributes.position;
+		const beaconFade = this.digital.beacons.geometry.attributes.aFade;
+		const trailPositions = this.digital.trails.geometry.attributes.position;
+		const trailPathFade = this.digital.trails.geometry.attributes.aPathFade;
 		this.digital.verticalDefinitions.forEach((definition, index) => {
 			const travel = (this.elapsed * 0.32 + definition.phase) % 1;
-			beaconPositions.setXYZ(index, definition.x, 0.05 + travel * definition.height, definition.z);
+			const pathFade = 1 - THREE.MathUtils.smoothstep(travel, 0.9, 1);
+			const headY = BEACON_BASE_Y + travel * definition.height;
+			const trailLen = definition.height * BEACON_TRAIL_FRAC;
+			const tailY = Math.max(BEACON_BASE_Y, headY - trailLen);
+
+			beaconPositions.setXYZ(index, definition.x, headY, definition.z);
+			beaconFade.setX(index, pathFade);
+
+			const trailIndex = index * 2;
+			trailPositions.setXYZ(trailIndex, definition.x, tailY, definition.z);
+			trailPositions.setXYZ(trailIndex + 1, definition.x, headY, definition.z);
+			trailPathFade.setX(trailIndex, pathFade);
+			trailPathFade.setX(trailIndex + 1, pathFade);
 		});
 		beaconPositions.needsUpdate = true;
+		beaconFade.needsUpdate = true;
+		trailPositions.needsUpdate = true;
+		trailPathFade.needsUpdate = true;
 	}
 
 	dispose() {
+		this._disposed = true;
+		disposeCaseStudyPanelHud(this.panelHud);
+		this.panelHud = null;
 		this.threeScene = null;
 		for (const disposable of this.disposables) disposable?.dispose?.();
 		this.disposables = [];

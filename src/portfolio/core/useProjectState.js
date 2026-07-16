@@ -6,11 +6,15 @@ import { setStageProgressState } from "./stageProgress.js";
 /**
  * Управление states: scroll → activeState, Navigation Core → goToState.
  * @param {import('./types.js').PortfolioProjectModule} project
+ * @param {{ initialStateIndex?: number, initialScrollProgress?: number, initialStageProgress?: number }} [options]
  */
-export function useProjectState(project) {
+export function useProjectState(project, options = {}) {
 	const { states } = project;
-	const [activeStateIndex, setActiveStateIndex] = useState(0);
-	const [scrollProgress, setScrollProgress] = useState(0);
+	const initialStateIndex = Math.max(0, Math.min(states.length - 1, options.initialStateIndex ?? 0));
+	const initialScrollProgress = Math.max(0, Math.min(1, options.initialScrollProgress ?? 0));
+	const initialStageProgress = Math.max(0, Math.min(1, options.initialStageProgress ?? 0));
+	const [activeStateIndex, setActiveStateIndex] = useState(initialStateIndex);
+	const [scrollProgress, setScrollProgress] = useState(initialScrollProgress);
 	const programmaticScrollRef = useRef(false);
 	const activeStateIndexRef = useRef(activeStateIndex);
 	activeStateIndexRef.current = activeStateIndex;
@@ -39,18 +43,31 @@ export function useProjectState(project) {
 	}, [states]);
 
 	const goToState = useCallback(
-		(stateId) => {
-			const index = states.findIndex((s) => s.id === stateId);
+		(stateId, options = {}) => {
+			let index = states.findIndex((s) => s.id === stateId);
 			if (index < 0) {
 				return;
 			}
+			const lastIndex = states.length - 1;
+			let stageProgress = Math.max(0, Math.min(1, options.stageProgress ?? 0));
+			let scroll = options.scrollProgress;
+			// Финальная точка дуги = предпоследний этап при progress=1 (контент последнего).
+			if (lastIndex > 0 && index === lastIndex) {
+				index = lastIndex - 1;
+				stageProgress = 1;
+				scroll = states[lastIndex].scrollAnchor ?? 1;
+			}
 			programmaticScrollRef.current = true;
-			setStageProgressState(0);
+			setStageProgressState(stageProgress);
 			activeStateIndexRef.current = index;
 			store.portfolioExperience.activeStateIndex = index;
 			store.portfolioExperience.activeStateId = states[index]?.id ?? null;
+			store.portfolioExperience.stageProgress = stageProgress;
+			store.portfolioExperience.stageProgressTarget = stageProgress;
 			setActiveStateIndex(index);
-			const anchor = states[index].scrollAnchor ?? index / Math.max(states.length - 1, 1);
+			const anchor = Number.isFinite(scroll)
+				? scroll
+				: (states[index].scrollAnchor ?? index / Math.max(states.length - 1, 1));
 			setScrollProgress(anchor);
 			store.scroll = anchor;
 		},
@@ -73,16 +90,16 @@ export function useProjectState(project) {
 
 	useEffect(() => {
 		programmaticScrollRef.current = true;
-		setActiveStateIndex(0);
-		setScrollProgress(0);
-		activeStateIndexRef.current = 0;
-		setStageProgressState(0);
-		store.scroll = 0;
-		store.portfolioExperience.activeStateIndex = 0;
-		store.portfolioExperience.activeStateId = states[0]?.id ?? null;
-		store.portfolioExperience.stageProgress = 0;
-		store.portfolioExperience.stageProgressTarget = 0;
-	}, [project.config.slug, states]);
+		setActiveStateIndex(initialStateIndex);
+		setScrollProgress(initialScrollProgress);
+		activeStateIndexRef.current = initialStateIndex;
+		setStageProgressState(initialStageProgress);
+		store.scroll = initialScrollProgress;
+		store.portfolioExperience.activeStateIndex = initialStateIndex;
+		store.portfolioExperience.activeStateId = states[initialStateIndex]?.id ?? null;
+		store.portfolioExperience.stageProgress = initialStageProgress;
+		store.portfolioExperience.stageProgressTarget = initialStageProgress;
+	}, [initialScrollProgress, initialStageProgress, initialStateIndex, project.config.slug, states]);
 
 	return useMemo(
 		() => ({

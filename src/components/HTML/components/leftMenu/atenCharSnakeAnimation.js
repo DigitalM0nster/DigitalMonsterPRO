@@ -11,7 +11,7 @@ const APPEAR_SYMBOL_CLASS = "appearSymbol";
 
 /** @typedef {'hover' | 'appear' | 'disappear'} AtenCharSnakeMode */
 
-/** @typedef {{ timeBudgetMs?: number }} AtenCharSnakeOptions */
+/** @typedef {{ timeBudgetMs?: number, reverseOrder?: boolean, playSound?: boolean }} AtenCharSnakeOptions */
 
 const snakeTimeouts = new WeakMap();
 
@@ -181,6 +181,9 @@ export function runAtenCharSnake(root, mode, options = {}) {
 	clearSnakeTimeouts(root);
 
 	const charElements = getCharElements(root);
+	if (options.reverseOrder === true) {
+		charElements.reverse();
+	}
 	const snakeLength = getAtenSnakeLength(charElements.length);
 	const naturalDuration = getTotalAtenDuration(charElements, snakeLength, 1);
 	const timeScale = getAtenSnakeTimeScale(naturalDuration, options.timeBudgetMs);
@@ -196,7 +199,7 @@ export function runAtenCharSnake(root, mode, options = {}) {
 
 	const durationMs = getTotalAtenDuration(charElements, snakeLength, timeScale);
 
-	if (durationMs > 0 && mode === "hover") {
+	if (durationMs > 0 && mode === "hover" && options.playSound !== false) {
 		playGlitchTextSound(durationMs, "hover");
 	}
 

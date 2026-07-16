@@ -24,6 +24,14 @@ export class HexGridOverlayPass {
 		this.material.uniforms.textureB.value = textureB;
 	}
 
+	setProgress(progress) {
+		this.material.uniforms.progress.value = progress;
+	}
+
+	setSourceTextureEffectStrength(strength) {
+		this.material.uniforms.sourceTextureEffectStrength.value = THREE.MathUtils.clamp(strength, 0, 1);
+	}
+
 	setOptions({
 		hexScale,
 		hexCellSize,
@@ -193,7 +201,6 @@ export class HexGridOverlayPass {
 
 		this.material.transparent = true;
 		this.material.blending = THREE.NormalBlending;
-		this.material.needsUpdate = true;
 
 		renderer.setRenderTarget(this.modelsMixTarget);
 		renderer.autoClear = true;
@@ -203,7 +210,6 @@ export class HexGridOverlayPass {
 
 		this.material.transparent = false;
 		this.material.blending = THREE.NoBlending;
-		this.material.needsUpdate = true;
 
 		renderer.setRenderTarget(prevTarget);
 		renderer.autoClear = prevAutoClear;

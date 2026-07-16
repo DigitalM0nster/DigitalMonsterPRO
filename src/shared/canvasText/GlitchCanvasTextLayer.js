@@ -487,6 +487,24 @@ export class GlitchCanvasTextLayer {
 		});
 	}
 
+	setLocaleTextHidden(nextText, { uppercase } = {}) {
+		if (!this.glitchText) {
+			return;
+		}
+
+		const nextUppercase = uppercase ?? this.layerCfg?.uppercase;
+		this.glitchText.setText(nextText, nextUppercase);
+		this.glitchText.prepareAppear();
+		this.glitchText.drawInPlace("both");
+
+		if (this.layerCfg) {
+			this.layerCfg.text = nextText;
+			this.layerCfg.uppercase = nextUppercase;
+		}
+
+		this._markTexturesDirty({ main: true, snake: true });
+	}
+
 	setPlaneHeight(planeHeight = 0.3) {
 		if (!this.layerCfg || !this.mesh) {
 			return false;

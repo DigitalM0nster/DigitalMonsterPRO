@@ -1,7 +1,98 @@
 import { getSceneCarousel } from "@/three/render/transition/carouselPage.js";
 import { resolveSceneId } from "@/three/scenes/resolveSceneId.js";
 import { isDomDistortDemoPath } from "@/demos/domDistort/constants.js";
+import { getCasePanelHudState } from "@/portfolio/core/casePanelHudBridge.js";
+import { stopCaseStudyAnimationFrame } from "@/portfolio/core/caseStudyAnimationFrame.js";
+import {
+	isCasePanelHudRevealExiting,
+	playCasePanelHudExit,
+	releaseCasePanelHud,
+} from "@/portfolio/core/casePanelHudReveal.js";
 import { store } from "@/store.jsx";
+
+function isPortfolioCasePath(path) {
+	const normalized = normalizeSitePath(path);
+	if (!normalized.startsWith("/portfolio/")) {
+		return false;
+	}
+	const rest = normalized.slice("/portfolio/".length);
+	return Boolean(rest) && !rest.includes("/");
+}
+
+/**
+ * True when the next case mount should skip arc orbit intro (case→case).
+ * Hub/about/home/contacts → case keeps false → orbit appear.
+ */
+let caseEnterFromAnotherCase = false;
+
+/** True while leaving a case toward a non-case route (full HUD + arc orbit exit). */
+let caseLeavingToNonCase = false;
+
+function noteCaseEnterSource(fromPath, toPath) {
+	if (!isPortfolioCasePath(toPath)) {
+		return;
+	}
+	caseEnterFromAnotherCase = isPortfolioCasePath(fromPath);
+}
+
+function noteCaseLeaveDestination(fromPath, toPath) {
+	if (!isPortfolioCasePath(fromPath)) {
+		caseLeavingToNonCase = false;
+		return;
+	}
+	caseLeavingToNonCase = !isPortfolioCasePath(toPath);
+}
+
+/** Record whether the upcoming case mount comes from another case (for arc intro mode). */
+export function noteCaseEnterSourcePaths(fromPath, toPath) {
+	noteCaseEnterSource(fromPath, toPath);
+}
+
+/** Record leave destination for arc orbit exit vs case→case snake-only. */
+export function noteCaseLeaveDestinationPaths(fromPath, toPath) {
+	noteCaseLeaveDestination(fromPath, toPath);
+}
+
+/** @returns {boolean} case→case enter (snake titles only); false → orbit arc intro */
+export function isCaseEnterFromAnotherCase() {
+	return caseEnterFromAnotherCase;
+}
+
+/** @returns {boolean} leave-site (full mosaic + arc orbit out); false → case→case keep chrome */
+export function isCaseLeavingToNonCase() {
+	return caseLeavingToNonCase;
+}
+
+/**
+ * Leave case → non-case: full HUD mosaic exit (left + project nav).
+ * Case→case: band mosaic exit only (project nav stays); do not release HUD.
+ */
+function releaseCasePageWorkIfLeaving(fromPath, toPath) {
+	if (!isPortfolioCasePath(fromPath)) {
+		return;
+	}
+	noteCaseLeaveDestination(fromPath, toPath);
+	if (isCasePanelHudRevealExiting()) {
+		return;
+	}
+	const hasHud = Boolean(getCasePanelHudState().fromCanvas?.width);
+	if (!store.openedCase && !hasHud) {
+		stopCaseStudyAnimationFrame();
+		return;
+	}
+	if (!hasHud) {
+		if (caseLeavingToNonCase) {
+			releaseCasePanelHud();
+		}
+		return;
+	}
+	if (caseLeavingToNonCase) {
+		playCasePanelHudExit({ mosaicScope: "full", release: true });
+		return;
+	}
+	// Keep shared project-nav chrome; mosaic only the left text band away.
+	playCasePanelHudExit({ mosaicScope: "band", release: false });
+}
 
 /** Где 3D уже «показал» пользователю (после завершения hex). */
 let visualPath =
@@ -82,6 +173,8 @@ export function requestHexNavigation(targetPath, fromPath, options = {}) {
 	// displayed scene is meaningful: the active transition may be leaving it.
 	if (carousel.isInteractionLocked()) {
 		pendingPath = to;
+		noteCaseEnterSource(from, to);
+		releaseCasePageWorkIfLeaving(from, to);
 		// The URL always represents the latest user intent. The rendered route
 		// remains on visualPath until the current hex frame has completed.
 		preserveBrowserUrl = true;
@@ -100,6 +193,8 @@ export function requestHexNavigation(targetPath, fromPath, options = {}) {
 	const started = tryStartHex(from, to);
 	if (started) {
 		pendingPath = to;
+		noteCaseEnterSource(from, to);
+		releaseCasePageWorkIfLeaving(from, to);
 		preserveBrowserUrl = true;
 		publishRequestedUrl();
 	}
@@ -156,6 +251,8 @@ export function handleHexNavigationRouteConfirmed(arrivedPath) {
 	if (needsChain) {
 		pendingPath = target;
 		if (tryStartHex(arrived, target)) {
+			noteCaseEnterSource(arrived, target);
+			releaseCasePageWorkIfLeaving(arrived, target);
 			return;
 		}
 	}

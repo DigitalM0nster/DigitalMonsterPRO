@@ -18,8 +18,8 @@ import {
 	fillTextWithSpacing,
 	fillWrappedText,
 	measureTextWithSpacing,
-	drawSpacedTitle,
-	measureSpacedTitleHeight,
+	drawSpacedTitleLines,
+	resolveFittedSpacedTitle,
 	fillWrappedTextWithinHeight,
 	measureWrappedTextHeight,
 } from "./caseStudyCanvasText.js";
@@ -223,17 +223,26 @@ export function measureLeftPanelFlowHeight(ctx, data, cfg, innerW) {
 	const categoryMaxLines = cfg.categoryMaxLines > 0 ? cfg.categoryMaxLines : Number.POSITIVE_INFINITY;
 	let y = 0;
 
-	y += measureBadgeHeight(ctx, data, cfg) + cfg.gapAfterBadge;
+	y += measureBadgeHeight(ctx, data, cfg);
+	if (data.footerLabel) {
+		y += measurePanelFooterLabelHeight(data.footerLabel, cfg);
+	}
+	y += cfg.gapAfterBadge;
 
 	if (data.categoryLabel) {
 		ctx.font = `${cfg.categoryFontWeight} ${cfg.categoryFontSize}px ${CASE_STUDY_BODY_FONT}`;
 		y += measureWrappedTextHeight(ctx, data.categoryLabel, innerW, cfg.categoryLineHeight, categoryMaxLines) + cfg.gapAfterCategory;
 	}
 
-	const titleLineH = cfg.titleFontSize * cfg.titleLineHeightMul;
-	const titleSpacing = cfg.titleFontSize * (cfg.titleLetterSpacing ?? 0.08);
-	ctx.font = `${cfg.titleFontWeight} ${cfg.titleFontSize}px ${CASE_STUDY_DISPLAY_FONT}`;
-	y += measureSpacedTitleHeight(ctx, data.title, innerW, titleLineH, titleSpacing) + cfg.gapAfterTitle;
+	const titleLayout = resolveFittedSpacedTitle(ctx, {
+		text: data.title,
+		maxWidth: innerW,
+		fontSize: cfg.titleFontSize,
+		fontWeight: cfg.titleFontWeight,
+		lineHeightMul: cfg.titleLineHeightMul,
+		letterSpacingMul: cfg.titleLetterSpacing ?? 0.08,
+	});
+	y += Math.max(titleLayout.lineHeight, titleLayout.lines.length * titleLayout.lineHeight) + cfg.gapAfterTitle;
 
 	y += measureDescriptionHeight(ctx, data, cfg, innerW);
 
@@ -251,9 +260,6 @@ export function measureLeftPanelFlowHeight(ctx, data, cfg, innerW) {
 			y += measureStatsRailBlockHeight(ctx, innerW, data.metrics, cfg, { valueFirst: data.statsValueFirst });
 		}
 
-		if (data.footerLabel) {
-			y += 14 + measurePanelFooterLabelHeight(data.footerLabel, cfg);
-		}
 	}
 
 	return y;
@@ -283,14 +289,11 @@ export function resolveAnchoredBottomLayout(ctx, data, cfg, innerW, zoneHeight) 
 		return null;
 	}
 
-	const footerH = data.footerLabel ? measurePanelFooterLabelHeight(data.footerLabel, cfg) + 10 : 0;
 	const bottomH = measureBottomBlockHeight(ctx, data, cfg, innerW);
-	const footerGap = 14;
 
 	return {
 		bottomH,
-		bottomY: Math.max(0, zoneHeight - footerH - bottomH - footerGap),
-		footerY: zoneHeight - footerH + 4,
+		bottomY: Math.max(0, zoneHeight - bottomH),
 	};
 }
 
@@ -388,7 +391,11 @@ export function paintLeftPanelFlow(ctx, x, y, innerW, cfg, theme, data, zoneHeig
 	let cursorY = y;
 
 	// --- 1. Бейдж «01 / О ПРОЕКТЕ» ---
-	cursorY += drawBadge(ctx, x, cursorY, data, theme, cfg) + cfg.gapAfterBadge;
+	cursorY += drawBadge(ctx, x, cursorY, data, theme, cfg);
+	if (data.footerLabel) {
+		cursorY += drawPanelFooterLabel(ctx, x, cursorY, innerW, data.footerLabel, theme, cfg);
+	}
+	cursorY += cfg.gapAfterBadge;
 
 	// --- 2. Категория (meta.type) — у nipigas hideCategoryLabel: true, блок пропускается ---
 	if (data.categoryLabel) {
@@ -399,24 +406,35 @@ export function paintLeftPanelFlow(ctx, x, y, innerW, cfg, theme, data, zoneHeig
 		cursorY += fillWrappedText(ctx, data.categoryLabel, x, cursorY, innerW, cfg.categoryLineHeight, categoryMaxLines) + cfg.gapAfterCategory;
 	}
 
-	// --- 3. Заголовок с letter-spacing и переносом (\n в states.js) ---
-	const titleLineH = cfg.titleFontSize * cfg.titleLineHeightMul;
-	const titleSpacing = cfg.titleFontSize * (cfg.titleLetterSpacing ?? 0.08);
-	ctx.font = `${cfg.titleFontWeight} ${cfg.titleFontSize}px ${CASE_STUDY_DISPLAY_FONT}`;
+	// --- 3. Заголовок: letter-spacing, hanging particles, shrink if >3 lines ---
+	const titleLayout = resolveFittedSpacedTitle(ctx, {
+		text: data.title,
+		maxWidth: innerW,
+		fontSize: cfg.titleFontSize,
+		fontWeight: cfg.titleFontWeight,
+		lineHeightMul: cfg.titleLineHeightMul,
+		letterSpacingMul: cfg.titleLetterSpacing ?? 0.08,
+	});
+	ctx.font = `${cfg.titleFontWeight} ${titleLayout.fontSize}px ${CASE_STUDY_DISPLAY_FONT}`;
 	ctx.fillStyle = theme.text;
 	ctx.textAlign = "left";
 	ctx.textBaseline = "top";
-	cursorY += drawSpacedTitle(ctx, data.title, x, cursorY, innerW, titleLineH, titleSpacing) + cfg.gapAfterTitle;
+	cursorY += drawSpacedTitleLines(
+		ctx,
+		titleLayout.lines,
+		x,
+		cursorY,
+		titleLayout.lineHeight,
+		titleLayout.letterSpacing,
+	) + cfg.gapAfterTitle;
 
 	// --- Подготовка anchor-layout: считаем высоты footer и stats до описания ---
-	const footerH = data.footerLabel ? measurePanelFooterLabelHeight(data.footerLabel, cfg) + 10 : 0;
 	const bottomH = measureBottomBlockHeight(ctx, data, cfg, innerW);
 	let maxDescHeight = Number.POSITIVE_INFINITY;
 
 	if (data.anchorFooterBlock && zoneHeight > 0) {
-		const footerGap = 14;
 		// Y, где должен начаться блок метрик (statsTop)
-		const statsTop = Math.max(0, zoneHeight - footerH - bottomH - footerGap);
+		const statsTop = Math.max(0, zoneHeight - bottomH);
 		// Описание не может опуститься ниже statsTop — иначе наложение
 		maxDescHeight = Math.max(0, statsTop - cursorY - 8);
 	}
@@ -434,9 +452,6 @@ export function paintLeftPanelFlow(ctx, x, y, innerW, cfg, theme, data, zoneHeig
 		const anchored = resolveAnchoredBottomLayout(ctx, data, cfg, innerW, zoneHeight);
 		paintBottomBlock(ctx, x, anchored.bottomY, innerW, cfg, theme, data);
 
-		if (data.footerLabel) {
-			drawPanelFooterLabel(ctx, x, anchored.footerY, innerW, data.footerLabel, theme, cfg);
-		}
 		return;
 	}
 
@@ -447,8 +462,4 @@ export function paintLeftPanelFlow(ctx, x, y, innerW, cfg, theme, data, zoneHeig
 		cursorY += bottomBlockH;
 	}
 
-	if (data.footerLabel) {
-		cursorY += 14;
-		drawPanelFooterLabel(ctx, x, cursorY, innerW, data.footerLabel, theme, cfg);
-	}
 }

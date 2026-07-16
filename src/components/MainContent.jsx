@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import "../css/loader.css";
 import "../css/fonts.css";
 import "../css/style.scss";
@@ -9,41 +9,34 @@ import { useScrollRestReactivate } from "../hooks/useScrollRestReactivate.js";
 import { useSceneCarouselNavigation } from "../hooks/useSceneCarouselNavigation.js";
 import { useHexHistoryNavigation } from "../hooks/useHexHistoryNavigation.js";
 import { RouteTransitionProvider } from "../context/RouteTransitionContext.jsx";
-import "../css/main/mainTransition.scss";
-import "../css/portfolio/portfolio.scss";
-import "../css/portfolio/portfolioOverlay.css";
-import "../css/portfolio/portfolioTransition.css";
-import "../css/portfolio/portfolioExploration.scss";
-import "../css/portfolio/case1.css";
-import "../css/portfolio/case2.css";
-import "../css/portfolio/case3.css";
-import "../css/portfolio/case4.css";
-import "../css/portfolio/case5.css";
-import "../css/portfolio/NipigasMainScreen.css";
-import "../css/portfolio/NipigasHistory.css";
-import "../css/about/aboutTransition.css";
-import "../css/about/aboutContentTransition.css";
-import "../css/contacts/contactsTransition.css";
 import "../css/media.css";
 import ThreeCanvasHost from "./3D/ThreeCanvasHost.jsx";
 import WebGLCanvasErrorBoundary from "./3D/WebGLCanvasErrorBoundary.jsx";
 import LeftMenu from "./HTML/components/leftMenu/LeftMenu.jsx";
 import SiteTopHud from "./HTML/components/SiteTopHud.jsx";
+import ScrollPageNavigator from "./HTML/components/ScrollPageNavigator/ScrollPageNavigator.jsx";
 import HtmlRoutes from "./Routes/HtmlRoutes.jsx";
+import { preloadHtmlRoutes } from "./Routes/routeModules.js";
 import LoaderComponent from "./HTML/components/LoaderComponent.jsx";
 import Cursor from "./HTML/components/Cursor.jsx";
 import { useLocation } from "react-router-dom";
 import SceneCarouselDebugPanel from "./HTML/components/SceneCarouselDebugPanel.jsx";
+import StageProgressDebugPanel from "@/portfolio/dev/StageProgressDebugPanel.jsx";
+import CaseStudyPanelHudOverlay from "@/portfolio/ui/CaseStudyCanvas/CaseStudyPanelHudOverlay.jsx";
 import { store } from "../store.jsx";
 import { isDomDistortDemoPath } from "../demos/domDistort/constants.js";
 import { isWebGLDisabledFromUrl } from "../utils/postProcessTestFlags.js";
 import { initPageVisibilitySound } from "../sounds/pageVisibilitySound.js";
+import { prefetchSoundDesign } from "../sounds/soundDesign.js";
 
 const SHOW_CUSTOM_CURSOR = true;
+const LOADER_UNMOUNT_DELAY_MS = 1100;
 
 export default function MainContent() {
-	const [rendered, setRendered] = useState(false);
+	const [threeReady, setThreeReady] = useState(false);
+	const [routeAssetsReady, setRouteAssetsReady] = useState(false);
 	const [startApp, setStartApp] = useState(false);
+	const [loaderMounted, setLoaderMounted] = useState(true);
 
 	const location = useLocation();
 	const routeTransition = useRouteTransition(location);
@@ -55,16 +48,40 @@ export default function MainContent() {
 
 	const isDemoLab = isDomDistortDemoPath(location.pathname) || isDomDistortDemoPath(displayPathname);
 	const skipWebGL = isWebGLDisabledFromUrl();
+	const rendered = useMemo(
+		() => routeAssetsReady && (skipWebGL || threeReady || isDemoLab),
+		[isDemoLab, routeAssetsReady, skipWebGL, threeReady],
+	);
+
+	useEffect(() => {
+		let active = true;
+		Promise.allSettled([preloadHtmlRoutes(), prefetchSoundDesign()]).then(() => {
+			if (active) {
+				setRouteAssetsReady(true);
+			}
+		});
+		return () => {
+			active = false;
+		};
+	}, []);
 
 	useEffect(() => {
 		if (skipWebGL) {
-			setRendered(true);
+			setThreeReady(true);
 		}
 	}, [skipWebGL]);
 
 	useEffect(() => {
 		initPageVisibilitySound();
 	}, []);
+
+	useEffect(() => {
+		if (!startApp || isDemoLab) {
+			return undefined;
+		}
+		const timeoutId = window.setTimeout(() => setLoaderMounted(false), LOADER_UNMOUNT_DELAY_MS);
+		return () => window.clearTimeout(timeoutId);
+	}, [isDemoLab, startApp]);
 
 	// После смены маршрута / фазы пересчитываем каскад (CSS + glitch) в .page → #contentContainer
 	useEffect(() => {
@@ -95,7 +112,7 @@ export default function MainContent() {
 
 	useEffect(() => {
 		if (isDomDistortDemoPath(location.pathname)) {
-			setRendered(true);
+			setThreeReady(true);
 			setStartApp(true);
 			store.appStarted = true;
 			store.appStartedAt = Date.now();
@@ -116,10 +133,10 @@ export default function MainContent() {
 		<RouteTransitionProvider value={{ ...routeTransition, enterReady: routeEnterActive, scrollRestReactivate }}>
 			<div className={contentContainerClass} id="contentContainer">
 				{!isDemoLab && !skipWebGL && (
-					<WebGLCanvasErrorBoundary onFailure={() => setRendered(true)}>
+					<WebGLCanvasErrorBoundary onFailure={() => setThreeReady(true)}>
 						<ThreeCanvasHost
 							rendered={rendered}
-							setRendered={setRendered}
+							setRendered={setThreeReady}
 							currentPage={displayPathname}
 							teleportPage={location.pathname}
 							startApp={startApp}
@@ -129,9 +146,12 @@ export default function MainContent() {
 				{(startApp || isDemoLab) && <HtmlRoutes />}
 			</div>
 			{startApp && !isDemoLab && <LeftMenu />}
+			{startApp && !isDemoLab && <ScrollPageNavigator />}
 			{startApp && !isDemoLab && <SiteTopHud startApp={startApp} />}
+			{startApp && !isDemoLab && <CaseStudyPanelHudOverlay />}
 			{import.meta.env.DEV && startApp && !isDemoLab && <SceneCarouselDebugPanel />}
-			{!isDemoLab && <LoaderComponent startApp={startApp} setStartApp={setStartApp} rendered={rendered} />}
+			{import.meta.env.DEV && startApp && !isDemoLab && <StageProgressDebugPanel />}
+			{!isDemoLab && loaderMounted && <LoaderComponent startApp={startApp} setStartApp={setStartApp} rendered={rendered} />}
 			{SHOW_CUSTOM_CURSOR && <Cursor startApp={startApp} />}
 		</RouteTransitionProvider>
 	);

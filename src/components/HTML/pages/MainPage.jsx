@@ -25,3 +25,4 @@ export default function MainPage() {
 		</div>
 	);
 }
+import "@/css/main/mainTransition.scss";

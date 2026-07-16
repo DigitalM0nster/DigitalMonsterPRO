@@ -10,9 +10,11 @@ let listening = false;
 /** Порядок для подсказок в панелях. */
 export const DEV_PANEL_HOTKEY_HINTS = [
 	{ key: "1", label: "Scene Carousel" },
+	{ key: "2", label: "Stage Progress" },
 	{ key: "3", label: "Hex Grid" },
+	{ key: "6", label: "Scroll Hint" },
+	{ key: "8", label: "Case1 Ring" },
 ];
-
 export function formatDevPanelHotkeyHints() {
 	return DEV_PANEL_HOTKEY_HINTS.map(({ key, label }) => `${key} — ${label}`).join(" · ");
 }

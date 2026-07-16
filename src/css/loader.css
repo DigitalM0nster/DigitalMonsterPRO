@@ -1328,29 +1328,59 @@
 .digitalMonsterLoaderTrack {
 	position: relative;
 	width: 54%;
-	height: 1px;
+	height: 2px;
 	margin-top: 29px;
-	background: rgba(231, 235, 238, 0.55);
+	background: rgba(231, 235, 238, 0.25);
+	overflow: visible;
 }
 
 .digitalMonsterLoaderTrack i {
 	position: absolute;
 	inset: 0 auto 0 0;
-	width: var(--loader-progress);
-	background: #11cfff;
-	transition: width 80ms linear;
+	/* Same tip as the snake head — no CSS transition (it raced ahead of the snake). */
+	width: var(--loader-snake-head, var(--loader-progress, 0%));
+	max-width: 100%;
+	background: #00a9ff;
+	opacity: 1;
+	box-shadow: 0 0 7px rgba(0, 169, 255, 1);
 }
 
 .digitalMonsterLoaderTrack i::after {
 	content: "";
 	position: absolute;
 	top: 50%;
-	right: -2px;
+	right: 0;
 	width: 5px;
-	height: 5px;
-	border-radius: 50%;
-	background: #79f4ff;
+	height: 2px;
+	border-radius: 1px;
 	transform: translateY(-50%);
+	background: #fff;
+	opacity: var(--loader-tip-opacity, 1);
+	transition: opacity 0.45s ease;
+	box-shadow:
+		0 0 3px rgba(255, 255, 255, 0.7),
+		0 0 8px rgba(0, 169, 255, 0.55);
+}
+
+.digitalMonsterLoaderSnake {
+	position: absolute;
+	top: 50%;
+	left: var(--loader-snake-tail, 0%);
+	width: max(0px, calc(var(--loader-snake-head, var(--loader-progress, 0%)) - var(--loader-snake-tail, 0%)));
+	height: 2px;
+	transform: translateY(-50%);
+	pointer-events: none;
+	background: linear-gradient(90deg, rgba(0, 169, 255, 0) 0%, rgba(0, 169, 255, 0.22) 28%, rgba(0, 169, 255, 0.7) 62%, rgba(170, 220, 255, 0.95) 100%);
+	box-shadow: 0 0 8px rgba(0, 169, 255, 0.4);
+}
+
+.digitalMonsterLoaderSnake::before {
+	content: "";
+	position: absolute;
+	inset: -2px 0;
+	background: inherit;
+	filter: blur(2.2px);
+	opacity: 0.7;
 }
 
 @media (max-width: 900px), (max-height: 720px) {

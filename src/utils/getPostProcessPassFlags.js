@@ -20,7 +20,7 @@ export function getPostProcessPassFlags({
 }) {
 	const distortion = Boolean(transition || powerDistortion > DISTORTION_EPS);
 
-	const onPortfolio = page.startsWith("/portfolio");
+	const onPortfolio = page.startsWith("/portfolio") || page === "/about";
 	const blur =
 		onPortfolio &&
 		(blurBlend > BLUR_BLEND_EPS || blurRadius > BLUR_RADIUS_EPS);

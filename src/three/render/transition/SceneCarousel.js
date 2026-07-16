@@ -1,6 +1,9 @@
 import { hexGridOverlayDefaults } from "../overlay/hexGridOverlayConfig.js";
 import { logCarouselProgressCommit, logCarouselProgressFrame, logCarouselProgressWheel } from "@/three/dev/carouselProgressTargetLogger.js";
-import { carouselClickTransitionConfig } from "./carouselClickTransitionConfig.js";
+import {
+	carouselClickTransitionConfig,
+	easeCarouselClickProgress,
+} from "./carouselClickTransitionConfig.js";
 import {
 	clampSceneProgress,
 	getCarouselSceneRole,
@@ -125,6 +128,10 @@ export class SceneCarousel {
 		this.nextId = nextInCycle("home");
 		this.progress = 0;
 		this.progressTarget = 0;
+		// Wheel intent that crossed the Portfolio/Contacts boundary into About.
+		// It must survive the outer target's automatic rest while the visual
+		// progress catches up, otherwise the inner scene starts with a dead zone.
+		this._aboutBoundaryOverflowProgress = 0;
 		/**
 		 * Намерение последнего wheel: forward = вниз (→ next), backward = вверх (→ previous).
 		 * Коммит сегмента только при совпадении intent и границы progress.
@@ -134,7 +141,7 @@ export class SceneCarousel {
 		/** @type {Record<string, { sceneProgress: number, sceneProgressTarget: number, role: import('./sceneCarouselSceneProgress.js').CarouselSceneRole }>} */
 		this._sceneProgressById = {};
 		this._initSceneProgressStates();
-		/** @type {((payload: { fromId: string, toId: string, direction: 'forward' | 'backward' }) => void) | null} */
+		/** @type {((payload: { fromId: string, toId: string, direction: 'forward' | 'backward', boundaryOverflowProgress: number }) => void) | null} */
 		this._onCommit = null;
 		/** @type {((payload: { path: string }) => void) | null} */
 		this._onHexNavigate = null;
@@ -163,6 +170,14 @@ export class SceneCarousel {
 
 	isHexNavigationActive() {
 		return this._clickPhase !== "idle";
+	}
+
+	getHexNavigationPhase() {
+		return this._clickPhase;
+	}
+
+	getHexTargetSceneId() {
+		return this._hexTargetSceneId;
 	}
 
 	/** @deprecated */
@@ -314,11 +329,12 @@ export class SceneCarousel {
 		const eps = CAROUSEL_PROGRESS_COMMIT_EPS;
 		const duration = Math.max(1e-4, carouselClickTransitionConfig.enterDurationS);
 		this._clickEnterElapsed += delta;
-		const u = Math.min(1, this._clickEnterElapsed / duration);
-		this.progress = u;
-		this.progressTarget = u;
+		const linear = Math.min(1, this._clickEnterElapsed / duration);
+		const eased = easeCarouselClickProgress(linear);
+		this.progress = eased;
+		this.progressTarget = eased;
 
-		if (u >= 1 - eps) {
+		if (linear >= 1 - eps) {
 			this.progress = 1;
 			this.progressTarget = 1;
 			this._finishHexNavigation();
@@ -451,6 +467,24 @@ export class SceneCarousel {
 			hexGridOverlayDefaults._devOverrideProgress = false;
 		}
 
+		const previousTarget = this.progressTarget;
+		const unboundedTarget = previousTarget + delta;
+		if (this.currentId === "portfolioHub" && this.nextId === "about" && delta > 0) {
+			const addedOverflow = Math.max(0, unboundedTarget - 1) - Math.max(0, previousTarget - 1);
+			this._aboutBoundaryOverflowProgress = Math.min(
+				CAROUSEL_PROGRESS_TARGET_MAX - 1,
+				Math.max(0, this._aboutBoundaryOverflowProgress + Math.max(0, addedOverflow)),
+			);
+		} else if (this.currentId === "contacts" && this.previousId === "about" && delta < 0) {
+			const addedOverflow = Math.min(0, unboundedTarget) - Math.min(0, previousTarget);
+			this._aboutBoundaryOverflowProgress = Math.max(
+				CAROUSEL_PROGRESS_TARGET_MIN,
+				Math.min(0, this._aboutBoundaryOverflowProgress + Math.min(0, addedOverflow)),
+			);
+		} else {
+			this._aboutBoundaryOverflowProgress = 0;
+		}
+
 		if (delta > 0) {
 			this.scrollIntent = "forward";
 		} else if (delta < 0) {
@@ -464,12 +498,14 @@ export class SceneCarousel {
 	/** Dev / ручная подстановка target (G-панель). */
 	setProgressTarget(value) {
 		this.scrollIntent = null;
+		this._aboutBoundaryOverflowProgress = 0;
 		this.progressTarget = clampProgressTarget(value);
 	}
 
 	/** Dev: мгновенно выставить progress и target. */
 	setProgressState(progress, progressTarget = progress) {
 		this.scrollIntent = null;
+		this._aboutBoundaryOverflowProgress = 0;
 		this.progress = progress;
 		this.progressTarget = clampProgressTarget(progressTarget);
 		this._initSceneProgressStates();
@@ -479,6 +515,7 @@ export class SceneCarousel {
 		const eps = CAROUSEL_PROGRESS_COMMIT_EPS;
 		if (Math.abs(this.progress) <= eps && Math.abs(this.progressTarget) <= eps) {
 			this.scrollIntent = null;
+			this._aboutBoundaryOverflowProgress = 0;
 		}
 	}
 
@@ -681,10 +718,23 @@ export class SceneCarousel {
 		this.previousId = this.currentId;
 		this.currentId = this.nextId;
 		this.nextId = nextInCycle(this.currentId);
-		this.progressTarget = this.progressTarget - 1;
+		const nextProgressTarget = this.progressTarget - 1;
+		const boundaryOverflowProgress = this.currentId === "about"
+			? Math.max(0, nextProgressTarget, this._aboutBoundaryOverflowProgress)
+			: 0;
+		this._aboutBoundaryOverflowProgress = 0;
+		this.progressTarget = nextProgressTarget;
 		this.progress = 0;
+		if (this.currentId === "about") {
+			this.progressTarget = 0;
+		}
 		this.scrollIntent = null;
-		this._onCommit?.({ fromId, toId: this.currentId, direction: "forward" });
+		this._onCommit?.({
+			fromId,
+			toId: this.currentId,
+			direction: "forward",
+			boundaryOverflowProgress,
+		});
 		logCarouselProgressCommit(this, "forward");
 	}
 
@@ -693,10 +743,24 @@ export class SceneCarousel {
 		this.nextId = this.currentId;
 		this.currentId = this.previousId;
 		this.previousId = prevInCycle(this.currentId);
-		this.progressTarget = this.progressTarget + 1;
+		const nextProgressTarget = this.progressTarget + 1;
+		const boundaryOverflowProgress = this.currentId === "about"
+			? Math.min(0, nextProgressTarget - 1, this._aboutBoundaryOverflowProgress)
+			: 0;
+		this._aboutBoundaryOverflowProgress = 0;
+		// After reindexing, progress=1 is the old page and progress=0 is the new
+		// previous page. Always chase zero. Keeping `nextProgressTarget` here made
+		// the clamped -0.5 boundary become exactly +0.5; the rest rule then chased
+		// one and immediately committed forward, bouncing About back onto itself.
+		this.progressTarget = 0;
 		this.progress = 1;
 		this.scrollIntent = null;
-		this._onCommit?.({ fromId, toId: this.currentId, direction: "backward" });
+		this._onCommit?.({
+			fromId,
+			toId: this.currentId,
+			direction: "backward",
+			boundaryOverflowProgress,
+		});
 		logCarouselProgressCommit(this, "backward");
 	}
 
@@ -748,6 +812,7 @@ export class SceneCarousel {
 			this.progress = 0;
 			this.progressTarget = 0;
 			this.scrollIntent = null;
+			this._aboutBoundaryOverflowProgress = 0;
 			this._initSceneProgressStates();
 		}
 	}

@@ -23,21 +23,20 @@ export function computeParticleBounds(positionAttr, count) {
 }
 
 /** Эвристика: середина тела, низ, сторона с max Z (правый борт в FBX). */
-export function buildAutoFinRegion(bounds) {
+export function buildAutoFinRegion(bounds, target = {}) {
 	const lenX = bounds.max.x - bounds.min.x;
 	const spanY = bounds.max.y - bounds.min.y;
 	const spanZ = bounds.max.z - bounds.min.z;
 	const centerY = (bounds.min.y + bounds.max.y) * 0.5;
 	const centerZ = (bounds.min.z + bounds.max.z) * 0.5;
 
-	return {
-		minX: bounds.min.x + lenX * 0.28,
-		maxX: bounds.min.x + lenX * 0.48,
-		minY: bounds.min.y,
-		maxY: centerY + spanY * 0.05,
-		minZ: centerZ + spanZ * 0.12,
-		maxZ: bounds.max.z,
-	};
+	target.minX = bounds.min.x + lenX * 0.28;
+	target.maxX = bounds.min.x + lenX * 0.48;
+	target.minY = bounds.min.y;
+	target.maxY = centerY + spanY * 0.05;
+	target.minZ = centerZ + spanZ * 0.12;
+	target.maxZ = bounds.max.z;
+	return target;
 }
 
 function hasManualRegion(region) {
@@ -48,24 +47,23 @@ function hasManualRegion(region) {
 	);
 }
 
-export function resolveParticleFadeRegion(region, bounds) {
+export function resolveParticleFadeRegion(region, bounds, target = {}) {
 	if (!region?.enabled) {
 		return null;
 	}
 
 	if (hasManualRegion(region)) {
-		return {
-			minX: Math.min(region.minX, region.maxX),
-			maxX: Math.max(region.minX, region.maxX),
-			minY: Math.min(region.minY, region.maxY),
-			maxY: Math.max(region.minY, region.maxY),
-			minZ: Math.min(region.minZ, region.maxZ),
-			maxZ: Math.max(region.minZ, region.maxZ),
-		};
+		target.minX = Math.min(region.minX, region.maxX);
+		target.maxX = Math.max(region.minX, region.maxX);
+		target.minY = Math.min(region.minY, region.maxY);
+		target.maxY = Math.max(region.minY, region.maxY);
+		target.minZ = Math.min(region.minZ, region.maxZ);
+		target.maxZ = Math.max(region.minZ, region.maxZ);
+		return target;
 	}
 
 	if (region.autoFin && bounds) {
-		return buildAutoFinRegion(bounds);
+		return buildAutoFinRegion(bounds, target);
 	}
 
 	return null;

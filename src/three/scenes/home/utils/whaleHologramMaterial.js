@@ -64,11 +64,10 @@ export function applyWhaleHologramVisuals(material, options = {}) {
 		return;
 	}
 
-	const tint = new THREE.Color(options.colorTint ?? "#00e5ff");
 	const glow = options.emissiveIntensity ?? 0.5;
 	const opacity = options.opacity ?? 1;
 
-	material.uniforms.uColor.value.copy(tint);
+	material.uniforms.uColor.value.set(options.colorTint ?? "#00e5ff");
 	material.uniforms.uGlow.value = 0.35 + glow * 1.8;
 	material.uniforms.uOpacity.value = opacity;
 }

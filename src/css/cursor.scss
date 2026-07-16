@@ -399,6 +399,15 @@ $menuFloatTransition: $menuFloatDuration $menuFloatEase;
 		opacity 0.16s ease-out;
 }
 
+.cursor.menuOnlyCursor.stageNavigationHidden,
+.cursor.menuOnlyCursor.menuAnchorVisible.stageNavigationHidden {
+	opacity: 0 !important;
+	transition:
+		width $menuFloatTransition,
+		height $menuFloatTransition,
+		opacity 0.08s linear;
+}
+
 @media (max-width: $cursorMobileMax) {
 	body {
 		cursor: auto;

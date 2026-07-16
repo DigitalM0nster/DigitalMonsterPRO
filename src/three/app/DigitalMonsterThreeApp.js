@@ -3,7 +3,6 @@ import { BackgroundPipeline } from "../render/background/BackgroundPipeline.js";
 import { ScreenCompositor } from "../render/toScreen/ScreenCompositor.js";
 import { updateSiteGrainBlurRadius } from "../render/toScreen/siteGrainBlurRuntime.js";
 import { case1PostProcessConfig } from "../scenes/portfolio/case1/case1PostProcessConfig.js";
-import { SceneTransitionPass } from "../render/transition/SceneTransitionPass.js";
 import { HexGridOverlayPass } from "../render/overlay/HexGridOverlayPass.js";
 import { SceneManager } from "../scenes/SceneManager.js";
 import { disposeSharedDracoLoader } from "../assets/gltfLoader.js";
@@ -11,6 +10,7 @@ import { getGraphicsConfig, getGraphicsTier, getGraphicsTierDiagnostics, resolve
 import { applyDigitalWhaleConfigForTier } from "../scenes/home/digitalWhaleConfig.js";
 import { isPostProcessBypassedFromUrl } from "../../utils/postProcessTestFlags.js";
 import { HexGridOverlayDevTools } from "../dev/HexGridOverlayDevTools.js";
+import { HeroScrollHintDevTools } from "../dev/HeroScrollHintDevTools.js";
 import { disposeDevPanelHotkeys } from "../dev/devPanelHotkeys.js";
 import { ModelsPostProcessPipeline } from "../render/models/ModelsPostProcessPipeline.js";
 import { AdaptiveFrameSkipper } from "../render/adaptiveFrameSkip.js";
@@ -19,10 +19,10 @@ import { getHexShaderProgress } from "../render/overlay/hexShaderProgress.js";
 import { hexGridOverlayDefaults } from "../render/overlay/hexGridOverlayConfig.js";
 import { getSceneCarousel, initCarouselScroll, syncCarouselFromPage, disposeCarouselScroll } from "../render/transition/carouselPage.js";
 import { SCENE_ID_TO_PAGE } from "../render/transition/SceneCarousel.js";
-import { sceneIdToPage } from "../scenes/portfolio/hub/projectsData.js";
-import { getCasePanelTransitionCanvasState } from "@/portfolio/core/casePanelTransitionBridge.js";
+import { isPortfolioCasePath, sceneIdToPage } from "../scenes/portfolio/hub/projectsData.js";
 import { disposeHexTransitionSound, preloadHexTransitionSound, updateHexTransitionSound } from "../../sounds/hexTransitionSound.js";
 import { disposeUnderwaterSound, preloadUnderwaterSound, updateUnderwaterSound } from "../../sounds/underwaterSound.js";
+import { cancelSharedAnimationFrame, requestSharedAnimationFrame } from "@/utils/sharedAnimationFrame.js";
 
 const NO_GRAIN_BLUR = { enabled: false, radius: 0 };
 /** Idle home: mix progress ≈ 0 — hex/bloom/composite не нужны. */
@@ -32,6 +32,10 @@ const CANVAS_POINTER_BLOCKER_SELECTOR = '[data-canvas-pointer-blocker="true"]';
 function isCanvasPointerBlocked(event) {
 	const target = event?.target;
 	return target instanceof Element && Boolean(target.closest(CANVAS_POINTER_BLOCKER_SELECTOR));
+}
+
+function yieldToNextPaint() {
+	return new Promise((resolve) => requestSharedAnimationFrame(() => resolve()));
 }
 
 /**
@@ -105,11 +109,11 @@ export class DigitalMonsterThreeApp {
 		});
 		this.modelsPostProcess = new ModelsPostProcessPipeline(this.renderer, gfx);
 		this.screenCompositor = new ScreenCompositor();
-		this.casePanelTransitionTexture = null;
-		this.casePanelTransitionRevision = -1;
-		this.sceneTransitionPass = new SceneTransitionPass(this.renderer);
+		this.sceneOverlayTextures = new Map();
+		this.sceneTransitionProgress = 0;
 		this.hexGridOverlay = new HexGridOverlayPass(this.renderer);
 		this.hexGridDevTools = import.meta.env.DEV ? new HexGridOverlayDevTools(() => this.hexGridOverlay) : null;
+		this.scrollHintDevTools = import.meta.env.DEV ? new HeroScrollHintDevTools() : null;
 
 		this.currentPage = "/";
 		this.teleportPage = "/";
@@ -120,13 +124,16 @@ export class DigitalMonsterThreeApp {
 		this.dprFloor = gfx.dprFloor ?? null;
 		this._lastDprLogKey = "";
 		this._renderSize = { w: 0, h: 0, dpr: 0 };
-		this.setPixelRatio(resolveRendererPixelRatio(tier, window.devicePixelRatio));
+		this.defaultPixelRatio = resolveRendererPixelRatio(tier, window.devicePixelRatio);
+		this.setPixelRatio(this.defaultPixelRatio);
 
 		this.clock = new THREE.Clock();
 		this.frameSkipper = new AdaptiveFrameSkipper();
+		this._caseFrameDelta = 0;
 		this.rafId = null;
 		this.disposed = false;
 		this.renderedNotified = false;
+		this.ready = false;
 		this._nativeCursorIsPointer = null;
 
 		window.addEventListener("resize", this.onResize);
@@ -151,6 +158,69 @@ export class DigitalMonsterThreeApp {
 		});
 		this._syncHexShaderProgress();
 		this.onResize();
+		this.preparePromise = this._prepareApplication();
+	}
+
+	async _prepareApplication() {
+		try {
+			await Promise.all([this.sceneManager.readyPromise, this.backgroundPipeline.readyPromise]);
+			if (this.disposed) {
+				return false;
+			}
+
+			this.sceneManager.warmupRenderTargets();
+
+			await this.sceneManager.warmupPrograms();
+			if (this.disposed) {
+				return false;
+			}
+
+			await this._warmupRenderPipeline();
+			return true;
+		} catch (error) {
+			console.warn("[three] preload warm-up failed; continuing with runtime compilation", error);
+			return false;
+		} finally {
+			if (!this.disposed) {
+				this.ready = true;
+			}
+		}
+	}
+
+	async _warmupRenderPipeline() {
+		await yieldToNextPaint();
+		const backgroundTexture = this.backgroundPipeline.renderCarouselBackground(0) ?? this.backgroundPipeline.lastTexture;
+
+		await yieldToNextPaint();
+		const mix = this.sceneManager.renderModelsFrame({ skipIdleTargetLayer: true });
+		const modelsTexture = mix?.sourceModels ?? null;
+		const fullA = this.screenCompositor.compositeToLayerTarget(
+			this.renderer,
+			"a",
+			backgroundTexture,
+			modelsTexture,
+			NO_GRAIN_BLUR,
+		);
+
+		await yieldToNextPaint();
+		const fullB = this.screenCompositor.compositeToLayerTarget(
+			this.renderer,
+			"b",
+			backgroundTexture,
+			modelsTexture,
+			NO_GRAIN_BLUR,
+		);
+		this.hexGridOverlay.setTextures(fullA, fullB);
+		const hexTexture = this.hexGridOverlay.renderModelsMixToTexture(this.renderer) ?? fullA;
+
+		await yieldToNextPaint();
+		const warmedTexture = this.noPostProcess
+			? hexTexture
+			: this.modelsPostProcess.applyBloom(hexTexture, 0, 1);
+		this.screenCompositor.drawToScreen(this.renderer, null, warmedTexture ?? hexTexture, NO_GRAIN_BLUR);
+
+		await yieldToNextPaint();
+		this._renderFrame(0);
 	}
 
 	_getHexShaderProgress() {
@@ -159,8 +229,8 @@ export class DigitalMonsterThreeApp {
 
 	_syncHexShaderProgress() {
 		const progress = this._getHexShaderProgress();
-		this.sceneTransitionPass.setProgress(progress);
-		this.hexGridOverlay.setOptions({ progress });
+		this.sceneTransitionProgress = progress;
+		this.hexGridOverlay.setProgress(progress);
 	}
 
 	_onPointerMove(event) {
@@ -263,53 +333,77 @@ export class DigitalMonsterThreeApp {
 		const hexProgress = this._getHexShaderProgress();
 		const skipTargetLayer = hexProgress <= 0.0001 || mix.sourceId === mix.targetId;
 		// Idle: одна сцена, переход не идёт — hex fullscreen pass не нужен.
-		const bypassHexMix = hexProgress <= 0.0001 && mix.sourceId === mix.targetId;
+		// At rest the source layer is already the final frame. Running it through
+		// the hex shader altered UI colours and added a redundant fullscreen pass.
+		const bypassHexMix = hexProgress <= 0.0001;
 
 		// Один liquid-фон для обеих сцен: яркость/scale уже плавно обновлены в BackgroundPipeline.update().
 		const sharedBackground = this.backgroundPipeline.renderCarouselBackground(delta, bgOptions) ?? this.backgroundPipeline.lastTexture;
 		const bgA = pageA === "/" ? null : sharedBackground;
-		const panelOverlay = mix.sourceId.startsWith("case") ? this._getCasePanelTransitionTexture() : null;
-		const fullA = this.screenCompositor.compositeToLayerTarget(this.renderer, "a", bgA, mix.sourceModels, grainBlur, panelOverlay);
+		const sourceOverlay = this._getPanelOverlayTextureForScene(mix.sourceId);
+		const fullA = this.screenCompositor.compositeToLayerTarget(this.renderer, "a", bgA, mix.sourceModels, grainBlur, sourceOverlay);
 
 		let fullB = fullA;
 		if (!skipTargetLayer) {
 			const bgB = pageB === "/" ? null : sharedBackground;
-			fullB = this.screenCompositor.compositeToLayerTarget(this.renderer, "b", bgB, mix.targetModels, grainBlur);
+			const targetOverlay = this._getPanelOverlayTextureForScene(mix.targetId);
+			fullB = this.screenCompositor.compositeToLayerTarget(this.renderer, "b", bgB, mix.targetModels, grainBlur, targetOverlay);
 		}
 
 		let hexTexture = fullA;
 		if (!bypassHexMix) {
+			this.hexGridOverlay.setSourceTextureEffectStrength(mix.sourceId?.startsWith("case") ? 0 : 1);
 			this.hexGridOverlay.setTextures(fullA, fullB);
 			hexTexture = this.hexGridOverlay.renderModelsMixToTexture(this.renderer) ?? fullA;
 		}
 
-		const frameTexture = noPost ? hexTexture : this.modelsPostProcess.applyBloom(hexTexture, delta, reveal);
+		const frameTexture = noPost || reveal <= 0.0001
+			? hexTexture
+			: this.modelsPostProcess.applyBloom(hexTexture, delta, reveal);
 
 		// grain уже внутри full RT; на экран — только итоговый кадр.
 		this.screenCompositor.drawToScreen(this.renderer, null, frameTexture, NO_GRAIN_BLUR);
 	}
 
-	_getCasePanelTransitionTexture() {
-		const state = getCasePanelTransitionCanvasState();
-		if (!state.canvas) {
-			this.casePanelTransitionTexture?.dispose();
-			this.casePanelTransitionTexture = null;
-			this.casePanelTransitionRevision = state.revision;
+	_getPanelOverlayTextureForScene(sceneId) {
+		// Case UI stays live (arc snake + HUD mosaic). Never feed hex a baked case snapshot.
+		if (sceneId?.startsWith("case")) {
+			return null;
+		}
+		return this._getSceneOverlayTexture(sceneId);
+	}
+
+	_getSceneOverlayTexture(sceneId) {
+		const state = this.sceneManager.getSceneOverlayState(sceneId);
+		const canvas = state.canvas;
+		this.sceneOverlayTextures ??= new Map();
+		const existing = this.sceneOverlayTextures.get(sceneId);
+
+		if (!canvas?.width || !canvas?.height) {
+			existing?.texture?.dispose();
+			this.sceneOverlayTextures.delete(sceneId);
 			return null;
 		}
 
-		if (state.revision !== this.casePanelTransitionRevision) {
-			this.casePanelTransitionTexture?.dispose();
-			this.casePanelTransitionTexture = new THREE.CanvasTexture(state.canvas);
-			this.casePanelTransitionTexture.colorSpace = THREE.SRGBColorSpace;
-			this.casePanelTransitionTexture.minFilter = THREE.LinearFilter;
-			this.casePanelTransitionTexture.magFilter = THREE.LinearFilter;
-			this.casePanelTransitionTexture.generateMipmaps = false;
-			this.casePanelTransitionTexture.needsUpdate = true;
-			this.casePanelTransitionRevision = state.revision;
+		let entry = existing;
+		if (!entry || entry.canvas !== canvas || entry.width !== canvas.width || entry.height !== canvas.height) {
+			entry?.texture?.dispose();
+			const texture = new THREE.CanvasTexture(canvas);
+			texture.colorSpace = THREE.SRGBColorSpace;
+			texture.minFilter = THREE.NearestFilter;
+			texture.magFilter = THREE.NearestFilter;
+			texture.generateMipmaps = false;
+			texture.needsUpdate = true;
+			entry = { canvas, width: canvas.width, height: canvas.height, texture, revision: -1 };
+			this.sceneOverlayTextures.set(sceneId, entry);
 		}
 
-		return this.casePanelTransitionTexture;
+		if (entry.revision !== state.revision) {
+			entry.texture.needsUpdate = true;
+			entry.revision = state.revision;
+		}
+		entry.texture.userData.screenRegion = state.region ?? null;
+		return entry.texture;
 	}
 
 	/**
@@ -331,14 +425,36 @@ export class DigitalMonsterThreeApp {
 	}
 
 	_renderFrameInner(delta) {
-		const progress = this.sceneTransitionPass.getProgress();
+		const progress = this.sceneTransitionProgress;
 		const lite = this.gfx.litePipeline === true;
 		const noPost = this.noPostProcess === true;
 		const onCarousel = this.sceneManager.isCarouselHubActive();
 		const bgOptions = noPost ? { skipLiquid: true } : undefined;
 
+		const hexActive = this._getHexShaderProgress() > 0.0001;
+		const caseOpen = Boolean(this.store.openedCase);
+		// Left HUD content: models during hex (cuttable), screen idle.
+		// Project-nav chrome is pure DOM (CaseStudyPanelHudOverlay) — not in WebGL.
+		this.sceneManager.forEachCasePanelHud((hud) => {
+			if (hexActive) {
+				hud.setComposeMode("models");
+			} else if (caseOpen) {
+				hud.setComposeMode("screen");
+			} else {
+				hud.setComposeMode("models");
+				hud.setVisible(false);
+			}
+		});
+
 		const mix = this.sceneManager.renderModelsFrame({
 			skipIdleTargetLayer: false,
+		});
+
+		// Case edge vignette on bg+models only (HUD/arc composite after → letters stay bright).
+		// Skip while hex embeds HUD in models RT so UI glyphs are not dimmed mid-transition.
+		this.screenCompositor.setCaseStudyEdgeShade({
+			enabled: Boolean(this.store.openedCase) && !hexActive,
+			delta,
 		});
 
 		const reveal = noPost
@@ -352,46 +468,89 @@ export class DigitalMonsterThreeApp {
 		if (onCarousel) {
 			if (this._shouldUseIdleHomeDirectPipeline(mix)) {
 				this._renderIdleHomeDirectFrame(mix);
+				this._renderCasePanelHudScreenOverlays();
+				this._renderHomeScrollHintOverlay();
 				return;
 			}
 			this._renderCarouselHexFrame(delta, mix, reveal, grainBlur, bgOptions, noPost);
+			this._renderCasePanelHudScreenOverlays();
+			this._renderHomeScrollHintOverlay();
 			return;
 		}
 
 		// Тот же full-frame путь, что у последнего hex-кадра: без скачка compositing/brightness.
 		const fullFrame = this.screenCompositor.compositeToLayerTarget(this.renderer, "a", this.backgroundPipeline.lastTexture, mix.sourceModels, grainBlur);
-		const frameTexture = noPost ? fullFrame : this.modelsPostProcess.applyBloom(fullFrame, delta, reveal);
+		const frameTexture = noPost || reveal <= 0.0001
+			? fullFrame
+			: this.modelsPostProcess.applyBloom(fullFrame, delta, reveal);
 		this.screenCompositor.drawToScreen(this.renderer, null, frameTexture, NO_GRAIN_BLUR);
+		this._renderCasePanelHudScreenOverlays();
+		this._renderHomeScrollHintOverlay();
+	}
+
+	_renderCasePanelHudScreenOverlays() {
+		if (!this.store.openedCase) {
+			return;
+		}
+		this.sceneManager.forEachCasePanelHud((hud) => {
+			hud.renderScreenOverlay(this.renderer);
+		});
+	}
+
+	_renderHomeScrollHintOverlay() {
+		const home = this.sceneManager.getSceneById?.("home");
+		home?.heroTitle?.renderScrollHintOverlay?.(this.renderer);
 	}
 
 	/** Состояние рендера карусели → store (debug-панель). */
 	_syncCarouselRenderState() {
 		if (!this.sceneManager.isCarouselHubActive()) {
-			this.store.sceneCarouselRenderMode = "off";
-			this.store.sceneCarouselRenderingIds = [];
+			if (import.meta.env.DEV) {
+				this.store.sceneCarouselRenderMode = "off";
+				this.store.sceneCarouselRenderingIds = [];
+			}
 			this.store.sceneCarouselClickTransitionActive = false;
+			this.store.sceneCarouselClickPhase = "idle";
+			this.store.sceneCarouselClickTargetId = null;
 			return;
 		}
 
 		const carousel = getSceneCarousel();
 		const hexProgress = this._getHexShaderProgress();
-		const renderingIds = carousel.getActiveSceneIds(hexProgress);
-
-		this.store.sceneCarouselRenderMode = renderingIds.length > 1 ? "mix" : "single";
-		this.store.sceneCarouselRenderingIds = renderingIds;
+		if (import.meta.env.DEV) {
+			const renderingIds = carousel.getActiveSceneIds(hexProgress);
+			this.store.sceneCarouselRenderMode = renderingIds.length > 1 ? "mix" : "single";
+			this.store.sceneCarouselRenderingIds = renderingIds;
+			this.store.sceneCarouselPreviousId = carousel.previousId;
+			this.store.sceneCarouselNextId = carousel.nextId;
+			this.store.sceneCarouselSceneProgress = carousel.getSceneProgressSnapshot();
+		}
 		this.store.sceneCarouselCurrentId = carousel.currentId;
-		this.store.sceneCarouselPreviousId = carousel.previousId;
-		this.store.sceneCarouselNextId = carousel.nextId;
 		this.store.hexShaderProgress = hexProgress;
 		this.store.sceneCarouselProgress = carousel.progress;
 		this.store.sceneCarouselProgressTarget = carousel.progressTarget;
-		this.store.sceneCarouselSceneProgress = carousel.getSceneProgressSnapshot();
 		this.store.sceneCarouselClickTransitionActive = carousel.isInteractionLocked();
+		this.store.sceneCarouselClickPhase = carousel.getHexNavigationPhase();
+		this.store.sceneCarouselClickTargetId = carousel.getHexTargetSceneId();
 	}
 
 	setPixelRatio(dpr) {
 		this.renderer.setPixelRatio(dpr);
 		this.onResize();
+	}
+
+	_resolveRenderFpsCap() {
+		const tierCap = this.gfx.renderFpsCap ?? 0;
+		if (!isPortfolioCasePath(this.currentPage)) {
+			return tierCap;
+		}
+		const caseIsStatic =
+			(this.routeTransition?.phase ?? "idle") === "idle" &&
+			this.sceneManager.requiresContinuousRender() === false;
+		const caseCap = caseIsStatic
+			? (this.gfx.staticCaseRenderFpsCap ?? 8)
+			: (this.gfx.caseRenderFpsCap ?? 24);
+		return tierCap > 0 ? Math.min(tierCap, caseCap) : caseCap;
 	}
 
 	/** В консоль: с каким DPR реально рендерим (без спама каждый кадр). */
@@ -407,7 +566,7 @@ export class DigitalMonsterThreeApp {
 		}
 		this._lastDprLogKey = key;
 		const lite = this.gfx.litePipeline === true;
-		const renderCap = this.gfx.renderFpsCap;
+		const renderCap = this._resolveRenderFpsCap();
 		const noPost = this.noPostProcess ? " · noPost" : "";
 		const diag = getGraphicsTierDiagnostics();
 		const memLabel = diag.memoryGb != null ? `${diag.memoryGb}GB` : "n/a";
@@ -445,6 +604,7 @@ export class DigitalMonsterThreeApp {
 
 		if (next.currentPage !== undefined && next.currentPage !== prevPage) {
 			syncCarouselFromPage(next.currentPage);
+			this._caseFrameDelta = 0;
 		}
 
 		this.sceneManager.setRouteState({
@@ -485,14 +645,13 @@ export class DigitalMonsterThreeApp {
 		this.backgroundPipeline.setSize(w, h);
 		this.sceneManager.setSize(w, h);
 		this.modelsPostProcess.setSize(w, h);
-		this.sceneTransitionPass.setSize(w, h);
 		this.hexGridOverlay.setSize(w, h);
 		this.screenCompositor.setSize(w, h, this.renderer);
 		this._logRendererPixelRatio();
 	}
 
 	_notifyRenderedOnce() {
-		if (this.renderedNotified || !this.sceneManager.ready) {
+		if (this.renderedNotified || !this.ready) {
 			return;
 		}
 		this.renderedNotified = true;
@@ -520,7 +679,7 @@ export class DigitalMonsterThreeApp {
 		console.warn("[three] WebGL context lost:", reason);
 
 		if (this.rafId !== null) {
-			cancelAnimationFrame(this.rafId);
+			cancelSharedAnimationFrame(this.rafId);
 			this.rafId = null;
 		}
 
@@ -532,42 +691,70 @@ export class DigitalMonsterThreeApp {
 			if (this.disposed) {
 				return;
 			}
-			this.rafId = requestAnimationFrame(tick);
+			this.rafId = requestSharedAnimationFrame(tick);
 
 			const delta = this.clock.getDelta();
-
-			this.sceneManager.update(delta);
-			this._syncNativeCursor();
-
-			if (this.sceneManager.isCarouselHubActive() && !hexGridOverlayDefaults._devOverrideProgress) {
-				getSceneCarousel().update(delta);
-				this.sceneManager.afterCarouselUpdate(getSceneCarousel());
-			}
-
-			updateHexTransitionSound(delta, getSceneCarousel(), {
-				currentPage: this.currentPage,
-				teleportPage: this.teleportPage,
-				routePhase: this.routeTransition?.phase ?? "idle",
-			});
-			updateUnderwaterSound(delta, {
-				currentPage: this.currentPage,
-				routePhase: this.routeTransition?.phase ?? "idle",
-				homeScene: this.sceneManager.getSceneById("home"),
-				carousel: getSceneCarousel(),
-				mixProgress: this._getHexShaderProgress(),
-			});
-
-			this._syncHexShaderProgress();
-			this._syncCarouselRenderState();
-
-			this.backgroundPipeline.update(delta, this.noPostProcess ? { skipLiquid: true } : undefined);
-
-			const skipRender = this.frameSkipper.shouldSkipRender({
+			const onPortfolioCase = isPortfolioCasePath(this.currentPage);
+			const adaptiveSkipRender = this.frameSkipper.shouldSkipRender({
 				tier: this.gfxTier,
-				renderFpsCap: this.gfx.renderFpsCap ?? 0,
+				renderFpsCap: this._resolveRenderFpsCap(),
 			});
+			const carousel = getSceneCarousel();
+			const skipRender = adaptiveSkipRender;
 			this.store.renderFps = Math.round(this.frameSkipper.getFps());
 			this.store.renderFrameSkipped = skipRender;
+
+			let sceneDelta = delta;
+			if (onPortfolioCase) {
+				this._caseFrameDelta = Math.min(0.1, this._caseFrameDelta + delta);
+				sceneDelta = this._caseFrameDelta;
+			}
+			if (!onPortfolioCase || !skipRender) {
+				this.sceneManager.update(sceneDelta);
+				if (onPortfolioCase) {
+					this._caseFrameDelta = 0;
+				}
+			}
+			this._syncNativeCursor();
+
+			const routePhase = this.routeTransition?.phase ?? "idle";
+			const hexProgress = this._getHexShaderProgress();
+			const hexQuiet = hexProgress <= 0.0001;
+			// On skipped case frames: keep liquid time via backgroundPipeline, but skip
+			// carousel/hex store churn and underwater/hex audio when nothing is transitioning.
+			const lightCaseSkip = skipRender && onPortfolioCase && routePhase === "idle" && hexQuiet;
+
+			if (this.sceneManager.isCarouselHubActive() && !hexGridOverlayDefaults._devOverrideProgress) {
+				// A background-tab/DevTools pause can make Clock return a multi-second
+				// delta. Feeding that into the carousel's rest curve can erase a fresh
+				// About boundary handoff before visual progress gets its first frame.
+				carousel.update(Math.min(delta, 0.05));
+				this.sceneManager.afterCarouselUpdate(carousel);
+			}
+
+			if (!lightCaseSkip) {
+				updateHexTransitionSound(delta, getSceneCarousel(), {
+					currentPage: this.currentPage,
+					teleportPage: this.teleportPage,
+					routePhase,
+				});
+				updateUnderwaterSound(delta, {
+					currentPage: this.currentPage,
+					routePhase,
+					homeScene: this.sceneManager.getSceneById("home"),
+					carousel: getSceneCarousel(),
+					mixProgress: hexProgress,
+				});
+				this._syncHexShaderProgress();
+				this._syncCarouselRenderState();
+			} else {
+				this.sceneTransitionProgress = hexProgress;
+			}
+
+			this.backgroundPipeline.update(delta, {
+				skipLiquid: this.noPostProcess,
+				skipRender,
+			});
 
 			if (!skipRender) {
 				this._renderFrame(delta);
@@ -586,7 +773,7 @@ export class DigitalMonsterThreeApp {
 		this.store.cursor.projectListHovered = false;
 		this.store.cursor.caseNavHovered = false;
 		if (this.rafId !== null) {
-			cancelAnimationFrame(this.rafId);
+			cancelSharedAnimationFrame(this.rafId);
 		}
 		window.removeEventListener("resize", this.onResize);
 		this._resizeObserver?.disconnect();
@@ -601,15 +788,17 @@ export class DigitalMonsterThreeApp {
 		this.canvas.removeEventListener("webglcontextrestored", this._onContextRestored, false);
 		this.backgroundPipeline.dispose();
 		this.hexGridDevTools?.dispose();
+		this.scrollHintDevTools?.dispose();
 		disposeDevPanelHotkeys();
 		disposeCarouselScroll();
 		disposeHexTransitionSound();
 		disposeUnderwaterSound();
 		this.modelsPostProcess.dispose();
 		this.sceneManager.dispose();
-		this.sceneTransitionPass.dispose();
-		this.casePanelTransitionTexture?.dispose();
-		this.casePanelTransitionTexture = null;
+		for (const entry of this.sceneOverlayTextures?.values?.() ?? []) {
+			entry.texture?.dispose();
+		}
+		this.sceneOverlayTextures?.clear?.();
 		this.hexGridOverlay.dispose();
 		this.screenCompositor.dispose();
 		disposeSharedDracoLoader();

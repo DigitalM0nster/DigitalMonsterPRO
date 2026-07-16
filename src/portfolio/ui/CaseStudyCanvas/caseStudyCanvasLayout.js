@@ -99,7 +99,7 @@ export function resolveCaseStudyContentBounds(viewportHeight) {
  * @param {number} stateCount
  * @param {{ x?: number, y?: number }} [canvasOrigin]
  * @param {HTMLCanvasElement | null} [canvas]
- * @param {{ panelWidth?: { min?: number, max?: number, ratio?: number }, contentTopPx?: number, contentBottomInsetPx?: number }} [options]
+ * @param {{ panelWidth?: { min?: number, max?: number, ratio?: number }, contentTopPx?: number, contentBottomInsetPx?: number, arcViewportTopPx?: number, arcViewportBottomPx?: number, arcViewportBottomInsetPx?: number }} [options]
  */
 export function resolveCaseStudyLayout(width, height, stateCount, canvasOrigin = { x: 0, y: 0 }, canvas = null, options = {}) {
 	const isMobile = width < MOBILE_BREAKPOINT;
@@ -140,8 +140,17 @@ export function resolveCaseStudyLayout(width, height, stateCount, canvasOrigin =
 	}
 
 	const maxHeight = resolveCaseStudyContentMaxHeightLocal(surface, height, options);
-	const arcTop = Math.min(116, Math.max(88, height * 0.105));
-	const arcBottom = panelTopLocal + maxHeight;
+	const defaultArcTop = Math.min(116, Math.max(88, height * 0.105));
+	const defaultArcBottom = panelTopLocal + maxHeight;
+	const arcTop = Number.isFinite(options.arcViewportTopPx)
+		? options.arcViewportTopPx
+		: defaultArcTop;
+	const arcBottomFromInset = Number.isFinite(options.arcViewportBottomInsetPx)
+		? height - options.arcViewportBottomInsetPx
+		: null;
+	const arcBottom = Number.isFinite(options.arcViewportBottomPx)
+		? options.arcViewportBottomPx
+		: arcBottomFromInset ?? defaultArcBottom;
 	const panelWidthOverride = options.panelWidth ?? {};
 	const panelWidthMin = panelWidthOverride.min ?? cfg.panelWidthMin;
 	const panelWidthMax = panelWidthOverride.max ?? cfg.panelWidthMax;

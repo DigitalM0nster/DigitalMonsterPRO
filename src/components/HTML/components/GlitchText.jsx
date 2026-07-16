@@ -31,6 +31,9 @@ const GlitchText = forwardRef(function GlitchText(
 	useImperativeHandle(
 		ref,
 		() => ({
+			playHover(timeBudgetMs) {
+				return runGlitchSnake(wordRef.current, "hover", { timeBudgetMs });
+			},
 			playAppear(timeBudgetMs) {
 				return runGlitchSnake(wordRef.current, "appear", { timeBudgetMs });
 			},

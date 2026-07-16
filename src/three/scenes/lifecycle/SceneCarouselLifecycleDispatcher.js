@@ -56,13 +56,14 @@ export class SceneCarouselLifecycleDispatcher {
 	 * @param {import('@/three/render/transition/SceneCarousel.js').SceneCarousel} carousel
 	 * @param {{ sourceId: string, targetId: string }} payload
 	 */
-	onHexNavigationStart(carousel, { targetId }) {
+	onHexNavigationStart(carousel, { sourceId, targetId }) {
 		// Put a hidden target into its normal dormant/start pose. The source is not
 		// reset: it must stay frozen without a leave animation. Once the completed
 		// route is confirmed, the target's regular route lifecycle plays its enter.
 		if (CAROUSEL_SCENE_IDS.includes(targetId)) {
 			this._dispatchReset(targetId, {
 				reason: "hex-target-at-rest",
+				sourceId,
 				role: getCarouselSceneRole(targetId, carousel),
 				prevRole: this._ringRoles[targetId] ?? "off",
 				carouselProgress: 0,

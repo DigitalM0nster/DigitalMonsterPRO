@@ -408,10 +408,11 @@ export default function EffectComposerComponent(props) {
 			easing.damp(verticalBlocksNumberRef, "current", 40, 1, delta);
 		}
 
-		if (!page.startsWith("/portfolio")) {
+		const aboutUsesCasePostProcess = page === "/about";
+		if (!page.startsWith("/portfolio") && !aboutUsesCasePostProcess) {
 			easing.damp(blurRadiusRef, "current", 0.0, 0.5, delta);
 			easing.damp(blendFactorRef, "current", 0.0, 0.25, delta);
-		} else if (page === "/portfolio") {
+		} else if (page === "/portfolio" || aboutUsesCasePostProcess) {
 			if (iw <= 768) {
 				dampBlurPortfolioMainMobile(blendFactorRef, blurRadiusRef, store, delta, 0.0075);
 			} else {
@@ -460,12 +461,6 @@ export default function EffectComposerComponent(props) {
 			if (bloom) {
 				easing.damp(bloom, "intensity", 1, 1, delta);
 				easing.damp(bloom.luminanceMaterial, "threshold", 1.0, 0.5, delta);
-				easing.damp(bloom.luminanceMaterial, "smoothing", 0.0, 0.1, delta);
-			}
-		} else if (page === "/about") {
-			if (bloom) {
-				easing.damp(bloom, "intensity", 1, 0.1, delta);
-				easing.damp(bloom.luminanceMaterial, "threshold", 0.0, 0.5, delta);
 				easing.damp(bloom.luminanceMaterial, "smoothing", 0.0, 0.1, delta);
 			}
 		} else if (page === "/contacts") {

@@ -142,7 +142,6 @@ export function applyWhaleVisuals(particles, options = {}) {
 		return;
 	}
 
-	const tint = new THREE.Color(options.colorTint ?? "#00e5ff");
 	const baseGlow = options.emissiveIntensity ?? 0.5;
 	const glow =
 		options.elapsed != null && options.glowPulse
@@ -151,7 +150,7 @@ export function applyWhaleVisuals(particles, options = {}) {
 	const opacity = options.opacity ?? 1;
 
 	particles.material.uniforms.uGlow.value = 0.7 + glow * 3.2;
-	particles.material.uniforms.uColor.value.copy(tint);
+	particles.material.uniforms.uColor.value.set(options.colorTint ?? "#00e5ff");
 	particles.material.uniforms.uAlphaMult.value = opacity;
 	particles.material.uniforms.uPointScale.value = options.pointScale ?? 2.2;
 	particles.material.uniforms.uGrainBlurRadius.value = options.grainBlurRadius ?? 0;

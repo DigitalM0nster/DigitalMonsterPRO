@@ -285,6 +285,10 @@ export function createHeroTitleText(renderer, scene) {
 			stack.dispose();
 			scrollHint.dispose();
 		},
+		/** After final screen blit — sharp scroll-hint label overlay. */
+		renderScrollHintOverlay(renderer) {
+			scrollHint.renderScreenOverlay(renderer);
+		},
 		/** Dev: змейка смены языка без клика по меню. */
 		previewGlitchLocaleSwitch(locale) {
 			return localeSwitch.previewSwitchTo(locale);

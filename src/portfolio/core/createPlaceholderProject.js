@@ -12,6 +12,10 @@ export function createPlaceholderProject(partial) {
 		contentStatus: "needsContent",
 		mediaPolicy: partial.mediaPolicy ?? { maxVideos: 0, defaultLoad: "onDemand" },
 		meta: partial.meta ?? {},
+		caseStudy: {
+			renderTextInScene: true,
+			...(partial.caseStudy ?? {}),
+		},
 	};
 
 	const states = createDefaultFiveStates(config.title, config.summary);

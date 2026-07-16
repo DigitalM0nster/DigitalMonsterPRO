@@ -22,6 +22,7 @@ uniform float innerSoftness;
 uniform float innerRevealPower;
 uniform float innerTextureScale;
 uniform float innerDistortStrength;
+uniform float sourceTextureEffectStrength;
 uniform float outerTextureScale;
 uniform float outerDistortStrength;
 uniform float rowSoftness;
@@ -222,10 +223,12 @@ vec2 innerTextureSampleUv(
 	vec2 cellId,
 	float hexScale,
 	vec2 res,
-	float transitionT
+	float transitionT,
+	float effectStrength
 ) {
-	vec2 uv = scaledTextureUv(vUv, localUV, hexScale, res, transitionT, innerTextureScale);
-	uv += innerTextureDistort(vUv, cellId, transitionT);
+	float effectT = transitionT * clamp(effectStrength, 0.0, 1.0);
+	vec2 uv = scaledTextureUv(vUv, localUV, hexScale, res, effectT, innerTextureScale);
+	uv += innerTextureDistort(vUv, cellId, effectT);
 	return clamp(uv, 0.0, 1.0);
 }
 
@@ -279,7 +282,15 @@ vec4 hexCellRevealFromTextures(
 	vec2 uvEnd = outerTextureSampleUv(vUv, localUV, cellId, hexScale, resolution, outerAmount);
 	vec4 colorEnd = texture2D(texEnd, uvEnd);
 
-	vec2 uvStart = innerTextureSampleUv(vUv, localUV, cellId, hexScale, resolution, transitionT);
+	vec2 uvStart = innerTextureSampleUv(
+		vUv,
+		localUV,
+		cellId,
+		hexScale,
+		resolution,
+		transitionT,
+		sourceTextureEffectStrength
+	);
 	vec4 colorStart = texture2D(texStart, uvStart);
 
 	vec4 fill = mix(colorEnd, colorStart, innerMask);
@@ -375,6 +386,7 @@ export function createHexGridOverlayMaterial() {
 			innerRevealPower: { value: defaults.innerRevealPower ?? 1 },
 			innerTextureScale: { value: defaults.innerTextureScale ?? 1.75 },
 			innerDistortStrength: { value: defaults.innerDistortStrength ?? 0.12 },
+			sourceTextureEffectStrength: { value: 1 },
 			outerTextureScale: { value: defaults.outerTextureScale ?? 0.45 },
 			outerDistortStrength: { value: defaults.outerDistortStrength ?? 0.12 },
 			rowSoftness: { value: defaults.rowSoftness ?? 0.06 },

@@ -1,5 +1,5 @@
 /**
- * Анимация хаба: сетка → карточка (30% сетки) → логотип (30% карточки).
+ * Анимация хаба: сетка → карточка → логотип.
  * Per-project состояние для прерываний и retarget.
  */
 
@@ -38,6 +38,8 @@ export function createHubAnimState() {
 		projects: new Map(),
 		/** Кэш последнего кадра per-project (после tick). */
 		_lastTick: new Map(),
+		/** Какой projectIndex реально показывали в logo/label в прошлом кадре. */
+		_lastDisplayedLogoProject: -1,
 	};
 }
 
@@ -80,7 +82,7 @@ function getPlateAnimLinear(channel, now, timing) {
 }
 
 function getLogoAppearDuration(timing) {
-	return Math.max(timing.logoAppearDuration ?? timing.logoFadeDuration ?? 0.5, 0.001);
+	return Math.max(timing.logoAppearDuration ?? timing.logoFadeDuration ?? 0.75, 0.001);
 }
 
 function getLogoAppearLinear(channel, now, timing) {
@@ -340,6 +342,18 @@ function handleTargetChange(state, prevTarget, nextTarget, now, timing) {
 	return { logoRevealJustPaused, plateMovementJustStarted };
 }
 
+function hasSiblingLogoExit(state, projectIndex) {
+	for (const [idx, other] of state.projects.entries()) {
+		if (idx === projectIndex) {
+			continue;
+		}
+		if (other.logoExit.mode !== "idle") {
+			return true;
+		}
+	}
+	return false;
+}
+
 function tickProject(state, projectIndex, targetIndex, gridLinear, now, timing, allowLogos = true) {
 	const ps = getProjectState(state, projectIndex);
 	const plateGate = timing.gridStartPlateFraction ?? 0.3;
@@ -382,6 +396,8 @@ function tickProject(state, projectIndex, targetIndex, gridLinear, now, timing, 
 
 	const isTarget = projectIndex === targetIndex;
 	const gridReady = gridLinear >= plateGate;
+	// Не стартовать reveal нового кейса, пока предыдущий ещё играет exit на экране.
+	const siblingExitBlocking = hasSiblingLogoExit(state, projectIndex);
 
 	if (isTarget && targetIndex >= 0 && gridReady) {
 		if (ps.plate.mode === "idle" && ps.plate.value <= 0.001) {
@@ -392,7 +408,7 @@ function tickProject(state, projectIndex, targetIndex, gridLinear, now, timing, 
 			plateMovementJustStarted = true;
 		}
 
-		if (allowLogos) {
+		if (allowLogos && !siblingExitBlocking) {
 			const plateReady =
 				(ps.plate.mode === "open" && plateAnimLinear >= logoGate) ||
 				(ps.plate.mode === "idle" && ps.plate.value >= 0.999);
@@ -454,6 +470,8 @@ function pickLogoProject(state, targetIndex) {
 			continue;
 		}
 
+		// Exit предыдущего кейса важнее нового focus — иначе логотип исчезает мгновенно.
+		// Старт appear нового кейса ждёт окончания sibling exit (см. tickProject).
 		const score =
 			(ps.logoExit.mode !== "idle" ? 100 : 0) +
 			(projectIndex === targetIndex ? 50 : 0) +
@@ -558,8 +576,28 @@ export function advanceHubMenuAnim(state, targetIndex, now, timing, getGridSlide
 
 	if (logoProjectIndex >= 0) {
 		const ps = getProjectState(state, logoProjectIndex);
-		const tick = state._lastTick.get(logoProjectIndex);
-		logoProgress = tick?.logoVisible ?? 0;
+		const becameVisible =
+			logoProjectIndex !== state._lastDisplayedLogoProject
+			&& logoProjectIndex === targetIndex;
+
+		// Appear доиграл, пока на экране был exit другого кейса — перезапуск с нуля.
+		if (
+			becameVisible
+			&& ps.logoExit.mode === "idle"
+			&& (
+				(ps.logoAppear.mode === "idle" && ps.logoAppear.value >= 0.999)
+				|| (ps.logoAppear.mode === "open" && getLogoAppearLinear(ps.logoAppear, now, timing) > 0.2)
+			)
+		) {
+			logoRevealJustStarted = startLogoAppear(ps.logoAppear, now, 0) || logoRevealJustStarted;
+		}
+
+		const appearLinear = getLogoAppearLinear(ps.logoAppear, now, timing);
+		const exitLinear = getLogoExitLinear(ps.logoExit, now, timing);
+		logoProgress = Math.max(0, appearLinear * (1 - exitLinear));
+		ps.logoAppear.value = appearLinear;
+		ps.logoExit.value = exitLinear;
+
 		logoPartLinear = getFrozenPartLinear(
 			ps.logoAppear,
 			ps.logoExit,
@@ -572,6 +610,8 @@ export function advanceHubMenuAnim(state, targetIndex, now, timing, getGridSlide
 			ps.logoExit.mode === "idle" &&
 			(ps.logoAppear.mode === "open" || ps.logoAppear.mode === "paused");
 	}
+
+	state._lastDisplayedLogoProject = logoProjectIndex;
 
 	const plateProgressByProject = new Map();
 	for (const [projectIndex, tick] of state._lastTick.entries()) {

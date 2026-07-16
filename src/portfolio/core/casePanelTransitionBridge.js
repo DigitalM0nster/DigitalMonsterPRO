@@ -1,3 +1,8 @@
+/**
+ * Legacy bridge for case UI hex overlay snapshots.
+ * Bake path removed — case leave/enter uses live arc snake + GPU HUD mosaic.
+ * Kept so old imports fail loudly if reintroduced; do not set a canvas here.
+ */
 let snapshotCanvas = null;
 let revision = 0;
 

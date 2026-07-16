@@ -186,14 +186,16 @@ export function drawGlitchTextLine(ctx, slots, x, y, style, drawOptions = {}) {
 
 			ctx.save();
 			ctx.translate(centerX, centerY);
-			ctx.scale(-metrics.scaleX, -metrics.scaleY);
+			const flip = profile.replacementFlipAxes !== false;
+			const scaleSign = flip ? -1 : 1;
+			ctx.scale(scaleSign * metrics.scaleX, scaleSign * metrics.scaleY);
 			drawReplacementLetter(
 				ctx,
 				displayChar,
 				style.fontSize,
 				{
-					fontFamily: profile.replacementFontFamily,
-					fontWeight: profile.replacementFontWeight,
+					fontFamily: profile.replacementFontFamily ?? mainFontFamily,
+					fontWeight: profile.replacementFontWeight ?? style.fontWeight,
 					offsetYEm: metrics.offsetYEm,
 					scaleX: metrics.scaleX,
 					scaleY: metrics.scaleY,

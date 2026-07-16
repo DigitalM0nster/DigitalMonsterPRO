@@ -9,6 +9,12 @@ const graphics = getGraphicsConfig(initialTier);
 export const store = proxy({
 	openedCase: false,
 	scroll: 0,
+	/** -0.5...1.5 - virtual case-scroll target including boundary overshoot. */
+	caseScrollTarget: 0,
+	/** One-shot request from global UI to the active portfolio project's state navigation. */
+	portfolioStateNavigationRequest: null,
+	/** One-shot request from the global HUD to a specific About narrative state. */
+	aboutStageNavigationRequest: null,
 	/** 0…1 — mix progress карусели (догоняющий progress) */
 	hexShaderProgress: 0,
 	/** 0…1 сегмента — цель скролла карусели */
@@ -22,9 +28,15 @@ export const store = proxy({
 	sceneCarouselDisplayPath: null,
 	/** Click-переход карусели (меню) — блок скролла и повторных кликов */
 	sceneCarouselClickTransitionActive: false,
+	sceneCarouselClickPhase: "idle",
+	sceneCarouselClickTargetId: null,
 	sceneCarouselCurrentId: "home",
 	sceneCarouselPreviousId: "contacts",
 	sceneCarouselNextId: "portfolioHub",
+	sceneCarouselLastCommitFromId: null,
+	sceneCarouselLastCommitDirection: null,
+	/** Unconsumed wheel intent transferred from the global carousel into an inner scene. */
+	sceneCarouselLastCommitBoundaryOverflow: 0,
 	/** Debug: single | mix | off */
 	sceneCarouselRenderMode: "single",
 	/** Debug: id сцен в кадре */
@@ -54,6 +66,8 @@ export const store = proxy({
 		projectListHovered: false,
 		/** Системный pointer над кружком правой навигации кейса */
 		caseNavHovered: false,
+		/** Temporarily fade the HUD cursor during an About substage click jump. */
+		stageNavigationHidden: false,
 	},
 	/** Пользователь нажал «Начать» — можно запускать enter-анимации сцен. */
 	appStarted: false,
@@ -96,7 +110,33 @@ export const store = proxy({
 		/** 0…1 — горизонтальный swipe между сценами на mobile. */
 		mobileSwipeProgress: 0,
 	},
+	/**
+	 * Lightweight bridge between the About HTML narrative, global HUD and Three scene.
+	 * `progress` is the single rendered 0…1 value; it is deliberately preserved while
+	 * the route unmounts so the outgoing hex transition keeps its exact edge frame.
+	 */
+	aboutExperience: {
+		active: false,
+		progress: 0,
+		progressTarget: 0,
+		stagePosition: 0,
+		activeStageIndex: 0,
+		activeStageId: "state_01",
+	},
+	/** DEV: live values from the nested About scroll handoff. */
+	aboutScrollDebug: {
+		lastEvent: null,
+		dom: 0,
+		current: 0,
+		target: 0,
+		boundedTarget: 0,
+		overflow: 0,
+		maxPx: 0,
+		scrollIntent: null,
+	},
 	/** DEV: Scene Carousel debug panel (клавиша 1) */
 	devPanelSceneCarouselOpen: false,
+	/** DEV: Case stage progress trace panel (клавиша 2) */
+	devPanelStageProgressOpen: false,
 });
 export const useStore = () => useProxy(store);

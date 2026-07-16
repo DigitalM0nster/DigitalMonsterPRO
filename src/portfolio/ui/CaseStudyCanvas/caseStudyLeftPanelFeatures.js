@@ -9,6 +9,11 @@ import {
 
 const MAX_FEATURES = 3;
 
+function getVisibleFeatures(features, cfg) {
+	const limit = Math.max(1, Math.round(cfg.maxFeatures ?? MAX_FEATURES));
+	return features.slice(0, limit);
+}
+
 function featureTypography(cfg) {
 	return {
 		glyphSize: cfg.traitListGlyphSize ?? 46,
@@ -57,7 +62,7 @@ function measureFeatureRowHeight(ctx, feature, textW, typo) {
  * @param {typeof import('./caseStudyLeftPanelConfig.js').caseStudyLeftPanelConfig} cfg
  */
 export function measureFeaturesBlockHeight(ctx, innerW, features, cfg) {
-	const items = features.slice(0, MAX_FEATURES);
+	const items = getVisibleFeatures(features, cfg);
 	if (items.length === 0) {
 		return 0;
 	}
@@ -77,7 +82,7 @@ export function measureFeaturesBlockHeight(ctx, innerW, features, cfg) {
  * Нумерованный список особенностей (сцены 02–05) — тот же вертикальный стиль, что у traits.
  */
 export function drawFeaturesBlock(ctx, x, y, innerW, features, theme, cfg) {
-	const items = features.slice(0, MAX_FEATURES);
+	const items = getVisibleFeatures(features, cfg);
 	if (items.length === 0) {
 		return 0;
 	}

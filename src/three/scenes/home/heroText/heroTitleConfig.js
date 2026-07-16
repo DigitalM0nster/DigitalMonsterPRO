@@ -68,9 +68,9 @@ export const HERO_STACK_FONT = {
 	fontFamily: "Jura",
 	fontSize: 14,
 	lineHeight: 28,
-	fontWeight: 300,
-	fontColor: "#8ce8ff",
-	letterSpacing: 0.22,
+	fontWeight: 400,
+	fontColor: "#ffffff",
+	letterSpacing: 0.18,
 };
 
 export const HERO_TEXT_LAYOUT = {

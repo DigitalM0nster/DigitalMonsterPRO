@@ -3,7 +3,12 @@ import {
 	fadeOutSound,
 	playSound,
 } from "@/sounds/soundDesign.js";
-import { suppressCaseStudyTextTransitionSound } from "@/sounds/caseStudyTextTransitionSound.js";
+import {
+	preloadCaseStudyTextTransitionSound,
+	resetCaseStudyTextTransitionSound,
+	suppressCaseStudyTextTransitionSound,
+	updateCaseStudyTextTransitionSound,
+} from "@/sounds/caseStudyTextTransitionSound.js";
 
 export const CASE_STUDY_PANEL_GLITCH_MS = 720;
 const STRIP_COUNT = 22;
@@ -231,43 +236,6 @@ export function createCanvasSnapshot(sourceCanvas) {
 	return snapshot;
 }
 
-/** Полноэкранный снимок обоих HUD-canvas кейса для hex-transition. */
-export function createCaseStudyUiSnapshot(panelCanvas, arcCanvas) {
-	const width = panelCanvas?.width || 0;
-	const height = panelCanvas?.height || 0;
-	if (width <= 0 || height <= 0) {
-		return null;
-	}
-
-	const snapshot = document.createElement("canvas");
-	snapshot.width = width;
-	snapshot.height = height;
-	const context = snapshot.getContext("2d");
-	if (!context) {
-		return null;
-	}
-
-	context.drawImage(panelCanvas, 0, 0);
-	if (arcCanvas?.width && arcCanvas?.height) {
-		// arcCanvas шире viewport из-за bleed; transition texture должна остаться fullscreen.
-		const sourceWidth = Math.min(width, arcCanvas.width);
-		const sourceHeight = Math.min(height, arcCanvas.height);
-		context.drawImage(
-			arcCanvas,
-			0,
-			0,
-			sourceWidth,
-			sourceHeight,
-			0,
-			0,
-			sourceWidth,
-			sourceHeight,
-		);
-	}
-
-	return snapshot;
-}
-
 export function captureCaseStudyPanelRegion(sourceCanvas, targetCanvas, bounds) {
 	if (!sourceCanvas || !targetCanvas || !bounds) {
 		return null;
@@ -343,7 +311,6 @@ export function drawCaseStudyPanelMosaicMix(canvas, fromCanvas, toCanvas, bounds
 			const travel = (sh + tileH) * liftStrength + randomC * randomLift;
 			const scatter = randomB * scatterX;
 
-			ctx.save();
 			ctx.globalAlpha = 1 - localProgress;
 			ctx.drawImage(
 				fromCanvas,
@@ -356,9 +323,7 @@ export function drawCaseStudyPanelMosaicMix(canvas, fromCanvas, toCanvas, bounds
 				width,
 				height,
 			);
-			ctx.restore();
 
-			ctx.save();
 			ctx.globalAlpha = localProgress;
 			ctx.drawImage(
 				toCanvas,
@@ -371,7 +336,6 @@ export function drawCaseStudyPanelMosaicMix(canvas, fromCanvas, toCanvas, bounds
 				width,
 				height,
 			);
-			ctx.restore();
 		}
 	}
 	ctx.restore();
@@ -493,6 +457,9 @@ export function playCaseStudyPanelMosaicTransition(
 	let rafId = 0;
 	let cancelled = false;
 	const startedAt = performance.now();
+	let lastSoundTs = startedAt;
+	let lastSoundProgress = 0;
+	void preloadCaseStudyTextTransitionSound();
 
 	const frame = (now) => {
 		if (cancelled || !ctx) {
@@ -500,6 +467,10 @@ export function playCaseStudyPanelMosaicTransition(
 		}
 
 		const progress = clamp01((now - startedAt) / CASE_STUDY_PANEL_GLITCH_MS);
+		const soundDelta = Math.max(0, (now - lastSoundTs) / 1000);
+		updateCaseStudyTextTransitionSound(soundDelta, progress);
+		lastSoundTs = now;
+		lastSoundProgress = progress;
 		ctx.save();
 		ctx.setTransform(1, 0, 0, 1, 0, 0);
 		ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -561,6 +532,7 @@ export function playCaseStudyPanelMosaicTransition(
 			rafId = requestAnimationFrame(frame);
 			return;
 		}
+		resetCaseStudyTextTransitionSound();
 		onComplete?.();
 	};
 
@@ -569,6 +541,9 @@ export function playCaseStudyPanelMosaicTransition(
 		cancelled = true;
 		if (rafId) {
 			cancelAnimationFrame(rafId);
+		}
+		if (lastSoundProgress < 0.999) {
+			resetCaseStudyTextTransitionSound();
 		}
 	};
 }

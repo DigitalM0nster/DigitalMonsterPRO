@@ -56,16 +56,31 @@ export class BackgroundPipeline {
 		this.liquidPass = null;
 		this.hdrTexture = null;
 		this.lastTexture = null;
+		/** Stride counter: reuse last liquid RT every other frame when idle (still animates). */
+		this._liquidComposerStride = 0;
 		this.size = { w: 0, h: 0 };
-		this._loadHdr();
+		this._disposed = false;
+		this.ready = false;
+		this.readyPromise = this._loadHdr();
 	}
 
-	_loadHdr() {
-		new RGBELoader().load("/backgrounds/digitalMonster.hdr", (texture) => {
+	async _loadHdr() {
+		try {
+			const texture = await new RGBELoader().loadAsync("/backgrounds/digitalMonster.hdr");
+			if (this._disposed) {
+				texture.dispose();
+				return false;
+			}
 			texture.mapping = THREE.EquirectangularReflectionMapping;
 			this.hdrTexture = texture;
 			this._buildPasses();
-		});
+			return true;
+		} catch (error) {
+			console.error("[BackgroundPipeline] HDR load failed", error);
+			return false;
+		} finally {
+			this.ready = true;
+		}
 	}
 
 	_buildPasses() {
@@ -91,6 +106,7 @@ export class BackgroundPipeline {
 			if (currentPage !== this.currentPage) {
 				this.currentPage = currentPage;
 				this.scaleIn = !this.scaleIn;
+				this._liquidComposerStride = 0;
 			}
 		}
 		if (teleportPage !== undefined) {
@@ -105,6 +121,7 @@ export class BackgroundPipeline {
 		}
 		this.size = { w: width, h: height };
 		this.composer.setSize(width, height);
+		this._liquidComposerStride = 0;
 	}
 
 	/**
@@ -154,6 +171,18 @@ export class BackgroundPipeline {
 
 		easing.damp(this.brightness, "current", brightnessTarget, smoothSec, delta);
 		easing.damp(this.liquidScale, "current", targetScale, smoothSec, delta);
+
+		const onHubPath = isPortfolioHubPath(this.currentPage);
+		const brightnessSettled = Math.abs(this.brightness.current - brightnessTarget) < 0.003;
+		const scaleSettled = Math.abs(this.liquidScale.current - targetScale) < 0.003;
+		// Keep liquid noise alive on hub + case. When idle, rebuild composer every other
+		// frame only — models/UI stay full-rate, liquid still moves via iTime.
+		const liquidStrideIdle =
+			this.routePhase === "idle"
+			&& brightnessSettled
+			&& scaleSettled
+			&& (onHubPath || onPortfolioCase);
+
 		if (!PAUSE_BACKGROUND_ANIMATION) {
 			this.iTime.current += delta * 0.1;
 		}
@@ -165,12 +194,27 @@ export class BackgroundPipeline {
 		}
 
 		if (this._shouldSkipComposerRenderInUpdate()) {
-			this.lastTexture = null;
-			return null;
+			// Keep lastTexture for renderCarouselBackground reuse; do not null it.
+			return this.lastTexture;
+		}
+		// The app can skip a heavy frame because of a route/tier FPS cap. Keep the
+		// damped state and time current, but do not render the full-screen liquid
+		// composer when its result will not be presented.
+		if (options?.skipRender === true) {
+			return this.lastTexture;
 		}
 
 		if (this.composer.passes.length < 2) {
 			return null;
+		}
+
+		if (liquidStrideIdle && this.lastTexture) {
+			this._liquidComposerStride = (this._liquidComposerStride + 1) % 2;
+			if (this._liquidComposerStride !== 0) {
+				return this.lastTexture;
+			}
+		} else {
+			this._liquidComposerStride = 0;
 		}
 
 		this.lastTexture = this._renderComposerToTexture(delta, options?.skipLiquid === true);
@@ -198,7 +242,10 @@ export class BackgroundPipeline {
 			return null;
 		}
 
-		return this._renderComposerToTexture(delta, options?.skipLiquid === true);
+		const skipLiquid = options?.skipLiquid === true;
+		const texture = this._renderComposerToTexture(delta, skipLiquid);
+		this.lastTexture = texture;
+		return texture;
 	}
 
 	/** Мгновенно применить значения из dev-панели (без ожидания damp). */
@@ -220,6 +267,7 @@ export class BackgroundPipeline {
 	}
 
 	dispose() {
+		this._disposed = true;
 		this.composer.dispose();
 		this.hdrTexture?.dispose();
 	}

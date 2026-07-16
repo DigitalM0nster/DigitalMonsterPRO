@@ -3,7 +3,7 @@ import { getSceneCarousel } from "./carouselPage.js";
 import { isCarouselRoutePage } from "./SceneCarousel.js";
 
 /** Чувствительность колёсика: deltaY (px) → единицы progressTarget. */
-const WHEEL_PROGRESS_FACTOR = 0.001;
+export const CAROUSEL_WHEEL_PROGRESS_FACTOR = 0.001;
 const LINE_HEIGHT_PX = 16;
 
 function normalizeWheelDelta(event) {
@@ -14,6 +14,19 @@ function normalizeWheelDelta(event) {
 		delta *= window.innerHeight;
 	}
 	return delta;
+}
+
+/**
+ * Передаёт уже нормализованный wheel delta (в CSS px) напрямую карусели.
+ * Используется внутренними scroll-сценами на первой/последней границе.
+ */
+export function addCarouselWheelDelta(deltaPixels) {
+	if (!Number.isFinite(deltaPixels) || deltaPixels === 0) {
+		return false;
+	}
+
+	getSceneCarousel().addScrollDelta(deltaPixels * CAROUSEL_WHEEL_PROGRESS_FACTOR);
+	return true;
 }
 
 /** Не перехватывать wheel над прокручиваемым HTML-блоком (список портфолио и т.п.). */
@@ -47,7 +60,8 @@ export function shouldCarouselScrollWheel(ctx, event) {
 		return false;
 	}
 
-	if (getSceneCarousel().isInteractionLocked()) {
+	const carousel = getSceneCarousel();
+	if (carousel.currentId === "about" || carousel.isInteractionLocked()) {
 		return false;
 	}
 
@@ -71,8 +85,7 @@ export function attachCarouselScroll(ctx) {
 
 		event.preventDefault();
 
-		const delta = normalizeWheelDelta(event) * WHEEL_PROGRESS_FACTOR;
-		getSceneCarousel().addScrollDelta(delta);
+		addCarouselWheelDelta(normalizeWheelDelta(event));
 	};
 
 	window.addEventListener("wheel", onWheel, { passive: false, capture: true });

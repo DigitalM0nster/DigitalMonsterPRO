@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import PropTypes from "prop-types";
 import { useRouteTransitionContext } from "@/context/RouteTransitionContext.jsx";
 import { shouldActivateRoutePage } from "@/utils/shouldActivateRoutePage.js";
 
@@ -7,17 +8,16 @@ import Case3Model from "../3D/models/portfolio/case3/Case3Model.jsx";
 import Case4Model from "../3D/models/portfolio/case4/Case4Model.jsx";
 import Case5Model from "../3D/models/portfolio/case5/Case5Model.jsx";
 import PortfolioHubModel from "../3D/models/portfolio/hub/PortfolioHubModel.jsx";
-import AboutPageModel from "../3D/models/about/AboutPageModel.jsx";
 import ContactsPageModel from "../3D/models/contacts/ContactsPageModel.jsx";
 import EffectComposerComponent from "../3D/effects/EffectComposerComponent.jsx";
 import MyEnvironment from "../3D/MyEnvironment.jsx";
 import { useFrame, useThree } from "@react-three/fiber";
-import { store, useStore } from "@/store.jsx";
+import { useStore } from "@/store.jsx";
 import { Sparkles } from "@react-three/drei";
 import PreloadReadyNotifier from "../3D/PreloadReadyNotifier.jsx";
 
 export default function CanvasRoutes(props) {
-	const store = useStore();
+	const storeProxy = useStore();
 
 	const currentPage = props.currentPage;
 	const teleportPage = props.teleportPage;
@@ -32,15 +32,14 @@ export default function CanvasRoutes(props) {
 		}
 		camera.position.set(0, 0, 9);
 		camera.lookAt(0, 0, 0);
-		store.scroll = 0;
-	}, [showHomeSparkles, camera]);
+		storeProxy.scroll = 0;
+	}, [showHomeSparkles, camera, storeProxy]);
 
 	const case2ModelRef = useRef();
 	const case3ModelRef = useRef();
 	const case4ModelRef = useRef();
 	const case5ModelRef = useRef();
 	const portfolioHubModelRef = useRef();
-	const aboutModelRef = useRef();
 	const contactsModelRef = useRef();
 	const renderedScheduledRef = useRef(false);
 
@@ -53,9 +52,8 @@ export default function CanvasRoutes(props) {
 		const c3 = case3ModelRef.current;
 		const c4 = case4ModelRef.current;
 		const c5 = case5ModelRef.current;
-		const ab = aboutModelRef.current;
 		const ct = contactsModelRef.current;
-		const refs = [hub, c2, c3, c4, c5, ab, ct];
+		const refs = [hub, c2, c3, c4, c5, ct];
 		const mounted = refs.filter(Boolean);
 		if (mounted.length >= 4 && mounted.some((node) => node.visible === false)) {
 			renderedScheduledRef.current = true;
@@ -67,7 +65,7 @@ export default function CanvasRoutes(props) {
 		<>
 			<PreloadReadyNotifier onReady={props.setRendered} />
 			{showHomeSparkles && (
-				<Sparkles count={store.sparklesCount} scale={[20, 90, 0]} size={0.8} speed={0.5} color={"#00d9d6"} />
+				<Sparkles count={storeProxy.sparklesCount} scale={[20, 90, 0]} size={0.8} speed={0.5} color={"#00d9d6"} />
 			)}
 			<EffectComposerComponent
 				currentPage={currentPage}
@@ -85,8 +83,16 @@ export default function CanvasRoutes(props) {
 			<Case3Model ref={case3ModelRef} currentPage={currentPage} />
 			<Case4Model ref={case4ModelRef} currentPage={currentPage} />
 			<Case5Model ref={case5ModelRef} currentPage={currentPage} />
-			<AboutPageModel ref={aboutModelRef} currentPage={currentPage} />
 			<ContactsPageModel ref={contactsModelRef} currentPage={currentPage} />
 		</>
 	);
 }
+
+CanvasRoutes.propTypes = {
+	currentPage: PropTypes.string.isRequired,
+	teleportPage: PropTypes.string,
+	rendered: PropTypes.bool,
+	setRendered: PropTypes.func.isRequired,
+	startApp: PropTypes.bool,
+	letSounds: PropTypes.bool,
+};

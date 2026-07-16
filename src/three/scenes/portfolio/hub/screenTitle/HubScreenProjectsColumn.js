@@ -409,6 +409,11 @@ export class HubScreenProjectsColumn {
 		this._glitchAppearFallbackTimer = setTimeout(() => {
 			this._glitchAppearFallbackTimer = null;
 			for (const layer of this.layers) {
+				// The route estimate does not include each label's full snake duration.
+				// Long labels such as BELKA PRODUCTION can still be animating here.
+				if (layer.glitchText?.engine?.hasActiveAnimation?.()) {
+					continue;
+				}
 				layer.glitchText?.ensureVisible?.();
 				layer._markTexturesDirty?.({ main: true, snake: true });
 			}
@@ -512,8 +517,29 @@ export class HubScreenProjectsColumn {
 			return;
 		}
 
-		const runOptions = getHeroGlitchSnakeRunOptions({ playSound: false });
 		const uppercase = getPortfolioProjectListUppercase();
+		const introIsStillHidden =
+			!this._projectsIntroGlitchActive &&
+			this.layers.every((layer) => {
+				const engine = layer.glitchText?.engine;
+				return (
+					engine &&
+					!engine.hasActiveAnimation() &&
+					engine.slots.every((slot) => slot.isSpace || slot.appearPending)
+				);
+			});
+
+		if (introIsStillHidden) {
+			this.layers.forEach((layer, projectIndex) => {
+				const project = projectsData[projectIndex];
+				if (project) {
+					layer.setLocaleTextHidden(getPortfolioProjectName(project.id, locale), { uppercase });
+				}
+			});
+			return;
+		}
+
+		const runOptions = getHeroGlitchSnakeRunOptions({ playSound: false });
 		const timing = {
 			delayBetweenLetters: runOptions.delayBetweenLetters,
 			delayBetweenSymbols: runOptions.delayBetweenSymbols,

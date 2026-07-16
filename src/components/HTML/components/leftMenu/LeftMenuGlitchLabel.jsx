@@ -69,7 +69,7 @@ function renderCharBlock(text) {
 
 /** Подпись пункта меню — разметка и анимация как char__wrapper у Aten7 timeline. */
 const LeftMenuGlitchLabel = forwardRef(function LeftMenuGlitchLabel(
-	{ text, active = false, isDisplayed = false },
+	{ text, active = false, isDisplayed = false, reverse = false },
 	ref,
 ) {
 	const rootRef = useRef(null);
@@ -82,10 +82,13 @@ const LeftMenuGlitchLabel = forwardRef(function LeftMenuGlitchLabel(
 		ref,
 		() => ({
 			playAppear(options = {}) {
-				return runAtenCharSnake(rootRef.current, "appear", options);
+				return runAtenCharSnake(rootRef.current, "appear", { ...options, reverseOrder: reverse });
 			},
 			playDisappear(options = {}) {
-				return runAtenCharSnake(rootRef.current, "disappear", options);
+				return runAtenCharSnake(rootRef.current, "disappear", { ...options, reverseOrder: reverse });
+			},
+			playHover(options = {}) {
+				return runAtenCharSnake(rootRef.current, "hover", { ...options, reverseOrder: reverse });
 			},
 			cancelAndHide() {
 				const root = rootRef.current;
@@ -110,7 +113,7 @@ const LeftMenuGlitchLabel = forwardRef(function LeftMenuGlitchLabel(
 				return rootRef.current?.querySelector(".charProxy")?.scrollWidth ?? 0;
 			},
 		}),
-		[],
+		[reverse],
 	);
 
 	return (

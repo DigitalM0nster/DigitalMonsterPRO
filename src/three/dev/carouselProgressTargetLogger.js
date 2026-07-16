@@ -1,12 +1,16 @@
-/** @typedef {'frame' | 'wheel' | 'commitForward' | 'commitBackward'} CarouselProgressLogEvent */
+import { store } from "@/store.jsx";
+
+/** @typedef {'frame' | 'wheel' | 'commitForward' | 'commitBackward' | string} CarouselProgressLogEvent */
 
 const MAX_ENTRIES = 20000;
+const TRACE_SCENE_IDS = ["home", "portfolioHub", "about", "contacts"];
 
 /** @type {Array<Record<string, unknown>>} */
 let entries = [];
 let recording = false;
 let frameIndex = 0;
 let startedAt = 0;
+let startedAtIso = null;
 
 function formatNum(value, digits = 6) {
 	return Number(value).toFixed(digits);
@@ -24,6 +28,15 @@ function snapshot(carousel, event, extra = {}) {
 	}
 
 	frameIndex += 1;
+	const experience = store.portfolioExperience ?? {};
+	const scenes = Object.fromEntries(TRACE_SCENE_IDS.map((sceneId) => [
+		sceneId,
+		{
+			progress: carousel.getSceneProgress(sceneId),
+			target: carousel.getSceneProgressTarget(sceneId),
+			role: carousel.getSceneProgressRole(sceneId),
+		},
+	]));
 
 	return {
 		frame: frameIndex,
@@ -33,6 +46,18 @@ function snapshot(carousel, event, extra = {}) {
 		progressTarget: carousel.progressTarget,
 		scrollIntent: carousel.scrollIntent ?? null,
 		currentId: carousel.currentId,
+		previousId: carousel.previousId,
+		nextId: carousel.nextId,
+		stage: {
+			storeScroll: store.scroll,
+			scrollTarget: store.caseScrollTarget,
+			slug: experience.slug ?? null,
+			activeStateIndex: experience.activeStateIndex ?? null,
+			activeStateId: experience.activeStateId ?? null,
+			progress: experience.stageProgress ?? null,
+			target: experience.stageProgressTarget ?? null,
+		},
+		scenes,
 		...extra,
 	};
 }
@@ -47,11 +72,15 @@ function pushEntry(entry) {
 		entries.shift();
 	}
 
-	console.log(
-		`[carousel] f=${entry.frame} t=${entry.tMs}ms evt=${entry.event} p=${formatNum(entry.progress)} pt=${formatNum(entry.progressTarget)} intent=${entry.scrollIntent ?? "null"}${
-			entry.wheelDelta !== undefined ? ` wheel=${formatNum(entry.wheelDelta, 4)}` : ""
-		}${entry.delta !== undefined ? ` delta=${formatNum(entry.delta, 4)}` : ""}`,
-	);
+	if (entry.event !== "frame" && entry.event !== "about:frame") {
+		console.log(
+			`[about-scroll-trace] f=${entry.frame} t=${entry.tMs}ms evt=${entry.event} p=${formatNum(entry.progress)} pt=${formatNum(entry.progressTarget)} intent=${entry.scrollIntent ?? "null"}${
+				entry.wheelDelta !== undefined ? ` wheel=${formatNum(entry.wheelDelta, 4)}` : ""
+			}${entry.delta !== undefined ? ` delta=${formatNum(entry.delta, 4)}` : ""}`
+			+ ` stageT=${formatNum(entry.stage?.target ?? 0, 4)}`
+			+ ` caseT=${formatNum(entry.stage?.scrollTarget ?? 0, 4)}`,
+		);
+	}
 }
 
 /**
@@ -90,6 +119,22 @@ export function logCarouselProgressCommit(carousel, direction) {
 	pushEntry(snapshot(carousel, direction === "forward" ? "commitForward" : "commitBackward"));
 }
 
+/**
+ * @param {import('../render/transition/SceneCarousel.js').SceneCarousel} carousel
+ * @param {Record<string, unknown> & { type?: string }} trace
+ */
+export function logAboutScrollTrace(carousel, trace) {
+	if (!import.meta.env.DEV || !recording || !carousel) {
+		return;
+	}
+
+	const type = typeof trace?.type === "string" ? trace.type : "event";
+	pushEntry(snapshot(carousel, `about:${type}`, {
+		source: "about-scroll",
+		about: trace,
+	}));
+}
+
 export function startCarouselProgressTargetLog() {
 	if (!import.meta.env.DEV) {
 		return;
@@ -97,6 +142,7 @@ export function startCarouselProgressTargetLog() {
 
 	recording = true;
 	startedAt = 0;
+	startedAtIso = new Date().toISOString();
 	frameIndex = 0;
 	entries = [];
 	console.log("[carousel] ▶ запись progressTarget — каждый кадр в консоль. Копировать: copyCarouselProgressTargetLog()");
@@ -115,6 +161,7 @@ export function clearCarouselProgressTargetLog() {
 	entries = [];
 	frameIndex = 0;
 	startedAt = 0;
+	startedAtIso = null;
 	console.log("[carousel] лог очищен");
 }
 
@@ -145,6 +192,42 @@ export function getCarouselProgressTargetLogText() {
 	return `${header}${lines.join("\n")}\n`;
 }
 
+export function getCarouselProgressTargetLogJsonl() {
+	const metadata = {
+		type: "about-scroll-trace-metadata",
+		version: 1,
+		startedAt: startedAtIso,
+		exportedAt: new Date().toISOString(),
+		entryCount: entries.length,
+		viewport: typeof window !== "undefined"
+			? { width: window.innerWidth, height: window.innerHeight, dpr: window.devicePixelRatio }
+			: null,
+	};
+	return `${[metadata, ...entries].map((entry) => JSON.stringify(entry)).join("\n")}\n`;
+}
+
+export function downloadCarouselProgressTargetLog() {
+	if (!import.meta.env.DEV || typeof document === "undefined") {
+		return null;
+	}
+
+	const text = getCarouselProgressTargetLogJsonl();
+	const blob = new Blob([text], { type: "application/x-ndjson;charset=utf-8" });
+	const url = URL.createObjectURL(blob);
+	const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+	const filename = `about-scroll-trace-${stamp}.jsonl`;
+	const link = document.createElement("a");
+	link.href = url;
+	link.download = filename;
+	link.style.display = "none";
+	document.body.appendChild(link);
+	link.click();
+	link.remove();
+	window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+	console.log(`[about-scroll-trace] saved ${entries.length} entries to ${filename}`);
+	return filename;
+}
+
 export async function copyCarouselProgressTargetLog() {
 	const text = getCarouselProgressTargetLogText();
 
@@ -165,4 +248,6 @@ if (import.meta.env.DEV && typeof window !== "undefined") {
 	window.clearCarouselProgressTargetLog = clearCarouselProgressTargetLog;
 	window.copyCarouselProgressTargetLog = copyCarouselProgressTargetLog;
 	window.getCarouselProgressTargetLogText = getCarouselProgressTargetLogText;
+	window.downloadCarouselProgressTargetLog = downloadCarouselProgressTargetLog;
+	window.getCarouselProgressTargetLogJsonl = getCarouselProgressTargetLogJsonl;
 }

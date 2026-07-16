@@ -22,10 +22,7 @@ export function buildCaseStudyFrameData(project, activeState, activeStateIndex, 
 
 	const sectionBadge = caseStudy.useSectionBadge ? `${chapterNum} / ${pathTitle}` : null;
 
-	const description =
-		localizedState.descriptionParagraphs?.length > 0
-			? localizedState.descriptionParagraphs.join("\n\n")
-			: localizedState.description;
+	const description = localizedState.descriptionParagraphs?.length > 0 ? localizedState.descriptionParagraphs.join("\n\n") : localizedState.description;
 
 	const metrics = getStateMetrics(localizedState, config)
 		.filter((metric) => {
@@ -52,6 +49,7 @@ export function buildCaseStudyFrameData(project, activeState, activeStateIndex, 
 		statsValueFirst: Boolean(caseStudy.statsValueFirst),
 		metricsLayout: caseStudy.metricsLayout ?? "rail",
 		anchorFooterBlock: Boolean(caseStudy.anchorFooterBlock),
+		arcNavigationEvenSpacing: Boolean(caseStudy.arcNavigationEvenSpacing),
 		leftPanelOverrides: caseStudy.leftPanel ?? {},
 		contentTopPx: caseStudy.contentTopPx ?? null,
 		states: localizeCaseStudyStates(project.states, locale),

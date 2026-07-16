@@ -35,7 +35,7 @@ export function tickCaseStudyArcShift(delta) {
 		return false;
 	}
 
-	const blend = 1 - Math.exp(-delta * 5 / POSITION_SMOOTH_SEC);
+	const blend = 1 - Math.exp((-delta * 5) / POSITION_SMOOTH_SEC);
 	currentShift += (targetShift - currentShift) * blend;
 	if (Math.abs(targetShift - currentShift) <= POSITION_EPSILON) {
 		currentShift = targetShift;

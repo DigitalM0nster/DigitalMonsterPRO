@@ -31,12 +31,25 @@ export const caseStudyArcConfig = {
 	snakeGlowBlur: 8,
 	snakeGlowAlpha: 0.9,
 	snakePassedLetterAlpha: 0.18,
+	/**
+	 * Скорость hover-змейки (дуга + prev/next): 1 = дефолт движка, 1.5 ≈ в полтора раза быстрее.
+	 * Короткие подписи («О ПРОЕКТЕ») иначе тянутся заметно дольше длинных.
+	 */
+	snakeHoverSpeed: 1.5,
 };
 
-/** Временное угловое смещение lifecycle-анимации; не сохраняется dev-панелью. */
+/** Временное lifecycle-смещение правой дуги; не сохраняется dev-панелью. */
 export const caseStudyArcRuntime = {
+	/** Угол орбиты при enter (град.): отрицательный = за экраном, 0 = база. */
 	introRotationDeg: 0,
+	/** 0…1 появление дуги вместе с заездом по орбите. */
+	introOpacity: 1,
 };
+
+/** Старт enter: дуга за правым краем по своей окружности. */
+export const CASE_STUDY_ARC_INTRO_START_DEG = -105;
+/** Длительность заезда дуги на орбите (мс). */
+export const CASE_STUDY_ARC_INTRO_MS = 920;
 
 /** Фиксированная геометрия и визуал — не в dev-панели. */
 export const caseStudyArcInternals = {

@@ -1,0 +1,41 @@
+.caseStudyPanelHudHost {
+	/* Site overlay — same lifetime as LeftMenu / SiteTopHud across case routes. */
+	position: fixed;
+	inset: 0;
+	z-index: 26;
+	pointer-events: none;
+	overflow: hidden;
+}
+
+/* Offscreen buffers for left content → WebGL only */
+.caseStudyPanelHudCanvas {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	opacity: 0;
+	pointer-events: none;
+}
+
+/* Live DOM chrome — never uploaded to WebGL / never hex-snapshotted */
+.caseStudyPanelHudChromeCanvas {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	opacity: 1;
+	pointer-events: none;
+}
+
+.caseStudyPanelHudChromeCanvasHidden {
+	opacity: 0;
+}
+
+.caseStudyPanelHudHit {
+	position: absolute;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	cursor: pointer;
+	pointer-events: auto;
+}

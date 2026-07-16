@@ -12,6 +12,7 @@ import {
 import {
 	copyCarouselProgressTargetLog,
 	clearCarouselProgressTargetLog,
+	downloadCarouselProgressTargetLog,
 	getCarouselProgressTargetLogCount,
 	isCarouselProgressTargetLogRecording,
 	startCarouselProgressTargetLog,
@@ -33,6 +34,11 @@ const HOTKEY = "1";
 
 function formatSceneId(id) {
 	return SCENE_LABELS[id] ?? id;
+}
+
+function formatDebugNumber(value, digits = 4) {
+	const number = Number(value);
+	return Number.isFinite(number) ? number.toFixed(digits) : "—";
 }
 
 function BindingBar({ label, value, min, max, color }) {
@@ -113,6 +119,13 @@ export default function SceneCarouselDebugPanel() {
 	const homeDebug = proxyStore.homeSceneProgressDebug;
 	const isHome = proxyStore.sceneCarouselCurrentId === "home";
 	const clickTransitionActive = proxyStore.sceneCarouselClickTransitionActive ?? false;
+	const aboutDebug = proxyStore.aboutScrollDebug ?? {};
+	const aboutExperience = proxyStore.aboutExperience ?? {};
+	const aboutStateIndex = Number(aboutExperience.activeStageIndex ?? 0);
+	const aboutStageProgress = Number(aboutExperience.progress ?? 0);
+	const aboutStageTarget = Number(aboutExperience.progressTarget ?? aboutStageProgress);
+	const aboutStagePosition = Number(aboutExperience.stagePosition ?? aboutStageProgress * 3);
+	const aboutStageTargetPosition = aboutStageTarget * 3;
 
 	const handleClickEnterDurationChange = (raw) => {
 		const next = Math.max(0.05, Math.min(3, Number(raw)));
@@ -127,14 +140,17 @@ export default function SceneCarouselDebugPanel() {
 		startCarouselProgressTargetLog();
 		setLogRecording(true);
 		setLogCount(0);
-		setLogStatus("Запись: каждый кадр → консоль [carousel]");
+		setLogStatus("Запись диагностического trace запущена");
 	};
 
-	const handleStopLog = () => {
+	const handleStopAndDownloadLog = () => {
 		stopCarouselProgressTargetLog();
 		setLogRecording(false);
 		setLogCount(getCarouselProgressTargetLogCount());
-		setLogStatus("Запись остановлена");
+		const filename = downloadCarouselProgressTargetLog();
+		setLogStatus(filename
+			? `Сохранено: ${filename}`
+			: "Запись остановлена, файл сохранить не удалось");
 	};
 
 	const handleCopyLog = async () => {
@@ -181,7 +197,7 @@ export default function SceneCarouselDebugPanel() {
 			</div>
 
 			<div className={styles.section}>
-				<div className={styles.sectionTitle}>Лог progressTarget</div>
+				<div className={styles.sectionTitle}>About scroll trace</div>
 				<div className={styles.row}>
 					<span className={styles.label}>строк</span>
 					<span className={styles.value}>{logCount}</span>
@@ -192,12 +208,12 @@ export default function SceneCarouselDebugPanel() {
 				</div>
 				<div className={styles.actions}>
 					{logRecording ? (
-						<button type="button" className={styles.actionBtn} onClick={handleStopLog}>
-							Стоп
+						<button type="button" className={styles.actionBtn} onClick={handleStopAndDownloadLog}>
+							СТОП + СОХРАНИТЬ JSONL
 						</button>
 					) : (
 						<button type="button" className={styles.actionBtn} onClick={handleStartLog}>
-							Запись
+							НАЧАТЬ ЗАПИСЬ
 						</button>
 					)}
 					<button type="button" className={styles.actionBtn} onClick={handleCopyLog}>
@@ -208,7 +224,73 @@ export default function SceneCarouselDebugPanel() {
 					</button>
 				</div>
 				{logStatus ? <p className={styles.logHint}>{logStatus}</p> : null}
-				<p className={styles.logHint}>Консоль: фильтр [carousel]. Или copyCarouselProgressTargetLog()</p>
+				<p className={styles.logHint}>
+					Запустите запись, воспроизведите задержку и нажмите «СТОП + СОХРАНИТЬ JSONL».
+				</p>
+			</div>
+
+			<div className={styles.section}>
+				<div className={styles.sectionTitle}>Внутренние сцены «О нас»</div>
+				<div className={styles.row}>
+					<span className={styles.label}>scroll current</span>
+					<span className={styles.value}>{formatDebugNumber(aboutDebug.current)}</span>
+				</div>
+				<div className={styles.row}>
+					<span className={styles.label}>scroll target</span>
+					<span className={`${styles.value} ${styles.highlight}`}>
+						{formatDebugNumber(aboutDebug.target)}
+					</span>
+				</div>
+				<div className={styles.row}>
+					<span className={styles.label}>bounded target</span>
+					<span className={styles.value}>{formatDebugNumber(aboutDebug.boundedTarget)}</span>
+				</div>
+				<div className={styles.row}>
+					<span className={styles.label}>overflow</span>
+					<span className={styles.value}>{formatDebugNumber(aboutDebug.overflow)}</span>
+				</div>
+				<div className={styles.row}>
+					<span className={styles.label}>scroll target clamp</span>
+					<span className={styles.value}>−0.5 … 1.5</span>
+				</div>
+				<BindingBar
+					label="scroll target"
+					value={Number(aboutDebug.target ?? 0)}
+					min={-0.5}
+					max={1.5}
+					color="#fbbf24"
+				/>
+				<div className={styles.row}>
+					<span className={styles.label}>activeStageIndex</span>
+					<span className={styles.value}>{aboutStateIndex}</span>
+				</div>
+				<div className={styles.row}>
+					<span className={styles.label}>about progress</span>
+					<span className={styles.value}>{formatDebugNumber(aboutStageProgress)}</span>
+				</div>
+				<div className={styles.row}>
+					<span className={styles.label}>about progressTarget</span>
+					<span className={`${styles.value} ${styles.highlight}`}>
+						{formatDebugNumber(aboutStageTarget)}
+					</span>
+				</div>
+				<BindingBar
+					label="stage target"
+					value={aboutStageTarget}
+					min={0}
+					max={1}
+					color="#86efac"
+				/>
+				<div className={styles.row}>
+					<span className={styles.label}>stage position</span>
+					<span className={styles.value}>
+						{formatDebugNumber(aboutStagePosition)} → {formatDebugNumber(aboutStageTargetPosition)}
+					</span>
+				</div>
+				<div className={styles.row}>
+					<span className={styles.label}>last event</span>
+					<span className={styles.value}>{aboutDebug.lastEvent ?? "—"}</span>
+				</div>
 			</div>
 
 			<div className={styles.row}>

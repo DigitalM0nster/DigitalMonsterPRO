@@ -177,13 +177,47 @@ export class HubPlatesRenderer {
 		}
 	}
 
+	/**
+	 * Заменить материалы без пересборки геометрии (dev / perf).
+	 * @param {THREE.Material} projectMaterial
+	 * @param {THREE.Material} [decorMaterial]
+	 */
+	replaceMaterials(projectMaterial, decorMaterial = projectMaterial) {
+		const prevProject = this.projectMaterial;
+		const prevDecor = this.decorMaterial;
+
+		this.projectMaterial = projectMaterial;
+		this.decorMaterial = decorMaterial;
+
+		for (const plate of this.plates) {
+			if (plate.mesh) {
+				plate.mesh.material = projectMaterial;
+			}
+		}
+		if (this.instancedMesh) {
+			this.instancedMesh.material = decorMaterial;
+		}
+
+		if (prevProject && prevProject !== projectMaterial && prevProject !== decorMaterial) {
+			prevProject.dispose();
+		}
+		if (
+			prevDecor
+			&& prevDecor !== prevProject
+			&& prevDecor !== projectMaterial
+			&& prevDecor !== decorMaterial
+		) {
+			prevDecor.dispose();
+		}
+	}
+
 	/** Dev-панель: цвет и физические параметры без пересборки геометрии. */
 	applyMaterialConfig(m) {
 		const applyTo = (material) => {
 			if (!material) {
 				return;
 			}
-			if (material.color) {
+			if (material.color && m.color != null) {
 				material.color.set(m.color);
 			}
 			if (material.roughness != null && m.roughness != null) {
@@ -194,7 +228,19 @@ export class HubPlatesRenderer {
 			}
 			if (material.transmission != null && m.transmission != null) {
 				material.transmission = m.transmission;
-				material.depthWrite = m.transmission <= 0;
+			}
+			// Keep depthWrite off for transparent plates (logos/labels on surface).
+			if (material.depthWrite != null) {
+				material.depthWrite = false;
+			}
+			if (material.thickness != null && m.thickness != null) {
+				material.thickness = m.thickness;
+			}
+			if (material.clearcoat != null && m.clearcoat != null) {
+				material.clearcoat = m.clearcoat;
+			}
+			if (material.clearcoatRoughness != null && m.clearcoatRoughness != null) {
+				material.clearcoatRoughness = m.clearcoatRoughness;
 			}
 			if (material.opacity != null && m.opacity != null) {
 				material.opacity = m.opacity;

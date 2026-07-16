@@ -296,7 +296,7 @@ export default function LeftMenu() {
 	return (
 		<nav
 			ref={leftMenuRef}
-			className={styles.leftMenu}
+			className={`${styles.leftMenu} ${pathname.startsWith("/about") ? styles.aboutLayout : ""}`}
 			data-canvas-pointer-blocker="true"
 			aria-label="Основная навигация"
 			onPointerLeave={handleLeftMenuPointerLeave}

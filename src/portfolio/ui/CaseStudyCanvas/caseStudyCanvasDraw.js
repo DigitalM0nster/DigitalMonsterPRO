@@ -1,12 +1,13 @@
 import { CASE_STUDY_CANVAS_THEME } from "./caseStudyCanvasTheme.js";
 import { resolveLeftPanelDrawConfig } from "./caseStudyLeftPanelConfig.js";
 import { measureLeftPanelFlowHeight, paintLeftPanelFlow } from "./caseStudyLeftPanelFlow.js";
-import { drawPanelFooterLabel, measurePanelFooterLabelHeight } from "./caseStudyLeftPanelFeatures.js";
+import { caseStudyDensePanelOverrides } from "@/portfolio/core/caseStudyReferencePanelPreset.js";
 import { CASE_STUDY_DISPLAY_FONT, measureTextWithSpacing } from "./caseStudyCanvasText.js";
-import { drawCaseStudyArcDebug, getCaseStudyArcStepPositionsFromAngles, resolveCaseStudyArcGeometry } from "./caseStudyArcGeometry.js";
+import { drawCaseStudyArcDebug, getCaseStudyArcStepPositionsFromAngles, getCaseStudyItemAngles, resolveCaseStudyArcGeometry } from "./caseStudyArcGeometry.js";
 import {
 	caseStudyArcConfig,
 	caseStudyArcInternals,
+	caseStudyArcRuntime,
 	getActiveBloomGlowColors,
 	getArcLineStrokeStyle,
 	lerpHexColor,
@@ -24,14 +25,8 @@ import { strokeArcTrailToGlow } from "./caseStudyArcTrailLine.js";
 import { caseStudyArcTrailLineConfig, ARC_TRAIL_ACTIVE_HIGHLIGHT_THRESHOLD, resolveArcNodeTrailBlend, resolveArcNodeMarkerHighlight } from "./caseStudyArcTrailLineConfig.js";
 import { resolveArcNavLabelTargetColors } from "./caseStudyArcNavLabelColors.js";
 import { getArcNavLabelDisplayColors, setArcNavLabelSlotCount, syncArcNavLabelColorTargets } from "./caseStudyArcNavLabelMotion.js";
-import {
-	drawCaseStudyArcNavSnakeLabel,
-	syncCaseStudyArcNavSnakeLines,
-} from "./caseStudyArcNavSnake.js";
-import {
-	getCaseStudyArcShift,
-	setCaseStudyArcShiftTarget,
-} from "./caseStudyArcPositionMotion.js";
+import { drawCaseStudyArcNavSnakeLabel, syncCaseStudyArcNavSnakeLines } from "./caseStudyArcNavSnake.js";
+import { getCaseStudyArcShift, setCaseStudyArcShiftTarget } from "./caseStudyArcPositionMotion.js";
 
 function wrapArcLabelWords(ctx, title, maxWidth, letterSpacing) {
 	const words = String(title).toUpperCase().split(/\s+/).filter(Boolean);
@@ -73,10 +68,10 @@ function wrapArcLabelWords(ctx, title, maxWidth, letterSpacing) {
  * }} data
  * @param {HTMLCanvasElement | null} [canvasEl]
  */
-export function drawLeftPanel(ctx, layout, data, canvasEl = null) {
+export function drawLeftPanel(ctx, layout, data) {
 	const theme = CASE_STUDY_CANVAS_THEME;
 	const viewportWidth = layout.viewportWidth ?? 0;
-	const cfg = {
+	const baseCfg = {
 		...resolveLeftPanelDrawConfig(viewportWidth),
 		...(data.leftPanelOverrides ?? {}),
 	};
@@ -90,6 +85,13 @@ export function drawLeftPanel(ctx, layout, data, canvasEl = null) {
 	const innerX = panel.x + pad;
 	const innerY = panel.y + pad;
 	const innerW = Math.max(1, panel.width - pad * 2);
+	const availableHeight = layout.centerClear?.height;
+	const regularHeight = measureLeftPanelFlowHeight(ctx, data, baseCfg, innerW);
+	const shouldUseDensePanel = Number.isFinite(availableHeight)
+		&& regularHeight > Math.max(120, availableHeight - 8);
+	const cfg = shouldUseDensePanel
+		? { ...baseCfg, ...caseStudyDensePanelOverrides }
+		: baseCfg;
 
 	const contentHeight = measureLeftPanelFlowHeight(ctx, data, cfg, innerW);
 	const zoneHeight = Math.max(120, layout.centerClear?.height ?? contentHeight);
@@ -112,11 +114,6 @@ export function drawLeftPanel(ctx, layout, data, canvasEl = null) {
 	ctx.restore();
 
 	// Footer рисуется внутри paintLeftPanelFlow при anchorFooterBlock или zoneHeight > 0
-	if (data.footerLabel && !data.anchorFooterBlock && zoneHeight <= 0) {
-		const footerHeight = measurePanelFooterLabelHeight(data.footerLabel, cfg);
-		const contentBottom = innerY + (layout.centerClear?.height ?? contentHeight);
-		drawPanelFooterLabel(ctx, innerX, contentBottom - footerHeight, innerW, data.footerLabel, theme, cfg);
-	}
 }
 
 /**
@@ -136,7 +133,8 @@ export function drawLeftPanel(ctx, layout, data, canvasEl = null) {
  */
 export function drawArcNavigation(ctx, layout, data, hitRegions, viewportWidth, canvasHeight, canvasWidth) {
 	const theme = CASE_STUDY_CANVAS_THEME;
-	const alpha = data.contentAlpha ?? 1;
+	const introOpacity = Math.max(0, Math.min(1, caseStudyArcRuntime.introOpacity ?? 1));
+	const alpha = (data.contentAlpha ?? 1) * introOpacity;
 	if (alpha <= 0.01) {
 		return;
 	}
@@ -146,16 +144,18 @@ export function drawArcNavigation(ctx, layout, data, hitRegions, viewportWidth, 
 		canvasHeight,
 		data.states.length,
 		layout.isMobile,
-		layout.arc?.viewportTop != null && layout.arc?.viewportBottom != null
-			? { top: layout.arc.viewportTop, bottom: layout.arc.viewportBottom }
-			: null,
+		layout.arc?.viewportTop != null && layout.arc?.viewportBottom != null ? { top: layout.arc.viewportTop, bottom: layout.arc.viewportBottom } : null,
 	);
 	let { centerX } = arcGeo;
 	const { centerY, radius, angleStart, angleEnd, itemAngles, navCount, layoutItemCount } = arcGeo;
 	const internal = caseStudyArcInternals;
 	const navStates = data.states.slice(0, navCount);
-	const positionIndices =
-		navStates.length >= internal.maxNavItems
+	const useEvenNavSpacing = Boolean(data.arcNavigationEvenSpacing);
+	const evenItemGapDeg = navStates.length <= 1 ? 0 : Math.min(internal.itemGapDeg, (internal.fadeEndDeg * 2 - internal.fadeInsetDeg * 2) / (navStates.length - 1));
+	const navItemAngles = useEvenNavSpacing ? getCaseStudyItemAngles(navStates.length, evenItemGapDeg).map((angle) => angle + arcGeo.rotationRad) : itemAngles;
+	const positionIndices = useEvenNavSpacing
+		? Array.from({ length: navStates.length }, (_, i) => i)
+		: navStates.length >= internal.maxNavItems
 			? Array.from({ length: navStates.length }, (_, i) => i)
 			: navStates.length === 1
 				? [Math.floor((layoutItemCount - 1) / 2)]
@@ -169,32 +169,16 @@ export function drawArcNavigation(ctx, layout, data, hitRegions, viewportWidth, 
 	const titleLineH = titleFontSize * 1.15;
 	ctx.font = `500 ${titleFontSize}px ${CASE_STUDY_DISPLAY_FONT}`;
 	const labelLineMaxWidth = layout.isMobile ? 72 : 110;
-	const pathTitleLines = navStates.map((state) =>
-		wrapArcLabelWords(
-			ctx,
-			state.pathTitle ?? state.title,
-			labelLineMaxWidth,
-			titleSpacing,
-		),
-	);
-	const maxRenderedLineWidth = Math.max(
-		1,
-		...pathTitleLines.flat().map((line) => measureTextWithSpacing(ctx, line, titleSpacing)),
-	);
-	const initialPositions = getCaseStudyArcStepPositionsFromAngles(itemAngles, centerX, centerY, radius);
-	const rightmostNodeX = Math.max(
-		0,
-		...positionIndices.map((slotIndex) => initialPositions[slotIndex]?.x ?? 0),
-	);
+	const pathTitleLines = navStates.map((state) => wrapArcLabelWords(ctx, state.pathTitle ?? state.title, labelLineMaxWidth, titleSpacing));
+	const maxRenderedLineWidth = Math.max(1, ...pathTitleLines.flat().map((line) => measureTextWithSpacing(ctx, line, titleSpacing)));
+	const initialPositions = getCaseStudyArcStepPositionsFromAngles(navItemAngles, centerX, centerY, radius);
+	const rightmostNodeX = Math.max(0, ...positionIndices.map((slotIndex) => initialPositions[slotIndex]?.x ?? 0));
 	const viewportRightInset = layout.isMobile ? 8 : 20;
-	const labelOverflow = Math.max(
-		0,
-		rightmostNodeX + labelGap + maxRenderedLineWidth - (viewportWidth - viewportRightInset),
-	);
+	const labelOverflow = Math.max(0, rightmostNodeX + labelGap + maxRenderedLineWidth - (viewportWidth - viewportRightInset));
 	setCaseStudyArcShiftTarget(labelOverflow);
 	centerX -= getCaseStudyArcShift();
 	arcGeo.centerX = centerX;
-	const labelPositions = getCaseStudyArcStepPositionsFromAngles(itemAngles, centerX, centerY, radius);
+	const labelPositions = getCaseStudyArcStepPositionsFromAngles(navItemAngles, centerX, centerY, radius);
 
 	const trackStyle = getTrackStrokeStyle(caseStudyArcConfig, internal);
 	const { outer: markerOuterR } = resolveNodeMarkerRadii(internal, layout.isMobile);
@@ -356,10 +340,7 @@ export function drawArcNavigation(ctx, layout, data, hitRegions, viewportWidth, 
 		const nodeY = pos.y;
 
 		ctx.font = `500 ${titleFontSize}px ${CASE_STUDY_DISPLAY_FONT}`;
-		const titleW = Math.max(
-			1,
-			...titleLines.map((line) => measureTextWithSpacing(ctx, line, titleSpacing)),
-		);
+		const titleW = Math.max(1, ...titleLines.map((line) => measureTextWithSpacing(ctx, line, titleSpacing)));
 
 		ctx.font = `500 ${indexFontSize}px ${CASE_STUDY_DISPLAY_FONT}`;
 		const indexW = ctx.measureText(chapterNum).width;
@@ -391,20 +372,13 @@ export function drawArcNavigation(ctx, layout, data, hitRegions, viewportWidth, 
 		ctx.fillStyle = titleLabelColor;
 		syncCaseStudyArcNavSnakeLines(state.id, titleLines.length);
 		titleLines.forEach((line, lineIndex) => {
-			drawCaseStudyArcNavSnakeLabel(
-				ctx,
-				`${state.id}::${lineIndex}`,
-				line,
-				labelGap,
-				stackGap / 2 + lineIndex * titleLineH,
-				{
-					fontSize: titleFontSize,
-					fontWeight: 500,
-					letterSpacing: 0.16,
-					fontFamily: CASE_STUDY_DISPLAY_FONT,
-					color: titleLabelColor,
-				},
-			);
+			drawCaseStudyArcNavSnakeLabel(ctx, `${state.id}::${lineIndex}`, line, labelGap, stackGap / 2 + lineIndex * titleLineH, {
+				fontSize: titleFontSize,
+				fontWeight: 500,
+				letterSpacing: 0.16,
+				fontFamily: CASE_STUDY_DISPLAY_FONT,
+				color: titleLabelColor,
+			});
 		});
 
 		ctx.restore();

@@ -38,10 +38,12 @@ let complementDirection = null;
 /** @type {((direction: 'forward' | 'backward') => void) | null} */
 let promoteListener = null;
 /**
- * Case-entry reveal 0…1. null = off (normal stage mix).
+ * Case-entry reveal 0…1.
+ * null = idle (full show / stage mix). 0 = fully hidden.
+ * Default 0 — never start at null or warm/publish can flash full text before appear.
  * @type {number | null}
  */
-let enterProgress = null;
+let enterProgress = 0;
 /** +1 assemble from below (enter), -1 leave upward (exit). */
 let enterTravelSign = 1;
 
@@ -128,6 +130,19 @@ export function promoteCasePanelHudCanvases(direction) {
 	return true;
 }
 
+/**
+ * Idle at mix≈1 samples mapTo. Click-mosaic / exit then drive mix→0 and would flash
+ * mapFrom (previous stage) for a frame. Callers should pin stageProgress to 0 after.
+ * @param {number} mixProgress
+ * @returns {boolean}
+ */
+export function promoteCasePanelHudIfShowingMapTo(mixProgress) {
+	if (!(Number(mixProgress) >= 0.5)) {
+		return false;
+	}
+	return promoteCasePanelHudCanvases("forward");
+}
+
 export function registerCasePanelHudPromoteListener(listener) {
 	promoteListener = listener;
 	return () => {
@@ -175,7 +190,7 @@ export function clearCasePanelHudContent(options = {}) {
 		&& hitRegions.length === 0
 		&& !mosaic
 		&& !needsComplementPaint
-		&& enterProgress == null
+		&& enterProgress === 0
 	) {
 		return;
 	}
@@ -187,7 +202,8 @@ export function clearCasePanelHudContent(options = {}) {
 	needsComplementPaint = false;
 	complementDirection = null;
 	if (!options.keepEnterProgress) {
-		enterProgress = null;
+		// Stay hidden — null would idle-show keepAlive textures and flash.
+		enterProgress = 0;
 		enterTravelSign = 1;
 	}
 	revision += 1;

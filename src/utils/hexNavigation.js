@@ -1,102 +1,38 @@
 import { getSceneCarousel } from "@/three/render/transition/carouselPage.js";
 import { resolveSceneId } from "@/three/scenes/resolveSceneId.js";
 import { isDomDistortDemoPath } from "@/demos/domDistort/constants.js";
-import { getCasePanelHudState } from "@/portfolio/core/casePanelHudBridge.js";
-import { stopCaseStudyAnimationFrame } from "@/portfolio/core/caseStudyAnimationFrame.js";
 import {
-	isCasePanelHudRevealExiting,
-	playCasePanelHudExit,
-	releaseCasePanelHud,
-} from "@/portfolio/core/casePanelHudReveal.js";
+	isCaseEnterFromAnotherCase as intentIsCaseEnterFromAnotherCase,
+	isCaseLeavingToNonCase as intentIsCaseLeavingToNonCase,
+	isPortfolioCasePath,
+	normalizeSiteTransitionPath,
+	noteSiteTransitionPaths,
+	publishSiteRouteTransition,
+} from "@/three/render/transition/siteTransitionIntent.js";
 import { store } from "@/store.jsx";
 
-function isPortfolioCasePath(path) {
-	const normalized = normalizeSitePath(path);
-	if (!normalized.startsWith("/portfolio/")) {
-		return false;
-	}
-	const rest = normalized.slice("/portfolio/".length);
-	return Boolean(rest) && !rest.includes("/");
-}
-
-/**
- * True when the next case mount should skip arc orbit intro (case→case).
- * Hub/about/home/contacts → case keeps false → orbit appear.
- */
-let caseEnterFromAnotherCase = false;
-
-/** True while leaving a case toward a non-case route (full HUD + arc orbit exit). */
-let caseLeavingToNonCase = false;
-
-function noteCaseEnterSource(fromPath, toPath) {
-	if (!isPortfolioCasePath(toPath)) {
-		return;
-	}
-	caseEnterFromAnotherCase = isPortfolioCasePath(fromPath);
-}
-
-function noteCaseLeaveDestination(fromPath, toPath) {
-	if (!isPortfolioCasePath(fromPath)) {
-		caseLeavingToNonCase = false;
-		return;
-	}
-	caseLeavingToNonCase = !isPortfolioCasePath(toPath);
-}
-
-/** Record whether the upcoming case mount comes from another case (for arc intro mode). */
+/** @see SITE_TRANSITION.md — flags live in siteTransitionIntent. */
 export function noteCaseEnterSourcePaths(fromPath, toPath) {
-	noteCaseEnterSource(fromPath, toPath);
+	noteSiteTransitionPaths(fromPath, toPath);
 }
 
-/** Record leave destination for arc orbit exit vs case→case snake-only. */
+/** @see SITE_TRANSITION.md */
 export function noteCaseLeaveDestinationPaths(fromPath, toPath) {
-	noteCaseLeaveDestination(fromPath, toPath);
+	noteSiteTransitionPaths(fromPath, toPath);
 }
 
 /** @returns {boolean} case→case enter (snake titles only); false → orbit arc intro */
 export function isCaseEnterFromAnotherCase() {
-	return caseEnterFromAnotherCase;
+	return intentIsCaseEnterFromAnotherCase();
 }
 
 /** @returns {boolean} leave-site (full mosaic + arc orbit out); false → case→case keep chrome */
 export function isCaseLeavingToNonCase() {
-	return caseLeavingToNonCase;
-}
-
-/**
- * Leave case → non-case: full HUD mosaic exit (left + project nav).
- * Case→case: band mosaic exit only (project nav stays); do not release HUD.
- */
-function releaseCasePageWorkIfLeaving(fromPath, toPath) {
-	if (!isPortfolioCasePath(fromPath)) {
-		return;
-	}
-	noteCaseLeaveDestination(fromPath, toPath);
-	if (isCasePanelHudRevealExiting()) {
-		return;
-	}
-	const hasHud = Boolean(getCasePanelHudState().fromCanvas?.width);
-	if (!store.openedCase && !hasHud) {
-		stopCaseStudyAnimationFrame();
-		return;
-	}
-	if (!hasHud) {
-		if (caseLeavingToNonCase) {
-			releaseCasePanelHud();
-		}
-		return;
-	}
-	if (caseLeavingToNonCase) {
-		playCasePanelHudExit({ mosaicScope: "full", release: true });
-		return;
-	}
-	// Keep shared project-nav chrome; mosaic only the left text band away.
-	playCasePanelHudExit({ mosaicScope: "band", release: false });
+	return intentIsCaseLeavingToNonCase();
 }
 
 /** Где 3D уже «показал» пользователю (после завершения hex). */
-let visualPath =
-	typeof window !== "undefined" ? normalizeSitePath(window.location.pathname) : "/";
+let visualPath = typeof window !== "undefined" ? normalizeSitePath(window.location.pathname) : "/";
 
 /** Финальная цель, пока идёт текущий hex (back/forward × N или быстрые клики). */
 let pendingPath = null;
@@ -105,7 +41,7 @@ let pendingPath = null;
 let preserveBrowserUrl = false;
 
 export function normalizeSitePath(path) {
-	return String(path ?? "/").replace(/\/+$/, "") || "/";
+	return normalizeSiteTransitionPath(path);
 }
 
 export function getHexPendingPath() {
@@ -143,7 +79,7 @@ function tryStartHex(from, to) {
 
 /**
  * Любой переход по сайту: hex-mix source → target, navigate в конце.
- * Пока hex идёт — только обновляем pendingPath (финальная цель).
+ * Leave decision + chrome → publishSiteRouteTransition (SITE_TRANSITION.md).
  * @param {string} targetPath
  * @param {string} [fromPath]
  * @returns {boolean} true — hex обработает (сейчас или после текущего)
@@ -157,9 +93,7 @@ export function requestHexNavigation(targetPath, fromPath, options = {}) {
 	// A rapidly updated browser URL is only the user's latest intent; it is not
 	// necessarily the frame currently on screen. Always start from visualPath so
 	// URL, HTML and SceneCarousel cannot select different source scenes.
-	const from = normalizeSitePath(
-		visualPath ?? fromPath ?? (typeof window !== "undefined" ? window.location.pathname : "/"),
-	);
+	const from = normalizeSitePath(visualPath ?? fromPath ?? (typeof window !== "undefined" ? window.location.pathname : "/"));
 	const carousel = getSceneCarousel();
 	const browserUrlAlreadyChanged = options.preserveBrowserUrl === true;
 
@@ -173,8 +107,7 @@ export function requestHexNavigation(targetPath, fromPath, options = {}) {
 	// displayed scene is meaningful: the active transition may be leaving it.
 	if (carousel.isInteractionLocked()) {
 		pendingPath = to;
-		noteCaseEnterSource(from, to);
-		releaseCasePageWorkIfLeaving(from, to);
+		publishSiteRouteTransition(from, to, { mode: "hex" });
 		// The URL always represents the latest user intent. The rendered route
 		// remains on visualPath until the current hex frame has completed.
 		preserveBrowserUrl = true;
@@ -187,19 +120,23 @@ export function requestHexNavigation(targetPath, fromPath, options = {}) {
 	}
 
 	if (!canHexBetween(from, to)) {
+		// Route still changes (e.g. same scene id) — chrome leave must not wait on React.
+		publishSiteRouteTransition(from, to, { mode: "html-fallback" });
 		return false;
 	}
 
 	const started = tryStartHex(from, to);
 	if (started) {
 		pendingPath = to;
-		noteCaseEnterSource(from, to);
-		releaseCasePageWorkIfLeaving(from, to);
+		publishSiteRouteTransition(from, to, { mode: "hex" });
 		preserveBrowserUrl = true;
 		publishRequestedUrl();
+		return true;
 	}
 
-	return started;
+	// Hex engine refused — still publish leave so HUD/arc animate out.
+	publishSiteRouteTransition(from, to, { mode: "html-fallback" });
+	return false;
 }
 
 function publishVisualPath(path) {
@@ -251,8 +188,7 @@ export function handleHexNavigationRouteConfirmed(arrivedPath) {
 	if (needsChain) {
 		pendingPath = target;
 		if (tryStartHex(arrived, target)) {
-			noteCaseEnterSource(arrived, target);
-			releaseCasePageWorkIfLeaving(arrived, target);
+			publishSiteRouteTransition(arrived, target, { mode: "hex" });
 			return;
 		}
 	}
@@ -263,3 +199,6 @@ export function handleHexNavigationRouteConfirmed(arrivedPath) {
 	}
 	preserveBrowserUrl = false;
 }
+
+// Re-export for callers that classified paths via hexNavigation.
+export { isPortfolioCasePath };

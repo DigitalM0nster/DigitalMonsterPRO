@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import PropTypes from "prop-types";
 import { useLocation } from "react-router-dom";
 import { subscribeKey } from "valtio/utils";
@@ -17,7 +17,10 @@ import {
 	hitRegionsSignature,
 } from "./paintCaseStudyPanelHud.js";
 import { resolveLeftPanelDrawConfig } from "./caseStudyLeftPanelConfig.js";
-import { wakeCaseStudyAnimationFrame } from "@/portfolio/core/caseStudyAnimationFrame.js";
+import {
+	registerCaseStudyChromeStagePaint,
+	wakeCaseStudyAnimationFrame,
+} from "@/portfolio/core/caseStudyAnimationFrame.js";
 import {
 	setCasePanelHudState,
 	registerCasePanelHudPromoteListener,
@@ -29,13 +32,14 @@ import {
 	setCasePanelHudEnterProgress,
 	setCasePanelHudChromeState,
 } from "@/portfolio/core/casePanelHudBridge.js";
+import { adoptWarmCasePanelHud } from "./warmCasePanelHudUnderCurtain.js";
+import { caseChromeOwnsHexHitAtClientY } from "@/three/render/overlay/hexHitOwnership.js";
 import {
-	cancelCasePanelHudEnter,
+	cancelCasePanelHudReveal,
 	getCasePanelHudRevealMosaicScope,
 	isCasePanelHudRevealBusy,
 	isCasePanelHudRevealExiting,
 	playCasePanelHudEnter,
-	playCasePanelHudExit,
 	releaseCasePanelHud,
 } from "@/portfolio/core/casePanelHudReveal.js";
 import {
@@ -44,6 +48,13 @@ import {
 	isCaseStageClickMosaicActive,
 	registerCaseStageClickMosaicPrepare,
 } from "@/portfolio/core/caseStageClickMosaic.js";
+import {
+	cancelCasePanelHudLocaleMix,
+	isCasePanelHudLocaleMixBusy,
+	playCasePanelHudLocaleMixTowardStore,
+	syncCasePanelHudDisplayedLocale,
+} from "@/portfolio/core/casePanelHudLocaleMix.js";
+import { shouldAnimateSiteLocaleForCaseChrome } from "@/utils/siteLocaleSwitch.js";
 import {
 	clearCaseProjectNavSnakeHover,
 	disposeCaseProjectNavSnake,
@@ -56,6 +67,11 @@ import {
 	prepareCaseChromeMosaicSurfaces,
 } from "./caseChromeMosaicReveal.js";
 import { resolveCaseStudyPanelHudPixelRatio } from "./caseStudyCanvasSurface.js";
+import {
+	clearPendingCaseChromeNavIfMatch,
+	getPendingCaseChromeNav,
+	subscribePendingCaseChromeNav,
+} from "@/portfolio/core/caseChromePendingNav.js";
 import { useRouteTransitionContext } from "@/context/RouteTransitionContext.jsx";
 import { store } from "@/store.jsx";
 import { normalizeSiteLocale } from "@/utils/siteLocale.js";
@@ -63,6 +79,18 @@ import { isCaseEnterFromAnotherCase } from "@/utils/hexNavigation.js";
 import { LEFT_MENU_SELECTOR } from "@/three/scenes/home/heroText/heroTextLayout.js";
 import { subscribeLeftMenuContentAnchor } from "@/components/HTML/components/leftMenu/leftMenuContentAnchor.js";
 import styles from "./CaseStudyPanelHudPainter.module.scss";
+
+/** Stage rail is outside chrome mosaic bounds — fade with full enter/exit only. */
+function resolveStageRailOpacity() {
+	const enterProgress = getCasePanelHudEnterProgress();
+	if (enterProgress == null) {
+		return 1;
+	}
+	if (getCasePanelHudRevealMosaicScope() !== "full") {
+		return 1;
+	}
+	return Math.max(0, Math.min(1, enterProgress));
+}
 
 /**
  * Paints case panel HUD into offscreen canvases → WebGL bridge.
@@ -89,6 +117,7 @@ export default function CaseStudyPanelHudPainter({
 	const lastChromeKeyRef = useRef("");
 	const lastPaintIndexRef = useRef(null);
 	const lastHitsSigRef = useRef("");
+	const lastStageHitsSigRef = useRef("");
 	const lastPublishMetaRef = useRef({ hitRegions: [], mosaicBounds: null });
 	const coalesceRef = useRef({ scheduled: false, force: false });
 	const introFinishedRef = useRef(Boolean(skipPanelIntro));
@@ -97,11 +126,14 @@ export default function CaseStudyPanelHudPainter({
 	/** case→case: paint new prev/next names from click so snake can disappear→appear during hex. */
 	const pendingNavRef = useRef(null);
 	const [hitRegions, setHitRegions] = useState([]);
+	const [stageHitRegions, setStageHitRegions] = useState([]);
 	const [panelConfigRevision, setPanelConfigRevision] = useState(0);
 	const [siteLocale, setSiteLocale] = useState(() => normalizeSiteLocale(store.siteLocale));
+	/** Locale painted on the left HUD after the last completed wipe. */
+	const displayedLocaleRef = useRef(normalizeSiteLocale(store.siteLocale));
 	const [hudReady, setHudReady] = useState(false);
 	const [chromeRevealLocked, setChromeRevealLocked] = useState(false);
-	const { project, activeState, activeStateIndex, activeStateId, isInvestigating } = usePortfolioProject();
+	const { project, activeState, activeStateIndex, activeStateId, isInvestigating, goToState } = usePortfolioProject();
 
 	const frameData = useMemo(() => {
 		return buildCaseStudyFrameData(project, activeState, activeStateIndex, activeStateId, {
@@ -131,6 +163,8 @@ export default function CaseStudyPanelHudPainter({
 	const nextFrameDataRef = useRef(nextFrameData);
 	frameDataRef.current = frameData;
 	nextFrameDataRef.current = nextFrameData;
+	/** Fresh each render — locale subscriber lives in a mount-only effect. */
+	const localePaintContextRef = useRef({});
 
 	const resolvePaintFrames = useCallback(() => {
 		const clickFrom = getCaseStageClickMosaicFromIndex();
@@ -155,6 +189,26 @@ export default function CaseStudyPanelHudPainter({
 				}),
 				paintIndex: clickFrom,
 			};
+		}
+
+		// Case enter: always stage 1 (index 0) until mosaic appear finishes.
+		if (!skipPanelIntro && !introFinishedRef.current) {
+			const paintIndex = 0;
+			const paintState = project.states[0];
+			if (paintState) {
+				const current = buildCaseStudyFrameData(project, paintState, paintIndex, paintState.id, {
+					isInvestigating: false,
+					locale: siteLocale,
+				});
+				const nextState = project.states[1];
+				const next = nextState
+					? buildCaseStudyFrameData(project, nextState, 1, nextState.id, {
+							isInvestigating: false,
+							locale: siteLocale,
+						})
+					: null;
+				return { current, next, paintIndex };
+			}
 		}
 
 		const storeIndex = store.portfolioExperience.activeStateIndex;
@@ -186,7 +240,7 @@ export default function CaseStudyPanelHudPainter({
 			next: nextFrameDataRef.current,
 			paintIndex: activeStateIndex,
 		};
-	}, [activeState, activeStateId, activeStateIndex, project, siteLocale]);
+	}, [activeState, activeStateId, activeStateIndex, project, siteLocale, skipPanelIntro]);
 
 	const publishHud = useCallback((fromCanvas, toCanvas, meta, dirtyCanvases) => {
 		const bounds = meta.mosaicBounds;
@@ -197,6 +251,10 @@ export default function CaseStudyPanelHudPainter({
 			...(project.config.caseStudy?.leftPanel ?? {}),
 		};
 		const hitsLocked = !introFinishedRef.current || isCasePanelHudRevealBusy();
+		// Never publish left content while enter is idle-null — that flashes full text.
+		if (!skipPanelIntro && !introFinishedRef.current && getCasePanelHudEnterProgress() == null) {
+			setCasePanelHudEnterProgress(0);
+		}
 		const contentRectUv = bounds
 			? {
 				minX: bounds.x / vw,
@@ -228,7 +286,18 @@ export default function CaseStudyPanelHudPainter({
 			dirtyCanvases,
 			bumpTexture: true,
 		});
-	}, [project]);
+	}, [project, skipPanelIntro]);
+
+	localePaintContextRef.current = {
+		project,
+		activeState,
+		activeStateIndex,
+		pathname,
+		projectNavigationData,
+		panelConfigRevision,
+		hideProjectNavigation,
+		publishHud,
+	};
 
 	const publishChromeHits = useCallback((chromeMeta) => {
 		if (hideProjectNavigation) {
@@ -243,6 +312,89 @@ export default function CaseStudyPanelHudPainter({
 		}
 	}, [hideProjectNavigation]);
 
+	const publishStageHits = useCallback((hits) => {
+		const next = Array.isArray(hits) ? hits : [];
+		const hitsSig = hitRegionsSignature(next);
+		if (hitsSig !== lastStageHitsSigRef.current) {
+			lastStageHitsSigRef.current = hitsSig;
+			setStageHitRegions(next);
+		}
+	}, []);
+
+	// Adopt preloader-warmed canvases on case enter only — never on locale change
+	// (locale rebind of stage-0 warm over the live stage flashes / skips paint).
+	const adoptedRouteRef = useRef("");
+	useLayoutEffect(() => {
+		const route = project.config.route;
+		if (adoptedRouteRef.current === route) {
+			return;
+		}
+		const host = hostRef.current;
+		const viewportW = host?.clientWidth || window.innerWidth;
+		const viewportH = host?.clientHeight || window.innerHeight;
+		const locale = normalizeSiteLocale(store.siteLocale);
+		const warm = adoptWarmCasePanelHud(route, locale, viewportW, viewportH);
+		adoptedRouteRef.current = route;
+		if (!warm) {
+			return;
+		}
+		// Hide left band before first publish — null enterProgress = full idle show (flash).
+		if (!skipPanelIntro) {
+			setCasePanelHudEnterProgress(0);
+		}
+		fromCanvasRef.current = warm.fromCanvas;
+		toCanvasRef.current = warm.toCanvas;
+		displayedLocaleRef.current = locale;
+		syncCasePanelHudDisplayedLocale(locale);
+		// Warm chrome is an offscreen buffer — blit onto the live DOM chrome canvas.
+		// Never rebind chromeCanvasRef away from the mounted <canvas> (that blanks the nav).
+		if (warm.chromeCanvas && !hideProjectNavigation) {
+			const domChrome = chromeCanvasRef.current;
+			if (domChrome) {
+				domChrome.style.width = `${viewportW}px`;
+				domChrome.style.height = `${viewportH}px`;
+				domChrome.width = warm.chromeCanvas.width;
+				domChrome.height = warm.chromeCanvas.height;
+				const ctx = domChrome.getContext("2d");
+				if (ctx) {
+					ctx.setTransform(1, 0, 0, 1, 0, 0);
+					ctx.clearRect(0, 0, domChrome.width, domChrome.height);
+					ctx.drawImage(warm.chromeCanvas, 0, 0);
+				}
+				chromeBoundsRef.current = warm.chromeBounds;
+				lastChromeKeyRef.current = [
+					locale,
+					viewportW,
+					viewportH,
+					0,
+					projectNavigationData?.previousName ?? "",
+					projectNavigationData?.nextName ?? "",
+					projectNavigationData?.previousProject?.config?.id ?? "",
+					projectNavigationData?.nextProject?.config?.id ?? "",
+					route,
+				].join("|");
+				publishChromeHits({ hitRegions: warm.chromeHitRegions });
+			} else {
+				lastChromeKeyRef.current = "";
+			}
+		}
+		lastPublishMetaRef.current = {
+			hitRegions: warm.hitRegions,
+			mosaicBounds: warm.mosaicBounds,
+		};
+		lastPaintIndexRef.current = 0;
+		lastContentKeyRef.current = warm.contentKey;
+		publishHud(warm.fromCanvas, warm.toCanvas, lastPublishMetaRef.current, []);
+		setHudReady(true);
+	}, [
+		hideProjectNavigation,
+		project.config.route,
+		projectNavigationData,
+		publishChromeHits,
+		publishHud,
+		skipPanelIntro,
+	]);
+
 	const paintNow = useCallback((force = false) => {
 		if (!fontsReadyRef.current) {
 			return;
@@ -254,46 +406,60 @@ export default function CaseStudyPanelHudPainter({
 
 		const viewportW = host.clientWidth || window.innerWidth;
 		const viewportH = host.clientHeight || window.innerHeight;
-		const navData = pendingNavRef.current?.data ?? projectNavigationData;
+		const pendingChrome = pendingNavRef.current ?? getPendingCaseChromeNav();
+		// Chrome follows store locale immediately; left content lags until mosaic wipe finishes.
+		const chromeLocale = normalizeSiteLocale(store.siteLocale);
+		const navData = pendingChrome?.data
+			?? (
+				chromeLocale !== siteLocale
+					? resolveCaseProjectCanvasNavigationData(project, chromeLocale)
+					: projectNavigationData
+			);
 		const chromeKey = [
-			siteLocale,
+			chromeLocale,
 			viewportW,
 			viewportH,
 			hideProjectNavigation ? 1 : 0,
+			activeStateId,
 			navData?.previousName ?? "",
 			navData?.nextName ?? "",
 			navData?.previousProject?.config?.id ?? "",
 			navData?.nextProject?.config?.id ?? "",
-			pendingNavRef.current?.projectId ?? pathname,
+			pendingChrome?.projectId ?? pathname,
 		].join("|");
 		const chromeChanged = chromeKey !== lastChromeKeyRef.current;
+		const chromeFrame = {
+			states: frameData.states,
+			activeStateId,
+			activeStateIndex: store.portfolioExperience.activeStateIndex ?? activeStateIndex,
+			chapterBase: frameData.chapterBase ?? project.config.caseStudy?.chapterBase ?? 0,
+		};
 
 		const paintChromeLive = () => {
-			if (hideProjectNavigation) {
-				publishChromeHits(null);
-				const chromeCanvas = chromeCanvasRef.current;
-				if (chromeCanvas) {
-					const ctx = chromeCanvas.getContext("2d");
-					ctx?.setTransform(1, 0, 0, 1, 0, 0);
-					ctx?.clearRect(0, 0, chromeCanvas.width, chromeCanvas.height);
-				}
-				lastChromeKeyRef.current = chromeKey;
-				chromeMosaicFrozenKeyRef.current = "";
-				return;
-			}
 			const chromeCanvas = chromeCanvasRef.current;
 			if (!chromeCanvas) {
 				return;
 			}
 
 			const dpr = resolveCaseStudyPanelHudPixelRatio(store.graphicsTier);
-			const paintProject = pendingNavRef.current
-				? (getProjectByRoute(pendingNavRef.current.route) ?? project)
+			const livePending = pendingNavRef.current ?? getPendingCaseChromeNav();
+			const paintProject = livePending
+				? (getProjectByRoute(livePending.route) ?? project)
 				: project;
-			const paintPath = pendingNavRef.current?.route ?? pathname;
+			const paintPath = livePending?.route ?? pathname;
+			const chromeArgs = {
+				canvas: chromeCanvas,
+				viewportW,
+				viewportH,
+				project: paintProject,
+				pathname: paintPath,
+				projectNavigationData: navData,
+				hideProjectNavigation,
+				frame: chromeFrame,
+			};
 			const fullReveal = getCasePanelHudRevealMosaicScope() === "full";
 			const enterProgress = getCasePanelHudEnterProgress();
-			const mosaicActive = fullReveal && enterProgress != null;
+			const mosaicActive = fullReveal && enterProgress != null && !hideProjectNavigation;
 
 			if (mosaicActive) {
 				const source = prepareCaseChromeMosaicSurfaces(
@@ -318,13 +484,8 @@ export default function CaseStudyPanelHudPainter({
 						freezeCaseChromeMosaicSource(source, chromeCanvas);
 					} else {
 						const painted = paintCaseStudyPanelHudChrome({
+							...chromeArgs,
 							canvas: source,
-							viewportW,
-							viewportH,
-							project: paintProject,
-							pathname: paintPath,
-							projectNavigationData: navData,
-							hideProjectNavigation,
 						});
 						chromeBoundsRef.current = painted?.chromeBounds ?? null;
 					}
@@ -333,9 +494,9 @@ export default function CaseStudyPanelHudPainter({
 
 				const bounds = chromeBoundsRef.current ?? {
 					x: 0,
-					y: Math.round(viewportH * 0.72),
+					y: Math.round(viewportH * 0.12),
 					width: viewportW,
-					height: Math.max(1, Math.round(viewportH * 0.28)),
+					height: 36,
 				};
 				chromeBoundsRef.current = bounds;
 
@@ -347,29 +508,35 @@ export default function CaseStudyPanelHudPainter({
 					travelSign,
 					dpr,
 				});
+				// Rail is outside enter-mosaic bounds — fade with enterProgress.
+				const railPainted = paintCaseStudyPanelHudChrome({
+					...chromeArgs,
+					skipClear: true,
+					stageRailOnly: true,
+					stageRailOpacity: resolveStageRailOpacity(),
+				});
 				publishChromeHits(null);
+				publishStageHits(railPainted?.stageHitRegions);
 				lastChromeKeyRef.current = chromeKey;
 				return;
 			}
 
 			chromeMosaicFrozenKeyRef.current = "";
 			const painted = paintCaseStudyPanelHudChrome({
-				canvas: chromeCanvas,
-				viewportW,
-				viewportH,
-				project: paintProject,
-				pathname: paintPath,
-				projectNavigationData: navData,
-				hideProjectNavigation,
+				...chromeArgs,
+				stageRailOpacity: resolveStageRailOpacity(),
 			});
 			chromeBoundsRef.current = painted?.chromeBounds ?? null;
-			publishChromeHits(painted);
+			publishChromeHits(hideProjectNavigation ? null : painted);
+			publishStageHits(painted?.stageHitRegions);
 			lastChromeKeyRef.current = chromeKey;
 		};
 
 		// Content exit owns from/to textures — never republish content mid-exit.
 		// DOM chrome stays live (hover snake paints straight to the visible canvas).
+		// Locale mosaic owns from/to until wipe settles — chrome may still refresh.
 		const contentPaintBlocked = isCasePanelHudRevealExiting()
+			|| isCasePanelHudLocaleMixBusy()
 			|| (
 				!getCasePanelHudState().fromCanvas
 				&& (store.sceneCarouselClickTransitionActive || routePhase === "exiting")
@@ -411,12 +578,11 @@ export default function CaseStudyPanelHudPainter({
 		].join("|");
 		const contentChanged = contentKey !== lastContentKeyRef.current;
 		const complementPending = getCasePanelHudState().needsComplementPaint;
-		if (!force && !contentChanged && !complementPending && !chromeChanged) {
-			return;
-		}
-
-		if (!force && !contentChanged && !complementPending && chromeChanged) {
-			paintChromeLive();
+		// Same content: refresh chrome when needed / on force; never re-upload left textures.
+		if (!contentChanged && !complementPending) {
+			if (force || chromeChanged) {
+				paintChromeLive();
+			}
 			return;
 		}
 
@@ -433,9 +599,20 @@ export default function CaseStudyPanelHudPainter({
 		};
 
 		const prevIndex = lastPaintIndexRef.current;
-		const complement = isCaseStageClickMosaicActive() ? false : consumeCasePanelHudComplementPaint();
+		// case→case / first appear: never steal the paint with a stale stage-promote complement
+		// (that path can publish without mosaicBounds and leave hudReady stuck false → invisible text).
+		const mustFullContentPaint = !hudReady || !introFinishedRef.current || force;
+		let complement = false;
+		if (mustFullContentPaint || isCaseStageClickMosaicActive()) {
+			if (getCasePanelHudState().needsComplementPaint) {
+				consumeCasePanelHudComplementPaint();
+			}
+		} else {
+			complement = consumeCasePanelHudComplementPaint();
+		}
 		const canRecycleForward =
 			!force
+			&& !mustFullContentPaint
 			&& !complement
 			&& !isCaseStageClickMosaicActive()
 			&& prevIndex != null
@@ -444,6 +621,7 @@ export default function CaseStudyPanelHudPainter({
 			&& lastPublishMetaRef.current.mosaicBounds;
 		const canRecycleBackward =
 			!force
+			&& !mustFullContentPaint
 			&& !complement
 			&& !isCaseStageClickMosaicActive()
 			&& prevIndex != null
@@ -553,27 +731,34 @@ export default function CaseStudyPanelHudPainter({
 
 		lastContentKeyRef.current = contentKey;
 		lastPaintIndexRef.current = paintIndex;
-		publishHud(fromCanvas, next ? toCanvas : fromCanvas, meta, dirtyCanvases);
-		paintChromeLive();
-
-		if (!hudReady && meta.mosaicBounds) {
-			setHudReady(true);
-		}
 		if (
 			!introFinishedRef.current
 			&& !skipPanelIntro
 			&& !isCasePanelHudRevealBusy()
 		) {
-			// Keep HUD hidden until enter animation starts (buffers already valid).
+			// Hide before publish — null enterProgress = full idle show (flash).
 			setCasePanelHudEnterProgress(0);
 		}
+		publishHud(fromCanvas, next ? toCanvas : fromCanvas, meta, dirtyCanvases);
+		paintChromeLive();
+
+		// Appear can start once content is published — do not require mosaicBounds
+		// (warm/complement edge cases previously skipped this and stuck enterProgress at 0).
+		if (!hudReady) {
+			setHudReady(true);
+		}
 	}, [
+		activeStateId,
+		activeStateIndex,
+		frameData.chapterBase,
+		frameData.states,
 		hideProjectNavigation,
 		hudReady,
 		panelConfigRevision,
 		pathname,
 		project,
 		projectNavigationData,
+		publishStageHits,
 		publishChromeHits,
 		publishHud,
 		resolvePaintFrames,
@@ -584,6 +769,217 @@ export default function CaseStudyPanelHudPainter({
 
 	const paintNowRef = useRef(paintNow);
 	paintNowRef.current = paintNow;
+
+	/** Chrome-only path for enter mosaic ticks — never touches left from/to textures. */
+	const paintChromeOnly = useCallback(() => {
+		if (!fontsReadyRef.current) {
+			return;
+		}
+		const host = hostRef.current;
+		if (!host) {
+			return;
+		}
+		const viewportW = host.clientWidth || window.innerWidth;
+		const viewportH = host.clientHeight || window.innerHeight;
+		const pendingChrome = pendingNavRef.current ?? getPendingCaseChromeNav();
+		const chromeLocale = normalizeSiteLocale(store.siteLocale);
+		const navData = pendingChrome?.data
+			?? (
+				chromeLocale !== siteLocale
+					? resolveCaseProjectCanvasNavigationData(project, chromeLocale)
+					: projectNavigationData
+			);
+		const chromeKey = [
+			chromeLocale,
+			viewportW,
+			viewportH,
+			hideProjectNavigation ? 1 : 0,
+			activeStateId,
+			navData?.previousName ?? "",
+			navData?.nextName ?? "",
+			navData?.previousProject?.config?.id ?? "",
+			navData?.nextProject?.config?.id ?? "",
+			pendingChrome?.projectId ?? pathname,
+		].join("|");
+		const chromeFrame = {
+			states: frameData.states,
+			activeStateId,
+			activeStateIndex: store.portfolioExperience.activeStateIndex ?? activeStateIndex,
+			chapterBase: frameData.chapterBase ?? project.config.caseStudy?.chapterBase ?? 0,
+		};
+
+		const chromeCanvas = chromeCanvasRef.current;
+		if (!chromeCanvas) {
+			return;
+		}
+
+		const dpr = resolveCaseStudyPanelHudPixelRatio(store.graphicsTier);
+		const livePending = pendingNavRef.current ?? getPendingCaseChromeNav();
+		const paintProject = livePending
+			? (getProjectByRoute(livePending.route) ?? project)
+			: project;
+		const paintPath = livePending?.route ?? pathname;
+		const chromeArgs = {
+			canvas: chromeCanvas,
+			viewportW,
+			viewportH,
+			project: paintProject,
+			pathname: paintPath,
+			projectNavigationData: navData,
+			hideProjectNavigation,
+			frame: chromeFrame,
+		};
+		const fullReveal = getCasePanelHudRevealMosaicScope() === "full";
+		const enterProgress = getCasePanelHudEnterProgress();
+		const mosaicActive = fullReveal && enterProgress != null && !hideProjectNavigation;
+
+		if (mosaicActive) {
+			const source = prepareCaseChromeMosaicSurfaces(
+				chromeCanvas,
+				chromeSourceRef.current,
+				viewportW,
+				viewportH,
+				dpr,
+			);
+			chromeSourceRef.current = source;
+			const travelSign = getCasePanelHudEnterTravelSign();
+			const needSourcePaint = chromeMosaicFrozenKeyRef.current !== chromeKey
+				|| !chromeBoundsRef.current;
+
+			if (needSourcePaint) {
+				if (
+					travelSign < 0
+					&& chromeMosaicFrozenKeyRef.current === ""
+					&& chromeBoundsRef.current
+					&& chromeCanvas.width > 0
+				) {
+					freezeCaseChromeMosaicSource(source, chromeCanvas);
+				} else {
+					const painted = paintCaseStudyPanelHudChrome({
+						...chromeArgs,
+						canvas: source,
+					});
+					chromeBoundsRef.current = painted?.chromeBounds ?? null;
+				}
+				chromeMosaicFrozenKeyRef.current = chromeKey;
+			}
+
+			const bounds = chromeBoundsRef.current ?? {
+				x: 0,
+				y: Math.round(viewportH * 0.12),
+				width: viewportW,
+				height: 36,
+			};
+			chromeBoundsRef.current = bounds;
+
+			composeCaseChromeMosaicReveal({
+				destCanvas: chromeCanvas,
+				sourceCanvas: source,
+				boundsCss: bounds,
+				progress: enterProgress,
+				travelSign,
+				dpr,
+			});
+			const railPainted = paintCaseStudyPanelHudChrome({
+				...chromeArgs,
+				skipClear: true,
+				stageRailOnly: true,
+				stageRailOpacity: resolveStageRailOpacity(),
+			});
+			publishChromeHits(null);
+			publishStageHits(railPainted?.stageHitRegions);
+			lastChromeKeyRef.current = chromeKey;
+			return;
+		}
+
+		chromeMosaicFrozenKeyRef.current = "";
+		const painted = paintCaseStudyPanelHudChrome({
+			...chromeArgs,
+			stageRailOpacity: resolveStageRailOpacity(),
+		});
+		chromeBoundsRef.current = painted?.chromeBounds ?? null;
+		publishChromeHits(hideProjectNavigation ? null : painted);
+		publishStageHits(painted?.stageHitRegions);
+		lastChromeKeyRef.current = chromeKey;
+	}, [
+		activeStateId,
+		activeStateIndex,
+		frameData.chapterBase,
+		frameData.states,
+		hideProjectNavigation,
+		pathname,
+		project,
+		projectNavigationData,
+		publishChromeHits,
+		publishStageHits,
+		siteLocale,
+	]);
+
+	const paintChromeOnlyRef = useRef(paintChromeOnly);
+	paintChromeOnlyRef.current = paintChromeOnly;
+	const chromePaintRafRef = useRef(0);
+
+	/** Stage-progress rail only — no «all projects» redraw, no left textures. */
+	const paintChromeStageRail = useCallback(() => {
+		if (!fontsReadyRef.current) {
+			return;
+		}
+		const host = hostRef.current;
+		const chromeCanvas = chromeCanvasRef.current;
+		if (!host || !chromeCanvas) {
+			return;
+		}
+		const viewportW = host.clientWidth || window.innerWidth;
+		const viewportH = host.clientHeight || window.innerHeight;
+		const pendingChrome = pendingNavRef.current ?? getPendingCaseChromeNav();
+		const navData = pendingChrome?.data ?? projectNavigationData;
+		const livePending = pendingNavRef.current ?? getPendingCaseChromeNav();
+		const paintProject = livePending
+			? (getProjectByRoute(livePending.route) ?? project)
+			: project;
+		const paintPath = livePending?.route ?? pathname;
+		const activeIndex = store.portfolioExperience.activeStateIndex ?? 0;
+		const painted = paintCaseStudyPanelHudChrome({
+			canvas: chromeCanvas,
+			viewportW,
+			viewportH,
+			project: paintProject,
+			pathname: paintPath,
+			projectNavigationData: navData,
+			hideProjectNavigation,
+			frame: {
+				states: frameData.states,
+				activeStateId: frameData.states[activeIndex]?.id ?? activeStateId,
+				activeStateIndex: activeIndex,
+				chapterBase: frameData.chapterBase ?? project.config.caseStudy?.chapterBase ?? 0,
+			},
+			stageRailOnly: true,
+			stageRailOpacity: resolveStageRailOpacity(),
+		});
+		publishStageHits(painted?.stageHitRegions);
+	}, [
+		activeStateId,
+		frameData.chapterBase,
+		frameData.states,
+		hideProjectNavigation,
+		pathname,
+		project,
+		projectNavigationData,
+		publishStageHits,
+	]);
+
+	const paintChromeStageRailRef = useRef(paintChromeStageRail);
+	paintChromeStageRailRef.current = paintChromeStageRail;
+
+	const requestChromePaint = useCallback(() => {
+		if (chromePaintRafRef.current) {
+			return;
+		}
+		chromePaintRafRef.current = requestAnimationFrame(() => {
+			chromePaintRafRef.current = 0;
+			paintChromeOnlyRef.current();
+		});
+	}, []);
 
 	const requestPaint = useCallback((force = false) => {
 		coalesceRef.current.force = coalesceRef.current.force || force;
@@ -602,33 +998,55 @@ export default function CaseStudyPanelHudPainter({
 	const requestPaintRef = useRef(requestPaint);
 	requestPaintRef.current = requestPaint;
 
-	// Drive DOM chrome mosaic from the same enterProgress owner as the WebGL left band.
+	useEffect(() => {
+		return subscribePendingCaseChromeNav(() => {
+			// Chrome names only — never force left-content re-upload.
+			lastChromeKeyRef.current = "";
+			requestChromePaint();
+		});
+	}, [requestChromePaint]);
+
+	// Smooth rail follow of in-case stageProgress (chrome column only).
+	useEffect(() => {
+		registerCaseStudyChromeStagePaint(() => {
+			paintChromeStageRailRef.current();
+		});
+		wakeCaseStudyAnimationFrame();
+		return () => registerCaseStudyChromeStagePaint(null);
+	}, []);
+
+	// Full chrome mosaic enter: compose DOM chrome each enterProgress tick.
+	// Band enter (case→case) leaves chrome idle — no listener work.
+	const chromeRevealLockedRef = useRef(false);
 	useEffect(() => {
 		return registerCasePanelHudSyncListener(() => {
 			const fullReveal = getCasePanelHudRevealMosaicScope() === "full";
 			const progress = getCasePanelHudEnterProgress();
 			const locked = fullReveal && progress != null;
-			setChromeRevealLocked(locked);
+			const wasLocked = chromeRevealLockedRef.current;
+			if (locked !== wasLocked) {
+				chromeRevealLockedRef.current = locked;
+				setChromeRevealLocked(locked);
+			}
 
 			if (locked) {
-				// Force a chrome mosaic frame every progress tick (source is frozen).
-				requestPaintRef.current(true);
+				requestChromePaint();
 				return;
 			}
 
-			chromeMosaicFrozenKeyRef.current = "";
-			if (introFinishedRef.current) {
-				requestPaintRef.current(true);
+			if (wasLocked && !locked) {
+				chromeMosaicFrozenKeyRef.current = "";
+				requestChromePaint();
 			}
 		});
-	}, []);
+	}, [requestChromePaint]);
 
 	// Drop any legacy WebGL chrome canvas from the bridge — nav is DOM-only now.
 	useEffect(() => {
 		setCasePanelHudChromeState({ canvas: null, hitRegions: [], bumpTexture: true });
 	}, []);
 
-	// case→case: same overlay instance — refresh content + band enter; keep chrome/snake alive.
+	// Every case open (first mount + case→case): hide left band, stage 1, arm appear.
 	// Prev/next names transition via disappear→appear snake (see caseProjectNavSnake).
 	useEffect(() => {
 		const nextId = project.config.id;
@@ -637,8 +1055,16 @@ export default function CaseStudyPanelHudPainter({
 		if (pendingNavRef.current?.projectId === nextId) {
 			pendingNavRef.current = null;
 		}
-		if (prevId == null || prevId === nextId) {
+		clearPendingCaseChromeNavIfMatch(nextId);
+		if (prevId === nextId) {
 			return;
+		}
+		// Discard stage-promote leftover from the previous case before the first paint.
+		if (getCasePanelHudState().needsComplementPaint) {
+			consumeCasePanelHudComplementPaint();
+		}
+		if (isCasePanelHudRevealBusy()) {
+			cancelCasePanelHudReveal();
 		}
 		lastContentKeyRef.current = "";
 		lastChromeKeyRef.current = "";
@@ -648,6 +1074,7 @@ export default function CaseStudyPanelHudPainter({
 		chromeBoundsRef.current = null;
 		introFinishedRef.current = false;
 		hoveredProjectNavIdRef.current = null;
+		adoptedRouteRef.current = "";
 		setHudReady(false);
 		setCasePanelHudEnterProgress(0);
 		requestPaintRef.current(true);
@@ -673,21 +1100,25 @@ export default function CaseStudyPanelHudPainter({
 		};
 	}, [skipPanelIntro]);
 
-	// Enter: mosaic roll-up + scroll text sound.
+	// Enter: mosaic roll-up + scroll text sound. Always from hidden (0) → appear.
+	// Must run on every case land (hub→case, case→case, menu). Do not require routePhase
+	// "idle" — hex sets displayPath while phase is still "entering" for ENTER_MS.
 	useEffect(() => {
 		if (skipPanelIntro) {
 			introFinishedRef.current = true;
 			setCasePanelHudEnterProgress(null);
 			return undefined;
 		}
-		if (
-			introFinishedRef.current
-			|| isCasePanelHudRevealBusy()
-			|| routePhase !== "idle"
-			|| !hudReady
-		) {
+		// Only block while the previous HTML route is still exiting.
+		if (introFinishedRef.current || routePhase === "exiting" || !hudReady) {
 			return undefined;
 		}
+		const enterProjectId = project.config.id;
+		// Stuck exit/enter from a prior leave must not block the appear.
+		if (isCasePanelHudRevealBusy()) {
+			cancelCasePanelHudReveal();
+		}
+		setCasePanelHudEnterProgress(0);
 
 		playCasePanelHudEnter({
 			delayMs: Math.max(0, project.config.caseStudy?.panelIntroDelayMs ?? 500),
@@ -695,38 +1126,178 @@ export default function CaseStudyPanelHudPainter({
 			// non-case→case: full — DOM chrome mosaics in with enterProgress.
 			mosaicScope: isCaseEnterFromAnotherCase() ? "band" : "full",
 			onComplete: () => {
+				if (projectIdRef.current !== enterProjectId) {
+					return;
+				}
 				introFinishedRef.current = true;
+				// Idle full show — belt against finishEnter races leaving 0 (hidden).
+				if (getCasePanelHudEnterProgress() === 0) {
+					setCasePanelHudEnterProgress(null);
+				}
+				// Chrome only — do not invalidate content textures (re-upload flash/jump).
 				chromeMosaicFrozenKeyRef.current = "";
-				lastContentKeyRef.current = "";
 				lastChromeKeyRef.current = "";
-				paintNowRef.current(true);
+				requestPaintRef.current(true);
 			},
 		});
 
 		return () => {
-			// Strict/remount: cancel enter so the effect can restart; do not mark finished.
-			if (!introFinishedRef.current) {
-				cancelCasePanelHudEnter();
-			}
+			// Do NOT cancel on hudReady flicker (adopt→project-id reset). That left
+			// enterProgress stuck at 0 with no restart. Project-id effect already calls
+			// cancelCasePanelHudReveal() when the case actually changes.
 		};
 	}, [hudReady, project.config.id, project.config.caseStudy?.panelIntroDelayMs, routePhase, skipPanelIntro]);
 
-	// Exit (non-hex HTML route leave). Hex leave-site uses playCasePanelHudExit in hexNavigation.
-	useEffect(() => {
-		if (skipPanelIntro || routePhase !== "exiting" || isCasePanelHudRevealExiting()) {
-			return undefined;
-		}
-		introFinishedRef.current = true;
-		playCasePanelHudExit({ mosaicScope: "full" });
-		return undefined;
-	}, [routePhase, skipPanelIntro]);
+	// Leave chrome is owned by publishSiteRouteTransition — do NOT latch introFinished
+	// on routePhase==="exiting". That blocked playCasePanelHudEnter after case→case
+	// (project-id reset introFinished=false, then this effect set it true again).
+	// Enter is already gated on routePhase === "exiting" below / in the enter effect.
 
 	useEffect(() => {
 		const stopConfig = subscribeCaseStudyLeftPanelConfig(() => {
 			setPanelConfigRevision((value) => value + 1);
 		});
-		const stopLocale = subscribeKey(store, "siteLocale", (value) => {
-			setSiteLocale(normalizeSiteLocale(value));
+		const forceLocaleRepaint = (locale) => {
+			displayedLocaleRef.current = locale;
+			setSiteLocale(locale);
+			lastContentKeyRef.current = "";
+			lastChromeKeyRef.current = "";
+			chromeMosaicFrozenKeyRef.current = "";
+			requestPaintRef.current(true);
+			wakeCaseStudyAnimationFrame();
+		};
+
+		const runCaseLocaleMixTowardStore = () => {
+			const canAnimateLocale =
+				shouldAnimateSiteLocaleForCaseChrome()
+				&& !isCaseStageClickMosaicActive()
+				&& !isCasePanelHudRevealBusy()
+				&& !isCasePanelHudRevealExiting();
+
+			// Off-case / reveal busy: drop in-flight mosaic and swap instantly.
+			if (!canAnimateLocale) {
+				cancelCasePanelHudLocaleMix();
+			}
+
+			// Mid-settle / mid-wipe: store already holds the latest desired — chain after finish.
+			if (isCasePanelHudLocaleMixBusy()) {
+				return;
+			}
+
+			void playCasePanelHudLocaleMixTowardStore({
+				shouldAnimate: () => canAnimateLocale,
+				onInstantSwap: (desiredLocale) => {
+					forceLocaleRepaint(desiredLocale);
+					return true;
+				},
+				prepareWipe: async (targetLocale) => {
+					const liveFrom = fromCanvasRef.current;
+					const liveTo = toCanvasRef.current;
+					const liveHost = hostRef.current;
+					const liveCtx = localePaintContextRef.current;
+					if (!liveFrom || !liveTo || !liveHost || !fontsReadyRef.current || !liveCtx?.project) {
+						return { skipWipe: true, forceRepaint: true };
+					}
+
+					const storeIndex = store.portfolioExperience.activeStateIndex;
+					const paintIndex = Number.isInteger(storeIndex) ? storeIndex : liveCtx.activeStateIndex;
+					const paintState = liveCtx.project.states[paintIndex] ?? liveCtx.activeState;
+					if (!paintState) {
+						return { skipWipe: true, forceRepaint: true };
+					}
+
+					const viewportW = liveHost.clientWidth || window.innerWidth;
+					const viewportH = liveHost.clientHeight || window.innerHeight;
+					const navData = resolveCaseProjectCanvasNavigationData(liveCtx.project, targetLocale);
+					const currentFrame = buildCaseStudyFrameData(
+						liveCtx.project,
+						paintState,
+						paintIndex,
+						paintState.id,
+						{ isInvestigating: false, locale: targetLocale },
+					);
+					const painted = paintCaseStudyPanelHudFrame({
+						viewportW,
+						viewportH,
+						project: liveCtx.project,
+						siteLocale: targetLocale,
+						pathname: liveCtx.pathname,
+						projectNavigationData: navData,
+						panelConfigRevision: liveCtx.panelConfigRevision,
+						hideProjectNavigation: liveCtx.hideProjectNavigation,
+						cachedZoneRef,
+						canvas: liveTo,
+						frame: { ...currentFrame, scrollProgress: store.scroll },
+					});
+					if (!painted) {
+						return { skipWipe: true, forceRepaint: true };
+					}
+
+					liveCtx.publishHud(liveFrom, liveTo, {
+						hitRegions: painted.hitRegions,
+						mosaicBounds: painted.mosaicBounds ?? lastPublishMetaRef.current.mosaicBounds,
+					}, [liveTo]);
+					lastPublishMetaRef.current = {
+						hitRegions: painted.hitRegions,
+						mosaicBounds: painted.mosaicBounds ?? lastPublishMetaRef.current.mosaicBounds,
+					};
+
+					const nextState = liveCtx.project.states[paintIndex + 1];
+					const contentKey = [
+						paintState.id,
+						nextState?.id ?? "",
+						targetLocale,
+						viewportW,
+						viewportH,
+						liveCtx.panelConfigRevision,
+						paintIndex,
+						liveCtx.hideProjectNavigation ? 1 : 0,
+						liveCtx.pathname,
+					].join("|");
+
+					// Refresh chrome with store locale while content mosaics.
+					lastChromeKeyRef.current = "";
+					chromeMosaicFrozenKeyRef.current = "";
+					requestPaintRef.current(true);
+
+					return { contentKey, paintIndex };
+				},
+				onAfterDisplayed: (locale, prepared) => {
+					displayedLocaleRef.current = locale;
+					const mosaicComplete = Boolean(
+						prepared
+						&& typeof prepared === "object"
+						&& prepared.contentKey
+						&& !prepared.skipWipe
+						&& !prepared.instant
+						&& !prepared.forceRepaint,
+					);
+					if (prepared && typeof prepared === "object") {
+						if (prepared.contentKey) {
+							lastContentKeyRef.current = prepared.contentKey;
+						}
+						if (Number.isInteger(prepared.paintIndex)) {
+							lastPaintIndexRef.current = prepared.paintIndex;
+						}
+						if (prepared.forceRepaint || prepared.instant || prepared.skipWipe) {
+							lastContentKeyRef.current = prepared.contentKey || "";
+							lastChromeKeyRef.current = "";
+							chromeMosaicFrozenKeyRef.current = "";
+						}
+					}
+					setSiteLocale(locale);
+					// Mosaic wipe: wait for React siteLocale commit + paintNow rebuild so
+					// contentKey matches — an immediate paint would re-upload the old locale.
+					if (!mosaicComplete) {
+						requestPaintRef.current(true);
+					}
+					wakeCaseStudyAnimationFrame();
+				},
+			});
+		};
+
+		const stopLocale = subscribeKey(store, "siteLocale", () => {
+			runCaseLocaleMixTowardStore();
 		});
 		const stopTier = subscribeKey(store, "graphicsTier", () => {
 			requestPaintRef.current(true);
@@ -743,6 +1314,10 @@ export default function CaseStudyPanelHudPainter({
 				toCanvasRef.current = state.toCanvas;
 			}
 			lastPaintIndexRef.current = store.portfolioExperience.activeStateIndex;
+			// Locale wipe owns content keys / textures through promote + displayed sync.
+			if (isCasePanelHudLocaleMixBusy()) {
+				return;
+			}
 			lastContentKeyRef.current = "";
 			// Backward must fill `from` in the same frame; forward can coalesce.
 			if (direction === "backward") {
@@ -770,8 +1345,13 @@ export default function CaseStudyPanelHudPainter({
 			stopTier();
 			stopMenu();
 			stopPromote();
+			cancelCasePanelHudLocaleMix();
 			window.removeEventListener("resize", onResize);
 			resizeObserver?.disconnect();
+			if (chromePaintRafRef.current) {
+				cancelAnimationFrame(chromePaintRafRef.current);
+				chromePaintRafRef.current = 0;
+			}
 			// Overlay only unmounts when leaving all cases — full release.
 			if (isCasePanelHudRevealBusy()) {
 				return;
@@ -801,6 +1381,9 @@ export default function CaseStudyPanelHudPainter({
 	}, []);
 
 	const handleHitPointerEnter = useCallback((event) => {
+		if (!caseChromeOwnsHexHitAtClientY(event.clientY)) {
+			return;
+		}
 		document.body.classList.add("caseNavPointerActive");
 		store.cursor.caseNavHovered = true;
 		store.cursor.hovered = true;
@@ -823,6 +1406,13 @@ export default function CaseStudyPanelHudPainter({
 			requestPaintRef.current(true);
 		}
 	}, [clearNavCursor]);
+
+	const guardCaseChromeHit = useCallback((event, action) => {
+		if (!caseChromeOwnsHexHitAtClientY(event.clientY)) {
+			return;
+		}
+		action();
+	}, []);
 
 	useEffect(() => {
 		const unregister = registerCaseProjectNavSnakeRepaint(() => {
@@ -862,22 +1452,33 @@ export default function CaseStudyPanelHudPainter({
 					onClick={(event) => {
 						event.preventDefault();
 						event.stopPropagation();
-						const targetPath = region.targetPath;
-						const targetProject = targetPath ? getProjectByRoute(targetPath) : null;
-						if (
-							targetProject
-							&& targetProject.config.id !== project.config.id
-							&& (region.id === "previous" || region.id === "next")
-						) {
-							pendingNavRef.current = {
-								projectId: targetProject.config.id,
-								route: targetProject.config.route,
-								data: resolveCaseProjectCanvasNavigationData(targetProject, siteLocale),
-							};
-							lastChromeKeyRef.current = "";
-							requestPaintRef.current(true);
-						}
-						activateCaseProjectCanvasNavigation(region, pathname);
+						guardCaseChromeHit(event, () => {
+							activateCaseProjectCanvasNavigation(region, pathname);
+						});
+					}}
+				/>
+			))}
+			{!chromeRevealLocked && stageHitRegions.map((region) => (
+				<button
+					key={region.id}
+					type="button"
+					className={styles.caseStudyPanelHudHit}
+					style={{
+						left: region.x,
+						top: region.y,
+						width: region.w,
+						height: region.h,
+					}}
+					tabIndex={-1}
+					aria-label={region.id}
+					onClick={(event) => {
+						event.preventDefault();
+						event.stopPropagation();
+						guardCaseChromeHit(event, () => {
+							if (region.stateId && region.stateId !== activeStateId) {
+								goToState(region.stateId);
+							}
+						});
 					}}
 				/>
 			))}

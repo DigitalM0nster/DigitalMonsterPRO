@@ -14,19 +14,30 @@ import clickSoundUrl from "./clickSound.mp3";
 
 /** Каталог звуков саунддизайна — пути в public/audio. */
 export const SOUND_CATALOG = {
+	/** Hub logo + About front hex dissolve scrub (`aboutFrontDissolveSound.js`). */
 	logo_reveal: "/audio/logo_reveal.mp3",
+	/** About Back plate disappear (`aboutBackDissolveSound.js`) — story 1→2. */
+	about_back_dissolve: "/audio/text2.mp3",
+	/** White PCB particle bed after appear (`aboutParticleSound.js`). */
+	about_particles: "/audio/about_particles.wav",
+	/** White PCB appear scrub (`aboutPcbAppearSound.js`) — same sample, louder. */
+	about_pcb_appear: "/audio/about_particles.wav",
+	/** Spare / alternate teleport one-shot. */
+	teleport_out: "/audio/teleportOut.mp3",
 	/** Digital-звук под глитч текста (~2s), обрезается под длительность змейки. */
 	digital_sound: "/audio/digital_sound.mp3",
 	/** Выезд/уезд карточки проекта в хабе (plateSlideDuration, 0.9 с). */
 	card_movement: "/audio/card_movement.mp3",
 	/** Уход с роута /portfolio (hub → кейс или на другую страницу). */
 	portfolio_leave: "/audio/portfolio_leave_transition.mp3",
-	/** Заход на /portfolio — под длительность gridEnter (2 с). */
-	portfolio_enter: "/audio/1/transition_riser.wav",
+	/** Заход на /portfolio — под длительность gridEnter (2 с). Asset: public/audio/portfolio_enter.* */
+	portfolio_enter: "/audio/portfolio_enter.wav",
 	/** Короткий beep при hover пункта левого меню. */
 	beep: "/audio/beep.mp3",
 	/** Hex-переход карусели — scrub по progress (отдельный контроллер). */
 	hex_transition1: "/audio/hexTransition1.mp3",
+	/** Левый HUD — scrub в caseStudyTextTransitionSound.js (всегда reverse / scroll-down). */
+	panel_hud_text: "/audio/text4.mp3",
 	/** Ambient под водой на главной — loop + spatial (отдельный контроллер). */
 	underwater: "/audio/underwater.mp3",
 	/** Glitch-импульс кнопки «Подробнее» на плитке. */
@@ -198,6 +209,11 @@ export function preloadSoundDesign() {
 		loadAudioBuffer(src).catch(() => {});
 	}
 	void import("./hexTransitionSound.js").then((m) => m.preloadHexTransitionSound());
+	void import("./caseStudyTextTransitionSound.js").then((m) => m.preloadCaseStudyTextTransitionSound());
+	void import("./aboutFrontDissolveSound.js").then((m) => m.preloadAboutFrontDissolveSound());
+	void import("./aboutBackDissolveSound.js").then((m) => m.preloadAboutBackDissolveSound());
+	void import("./aboutParticleSound.js").then((m) => m.preloadAboutParticleSound());
+	void import("./aboutPcbAppearSound.js").then((m) => m.preloadAboutPcbAppearSound());
 	void import("./underwaterSound.js").then((m) => m.preloadUnderwaterSound());
 }
 
@@ -361,9 +377,7 @@ async function playTimedSound(soundId, durationMs, slot, fadeOutMs = DIGITAL_SOU
 
 	const gain = ctx.createGain();
 	gain.gain.value = volumeGain;
-	const panner = spatialPosition
-		? connectGainWithSpatialToMasterBus(ctx, gain, spatialPosition)
-		: connectWithPan(ctx, gain, getSoundPan(soundId, panOverride));
+	const panner = spatialPosition ? connectGainWithSpatialToMasterBus(ctx, gain, spatialPosition) : connectWithPan(ctx, gain, getSoundPan(soundId, panOverride));
 
 	const source = ctx.createBufferSource();
 	source.buffer = buffer;
@@ -695,6 +709,15 @@ function suspendSoundDesignContext() {
 	}
 	activeGlitchSounds.length = 0;
 
+	for (const slotRef of [cardMovementSoundSlot, portfolioEnterSoundSlot]) {
+		if (!slotRef) continue;
+		slotRef.cancelled = true;
+		disposeGlitchInstance(slotRef.instance);
+		slotRef.instance = null;
+	}
+	cardMovementSoundSlot = null;
+	portfolioEnterSoundSlot = null;
+
 	suspendMasterAudioContext();
 }
 
@@ -705,6 +728,12 @@ function fadeOutAllDesignSounds(durationMs) {
 
 	for (const slot of activeGlitchSounds) {
 		if (slot.instance && !slot.instance.disposed) {
+			fadeOutGlitchInstance(slot.instance, durationMs);
+		}
+	}
+
+	for (const slot of [cardMovementSoundSlot, portfolioEnterSoundSlot]) {
+		if (slot?.instance && !slot.instance.disposed) {
 			fadeOutGlitchInstance(slot.instance, durationMs);
 		}
 	}

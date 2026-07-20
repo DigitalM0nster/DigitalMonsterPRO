@@ -1,11 +1,4 @@
-import {
-	CASE_STUDY_BODY_FONT,
-	CASE_STUDY_DISPLAY_FONT,
-	fillTextWithSpacing,
-	fillWrappedText,
-	measureTextWithSpacing,
-	measureWrappedTextHeight,
-} from "./caseStudyCanvasText.js";
+import { CASE_STUDY_BODY_FONT, CASE_STUDY_DISPLAY_FONT, fillTextWithSpacing, fillWrappedText, measureTextWithSpacing, measureWrappedTextHeight } from "./caseStudyCanvasText.js";
 
 const MAX_FEATURES = 3;
 
@@ -121,15 +114,7 @@ export function drawFeaturesBlock(ctx, x, y, innerW, features, theme, cfg) {
 		if (item.subtitle) {
 			ctx.font = `400 ${typo.bottomSize}px ${CASE_STUDY_BODY_FONT}`;
 			ctx.fillStyle = theme.textMuted;
-			fillWrappedText(
-				ctx,
-				item.subtitle,
-				textX,
-				blockY + topH + typo.textGap,
-				textW,
-				typo.bottomSize * 1.25,
-				3,
-			);
+			fillWrappedText(ctx, item.subtitle, textX, blockY + topH + typo.textGap, textW, typo.bottomSize * 1.25, 3);
 		}
 
 		cursorY += rowH;
@@ -226,8 +211,7 @@ export function drawSectionBadge(ctx, x, y, label, theme, cfg) {
 	fillTextWithSpacing(ctx, chapterPart.toUpperCase(), textX, y, spacing);
 
 	if (restPart) {
-		const chapterW = measureTextWithSpacing(ctx, chapterPart.toUpperCase(), spacing)
-			+ measureTextWithSpacing(ctx, " ", spacing);
+		const chapterW = measureTextWithSpacing(ctx, chapterPart.toUpperCase(), spacing) + measureTextWithSpacing(ctx, " ", spacing);
 		ctx.fillStyle = theme.textDim;
 		fillTextWithSpacing(ctx, restPart.toUpperCase(), textX + chapterW, y, spacing);
 	}

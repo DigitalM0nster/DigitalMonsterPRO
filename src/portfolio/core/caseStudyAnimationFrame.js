@@ -7,12 +7,29 @@ import {
 	isCaseStudyArcShiftAnimating,
 	tickCaseStudyArcShift,
 } from "@/portfolio/ui/CaseStudyCanvas/caseStudyArcPositionMotion.js";
+import {
+	isCaseStudyArcFocusAnimating,
+	tickCaseStudyArcFocus,
+} from "@/portfolio/ui/CaseStudyCanvas/caseStudyArcFocusMotion.js";
+import {
+	isCaseStudyArcSelectSequencing,
+} from "@/portfolio/ui/CaseStudyCanvas/caseStudyArcSelectSequence.js";
+import {
+	isArcLabelHoverAnimating,
+	tickArcLabelHover,
+} from "@/portfolio/ui/CaseStudyCanvas/caseStudyArcLabelHover.js";
 import { store } from "@/store.jsx";
 import {
 	tickStageProgress,
 	isStageProgressAnimating,
 	getStageProgress,
 } from "./stageProgress.js";
+import { isCaseStageClickMosaicActive } from "./caseStageClickMosaic.js";
+import {
+	getCaseStudyStageRailMotionToken,
+	isCaseStudyStageRailHeaderLinkAnimating,
+	tickCaseStudyStageRailHeaderLink,
+} from "@/portfolio/ui/CaseStudyCanvas/caseStudyStageRail.js";
 import { cancelSharedAnimationFrame, requestSharedAnimationFrame } from "@/utils/sharedAnimationFrame.js";
 
 /** @type {(() => void) | null} */
@@ -28,6 +45,13 @@ let panelScrollPaintCallback = null;
  */
 let panelStagePaintCallback = null;
 
+/**
+ * Chrome stage rail only — follows stageProgress / click mosaic.
+ * Never touches left from/to text textures.
+ * @type {(() => void) | null}
+ */
+let chromeStagePaintCallback = null;
+
 /** @type {((dt: number) => void) | null} */
 let stageProgressCallback = null;
 
@@ -36,15 +60,19 @@ let running = false;
 let lastTickTime = 0;
 let nextPanelPaintAt = 0;
 let nextPanelStagePaintAt = 0;
+let nextChromeStagePaintAt = 0;
 let nextArcPaintAt = 0;
 let panelPaintPending = false;
 let panelStagePaintPending = false;
+let chromeStagePaintPending = false;
 let arcPaintPending = false;
 /** Последний scrollProgress, отрисованный на canvas. */
 let lastPanelPaintedScroll = 0;
 let lastArcPaintedScroll = 0;
 /** Последний stageProgress, отрисованный HTML mosaic. */
 let lastPaintedStageProgress = 0;
+/** Последний motion-token chrome rail. */
+let lastChromeStageMotionToken = "";
 
 const SCROLL_PAINT_EPSILON = 0.00001;
 /** Arc glow only needs coarse scroll steps — avoids full Canvas2D redraw on every lerp tick. */
@@ -54,7 +82,9 @@ const STAGE_PAINT_EPSILON = 0.00001;
 const PANEL_FRAME_INTERVAL_MS = 1000 / 20;
 /** HTML Canvas2D stage mosaic — throttle (~24 FPS) instead of every rAF. */
 const PANEL_STAGE_FRAME_INTERVAL_MS = 1000 / 24;
-const ARC_FRAME_INTERVAL_MS = 1000 / 18;
+/** Stage rail chrome — smooth follow of stageProgress. */
+const CHROME_STAGE_FRAME_INTERVAL_MS = 1000 / 60;
+const ARC_FRAME_INTERVAL_MS = 1000 / 60;
 
 /**
  * @param {(() => void) | null} fn — только дуга (bloom, скролл, анимации).
@@ -63,7 +93,13 @@ export function registerCaseStudyArcPaint(fn) {
 	arcPaintCallback = fn;
 	if (fn && typeof window !== "undefined") {
 		lastArcPaintedScroll = store.scroll;
-	} else if (!fn && !panelScrollPaintCallback && !panelStagePaintCallback && !stageProgressCallback) {
+	} else if (
+		!fn
+		&& !panelScrollPaintCallback
+		&& !panelStagePaintCallback
+		&& !chromeStagePaintCallback
+		&& !stageProgressCallback
+	) {
 		stopCaseStudyAnimationFrame();
 	}
 }
@@ -80,7 +116,13 @@ export function registerCaseStudyPanelScrollPaint(fn) {
 	panelScrollPaintCallback = fn;
 	if (fn && typeof window !== "undefined") {
 		lastPanelPaintedScroll = store.scroll;
-	} else if (!fn && !arcPaintCallback && !panelStagePaintCallback && !stageProgressCallback) {
+	} else if (
+		!fn
+		&& !arcPaintCallback
+		&& !panelStagePaintCallback
+		&& !chromeStagePaintCallback
+		&& !stageProgressCallback
+	) {
 		stopCaseStudyAnimationFrame();
 	}
 }
@@ -92,7 +134,13 @@ export function registerCaseStudyPanelStagePaint(fn) {
 	panelStagePaintCallback = fn;
 	if (fn && typeof window !== "undefined") {
 		lastPaintedStageProgress = getStageProgress();
-	} else if (!fn && !arcPaintCallback && !panelScrollPaintCallback && !stageProgressCallback) {
+	} else if (
+		!fn
+		&& !arcPaintCallback
+		&& !panelScrollPaintCallback
+		&& !chromeStagePaintCallback
+		&& !stageProgressCallback
+	) {
 		stopCaseStudyAnimationFrame();
 	}
 }
@@ -102,7 +150,32 @@ export function registerCaseStudyPanelStagePaint(fn) {
  */
 export function registerCaseStudyStageProgress(fn) {
 	stageProgressCallback = fn;
-	if (!fn && !arcPaintCallback && !panelScrollPaintCallback && !panelStagePaintCallback) {
+	if (
+		!fn
+		&& !arcPaintCallback
+		&& !panelScrollPaintCallback
+		&& !panelStagePaintCallback
+		&& !chromeStagePaintCallback
+	) {
+		stopCaseStudyAnimationFrame();
+	}
+}
+
+/**
+ * Chrome stage-rail paint driven by stageProgress (WebGL left HUD path).
+ * @param {(() => void) | null} fn
+ */
+export function registerCaseStudyChromeStagePaint(fn) {
+	chromeStagePaintCallback = fn;
+	if (fn && typeof window !== "undefined") {
+		lastChromeStageMotionToken = getCaseStudyStageRailMotionToken();
+	} else if (
+		!fn
+		&& !arcPaintCallback
+		&& !panelScrollPaintCallback
+		&& !panelStagePaintCallback
+		&& !stageProgressCallback
+	) {
 		stopCaseStudyAnimationFrame();
 	}
 }
@@ -111,9 +184,11 @@ export function stopCaseStudyAnimationFrame() {
 	running = false;
 	panelPaintPending = false;
 	panelStagePaintPending = false;
+	chromeStagePaintPending = false;
 	arcPaintPending = false;
 	nextPanelPaintAt = 0;
 	nextPanelStagePaintAt = 0;
+	nextChromeStagePaintAt = 0;
 	nextArcPaintAt = 0;
 	if (rafId) {
 		cancelSharedAnimationFrame(rafId);
@@ -133,6 +208,10 @@ function hasStageProgressChangedSincePaint() {
 	return Math.abs(getStageProgress() - lastPaintedStageProgress) > STAGE_PAINT_EPSILON;
 }
 
+function hasChromeStageMotionChangedSincePaint() {
+	return getCaseStudyStageRailMotionToken() !== lastChromeStageMotionToken;
+}
+
 function isCasePageActive() {
 	return Boolean(store.openedCase);
 }
@@ -143,33 +222,60 @@ function shouldContinueAnimationFrame() {
 	}
 
 	const hasCasePainters = Boolean(
-		arcPaintCallback || panelScrollPaintCallback || panelStagePaintCallback || stageProgressCallback,
+		arcPaintCallback
+		|| panelScrollPaintCallback
+		|| panelStagePaintCallback
+		|| chromeStagePaintCallback
+		|| stageProgressCallback,
 	);
-	if (!hasCasePainters) {
+	const arcMotion =
+		isArcGlowAnimating()
+		|| isArcNavLabelColorsAnimating()
+		|| isCaseStudyArcShiftAnimating()
+		|| isCaseStudyArcFocusAnimating()
+		|| isCaseStudyArcSelectSequencing()
+		|| isArcLabelHoverAnimating();
+	const chromeRailMotion =
+		Boolean(chromeStagePaintCallback)
+		&& (
+			isStageProgressAnimating()
+			|| isCaseStageClickMosaicActive()
+			|| isCaseStudyStageRailHeaderLinkAnimating()
+		);
+
+	if (!hasCasePainters && !arcMotion) {
 		return false;
 	}
 
 	return (
 		panelPaintPending ||
 		panelStagePaintPending ||
+		chromeStagePaintPending ||
 		arcPaintPending ||
 		(Boolean(panelScrollPaintCallback) && hasPanelScrollChangedSincePaint()) ||
 		(Boolean(arcPaintCallback) && hasArcScrollChangedSincePaint()) ||
 		(Boolean(panelStagePaintCallback) && hasStageProgressChangedSincePaint()) ||
+		(Boolean(chromeStagePaintCallback) && hasChromeStageMotionChangedSincePaint()) ||
 		(Boolean(stageProgressCallback) && isStageProgressAnimating()) ||
-		(Boolean(arcPaintCallback) && (
-			isArcGlowAnimating() ||
-			isArcNavLabelColorsAnimating() ||
-			isCaseStudyArcShiftAnimating()
-		))
+		chromeRailMotion ||
+		arcMotion
 	);
 }
 
 function startAnimationLoop() {
+	if (typeof window === "undefined" || !isCasePageActive()) {
+		return;
+	}
 	if (
-		typeof window === "undefined" ||
-		!isCasePageActive() ||
-		(!arcPaintCallback && !panelScrollPaintCallback && !panelStagePaintCallback && !stageProgressCallback)
+		!arcPaintCallback
+		&& !panelScrollPaintCallback
+		&& !panelStagePaintCallback
+		&& !chromeStagePaintCallback
+		&& !stageProgressCallback
+		&& !isArcGlowAnimating()
+		&& !isCaseStudyArcFocusAnimating()
+		&& !isCaseStudyArcSelectSequencing()
+		&& !isCaseStageClickMosaicActive()
 	) {
 		return;
 	}
@@ -182,6 +288,7 @@ function startAnimationLoop() {
 	lastTickTime = performance.now();
 	nextPanelPaintAt = 0;
 	nextPanelStagePaintAt = 0;
+	nextChromeStagePaintAt = 0;
 	nextArcPaintAt = 0;
 	rafId = requestSharedAnimationFrame(frame);
 }
@@ -204,6 +311,7 @@ function frame(now) {
 		rafId = 0;
 		panelPaintPending = false;
 		panelStagePaintPending = false;
+		chromeStagePaintPending = false;
 		arcPaintPending = false;
 		return;
 	}
@@ -216,21 +324,42 @@ function frame(now) {
 		stageProgressCallback?.(dt);
 	}
 
+	const headerLinkMoving = tickCaseStudyStageRailHeaderLink(dt);
+
 	const glowMoving = tickArcGlowMotion(dt);
 	const labelsAnimating = tickArcNavLabelColors(dt);
 	const arcPositionMoving = tickCaseStudyArcShift(dt);
+	const arcFocusMoving = tickCaseStudyArcFocus(dt);
+	const labelHoverMoving = tickArcLabelHover(dt);
 	const panelScrollChanged = hasPanelScrollChangedSincePaint();
 	const arcScrollChanged = hasArcScrollChangedSincePaint();
 	const stageProgressChanged = hasStageProgressChangedSincePaint();
-	arcPaintPending ||= glowMoving || labelsAnimating || arcPositionMoving || arcScrollChanged;
+	const chromeStageChanged = hasChromeStageMotionChangedSincePaint();
+	arcPaintPending ||= (
+		glowMoving
+		|| labelsAnimating
+		|| arcPositionMoving
+		|| arcFocusMoving
+		|| labelHoverMoving
+		|| isCaseStudyArcSelectSequencing()
+		|| arcScrollChanged
+	);
 	// Scroll/SYS only when a panel scroll painter is registered (HTML left panel).
 	panelPaintPending ||= panelScrollChanged && Boolean(panelScrollPaintCallback);
 	panelStagePaintPending ||= Boolean(panelStagePaintCallback) && stageProgressChanged;
+	chromeStagePaintPending ||= Boolean(chromeStagePaintCallback)
+		&& (chromeStageChanged || headerLinkMoving);
+	// Header-link draw/erase must paint every rAF — don't wait on the chrome deadline.
+	if (headerLinkMoving && chromeStagePaintCallback) {
+		chromeStagePaintPending = true;
+		nextChromeStagePaintAt = 0;
+	}
 
 	if (arcPaintPending && (nextArcPaintAt <= 0 || now >= nextArcPaintAt)) {
 		arcPaintCallback?.();
 		arcPaintPending = false;
 		lastArcPaintedScroll = store.scroll;
+		// Cap at ARC_FRAME_INTERVAL_MS even during glow/spin — uncapped rAF was the CPU spike.
 		nextArcPaintAt = resolveNextPaintDeadline(now, nextArcPaintAt, ARC_FRAME_INTERVAL_MS);
 	}
 
@@ -252,6 +381,17 @@ function frame(now) {
 		);
 	}
 
+	if (chromeStagePaintPending && (nextChromeStagePaintAt <= 0 || now >= nextChromeStagePaintAt)) {
+		chromeStagePaintCallback?.();
+		chromeStagePaintPending = false;
+		lastChromeStageMotionToken = getCaseStudyStageRailMotionToken();
+		nextChromeStagePaintAt = resolveNextPaintDeadline(
+			now,
+			nextChromeStagePaintAt,
+			CHROME_STAGE_FRAME_INTERVAL_MS,
+		);
+	}
+
 	if (shouldContinueAnimationFrame()) {
 		rafId = requestSharedAnimationFrame(frame);
 	} else {
@@ -269,6 +409,29 @@ export function requestCaseStudyScrollRepaint() {
 export function markCaseStudyArcDirty() {
 	arcPaintPending = true;
 	lastArcPaintedScroll = Number.NaN;
+	nextArcPaintAt = 0;
+	startAnimationLoop();
+}
+
+/**
+ * Sync DomNav labels immediately (orbit enter/exit).
+ * Bypasses the case rAF gate — HUD exit sets openedCase=false and stops the loop,
+ * but WebGL still reads introRotationDeg every frame; labels must follow.
+ */
+export function flushCaseStudyArcPaint() {
+	if (!arcPaintCallback) {
+		return;
+	}
+	arcPaintCallback();
+	arcPaintPending = false;
+	lastArcPaintedScroll = store.scroll;
+}
+
+/** Явно перерисовать chrome stage-rail (dev tune / layout). */
+export function markCaseStudyChromeStageDirty() {
+	chromeStagePaintPending = true;
+	lastChromeStageMotionToken = "";
+	nextChromeStagePaintAt = 0;
 	startAnimationLoop();
 }
 

@@ -28,6 +28,7 @@ export function useSceneCarouselNavigation() {
 			};
 
 			if (normalizePath(location.pathname) === normalizePath(path)) {
+				store.sceneCarouselSkipHtmlExit = false;
 				clearHandledPath();
 				return;
 			}

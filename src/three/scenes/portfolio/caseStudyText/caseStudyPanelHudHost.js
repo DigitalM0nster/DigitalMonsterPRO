@@ -1,9 +1,10 @@
+import { getSceneCarousel } from "@/three/render/transition/carouselPage.js";
 import { CaseStudyPanelHudMesh } from "./CaseStudyPanelHudMesh.js";
 
 /**
  * Shared CaseStudy left-panel HUD host (Nipigas WebGL path).
  * Attach `panelHud` to any case scene so SceneManager / DigitalMonsterThreeApp
- * can composite after bloom and during hex the same way as Case1.
+ * can composite after bloom; hex cuts the overlay via shared shader mask.
  */
 
 /**
@@ -26,17 +27,45 @@ export function createCaseStudyPanelHud(threeScene) {
 export function syncCaseStudyPanelHud(panelHud, { showCase = false, mixPreview = false, store = null } = {}) {
 	if (!panelHud) return;
 
-	const hudActive = Boolean(mixPreview || (showCase && store?.openedCase));
+	// Case-boundary scroll mix: only the open case's left HUD (hex-cut on screen overlay).
+	// Mix-preview target must not show a second left band from the shared bridge.
+	const caseScrollMix = getSceneCarousel().isCaseBoundaryDrive() === true;
+	const hudActive = Boolean(
+		(mixPreview && !caseScrollMix) || (showCase && store?.openedCase),
+	);
 	if (hudActive) {
+		// Content only on bridge revision; anim uniforms every active frame.
 		panelHud.syncFromBridge();
 		panelHud.setVisible(true);
 		return;
 	}
 
-	panelHud.setComposeMode("models");
-	panelHud.setVisible(false);
-	// Drop GPU textures if the React bridge already cleared canvases.
-	panelHud.syncFromBridge();
+	// Dormant: hide once, never sync (shared bridge belongs to the open case).
+	if (panelHud.visible) {
+		panelHud.setComposeMode("models");
+		panelHud.setVisible(false);
+	}
+}
+
+/**
+ * About left HUD — About-owned bridge; show while About is current/mix-preview.
+ * @param {CaseStudyPanelHudMesh | null | undefined} panelHud
+ * @param {{ active?: boolean }} [opts]
+ */
+export function syncAboutPanelHud(panelHud, { active = false } = {}) {
+	if (!panelHud) return;
+
+	if (active) {
+		panelHud.setComposeMode("screen");
+		panelHud.syncFromBridge();
+		panelHud.setVisible(true);
+		return;
+	}
+
+	if (panelHud.visible) {
+		panelHud.setComposeMode("models");
+		panelHud.setVisible(false);
+	}
 }
 
 /**

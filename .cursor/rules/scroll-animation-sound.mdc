@@ -1,0 +1,19 @@
+---
+description: Scrub SFX driven by visual scroll/animation progress (left HUD, hex-like)
+globs: src/sounds/**/*
+alwaysApply: false
+---
+
+# Scroll / animation–driven sounds
+
+Canonical: [`src/sounds/SCROLL_ANIMATION_SOUND.md`](src/sounds/SCROLL_ANIMATION_SOUND.md).
+
+When adding or changing SFX that follow stage mix, mosaic wipe, hex/carousel progress, or springs:
+
+1. Drive **painted** progress (`progress` / visual mix), not wheel / `progressTarget`.
+2. **Scrub** a buffer with rate from `|d progress / dt|` — do not leave a loop running after spring rest (rAF may stop).
+3. Rest → long soft fade; large progress jumps → stop + reset playhead, no cross-seek.
+4. Paths in `SOUND_CATALOG` (`soundDesign.js`) — no one-line `*SoundSrc.js` files.
+5. Mute / visibility / `masterAudioBus`; avoid circular imports with `soundDesign` preload.
+
+Left HUD: `caseStudyTextTransitionSound.js` (monotonic `|Δprogress|`, fixed reverse timbre). About front dissolve: `aboutFrontDissolveSound.js` (`logo_reveal`). About back dissolve: `aboutBackDissolveSound.js` (`about_back_dissolve`). About white PCB particles: `aboutParticleSound.js` (`about_particles`). About PCB appear: `aboutPcbAppearSound.js` (`about_pcb_appear`). No SFX for blue edge lattice. Hex route: `hexTransitionSound.js`.

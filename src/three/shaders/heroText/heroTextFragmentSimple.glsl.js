@@ -31,15 +31,19 @@ void main() {
 	vec3 base = displacedColor.rgb * uSubtitleTint;
 	vec3 rgb = pow(base * uSubtitleBrightness, vec3(1.0 / uSubtitleGamma));
 
-	// Glitch-символы на canvas (#00ccff): низкий R, не белый tagline и не stack #8ce8ff (R ~0.55).
+	// Snake letters (#009dff) on SRGB→linear textures: G≈0.35, B≈1, R≈0.
+	// Old mask expected sRGB G (0.45–0.68) and killed HDR neon after color-management.
 	float glitchSymbolMask =
-		(1.0 - smoothstep(0.08, 0.22, displacedColor.r)) *
-		smoothstep(0.2, 0.42, displacedColor.b - displacedColor.r) *
-		smoothstep(0.45, 0.68, displacedColor.g);
+		smoothstep(0.04, 0.18, displacedColor.a) *
+		(1.0 - smoothstep(0.05, 0.38, displacedColor.r)) *
+		smoothstep(0.12, 0.42, displacedColor.g) *
+		smoothstep(0.35, 0.75, displacedColor.b);
 	vec3 bloomHdr = uReplacementBloomTint * uReplacementBloomBoost;
 	rgb = mix(rgb, bloomHdr, glitchSymbolMask);
+	// Keep soft canvas halo (low alpha) for neon fringe — don't discard it.
+	alpha = max(alpha, glitchSymbolMask * displacedColor.a * revealAlpha);
 
 	gl_FragColor = vec4(rgb, alpha);
-	if (gl_FragColor.a < 0.1) discard;
+	if (gl_FragColor.a < 0.02) discard;
 }
 `;

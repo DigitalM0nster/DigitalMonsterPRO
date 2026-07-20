@@ -42,10 +42,12 @@ export function createCaseSceneLifecycle(host, options) {
 		getStore = () => host.store ?? null,
 		getPanelHud = () => host.panelHud ?? null,
 		isLoaded = () => host.loaded !== false,
-		hideScale = 0,
+		// Deprecated: never applied on hide (scale collapse = zoom-out bug). Kept for call-site compat.
+		hideScale: _deprecatedHideScale = 0,
 		resetScrollOnEnter = true,
 		hooks = {},
 	} = options;
+	void _deprecatedHideScale;
 
 	if (!sceneId || typeof matchPage !== "function" || typeof getRoot !== "function") {
 		throw new Error("[caseSceneLifecycle] sceneId, matchPage, and getRoot are required");
@@ -91,13 +93,25 @@ export function createCaseSceneLifecycle(host, options) {
 		return getStore()?.scroll ?? 0;
 	}
 
+	/**
+	 * True while this case is source/target of an in-flight hex or case-boundary mix.
+	 * Must NOT require hexProgress > 0 — settle + first enter frames are progress≈0;
+	 * hiding with scale→0 then reads as a camera pull-back / model shrink.
+	 */
 	function isHexMixParticipant() {
-		if (getHexShaderProgress() <= 0.0001) {
-			return false;
-		}
 		try {
-			const { sourceId, targetId } = getSceneCarousel().getMixSourceTargetIds();
-			return sourceId === sceneId || targetId === sceneId;
+			const carousel = getSceneCarousel();
+			const locked = carousel.isInteractionLocked?.() === true
+				|| carousel.isCaseBoundaryDrive?.() === true;
+			const { sourceId, targetId } = carousel.getMixSourceTargetIds();
+			const inPair = sourceId === sceneId || targetId === sceneId;
+			if (locked && inPair) {
+				return true;
+			}
+			if (getHexShaderProgress() <= 0.0001) {
+				return false;
+			}
+			return inPair;
 		} catch {
 			return true;
 		}
@@ -107,7 +121,7 @@ export function createCaseSceneLifecycle(host, options) {
 		const root = getRoot();
 		if (root) {
 			root.visible = false;
-			root.scale.set(hideScale, hideScale, hideScale);
+			// Never collapse scale on hide (SITE_TRANSITION.md). Enter/mix hooks own scale.
 			freezeHiddenRoot(root);
 		}
 		state.activePage = false;
@@ -211,14 +225,18 @@ export function createCaseSceneLifecycle(host, options) {
 		}
 
 		if (!show) {
+			// Mid case-boundary/hex: HTML `exiting` must not wipe the mix target —
+			// clearing activePage leaves Case1 bloom at 0 with playEnter stuck on mixPreview.
+			if (state.mixPreview || isHexMixParticipant()) {
+				syncHost();
+				return;
+			}
 			state.activePage = false;
 			state.showCase = false;
 			hideCaseStudyPanelHud(getPanelHud());
 			// Hex already finished when display leaves — hide without scale-out
 			// (scale→0 mid-transition reads as a camera pull-back).
-			if (!isHexMixParticipant()) {
-				hideRoot();
-			}
+			hideRoot();
 			syncHost();
 			return;
 		}
@@ -252,6 +270,11 @@ export function createCaseSceneLifecycle(host, options) {
 	function setMixPreviewActive(active) {
 		state.mixPreview = active === true;
 		if (!state.mixPreview) {
+			// Boundary settle: restore interactive/bloom if this case is still live.
+			if (state.showCase && !state.activePage) {
+				state.activePage = true;
+				state.enterPending = false;
+			}
 			syncHost();
 			return;
 		}
@@ -264,6 +287,59 @@ export function createCaseSceneLifecycle(host, options) {
 		hooks.onReset?.();
 		hideRoot();
 		syncHost();
+	}
+
+	/**
+	 * Preloader: briefly wake the root for a real RT draw without enter hooks.
+	 * compile() ≠ first draw — cold case→home pays that hitch on HUD exit frames.
+	 */
+	function beginWarmupDraw() {
+		const root = getRoot();
+		const token = {
+			showCase: state.showCase,
+			mixPreview: state.mixPreview,
+			activePage: state.activePage,
+			exitHideComplete: state.exitHideComplete,
+			enterPending: state.enterPending,
+			rootVisible: Boolean(root?.visible),
+		};
+		if (root) {
+			root.visible = true;
+			restoreRootForShow(root);
+		}
+		state.showCase = true;
+		state.mixPreview = true;
+		state.exitHideComplete = false;
+		syncHost();
+		return token;
+	}
+
+	function endWarmupDraw(token) {
+		if (!token) {
+			return;
+		}
+		state.showCase = token.showCase;
+		state.mixPreview = token.mixPreview;
+		state.activePage = token.activePage;
+		state.exitHideComplete = token.exitHideComplete;
+		state.enterPending = token.enterPending;
+		syncHost();
+
+		const root = getRoot();
+		const stayVisible = token.showCase || token.mixPreview || token.activePage;
+		if (!stayVisible) {
+			if (root) {
+				root.visible = false;
+				freezeHiddenRoot(root);
+			}
+			return;
+		}
+		if (root) {
+			root.visible = token.rootVisible || stayVisible;
+			if (root.visible) {
+				restoreRootForShow(root);
+			}
+		}
 	}
 
 	function shouldRender() {
@@ -350,6 +426,8 @@ export function createCaseSceneLifecycle(host, options) {
 		playEnterAnimation,
 		setMixPreviewActive,
 		resetCarouselState,
+		beginWarmupDraw,
+		endWarmupDraw,
 		shouldRender,
 		shouldRenderOverlay,
 		shouldKeepUpdating,

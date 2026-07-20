@@ -15,14 +15,14 @@ export const PORTFOLIO_PROJECT_NAMES = {
 		zh: "TROOF",
 	},
 	"03": {
+		ru: "ОСТАНКИНО",
+		en: "OSTANKINO",
+		zh: "OSTANKINO",
+	},
+	"04": {
 		ru: "MMK-1",
 		en: "MMK-1",
 		zh: "MMK-1",
-	},
-	"04": {
-		ru: "СТУДИЯ БЕЛКИ",
-		en: "BELKA PRODUCTION",
-		zh: "BELKA PRODUCTION",
 	},
 	"05": {
 		ru: "RE-EVOLUTION",
@@ -30,9 +30,9 @@ export const PORTFOLIO_PROJECT_NAMES = {
 		zh: "RE-EVOLUTION",
 	},
 	"06": {
-		ru: "ОСТАНКИНО",
-		en: "OSTANKINO",
-		zh: "OSTANKINO",
+		ru: "СТУДИЯ БЕЛКИ",
+		en: "BELKA PRODUCTION",
+		zh: "BELKA PRODUCTION",
 	},
 	"07": {
 		ru: "HUBARCH",
@@ -54,14 +54,14 @@ export const PORTFOLIO_PROJECT_PLATE_SECONDARY = {
 		zh: "屋面系统与服务",
 	},
 	"03": {
+		ru: "интерактивный каталог офисов",
+		en: "interactive office catalogue",
+		zh: "互动式办公室目录",
+	},
+	"04": {
 		ru: "аренда башенных кранов",
 		en: "tower crane rental",
 		zh: "塔式起重机租赁",
-	},
-	"04": {
-		ru: "продакшн-студия полного цикла",
-		en: "full-cycle production studio",
-		zh: "全流程制作工作室",
 	},
 	"05": {
 		ru: "креативное агентство полного цикла",
@@ -69,9 +69,9 @@ export const PORTFOLIO_PROJECT_PLATE_SECONDARY = {
 		zh: "全方位创意代理机构",
 	},
 	"06": {
-		ru: "интерактивный каталог офисов",
-		en: "interactive office catalogue",
-		zh: "互动式办公室目录",
+		ru: "продакшн-студия полного цикла",
+		en: "full-cycle production studio",
+		zh: "全流程制作工作室",
 	},
 	"07": {
 		ru: "архитектурное портфолио",

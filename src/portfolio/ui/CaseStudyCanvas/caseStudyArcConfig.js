@@ -1,31 +1,31 @@
 import { SITE_MAIN_COLOR } from "@/constants/siteMainColor.js";
 
 /**
- * Настраиваемые параметры дуги case study — dev-панель (клавиша 8) или этот файл.
+ * Настраиваемые параметры дуги case study — правь этот файл.
  */
 export const caseStudyArcConfig = {
-	/** Поворот всей правой дуги вокруг центра окружности, градусы. */
+	/** Поворот круга вокруг своей оси (градусы). Дуга и узлы крутятся вместе. */
 	rotationDeg: 0,
 	/** Прозрачность дуги, внешнего и центрального кружка (0–1). */
 	trackOpacity: 0.15,
 	/** Прозрачность неактивных подписей; активный пункт всегда 100%. */
 	inactiveTextOpacity: 0.45,
 	/** Прозрачность среднего кружка (0–1), относительно trackOpacity. */
-	nodeMidOpacity: 0.32,
+	nodeMidOpacity: 0.25,
 	/** Цвет активного кружка, bloom и номера главы. */
 	activeColor: SITE_MAIN_COLOR,
 	/** Прозрачность активного кружка и центральной точки (0–1). */
-	activeOpacity: 0.5,
-	/** Bloom внешнего кольца — shadowBlur. */
-	activeOuterBloomBlur: 4,
+	activeOpacity: 0.15,
+	/** Bloom внешнего кольца — shadowBlur (Canvas reference). */
+	activeOuterBloomBlur: 1.4,
 	/** Сила bloom внешнего кольца. */
-	activeOuterBloomStrength: 2,
-	/** Bloom центральной точки — shadowBlur. */
-	activeInnerBloomBlur: 4,
+	activeOuterBloomStrength: 1,
+	/** Bloom центральной точки — shadowBlur (Canvas reference). */
+	activeInnerBloomBlur: 6.5,
 	/** Сила bloom центральной точки. */
-	activeInnerBloomStrength: 2,
+	activeInnerBloomStrength: 2.35,
 	/** Толщина обводки внешнего кольца в активном состоянии (px). */
-	activeLineWidth: 1,
+	activeLineWidth: 0.25,
 	/** Свечение replacement-символов змейки правой навигации. */
 	snakeGlowStrength: 4,
 	snakeGlowBlur: 8,
@@ -38,18 +38,23 @@ export const caseStudyArcConfig = {
 	snakeHoverSpeed: 1.5,
 };
 
-/** Временное lifecycle-смещение правой дуги; не сохраняется dev-панелью. */
-export const caseStudyArcRuntime = {
-	/** Угол орбиты при enter (град.): отрицательный = за экраном, 0 = база. */
-	introRotationDeg: 0,
-	/** 0…1 появление дуги вместе с заездом по орбите. */
-	introOpacity: 1,
-};
-
 /** Старт enter: дуга за правым краем по своей окружности. */
 export const CASE_STUDY_ARC_INTRO_START_DEG = -105;
 /** Длительность заезда дуги на орбите (мс). */
 export const CASE_STUDY_ARC_INTRO_MS = 920;
+
+/** Временное lifecycle-смещение правой дуги; не сохраняется dev-панелью. */
+export const caseStudyArcRuntime = {
+	/** Угол орбиты при enter (град.): отрицательный = за экраном, 0 = база. */
+	introRotationDeg: CASE_STUDY_ARC_INTRO_START_DEG,
+	/** 0…1 появление дуги вместе с заездом по орбите. Start parked (no idle flash). */
+	introOpacity: 0,
+	/**
+	 * Доп. поворот узлов на круге (град.), чтобы активный проект был в центре дуги.
+	 * Пишется из caseStudyArcFocusMotion.
+	 */
+	focusRotationDeg: 0,
+};
 
 /** Фиксированная геометрия и визуал — не в dev-панели. */
 export const caseStudyArcInternals = {
@@ -59,18 +64,27 @@ export const caseStudyArcInternals = {
 	canvasBleedRight: 300,
 	labelGapRight: 30,
 	labelStackGap: 10,
+	/** Debug orbit overlay — keep off in product. */
 	showDebug: false,
-	trackWidth: 1,
+	trackWidth: 0.5,
 	radiusDiagonalRatio: 0.61,
-	fadeEndDeg: 39,
-	fadeInsetDeg: 1,
-	fadeTailDeg: 45,
-	fadePower: 0.5,
+	/** Половина видимой дуги (град.) — за её краем opacity → 0. */
+	fadeEndDeg: 45,
+	fadeInsetDeg: 0.1,
+	/** Влияние кривой хвоста (выше → длиннее/мягче визуально). */
+	fadeTailDeg: 75,
+	/** Кривая затухания на хвостах (выше → дольше держит яркость, потом резче гаснет). */
+	fadePower: 0.85,
+	/**
+	 * Доля половины дуги, зарезервированная под fade сверху/снизу (0.15–0.55).
+	 * Больше = сильнее/длиннее маска на концах.
+	 */
+	fadeTailReserve: 0.4,
 	itemGapDeg: 14,
 	nodeRadius: 20,
 	trackColor: "#ffffff",
-	nodeMidRadius: 8,
-	nodeInnerRadius: 3,
+	nodeMidRadius: 10,
+	nodeInnerRadius: 4,
 };
 
 /**

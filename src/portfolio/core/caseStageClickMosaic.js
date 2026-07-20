@@ -9,10 +9,11 @@
  */
 import {
 	promoteCasePanelHudCanvases,
+	promoteCasePanelHudIfShowingMapTo,
 	setCasePanelHudEnterTravelSign,
 } from "./casePanelHudBridge.js";
 import { wakeCaseStudyAnimationFrame } from "./caseStudyAnimationFrame.js";
-import { CASE_PANEL_HUD_REVEAL_MS } from "./casePanelHudReveal.js";
+import { getCaseChromeMosaicEnterMs } from "@/portfolio/ui/CaseStudyCanvas/caseChromeMosaicConfig.js";
 import {
 	forceStageProgress,
 	getStageProgress,
@@ -51,8 +52,10 @@ let lastFrameTs = 0;
 /** @type {Set<() => void>} */
 const prepareListeners = new Set();
 
-/** Same pace as click mosaic: full 0↔1 takes CASE_PANEL_HUD_REVEAL_MS. */
-const PRE_SETTLE_FULL_MS = CASE_PANEL_HUD_REVEAL_MS;
+/** Same pace as click mosaic: full 0↔1 takes enter mosaic ms. */
+function resolveClickMosaicMs() {
+	return Math.max(1, getCaseChromeMosaicEnterMs());
+}
 
 function clamp01(value) {
 	return Math.max(0, Math.min(1, value));
@@ -147,7 +150,7 @@ function runPreSettle(endpoint, onDone) {
 		return;
 	}
 
-	const durationMs = Math.max(1, PRE_SETTLE_FULL_MS * distance);
+	const durationMs = Math.max(1, resolveClickMosaicMs() * distance);
 	syncStageProgressTarget(end);
 	lastFrameTs = performance.now();
 	const startedAt = lastFrameTs;
@@ -204,6 +207,16 @@ function finishPreSettleAtEndpoint(endpoint, onDone) {
 	onDone?.();
 }
 
+function pinHudFromToOnScreenStage() {
+	const liveMix = clamp01(readLiveStageProgress());
+	if (!promoteCasePanelHudIfShowingMapTo(liveMix)) {
+		return;
+	}
+	// mix→0 after promote must show the former mapTo (on-screen stage), not the old mapFrom.
+	setStageProgressState(0);
+	publishStageProgressToStore();
+}
+
 function beginSegment(fromIndex, toIndex) {
 	if (!Number.isInteger(fromIndex) || !Number.isInteger(toIndex)) {
 		finishIdle();
@@ -227,6 +240,10 @@ function beginSegment(fromIndex, toIndex) {
 		return;
 	}
 
+	// Click mosaic starts at mix=0. If idle was on mapTo (e.g. last stage @ progress≈1),
+	// promote first — otherwise one frame flashes the previous stage in mapFrom.
+	pinHudFromToOnScreenStage();
+
 	stopRaf();
 	const direction = directionBetween(mosaicFrom, toIndex);
 	session = {
@@ -249,7 +266,7 @@ function beginSegment(fromIndex, toIndex) {
 		if (!session || session.settling) {
 			return;
 		}
-		const progress = clamp01((now - startedAt) / CASE_PANEL_HUD_REVEAL_MS);
+		const progress = clamp01((now - startedAt) / resolveClickMosaicMs());
 		const delta = Math.max(0, (now - lastFrameTs) / 1000);
 		lastFrameTs = now;
 		session.progress = progress;

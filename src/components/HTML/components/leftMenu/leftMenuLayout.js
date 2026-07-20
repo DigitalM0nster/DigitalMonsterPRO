@@ -60,7 +60,7 @@ export function getLeftMenuHomeButton() {
 }
 
 /**
- * Y (px) верхнего края нижнего блока меню (sound + язык).
+ * Y (px) верхнего края нижнего блока меню (язык).
  */
 export function getLeftMenuBottomSectionTopPx() {
 	if (typeof window === "undefined") {

@@ -1,0 +1,35 @@
+---
+description: Preloader does all heavy work; runtime only animates — zero transition freezes
+alwaysApply: true
+---
+
+# Preloader / runtime performance model (binding)
+
+This is the site’s **target architecture**. Follow it in Cursor and any other agent. Source of truth: `AGENTS.md` (section «Preloader and runtime performance»). Non-Cursor agents enter via `CLAUDE.md` → `AGENTS.md`.
+
+## Model
+
+1. **Under the preloader curtain** — load, decode, build, compile, and GPU-warm *everything* interactive routes need. Spread work across frames (`rAF` / `yieldToNextPaint`); never one giant sync spike that freezes the loader UI.
+2. **After Start** — only animate existing resources (transforms, uniforms, springs, opacity). **No** create/dispose/rebuild of meshes, materials, CanvasTextures, or programs on ordinary page/carousel transitions.
+
+## Do
+
+- Put new scene assets behind `readyPromise` so `_prepareApplication` waits for them.
+- Create WebGL text (hero, case HUD) under the curtain; compile after create; reuse via hide/show.
+- Case HUD: `warmCasePanelHudUnderCurtain` + per-scene `keepAliveTextures` + painter `adoptWarmCasePanelHud`.
+- Prefer `texture.needsUpdate` only when pixels changed; never per-frame full-panel uploads for scroll/hex.
+- Keep carousel scenes alive for the session; ring dormant is **next-only** (`isRingDormantReason`) — page left as `previous` stays live for reverse; not teardown.
+- If a feature needs first-use heavy work, move that work into prepare — do not “optimize” by lazy-loading on first navigation.
+- Under curtain: **real RT draw of every scene** + **all directed ring hex pairs** (about→home etc., not only adjacent) + case pairs (`_warmupAllScenesAndHexPairs`). Sequential: update → double-rAF → GPU draw. Start gesture awaits hex/underwater decode. `compile()` ≠ draw.
+
+## Don’t
+
+- `dispose()` + recreate hero/plates/HUD on leave/return for convenience.
+- Gate Start on fake progress alone while Case1/hero/HUD/audio decode are still pending.
+- Full-scene keep-alive renders every idle frame that hitch the current page.
+- Empty-RT clears that cold-start InstancedMesh on the next visit.
+- Sync GLTF parse / plate grid build / Canvas paint storms on the Start or first-route frame.
+
+## When changing loaders, scenes, transitions, or text
+
+Verify: Start unlocks only after the warm checklist; portfolio↔home↔about↔contacts has no hitch from recreate/compile/upload; preloader UI stays responsive while warming.

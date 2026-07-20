@@ -6,8 +6,9 @@ import reEvolution from "../projects/reEvolution/index.js";
 import ostankino from "../projects/ostankino/index.js";
 import hubarch from "../projects/hubarch/index.js";
 
+/** Case order = route numbers 01→07 (scroll/boundary/arc must stay in sync). */
 /** @type {import('./types.js').PortfolioProjectModule[]} */
-const ALL_PROJECTS = [nipigas, troof, mmk1, reEvolution, ostankino, belkaProduction, hubarch];
+const ALL_PROJECTS = [nipigas, troof, ostankino, mmk1, reEvolution, belkaProduction, hubarch];
 
 /** @type {Map<string, import('./types.js').PortfolioProjectModule>} */
 const bySlug = new Map(ALL_PROJECTS.map((p) => [p.config.slug, p]));

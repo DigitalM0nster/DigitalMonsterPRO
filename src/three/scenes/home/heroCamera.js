@@ -11,10 +11,14 @@ export const heroCamera = {
 	xLeft: 10.2,
 	x: -11.5,
 	xRight: 4,
-	/** Y при p = −1 / 0 / +1. */
-	yTop: 5.4,
+	/**
+	 * Y при p = −1 / 0 / +1.
+	 * Canonical: +p (scroll down) → lower camera (yBottom); −p → higher (yTop)
+	 * so the scene rises / falls like a normal page scroll. See SCROLL_PARALLAX.md.
+	 */
+	yTop: 4.6,
 	y: 1.5,
-	yBottom: 0.2,
+	yBottom: 0.35,
 	/** Z при p = −1 / 0 / +1. */
 	zBack: 34,
 	z: 26.5,
@@ -23,9 +27,12 @@ export const heroCamera = {
 	/**
 	 * Easing между якорями: 1 = линейно, >1 = плавнее у −1 и +1.
 	 * easePowerNeg — сегмент −1…0, easePowerPos — 0…+1.
+	 * Y uses near-linear ease so vertical page parallax tracks the wheel tightly.
 	 */
 	easePowerNeg: 2.2,
 	easePowerPos: 2.2,
+	easePowerYNeg: 1.05,
+	easePowerYPos: 1.05,
 	parallaxX: 0.65,
 	parallaxY: 0.45,
 	parallaxLook: 0.15,
@@ -107,12 +114,19 @@ export function lerpPiecewise(p, atZero, atNegOne, atPosOne) {
  */
 export function getHeroCameraForSceneProgress(sceneProgress) {
 	const p = Number.isFinite(sceneProgress) ? sceneProgress : 0;
-	const { easePowerNeg, easePowerPos } = heroCamera;
+	const { easePowerNeg, easePowerPos, easePowerYNeg, easePowerYPos } = heroCamera;
 
 	return {
 		...heroCamera,
 		x: lerpPiecewiseCurved(p, heroCamera.x, heroCamera.xLeft, heroCamera.xRight, easePowerNeg, easePowerPos),
-		y: lerpPiecewiseCurved(p, heroCamera.y, heroCamera.yTop, heroCamera.yBottom, easePowerNeg, easePowerPos),
+		y: lerpPiecewiseCurved(
+			p,
+			heroCamera.y,
+			heroCamera.yTop,
+			heroCamera.yBottom,
+			easePowerYNeg ?? 1,
+			easePowerYPos ?? 1,
+		),
 		z: lerpPiecewiseCurved(p, heroCamera.z, heroCamera.zBack, heroCamera.zForward, easePowerNeg, easePowerPos),
 		fov: heroCamera.fov,
 	};

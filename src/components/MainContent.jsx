@@ -20,17 +20,18 @@ import { preloadHtmlRoutes } from "./Routes/routeModules.js";
 import LoaderComponent from "./HTML/components/LoaderComponent.jsx";
 import Cursor from "./HTML/components/Cursor.jsx";
 import { useLocation } from "react-router-dom";
-import SceneCarouselDebugPanel from "./HTML/components/SceneCarouselDebugPanel.jsx";
-import StageProgressDebugPanel from "@/portfolio/dev/StageProgressDebugPanel.jsx";
 import CaseStudyPanelHudOverlay from "@/portfolio/ui/CaseStudyCanvas/CaseStudyPanelHudOverlay.jsx";
+import CaseStudyArcOverlay from "@/portfolio/ui/CaseStudyCanvas/CaseStudyArcOverlay.jsx";
+import AboutExperienceHost from "@/about/AboutExperienceHost.jsx";
 import { store } from "../store.jsx";
 import { isDomDistortDemoPath } from "../demos/domDistort/constants.js";
 import { isWebGLDisabledFromUrl } from "../utils/postProcessTestFlags.js";
 import { initPageVisibilitySound } from "../sounds/pageVisibilitySound.js";
 import { prefetchSoundDesign } from "../sounds/soundDesign.js";
+import { isDevFastPreloader } from "../utils/devFastPreloader.js";
 
 const SHOW_CUSTOM_CURSOR = true;
-const LOADER_UNMOUNT_DELAY_MS = 1100;
+const LOADER_UNMOUNT_DELAY_MS = isDevFastPreloader() ? 350 : 1100;
 
 export default function MainContent() {
 	const [threeReady, setThreeReady] = useState(false);
@@ -137,7 +138,12 @@ export default function MainContent() {
 						<ThreeCanvasHost
 							rendered={rendered}
 							setRendered={setThreeReady}
-							currentPage={displayPathname}
+							currentPage={
+								// Deep-link /about|/contacts: don't keep Three on "/" while HTML display lags.
+								(location.pathname === "/about" || location.pathname === "/contacts")
+									? location.pathname
+									: displayPathname
+							}
 							teleportPage={location.pathname}
 							startApp={startApp}
 						/>
@@ -145,12 +151,12 @@ export default function MainContent() {
 				)}
 				{(startApp || isDemoLab) && <HtmlRoutes />}
 			</div>
+			{startApp && !isDemoLab && <AboutExperienceHost />}
 			{startApp && !isDemoLab && <LeftMenu />}
 			{startApp && !isDemoLab && <ScrollPageNavigator />}
 			{startApp && !isDemoLab && <SiteTopHud startApp={startApp} />}
 			{startApp && !isDemoLab && <CaseStudyPanelHudOverlay />}
-			{import.meta.env.DEV && startApp && !isDemoLab && <SceneCarouselDebugPanel />}
-			{import.meta.env.DEV && startApp && !isDemoLab && <StageProgressDebugPanel />}
+			{startApp && !isDemoLab && <CaseStudyArcOverlay />}
 			{!isDemoLab && loaderMounted && <LoaderComponent startApp={startApp} setStartApp={setStartApp} rendered={rendered} />}
 			{SHOW_CUSTOM_CURSOR && <Cursor startApp={startApp} />}
 		</RouteTransitionProvider>

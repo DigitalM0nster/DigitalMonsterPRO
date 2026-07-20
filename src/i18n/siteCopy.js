@@ -29,6 +29,13 @@ export const NAV_ITEM_COPY = {
 	},
 };
 
+/** Подпись под «Портфолио» в правом навигаторе: «08 КЕЙСОВ» / «08 CASES». */
+export const NAV_PORTFOLIO_CASES_MARKER_COPY = {
+	ru: "КЕЙСОВ",
+	en: "CASES",
+	zh: "案例",
+};
+
 /** Подсказка скролла на главной. */
 export const HERO_SCROLL_HINT_COPY = {
 	ru: "ЛИСТАЙТЕ ВНИЗ",
@@ -85,6 +92,17 @@ export function getSiteCopy(copyMap, locale) {
 /** @param {string} itemId @param {unknown} locale */
 export function getNavItemLabel(itemId, locale) {
 	return getSiteCopy(NAV_ITEM_COPY[itemId] ?? NAV_ITEM_COPY.main, locale);
+}
+
+/**
+ * @param {number} caseCount
+ * @param {unknown} locale
+ */
+export function getNavPortfolioCasesMarker(caseCount, locale) {
+	const count = Math.max(0, Math.floor(Number(caseCount) || 0));
+	const padded = String(count).padStart(2, "0");
+	const word = getSiteCopy(NAV_PORTFOLIO_CASES_MARKER_COPY, locale);
+	return `${padded} ${word}`;
 }
 
 /** @param {unknown} locale */

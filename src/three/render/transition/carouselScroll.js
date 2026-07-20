@@ -1,6 +1,6 @@
-import { isSceneDevToolsWheelTarget } from "@/three/dev/sceneDevPanelUtils.js";
-import { getSceneCarousel } from "./carouselPage.js";
+import { getSceneCarousel } from "@/three/render/transition/carouselPage.js";
 import { isCarouselRoutePage } from "./SceneCarousel.js";
+import { isSceneDevToolsWheelTarget } from "../../dev/sceneDevPanelUtils.js";
 
 /** Чувствительность колёсика: deltaY (px) → единицы progressTarget. */
 export const CAROUSEL_WHEEL_PROGRESS_FACTOR = 0.001;
@@ -50,7 +50,6 @@ export function shouldCarouselScrollWheel(ctx, event) {
 	if (isSceneDevToolsWheelTarget(event)) {
 		return false;
 	}
-
 	if (isOverScrollableElement(event.target)) {
 		return false;
 	}

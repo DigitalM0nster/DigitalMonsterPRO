@@ -1,4 +1,4 @@
-const STYLE_MARKER = "sceneDevToolsV4";
+const STYLE_MARKER = "sceneDevToolsV6";
 
 /** Wheel над dev-панелью — не отдавать карусели (capture на window иначе блокирует scroll). */
 export function isSceneDevToolsWheelTarget(event) {
@@ -26,9 +26,12 @@ export function injectSceneDevToolsStyles() {
 			align-items: stretch;
 			width: min(440px, calc(100vw - 32px));
 			max-height: min(82vh, 760px);
+			min-height: 0;
 			overflow-x: hidden;
 			overflow-y: auto;
 			overscroll-behavior: contain;
+			-webkit-overflow-scrolling: touch;
+			touch-action: pan-y;
 			padding: 14px 16px;
 			border-radius: 12px;
 			border: 1px solid rgba(255, 255, 255, 0.16);
@@ -176,13 +179,65 @@ export function injectSceneDevToolsStyles() {
 			background: rgba(255, 255, 255, 0.14);
 		}
 
+		.sceneDevTools button.active {
+			border-color: rgba(127, 212, 255, 0.55);
+			background: rgba(0, 140, 220, 0.28);
+			color: #9fd4ff;
+		}
+
+		.sceneDevTools .checkRow {
+			display: flex !important;
+			flex-direction: row;
+			align-items: center;
+			gap: 8px;
+			margin: 0;
+			font: 11px/1.3 system-ui, sans-serif;
+			color: rgba(232, 238, 245, 0.85);
+			cursor: pointer;
+		}
+
+		.sceneDevTools .checkRow input {
+			flex: 0 0 auto;
+		}
+
 		.sceneDevTools .status {
 			margin: 0 0 10px;
 			font: 11px/1.3 system-ui, sans-serif;
 			color: #7dffb2;
 		}
+
+		.sceneDevTools .readout {
+			display: flex !important;
+			flex-direction: row;
+			align-items: baseline;
+			justify-content: space-between;
+			gap: 10px;
+			margin: 0;
+			font: 11px/1.35 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+		}
+
+		.sceneDevTools .readout .k {
+			flex: 0 1 auto;
+			color: rgba(232, 238, 245, 0.62);
+		}
+
+		.sceneDevTools .readout .v {
+			flex: 0 0 auto;
+			color: #e8eef5;
+			text-align: right;
+			white-space: nowrap;
+		}
+
+		.sceneDevTools .readout.dim .v {
+			color: rgba(232, 238, 245, 0.4);
+		}
 	`;
 	document.head.appendChild(style);
+}
+
+export function shouldOpenProgressDevFromUrl() {
+	const params = new URLSearchParams(window.location.search);
+	return params.has("progressDev");
 }
 
 export function formatConfigNumber(value) {

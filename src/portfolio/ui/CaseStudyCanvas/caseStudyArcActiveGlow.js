@@ -11,14 +11,6 @@ import { getArcDrawableRanges, getArcSegmentOpacity } from "./caseStudyArcOpacit
 const DEG = Math.PI / 180;
 
 /**
- * @param {number} t
- */
-function smoothstep(t) {
-	const x = Math.max(0, Math.min(1, t));
-	return x * x * (3 - 2 * x);
-}
-
-/**
  * @param {number} angle
  * @param {number} activeAngle
  * @param {number} halfSpanRad
@@ -30,11 +22,14 @@ export function getActiveArcGlowWeight(angle, activeAngle, halfSpanRad, highligh
 	}
 
 	const dist = Math.abs(angle - activeAngle);
-	if (dist > halfSpanRad) {
+	// Match WebGL: long soft tail + gaussian-ish fade (no hard bar ends).
+	const softSpan = Math.max(halfSpanRad * 2.2, halfSpanRad + 0.08);
+	if (dist >= softSpan) {
 		return 0;
 	}
-
-	return smoothstep(1 - dist / halfSpanRad) * highlight;
+	const x = dist / softSpan;
+	const s = Math.exp(-3.5 * x * x) * (1 - x);
+	return Math.max(0, s) * highlight;
 }
 
 /**
@@ -134,11 +129,11 @@ export function strokeArcActiveNodeGlow(
 				continue;
 			}
 
-			// У кружка — activeColor, к краям зоны — цвет базовой дуги
-			const colorHex = lerpHexColor(internal.trackColor, cfg.activeColor, glowW);
-			const strokeAlpha =
-				cfg.trackOpacity + glowW * Math.max(0, cfg.activeOpacity - cfg.trackOpacity + lineCfg.opacityBoost);
-			const strokeColor = getArcLineStrokeStyle(colorHex, Math.min(1, strokeAlpha));
+			// Only additive excess — do not re-stroke trackOpacity (hard edge at band end).
+			const strokeGw = glowW * glowW;
+			const colorHex = lerpHexColor(internal.trackColor, cfg.activeColor, strokeGw);
+			const boost = Math.max(0, cfg.activeOpacity - cfg.trackOpacity + lineCfg.opacityBoost);
+			const strokeColor = getArcLineStrokeStyle(colorHex, Math.min(1, boost * strokeGw));
 
 			if (bloomBlur > 0.01 && bloomStrength > 0.01) {
 				ctx.save();
@@ -166,14 +161,17 @@ export function strokeArcActiveNodeGlow(
 				ctx.restore();
 			}
 
-			ctx.save();
-			ctx.globalAlpha *= opacity;
-			ctx.beginPath();
-			ctx.arc(cx, cy, radius, a0, a1 + (i === segmentCount - 1 ? 0 : overlap), false);
-			ctx.strokeStyle = strokeColor;
-			ctx.lineWidth = lineWidth;
-			ctx.stroke();
-			ctx.restore();
+			if (boost * strokeGw > 0.002) {
+				ctx.save();
+				ctx.globalCompositeOperation = "lighter";
+				ctx.globalAlpha *= opacity;
+				ctx.beginPath();
+				ctx.arc(cx, cy, radius, a0, a1 + (i === segmentCount - 1 ? 0 : overlap), false);
+				ctx.strokeStyle = strokeColor;
+				ctx.lineWidth = lineWidth;
+				ctx.stroke();
+				ctx.restore();
+			}
 		}
 	}
 

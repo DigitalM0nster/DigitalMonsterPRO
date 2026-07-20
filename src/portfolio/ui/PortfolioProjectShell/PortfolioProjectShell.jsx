@@ -11,11 +11,10 @@ import { useCaseStudyMobileViewport } from "@/portfolio/core/useCaseStudyMobileV
 import { useSmoothCaseScroll } from "@/components/HTML/components/portfolio/useSmoothCaseScroll.js";
 import { buildCaseScrollSnapAnchors } from "@/portfolio/core/caseScrollSnap.js";
 import {
-	addCarouselWheelDelta,
-	CAROUSEL_WHEEL_PROGRESS_FACTOR,
-} from "@/three/render/transition/carouselScroll.js";
-import { getSceneCarousel } from "@/three/render/transition/carouselPage.js";
-import { getStageProgressTarget } from "@/portfolio/core/stageProgress.js";
+	jumpCaseExperienceToStateIndex,
+	startCaseExperienceRuntime,
+	stopCaseExperienceRuntime,
+} from "@/portfolio/core/caseExperienceRuntime.js";
 import {
 	isCasePanelHudRevealBusy,
 } from "@/portfolio/core/casePanelHudReveal.js";
@@ -25,9 +24,7 @@ import {
 	requestCaseStageClickMosaic,
 	syncCaseStageClickMosaicDisplayedIndex,
 } from "@/portfolio/core/caseStageClickMosaic.js";
-import { logAboutScrollTrace } from "@/three/dev/carouselProgressTargetLogger.js";
 import { store } from "@/store.jsx";
-import CaseStudyCanvasUI from "../CaseStudyCanvas/CaseStudyCanvasUI.jsx";
 import CaseStudyMobileShell from "../CaseStudyMobile/CaseStudyMobileShell.jsx";
 import StateContentOverlay from "../StateContentOverlay/StateContentOverlay.jsx";
 import HotspotLayer from "../HotspotLayer/HotspotLayer.jsx";
@@ -73,40 +70,16 @@ PortfolioProjectShell.propTypes = {
 
 function PortfolioProjectShellInner({ project, hideArcNavigation, hideProjectNavigation, skipPanelIntro }) {
 	const scrollRef = useRef(null);
-	const carouselBoundaryHandoff = Boolean(project.config.caseStudy?.carouselBoundaryHandoff);
-	const isClickingIntoAbout = store.sceneCarouselClickTargetId === "about"
-		&& store.sceneCarouselClickPhase !== "idle";
-	const enteredFromNextSceneRef = useRef(
-		carouselBoundaryHandoff &&
-			!isClickingIntoAbout &&
-			(store.sceneCarouselCurrentId === "contacts" ||
-				(store.sceneCarouselLastCommitFromId === "contacts" &&
-					store.sceneCarouselLastCommitDirection === "backward")),
-	);
-	const enteredFromNextScene = enteredFromNextSceneRef.current;
-	const boundaryOverflowRef = useRef(
-		carouselBoundaryHandoff && !isClickingIntoAbout
-			? Number(store.sceneCarouselLastCommitBoundaryOverflow ?? 0)
-			: 0,
-	);
-	const boundaryOverflowProgress = Number.isFinite(boundaryOverflowRef.current)
-		? boundaryOverflowRef.current
-		: 0;
-	const initialTargetDeltaPx = boundaryOverflowProgress / CAROUSEL_WHEEL_PROGRESS_FACTOR;
-	const hasBoundaryContinuation = Math.abs(initialTargetDeltaPx) > 0.01;
-	const initialStateIndex = enteredFromNextScene ? Math.max(0, project.states.length - 2) : 0;
-	const initialScrollProgress = enteredFromNextScene ? 1 : 0;
-	const initialStageProgress = enteredFromNextScene ? 1 : 0;
 	const stateApi = useProjectState(project, {
-		initialStateIndex,
-		initialScrollProgress,
-		initialStageProgress,
+		initialStateIndex: 0,
+		initialScrollProgress: 0,
+		initialStageProgress: 0,
 	});
 	const stageApi = useStageProgress(
 		project,
 		stateApi.activeStateIndex,
 		stateApi.commitStageStep,
-		initialStageProgress,
+		0,
 	);
 	const investigationApi = useInvestigationMode(project, stateApi.activeStateId);
 	const lifecycle = useProjectLifecycle(project);
@@ -116,106 +89,13 @@ function PortfolioProjectShellInner({ project, hideArcNavigation, hideProjectNav
 	const mobileSwipeEnabled = Boolean(project.config.caseStudy?.mobileHorizontalSwipe);
 	const renderTextInScene = Boolean(project.config.caseStudy?.renderTextInScene);
 	const isMobileLayout = useCaseStudyMobileViewport(mobileSwipeEnabled);
+	// Arc chrome lives in CaseStudyArcOverlay (site-level) — not remounted per case.
 
+	// Desktop: About-shaped caseExperienceRuntime owns wheel (interior + case leave).
+	// Mobile: keep DOM smooth scroll for horizontal-swipe shells.
 	const snapAnchors = useMemo(() => buildCaseScrollSnapAnchors(project.states), [project.states]);
-	const isBoundaryStageReady = useCallback((direction) => {
-		const stateIndex = store.portfolioExperience.activeStateIndex ?? 0;
-		const stageTargetPosition = stateIndex + getStageProgressTarget();
-		const lastStagePosition = Math.max(0, project.states.length - 1);
-		const epsilon = 0.002;
-
-		if (direction === "forward") {
-			return stageTargetPosition >= lastStagePosition - epsilon;
-		}
-
-		return stageTargetPosition <= epsilon;
-	}, [project.states.length]);
-	const isBoundaryHandoffActive = useCallback(() => {
-		if (!carouselBoundaryHandoff) {
-			return false;
-		}
-
-		const carousel = getSceneCarousel();
-		const interactionLocked = carousel.isInteractionLocked();
-		const hasDirectedHandoff = carousel.scrollIntent !== null;
-		return carousel.currentId === project.config.id
-			&& (interactionLocked || hasDirectedHandoff);
-	}, [carouselBoundaryHandoff, project.config.id]);
-	const traceAboutScroll = useCallback((trace) => {
-		if (!import.meta.env.DEV || !carouselBoundaryHandoff) {
-			return;
-		}
-		store.aboutScrollDebug.lastEvent = trace?.type ?? null;
-		if (trace?.internal) {
-			store.aboutScrollDebug.dom = trace.internal.dom ?? 0;
-			store.aboutScrollDebug.current = trace.internal.current ?? 0;
-			store.aboutScrollDebug.target = trace.internal.target ?? 0;
-			store.aboutScrollDebug.boundedTarget = trace.internal.boundedTarget ?? 0;
-			store.aboutScrollDebug.overflow = trace.internal.overflow ?? 0;
-			store.aboutScrollDebug.maxPx = trace.internal.maxPx ?? 0;
-			store.aboutScrollDebug.scrollIntent = trace.internal.scrollIntent ?? null;
-		}
-		logAboutScrollTrace(getSceneCarousel(), trace);
-	}, [carouselBoundaryHandoff]);
-	const onBoundaryScroll = useCallback(
-		({ delta, direction, handoffActive }) => {
-			traceAboutScroll({ type: "boundary-callback", delta, direction, handoffActive });
-			if (!carouselBoundaryHandoff) {
-				traceAboutScroll({ type: "boundary-rejected", reason: "handoff-disabled", direction });
-				return false;
-			}
-			if (handoffActive) {
-				const carousel = getSceneCarousel();
-				// A passive 1 -> 0 settle after entering About is not an active handoff.
-				// A null intent here therefore means a locked click transition only.
-				if (carousel.scrollIntent === null) {
-					traceAboutScroll({
-						type: "boundary-consumed",
-						reason: "carousel-settling-without-intent",
-						direction,
-					});
-					return true;
-				}
-
-				const boundarySide = Math.sign(
-					Math.abs(carousel.progressTarget) > 0.0001
-						? carousel.progressTarget
-						: carousel.progress,
-				);
-				const deltaSide = Math.sign(delta);
-				if (boundarySide !== 0 && deltaSide !== 0 && boundarySide !== deltaSide) {
-					// A reversal cancels only the global handoff. It must not cross the
-					// resting point and skip the internal About stages in the other direction.
-					carousel.setProgressTarget(0);
-					traceAboutScroll({
-						type: "boundary-consumed",
-						reason: "direction-reversal",
-						direction,
-						boundarySide,
-						deltaSide,
-					});
-					return true;
-				}
-			}
-			if (!handoffActive && !isBoundaryStageReady(direction)) {
-				traceAboutScroll({ type: "boundary-rejected", reason: "stage-not-ready", direction });
-				return false;
-			}
-
-			traceAboutScroll({ type: "carousel-delta", delta, direction, handoffActive });
-			return addCarouselWheelDelta(delta);
-		},
-		[carouselBoundaryHandoff, isBoundaryStageReady, traceAboutScroll],
-	);
-
-	const stopCaseScrollAtProgress = useSmoothCaseScroll(scrollRef, !isMobileLayout, snapAnchors, {
-		initialProgress: initialScrollProgress,
-		initialTargetDeltaPx,
-		onBoundaryScroll,
-		isBoundaryHandoffActive,
-		allowBoundaryOvershoot: carouselBoundaryHandoff,
-		suppressWheelAfterStop: !carouselBoundaryHandoff,
-		onTrace: import.meta.env.DEV && carouselBoundaryHandoff ? traceAboutScroll : null,
+	const stopCaseScrollAtProgress = useSmoothCaseScroll(scrollRef, isMobileLayout, snapAnchors, {
+		initialProgress: 0,
 	});
 	usePortfolioStoreBridge(project, stateApi, stageApi, investigationApi);
 	const stateGoToState = stateApi.goToState;
@@ -231,8 +111,12 @@ function PortfolioProjectShellInner({ project, hideArcNavigation, hideProjectNav
 			if (!state) {
 				return;
 			}
-			// Last arc id remaps inside goToState → penultimate @ progress=1.
 			const lastIndex = project.states.length - 1;
+			if (!isMobileLayout) {
+				jumpCaseExperienceToStateIndex(mosaicToIndex, project.states.length);
+				stateGoToState(state.id);
+				return;
+			}
 			if (lastIndex > 0 && mosaicToIndex === lastIndex) {
 				stopCaseScrollAtProgress(project.states[lastIndex].scrollAnchor ?? 1);
 				stateGoToState(state.id);
@@ -299,46 +183,40 @@ function PortfolioProjectShellInner({ project, hideArcNavigation, hideProjectNav
 	}, []);
 
 	useEffect(() => {
-		// Каждый кейс стартует с первого этапа: сброс store + DOM-скролла.
 		store.openedCase = true;
-		store.scroll = initialScrollProgress;
-		if (!hasBoundaryContinuation) {
-			store.caseScrollTarget = initialScrollProgress;
+		store.scroll = 0;
+		store.caseScrollTarget = 0;
+		store.portfolioExperience.activeStateIndex = 0;
+		store.portfolioExperience.activeStateId = project.states[0]?.id ?? null;
+		store.portfolioExperience.stageProgress = 0;
+		store.portfolioExperience.stageProgressTarget = 0;
+
+		if (!isMobileLayout) {
+			startCaseExperienceRuntime({
+				project,
+				commitStageStep: stateApi.commitStageStep,
+				allowCaseLeave: !hideProjectNavigation,
+			});
+		} else {
+			stopCaseExperienceRuntime();
+			stopCaseScrollAtProgress(0);
+			const el = scrollRef.current;
+			if (el) {
+				el.scrollTop = 0;
+			}
 		}
-		store.portfolioExperience.activeStateIndex = initialStateIndex;
-		store.portfolioExperience.activeStateId = project.states[initialStateIndex]?.id ?? null;
-		store.portfolioExperience.stageProgress = initialStageProgress;
-		if (!hasBoundaryContinuation) {
-			store.portfolioExperience.stageProgressTarget = initialStageProgress;
-		}
-		if (carouselBoundaryHandoff) {
-			store.sceneCarouselLastCommitFromId = null;
-			store.sceneCarouselLastCommitDirection = null;
-			store.sceneCarouselLastCommitBoundaryOverflow = 0;
-		}
-		if (!hasBoundaryContinuation) {
-			// Direct/click entry has no progress to transfer from the outer scene.
-			stopCaseScrollAtProgress(initialScrollProgress);
-		}
-		const el = scrollRef.current;
-		if (el) {
-			el.scrollTop = initialScrollProgress * Math.max(0, el.scrollHeight - el.clientHeight);
-		}
+
 		return () => {
+			stopCaseExperienceRuntime();
 			cancelCaseStageClickMosaic();
 			store.scroll = 0;
 			store.caseScrollTarget = 0;
-			// Case HUD lifetime is owned by CaseStudyPanelHudOverlay (site chrome).
-			// Do not release here — shell remounts on case→case while overlay stays mounted.
 		};
 	}, [
-		carouselBoundaryHandoff,
-		hasBoundaryContinuation,
-		initialScrollProgress,
-		initialStageProgress,
-		initialStateIndex,
-		project.config.slug,
-		project.states,
+		hideProjectNavigation,
+		isMobileLayout,
+		project,
+		stateApi.commitStageStep,
 		stopCaseScrollAtProgress,
 	]);
 
@@ -364,28 +242,14 @@ function PortfolioProjectShellInner({ project, hideArcNavigation, hideProjectNav
 	return (
 		<PortfolioProjectProvider project={project} value={contextValue}>
 			<div className={[styles.portfolioProjectShell, lifecycle.shellClassName].join(" ")}>
-				{!isMobileLayout && (
+				{isMobileLayout && (
 					<div ref={scrollRef} className={styles.scrollContainer} aria-hidden="true">
 						<div className={styles.scrollSpacer} />
 					</div>
 				)}
 
 				<div className={styles.fullscreenStage}>
-					{isMobileLayout ? (
-						<CaseStudyMobileShell />
-					) : (
-						<>
-							{/* Left panel HUD is a site overlay (CaseStudyPanelHudOverlay) — not remounted per case. */}
-							{/* Left panel is WebGL; keep hideProjectNavigation false so the arc still reserves nav height.
-							    Left HTML intro is skipped via hideLeftPanel; arc keeps snake enter. */}
-							<CaseStudyCanvasUI
-								hideLeftPanel={renderTextInScene}
-								hideArcNavigation={hideArcNavigation}
-								hideProjectNavigation={hideProjectNavigation}
-								skipPanelIntro={skipPanelIntro}
-							/>
-						</>
-					)}
+					{isMobileLayout ? <CaseStudyMobileShell /> : null}
 
 					<HotspotLayer />
 					<StateContentOverlay isInvestigating={investigationApi.isInvestigating} />

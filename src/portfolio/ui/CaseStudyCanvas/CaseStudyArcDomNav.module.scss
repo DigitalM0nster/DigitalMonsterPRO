@@ -1,0 +1,61 @@
+.arcNav {
+	position: fixed;
+	inset: 0;
+	z-index: 27;
+	pointer-events: none;
+	overflow: visible;
+}
+
+/* Anchor at the arc node — labels positioned absolutely around it (same as canvas draw). */
+.item {
+	position: absolute;
+	width: 120px;
+	height: 0;
+	margin: 0;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	cursor: pointer;
+	pointer-events: auto;
+	opacity: 0;
+	overflow: visible;
+	user-select: none;
+	-webkit-user-select: none;
+	-webkit-tap-highlight-color: transparent;
+	outline: none;
+	will-change: opacity, left, top;
+}
+
+.itemActive {
+	/* Color painted into canvases. */
+}
+
+.num,
+.titleLine {
+	position: absolute;
+	left: 0;
+	display: block;
+	/* Labels must receive hover/click — item height is 0 (node anchor). */
+	pointer-events: auto;
+}
+
+/* Full label column (num + titles + gaps), sized in syncDom. */
+.labelHit {
+	position: absolute;
+	left: 0;
+	top: 0;
+	width: 1px;
+	height: 1px;
+	pointer-events: auto;
+}
+
+.hit {
+	position: absolute;
+	left: var(--node-offset, -30px);
+	top: 0;
+	width: 36px;
+	height: 36px;
+	transform: translate(-50%, -50%);
+	border-radius: 50%;
+	pointer-events: auto;
+}

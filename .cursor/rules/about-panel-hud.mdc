@@ -1,0 +1,32 @@
+---
+description: About left HUD — story mosaic only, no enter appear
+globs: src/about/**/*,src/three/scenes/about/**/*,src/three/app/DigitalMonsterThreeApp.js
+alwaysApply: false
+---
+
+# About left-panel HUD (binding)
+
+**Source of truth:** [`src/about/ABOUT_PANEL_HUD.md`](src/about/ABOUT_PANEL_HUD.md) + `resolveAboutPanelHudStoryPair` in `aboutPanelHudStory.js`.
+
+## Law
+
+1. **Only story → (`from`, `to`, `mixProgress`)** drives stage text. No second progress for appear.
+2. **Map (front-half wipe):** `0→0.5` text1→text2, `0.5→1` hold; `1→1.5` text2→text3, `1.5→2` hold; `2→2.5` text3→empty, `2.5→3` hold; `≥3` empty. 3D still uses full soft story spring.
+3. **Text1** at story≈0 is idle-visible (`enterProgress = null`). It is wiped only by text2 via mix — **never** `playAboutPanelHudEnter`.
+4. **`enterProgress`:** `null` = show content; `0` = hidden (warm / empty). No animated enter/exit for About.
+5. **Route leave** = bake left HUD into the about hex layer RT (with models). Do **not** screen-overlay hex-cut on leave (ghost black cells in the transparent band). Do **not** `playAboutPanelHudExit`.
+6. Uploads on locale/viewport / curtain warm only — mix is a uniform. Warm **all four** layers (text1–3 + empty); stage pair swaps only rebind pooled maps (no mid-scroll create/upload).
+7. **Locale switch** on live About = stage-style mosaic (`aboutPanelHudLocaleMix.js`), not instant swap and not enter/exit reveal.
+8. **Arm before screen handoff** on portfolio→about (mix participant / hex bake / commit) — never flash warm `enterProgress = 0` for a frame after hex.
+
+## Forbidden
+
+- `playAboutPanelHudEnter` / `playAboutPanelHudExit` for About content or leave.
+- “Recover stuck HUD” by playing enter while mix should show the band.
+- textN→empty then separate enter for textN+1.
+- Per-frame full-panel Canvas2D→GPU text uploads for scroll.
+- Binary whole-cell `discard` without the shared hex UV warp.
+
+## Verify
+
+Land About: text1 instant. Scroll 0→1 / 1→2 / 2→3: simultaneous mosaic pairs. Reverse stable. Leave About: hex warps text per cell (not black erase), no mosaic disappear. Idle: no texture churn.

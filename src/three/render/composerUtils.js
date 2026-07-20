@@ -45,6 +45,11 @@ export function applyScreenTextureColorSpace(texture, gl) {
 	if (texture.colorSpace === THREE.LinearSRGBColorSpace) {
 		return;
 	}
+	// Canvas UI glyphs (case/About left HUD) intentionally use NoColorSpace.
+	// Hex-bake used to mutate them to sRGB → muted text wrong until a pair re-upload.
+	if (texture.colorSpace === THREE.NoColorSpace) {
+		return;
+	}
 	const outputSpace = gl.outputColorSpace ?? THREE.SRGBColorSpace;
 	if ("colorSpace" in texture) {
 		texture.colorSpace = outputSpace;

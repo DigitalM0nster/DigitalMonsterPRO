@@ -33,20 +33,22 @@ const AT_REST_FADE_MS = 140;
 /** Скачок progress назад (syncFromPage), не commit сегмента — не seek, а fade. */
 const PROGRESS_JUMP_BACK_EPS = 0.12;
 /**
- * Вертикальная панорама (Web Audio HRTF): progress 0 — снизу, 0.5 — центр, 1 — сверху.
+ * Вертикальная панорама (Web Audio HRTF): progress 0 — сверху, 0.5 — центр, 1 — снизу
+ * (как фронт hex-wipe: при P≈0 край у верха экрана, при P≈1 — у низа).
  * Диапазон по оси Y в «метрах» сцены слушателя.
  */
-const SPATIAL_Y_EXTENT = 2.4;
+const SPATIAL_Y_EXTENT = 3.2;
 /** Z: источник перед слушателем (не сзади головы). */
 const SPATIAL_Z = -0.85;
 
 /**
- * progress 0…1 → Y: низ → центр → верх.
+ * progress 0…1 → Y: верх → центр → низ.
+ * O(1) AudioParam write — без лишней CPU/GPU нагрузки.
  * @param {number} progress
  */
 export function progressToSpatialY(progress) {
 	const clamped = Math.max(0, Math.min(1, progress));
-	return (clamped - 0.5) * 2 * SPATIAL_Y_EXTENT;
+	return (0.5 - clamped) * 2 * SPATIAL_Y_EXTENT;
 }
 
 class HexTransitionSoundController {
@@ -75,6 +77,7 @@ class HexTransitionSoundController {
 		this._masterGain = VOLUME;
 		/** @type {{ active: boolean, onComplete?: () => void } | null} */
 		this._fadeOut = null;
+		this._listenerOrientReady = false;
 	}
 
 	_getAudioContext() {
@@ -89,12 +92,32 @@ class HexTransitionSoundController {
 		panner.rolloffFactor = 0;
 	}
 
+	_ensureListenerOrientation(ctx) {
+		const listener = ctx?.listener;
+		if (!listener || this._listenerOrientReady) {
+			return;
+		}
+		// Default look: −Z, up: +Y — explicit so vertical pan matches screen top/bottom.
+		if (typeof listener.forwardX !== "undefined") {
+			listener.forwardX.value = 0;
+			listener.forwardY.value = 0;
+			listener.forwardZ.value = -1;
+			listener.upX.value = 0;
+			listener.upY.value = 1;
+			listener.upZ.value = 0;
+		} else if (typeof listener.setOrientation === "function") {
+			listener.setOrientation(0, 0, -1, 0, 1, 0);
+		}
+		this._listenerOrientReady = true;
+	}
+
 	_connectMediaElement(audio, gainRef) {
 		const ctx = this._getAudioContext();
 		if (!ctx || !audio) {
 			return null;
 		}
 
+		this._ensureListenerOrientation(ctx);
 		audio.volume = 1;
 
 		const source = ctx.createMediaElementSource(audio);
@@ -345,7 +368,8 @@ class HexTransitionSoundController {
 	}
 
 	_clampProgress(progress) {
-		return Math.max(0, Math.min(1, progress));
+		// Backward leave uses negative progress; mix / audio scrub on |progress|.
+		return Math.max(0, Math.min(1, Math.abs(progress)));
 	}
 
 	_clampTime(seconds, duration = this._duration) {
@@ -450,20 +474,22 @@ class HexTransitionSoundController {
 		const onCarouselRoute =
 			isCarouselRoutePage(currentPage) || isCarouselRoutePage(teleportPage);
 		const hexNavActive = carousel?.isHexNavigationActive?.() === true;
+		const caseScrollMix = carousel?.isCaseBoundaryDrive?.() === true;
+		const hexMixActive = hexNavActive || caseScrollMix;
 
 		if (!isPageSoundAllowed(true)) {
 			this._stop(true, { immediate: true });
 			return;
 		}
 
-		// Case page owns its SFX, but hex leave must keep playing while openedCase
-		// stays true for HUD mosaic exit compositing.
-		if (store.openedCase && !hexNavActive) {
+		// Case page owns its SFX, but hex leave / case-boundary scroll mix must keep
+		// playing while openedCase stays true.
+		if (store.openedCase && !hexMixActive) {
 			this._stop(true, { immediate: true });
 			return;
 		}
 
-		if (!onCarouselRoute && !routeAnimating && !hexNavActive) {
+		if (!onCarouselRoute && !routeAnimating && !hexMixActive) {
 			const isPlaying =
 				(this._audio && !this._audio.paused) ||
 				(this._audioReversed && !this._audioReversed.paused);

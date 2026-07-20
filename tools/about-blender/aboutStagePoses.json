@@ -1,0 +1,147 @@
+{
+  "space": "three.js",
+  "up": "Y",
+  "units": "meters",
+  "notes": [
+    "Exported from Blender about_stage_poses_blender.py",
+    "model = AboutModelAsset.matrix_world (Model animation \u00d7 Asset base)",
+    "frames = [0, 10, 20, 30, 40]"
+  ],
+  "layoutDesktop": {
+    "rootX": 0,
+    "rootY": 0,
+    "rootScale": 1,
+    "cameraZ": 8.2,
+    "cameraY": 1.2,
+    "lookAtX": 0,
+    "lookAtY": 0,
+    "fov": 34
+  },
+  "poses": [
+    {
+      "story": 0,
+      "blenderFrame": 0,
+      "camera": {
+        "x": 0.0,
+        "y": 1.2,
+        "z": 8.2,
+        "rotX": 0.0,
+        "rotY": 0.0,
+        "rotZ": 0.0,
+        "useLookAt": true,
+        "lookAtX": 0.0,
+        "lookAtY": 0.0,
+        "lookAtZ": -0.0,
+        "fov": 34.0
+      },
+      "model": {
+        "x": 0.9998,
+        "y": -0.2315,
+        "z": -1.5791,
+        "rotX": 67.6214,
+        "rotY": 21.4169,
+        "rotZ": 6.263
+      }
+    },
+    {
+      "story": 1,
+      "blenderFrame": 10,
+      "camera": {
+        "x": 0.0,
+        "y": 1.2,
+        "z": 8.2,
+        "rotX": 0.0,
+        "rotY": 0.0,
+        "rotZ": 0.0,
+        "useLookAt": true,
+        "lookAtX": 0.0,
+        "lookAtY": 0.0,
+        "lookAtZ": -0.0,
+        "fov": 34.0
+      },
+      "model": {
+        "x": 0.8423,
+        "y": 0.0215,
+        "z": 0.1938,
+        "rotX": 71.498,
+        "rotY": 46.4802,
+        "rotZ": 6.0877
+      }
+    },
+    {
+      "story": 2,
+      "blenderFrame": 20,
+      "camera": {
+        "x": 0.0,
+        "y": 1.2,
+        "z": 8.2,
+        "rotX": 0.0,
+        "rotY": 0.0,
+        "rotZ": 0.0,
+        "useLookAt": true,
+        "lookAtX": 0.0,
+        "lookAtY": 0.0,
+        "lookAtZ": -0.0,
+        "fov": 34.0
+      },
+      "model": {
+        "x": 0.6177,
+        "y": 0.163,
+        "z": 1.1169,
+        "rotX": 54.5904,
+        "rotY": -25.8014,
+        "rotZ": 8.3413
+      }
+    },
+    {
+      "story": 3,
+      "blenderFrame": 30,
+      "camera": {
+        "x": 0.0,
+        "y": 1.2,
+        "z": 8.2,
+        "rotX": 0.0,
+        "rotY": 0.0,
+        "rotZ": 0.0,
+        "useLookAt": true,
+        "lookAtX": 0.0,
+        "lookAtY": 0.0,
+        "lookAtZ": -0.0,
+        "fov": 34.0
+      },
+      "model": {
+        "x": -0.0004,
+        "y": 0.7272,
+        "z": 4.3231,
+        "rotX": 17.6099,
+        "rotY": -0.0702,
+        "rotZ": 0.7692
+      }
+    },
+    {
+      "story": 4,
+      "blenderFrame": 40,
+      "camera": {
+        "x": 0.0,
+        "y": 1.2,
+        "z": 8.2,
+        "rotX": 0.0,
+        "rotY": 0.0,
+        "rotZ": 0.0,
+        "useLookAt": true,
+        "lookAtX": 0.0,
+        "lookAtY": 0.0,
+        "lookAtZ": -0.0,
+        "fov": 34.0
+      },
+      "model": {
+        "x": 0.9056,
+        "y": 1.1005,
+        "z": 7.1207,
+        "rotX": 0.5407,
+        "rotY": -54.8485,
+        "rotZ": 1.3179
+      }
+    }
+  ]
+}

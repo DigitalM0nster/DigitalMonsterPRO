@@ -23,6 +23,49 @@ export function getArcNoFadeAngleBounds(nodeAngles, cutoutHalfRad) {
 }
 
 /**
+ * Fade bounds for the visible wedge. Always reserves end tails so the track,
+ * nodes and labels darken toward angleStart / angleEnd — even when many cyclic
+ * nodes would otherwise expand the solid zone across the whole arc.
+ *
+ * @param {number} angleStart
+ * @param {number} angleEnd
+ * @param {number[]} nodeAngles
+ * @param {number} cutoutHalfRad
+ * @returns {{ angleStart: number, angleEnd: number, noFadeMin: number, noFadeMax: number }}
+ */
+export function resolveArcFadeBounds(angleStart, angleEnd, nodeAngles, cutoutHalfRad) {
+	const cfg = caseStudyArcInternals;
+	const mid = (angleStart + angleEnd) * 0.5;
+	const halfSpan = Math.max(MIN_RANGE_RAD, (angleEnd - angleStart) * 0.5);
+	// Keep a visible fade band on both ends (fraction of wedge + fadeTail hint).
+	const reserve = Math.max(0.08, Math.min(0.65, cfg.fadeTailReserve ?? 0.4));
+	const minTailRad = Math.max(
+		cfg.fadeInsetDeg * DEG,
+		Math.min(Math.max(8, cfg.fadeTailDeg * 0.35) * DEG, halfSpan * reserve),
+	);
+
+	const nodeBounds = getArcNoFadeAngleBounds(nodeAngles, cutoutHalfRad);
+	let noFadeMin = nodeBounds?.min ?? (mid - halfSpan * 0.3);
+	let noFadeMax = nodeBounds?.max ?? (mid + halfSpan * 0.3);
+
+	noFadeMin = Math.max(noFadeMin, angleStart + minTailRad);
+	noFadeMax = Math.min(noFadeMax, angleEnd - minTailRad);
+
+	if (noFadeMin >= noFadeMax - MIN_RANGE_RAD) {
+		const solid = Math.max(MIN_RANGE_RAD, halfSpan - minTailRad);
+		noFadeMin = mid - solid;
+		noFadeMax = mid + solid;
+	}
+
+	return {
+		angleStart,
+		angleEnd,
+		noFadeMin,
+		noFadeMax,
+	};
+}
+
+/**
  * Затухание по оставшемуся хвосту дуги — всегда доходит до 0 на конце дуги.
  * @param {number} dist — расстояние от границы зоны кружков, рад
  * @param {number} availableTail — весь хвост до angleStart/angleEnd, рад

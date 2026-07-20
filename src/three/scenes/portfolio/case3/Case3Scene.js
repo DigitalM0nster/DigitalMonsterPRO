@@ -7,7 +7,7 @@ import { createCase3FakeLitMaterial } from "./case3FakeLitMaterial.js";
 import { createCaseStudyPanelHud, disposeCaseStudyPanelHud, syncCaseStudyPanelHud } from "@/three/scenes/portfolio/caseStudyText/caseStudyPanelHudHost.js";
 import { createCaseSceneLifecycle } from "@/three/scenes/portfolio/caseLifecycle/caseSceneLifecycle.js";
 
-const CASE3_PATH = "/portfolio/03";
+const CASE3_PATH = "/portfolio/04";
 const GRID_SIZE = 64;
 const GRID_DIVISIONS = 104;
 const ROOT_DESKTOP = new THREE.Vector3(4.15, -3.18, 0);
@@ -672,13 +672,13 @@ export class Case3Scene {
 		this.panelHud = createCaseStudyPanelHud(this.threeScene);
 
 		this.lifecycle = createCaseSceneLifecycle(this, {
-			sceneId: "case03",
+			sceneId: "case04",
 			matchPage: isCase3Path,
 			getRoot: () => this.root,
 			getStore: () => this.store,
 			getPanelHud: () => this.panelHud,
 			isLoaded: () => this.loaded,
-			hideScale: 0.001,
+			hideScale: 0,
 			resetScrollOnEnter: false,
 			hooks: {
 				onEnterShow: () => {
@@ -755,6 +755,14 @@ export class Case3Scene {
 
 	setRouteState(routeState) {
 		this.lifecycle.setRouteState(routeState);
+	}
+
+	beginWarmupDraw() {
+		return this.lifecycle.beginWarmupDraw();
+	}
+
+	endWarmupDraw(token) {
+		this.lifecycle.endWarmupDraw(token);
 	}
 
 	setMixPreviewActive(active) {

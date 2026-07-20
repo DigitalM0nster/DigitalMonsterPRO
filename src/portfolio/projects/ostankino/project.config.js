@@ -2,9 +2,9 @@ import { caseStudyReferencePanelPreset } from "@/portfolio/core/caseStudyReferen
 
 /** @type {import('@/portfolio/core/types.js').PortfolioProjectConfig} */
 const projectConfig = {
-	id: "06",
+	id: "03",
 	slug: "ostankino",
-	route: "/portfolio/06",
+	route: "/portfolio/03",
 	title: "ОСТАНКИНО",
 	summary: "Интерактивный каталог офисных помещений с навигацией по зданию",
 	hubLogo: "/images/portfolio/case6.webp",

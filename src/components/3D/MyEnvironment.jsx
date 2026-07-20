@@ -36,13 +36,13 @@ export default function MyEnvironment(props) {
 			p === "/portfolio/01" ||
 			p === "/portfolio/02" ||
 			p === "/portfolio/03" ||
+			p === "/portfolio/04" ||
 			p === "/portfolio/05" ||
-			p === "/portfolio/06" ||
 			p === "/portfolio/07"
 		) {
 			easing.damp3(light.position, [-5, 13.5, 9], 1, delta);
 			light.intensity = 1;
-		} else if (p === "/portfolio/04") {
+		} else if (p === "/portfolio/06") {
 			easing.damp3(light.position, [0, 0, 1], 1, delta);
 			light.intensity = 1;
 		} else {

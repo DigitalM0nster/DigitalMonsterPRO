@@ -28,6 +28,11 @@ export class HexGridOverlayPass {
 		this.material.uniforms.progress.value = progress;
 	}
 
+	/** Scroll up / backward leave: hex wipe starts at the top. */
+	setRevealFromTop(fromTop) {
+		this.material.uniforms.revealFromTop.value = fromTop ? 1 : 0;
+	}
+
 	setSourceTextureEffectStrength(strength) {
 		this.material.uniforms.sourceTextureEffectStrength.value = THREE.MathUtils.clamp(strength, 0, 1);
 	}
@@ -199,17 +204,15 @@ export class HexGridOverlayPass {
 		const prevTarget = renderer.getRenderTarget();
 		const prevAutoClear = renderer.autoClear;
 
-		this.material.transparent = true;
-		this.material.blending = THREE.NormalBlending;
+		// Opaque mix only — NormalBlending into clear(a=0) turned About's translucent
+		// near-black glass into smoky filled hex cells in the RT.
+		syncHexGridMaterialBlendMode(this.material);
 
 		renderer.setRenderTarget(this.modelsMixTarget);
 		renderer.autoClear = true;
-		renderer.setClearColor(0x000000, 0);
+		renderer.setClearColor(0x000000, 1);
 		renderer.clear(true, true, true);
 		renderer.render(overlayScene, overlayCamera);
-
-		this.material.transparent = false;
-		this.material.blending = THREE.NoBlending;
 
 		renderer.setRenderTarget(prevTarget);
 		renderer.autoClear = prevAutoClear;

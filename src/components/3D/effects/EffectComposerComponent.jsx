@@ -435,13 +435,13 @@ export default function EffectComposerComponent(props) {
 			} else {
 				dampBlurPortfolioMainDesktop(blendFactorRef, blurRadiusRef, store, delta);
 			}
-		} else if (page === "/portfolio/03") {
-			dampBlurPortfolio03(blendFactorRef, blurRadiusRef, store, delta, iw);
 		} else if (page === "/portfolio/04") {
+			dampBlurPortfolio03(blendFactorRef, blurRadiusRef, store, delta, iw);
+		} else if (page === "/portfolio/06") {
 			dampBlurPortfolio04(blendFactorRef, blurRadiusRef, bloom, store, delta, iw);
 		} else if (page === "/portfolio/05") {
 			dampBlurPortfolio05(blendFactorRef, blurRadiusRef, bloom, store, delta, iw);
-		} else if (page === "/portfolio/06" || page === "/portfolio/07") {
+		} else if (page === "/portfolio/03" || page === "/portfolio/07") {
 			dampBlurPortfolio03(blendFactorRef, blurRadiusRef, store, delta, iw);
 		}
 
@@ -451,7 +451,7 @@ export default function EffectComposerComponent(props) {
 				easing.damp(bloom.luminanceMaterial, "threshold", portfolioHubBloom.threshold, 0.1, delta);
 				easing.damp(bloom.luminanceMaterial, "smoothing", portfolioHubBloom.smoothing, 0.1, delta);
 			}
-		} else if (page === "/portfolio/03") {
+		} else if (page === "/portfolio/04") {
 			if (bloom) {
 				easing.damp(bloom, "intensity", 3, 1, delta);
 				easing.damp(bloom.luminanceMaterial, "threshold", 1.0, 0.1, delta);

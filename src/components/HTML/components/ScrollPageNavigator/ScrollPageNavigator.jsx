@@ -2,13 +2,14 @@ import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useSta
 import { useLocation } from "react-router-dom";
 import { store, useStore } from "@/store.jsx";
 import { useRouteTransitionContext } from "@/context/RouteTransitionContext.jsx";
-import { getNavItemLabel } from "@/i18n/siteCopy.js";
+import { getNavItemLabel, getNavPortfolioCasesMarker } from "@/i18n/siteCopy.js";
 import { normalizeSiteLocale } from "@/utils/siteLocale.js";
 import { requestHexNavigation, getHexPendingPath } from "@/utils/hexNavigation.js";
-import { isPortfolioCasePath } from "@/three/scenes/portfolio/hub/projectsData.js";
+import { isPortfolioCasePath, projectsData } from "@/three/scenes/portfolio/hub/projectsData.js";
 import { playRightNavigatorGlitchSound } from "@/sounds/soundDesign.js";
 import LeftMenuGlitchLabel from "../leftMenu/LeftMenuGlitchLabel.jsx";
 import { MENU_LABEL_APPEAR_MS, MENU_LABEL_DISAPPEAR_MS } from "../leftMenu/leftMenuLabelTimings.js";
+import { resolveAboutNavigatorProgress } from "./aboutNavigatorPhase.js";
 import "./ScrollPageNavigator.scss";
 
 const MAIN_ITEMS = [
@@ -21,19 +22,9 @@ const MAIN_ITEMS = [
 const VISIBLE_CYCLE_RANGE = 2;
 const NAVIGATOR_WIDTH = 236;
 const LINE_X = 166;
-const ABOUT_SUBITEM_OFFSETS = [0.18, 0.32, 0.46, 0.6];
 const NAVIGATOR_CURSOR_SOURCE = "scrollPageNavigator";
-const ABOUT_STAGE_CURSOR_HIDE_MS = 320;
 /** Must match `.scrollPageNavigator.hidden` transition duration. */
 const NAVIGATOR_EXIT_MS = 420;
-
-function resolveAboutTrackOffset(stagePosition) {
-	const clamped = Math.max(0, Math.min(ABOUT_SUBITEM_OFFSETS.length - 1, stagePosition));
-	const fromIndex = Math.floor(clamped);
-	const toIndex = Math.min(ABOUT_SUBITEM_OFFSETS.length - 1, fromIndex + 1);
-	const progress = clamped - fromIndex;
-	return ABOUT_SUBITEM_OFFSETS[fromIndex] + (ABOUT_SUBITEM_OFFSETS[toIndex] - ABOUT_SUBITEM_OFFSETS[fromIndex]) * progress;
-}
 
 function setNavigatorCursorAnchor(itemKey, circle) {
 	if (!circle) {
@@ -109,39 +100,6 @@ function useDampedValue(target, smooth = 0.16) {
 	return value;
 }
 
-function useTimedActivation(active, durationMs = 240, activateImmediately = false, initialValue = 0) {
-	const [value, setValue] = useState(0);
-	const activateImmediatelyRef = useRef(activateImmediately);
-	activateImmediatelyRef.current = activateImmediately;
-
-	useEffect(() => {
-		if (!active) {
-			setValue(0);
-			return undefined;
-		}
-		if (activateImmediatelyRef.current) {
-			setValue(1);
-			return undefined;
-		}
-
-		let frameId = 0;
-		const startedAt = performance.now();
-		const startValue = clamp01(initialValue);
-		setValue(startValue);
-		const tick = (now) => {
-			const linear = clamp01((now - startedAt) / Math.max(1, durationMs));
-			setValue(startValue + (1 - startValue) * smoothstep01(linear));
-			if (linear < 1) {
-				frameId = requestAnimationFrame(tick);
-			}
-		};
-
-		frameId = requestAnimationFrame(tick);
-		return () => cancelAnimationFrame(frameId);
-	}, [active, durationMs, initialValue]);
-
-	return value;
-}
 
 function normalizePath(path) {
 	return String(path ?? "/").replace(/\/+$/, "") || "/";
@@ -164,37 +122,6 @@ function smoothstep01(value) {
 
 function clamp01(value) {
 	return Math.max(0, Math.min(1, value));
-}
-
-function resolveAboutSubitemActivation(index, stagePosition, entryProgress = 1) {
-	if (index === 0) {
-		return entryProgress;
-	}
-
-	return Math.min(entryProgress, smoothstep01(stagePosition - (index - 1)));
-}
-
-function resolveAboutSubitemEmphasis(index, stagePosition) {
-	const distance = stagePosition - index;
-	const focus = smoothstep01(1 - Math.min(Math.abs(distance), 1));
-	if (distance < 0) {
-		return focus;
-	}
-
-	return Math.max(focus, Math.pow(0.58, distance));
-}
-
-function resolveSequentialReveal(progress, order, totalSteps = 5) {
-	const step = 1 / totalSteps;
-	return smoothstep01((progress - order * step) / step);
-}
-
-function resolveAboutReverseSequenceOrder(subitemIndex) {
-	return subitemIndex < 0 ? ABOUT_SUBITEM_OFFSETS.length : ABOUT_SUBITEM_OFFSETS.length - 1 - subitemIndex;
-}
-
-function resolveAboutExitSequenceOrder(subitemIndex) {
-	return subitemIndex < 0 ? 0 : subitemIndex + 1;
 }
 
 function pointOnCircle(cx, cy, radius, angle) {
@@ -236,6 +163,12 @@ function resolveNavigatorCircleOpacity(relative) {
 	return smoothstep01(1 - Math.max(0, distance - 0.55) / 1.7).toFixed(3);
 }
 
+/**
+ * Label snake / `.center` chrome follow the committed carousel route, not the
+ * visual approach band. Neighbors can sit in |relative| < 0.42 (and light their
+ * SVG ring) while still `previous`/`next` — text must wait until `currentId`
+ * flips at commit, when that stop's ring is fully lit.
+ */
 function resolveItemInstances(currentId, progress) {
 	const total = MAIN_ITEMS.length;
 	const currentIndex = Math.max(
@@ -255,7 +188,7 @@ function resolveItemInstances(currentId, progress) {
 				...item,
 				key: `${item.id}:${cycle}`,
 				relative,
-				isCenter: Math.abs(relative) < 0.42,
+				isRouteLabelActive: item.id === currentId,
 				isClipped: Math.abs(relative) > 1.65,
 			});
 		}
@@ -264,101 +197,33 @@ function resolveItemInstances(currentId, progress) {
 	return instances.sort((a, b) => a.relative - b.relative);
 }
 
-function resolveAboutSubitemInstances(instances) {
-	return instances
-		.filter((item) => item.id === "about")
-		.flatMap((item) =>
-			ABOUT_SUBITEM_OFFSETS.map((offset, index) => ({
-				key: `${item.key}:about-subitem:${index}`,
-				parentKey: item.key,
-				parentRelative: item.relative,
-				index,
-				relative: item.relative + offset,
-			})),
-		)
-		.filter((item) => item.relative > -2.25 && item.relative < 2.25)
-		.sort((a, b) => a.relative - b.relative);
-}
 
-function PortfolioNestedMarker({ labelRef, active }) {
+function PortfolioNestedMarker({ labelRef, active, isDisplayed, label }) {
 	return (
 		<div className="scrollPageNavigatorPortfolioMarker" aria-hidden="true">
 			<span className="scrollPageNavigatorPortfolioText">
-				<LeftMenuGlitchLabel ref={labelRef} text="08 CASES" active={active} isDisplayed reverse />
+				<LeftMenuGlitchLabel
+					ref={labelRef}
+					text={label}
+					active={active}
+					isDisplayed={isDisplayed}
+					reverse
+				/>
 			</span>
 		</div>
 	);
 }
 
-function AboutStageButton({ item, itemGapPx, numberOpacity, focus, onNavigate }) {
-	const labelRef = useRef(null);
-	const circleRef = useRef(null);
-	const [isHovered, setIsHovered] = useState(false);
-	const label = String(item.index + 1).padStart(2, "0");
-	const anchorKey = `${item.key}:button`;
 
-	useEffect(() => {
-		const timer = window.setTimeout(() => {
-			const durationMs =
-				labelRef.current?.playAppear?.({
-					timeBudgetMs: MENU_LABEL_APPEAR_MS,
-					playSound: false,
-				}) ?? 0;
-			if (item.index === 0) {
-				playRightNavigatorGlitchSound(durationMs + ABOUT_SUBITEM_OFFSETS.length * 32);
-			}
-		}, item.index * 32);
-		return () => window.clearTimeout(timer);
-	}, [item.index]);
-
-	const handlePointerEnter = useCallback(() => {
-		setIsHovered(true);
-		setNavigatorCursorAnchor(anchorKey, circleRef.current);
-		const durationMs =
-			labelRef.current?.playHover?.({
-				timeBudgetMs: MENU_LABEL_APPEAR_MS,
-				playSound: false,
-			}) ?? 0;
-		playRightNavigatorGlitchSound(durationMs);
-	}, [anchorKey]);
-
-	const handlePointerLeave = useCallback(() => {
-		setIsHovered(false);
-		clearNavigatorCursorAnchor(anchorKey);
-	}, [anchorKey]);
-
-	useLayoutEffect(() => {
-		if (isHovered) {
-			setNavigatorCursorAnchor(anchorKey, circleRef.current);
-		}
-	}, [anchorKey, isHovered, item.relative, itemGapPx]);
-
-	useEffect(() => () => clearNavigatorCursorAnchor(anchorKey), [anchorKey]);
-
-	return (
-		<button
-			type="button"
-			className={["scrollPageNavigatorStageButton", focus > 0.001 && "current"].filter(Boolean).join(" ")}
-			style={{
-				"--navigator-y": `${item.relative * itemGapPx}px`,
-				"--navigator-subnumber-opacity": numberOpacity.toFixed(3),
-				"--navigator-subnumber-emphasis": focus.toFixed(3),
-			}}
-			onPointerEnter={handlePointerEnter}
-			onPointerLeave={handlePointerLeave}
-			onClick={() => onNavigate(item.index)}
-			aria-label={`Открыть этап ${label} раздела О нас`}
-			aria-current={focus > 0.999 ? "step" : undefined}
-		>
-			<span className="scrollPageNavigatorStageNumber">
-				<LeftMenuGlitchLabel ref={labelRef} text={label} active={focus > 0.001 || isHovered} isDisplayed reverse />
-			</span>
-			<span ref={circleRef} className="scrollPageNavigatorStageHitCircle" aria-hidden="true" />
-		</button>
-	);
-}
-
-function ScrollNavigatorItem({ item, itemGapPx, label, onNavigate, clickPhase, clickTargetId, forceActive = false, suppressNaturalActive = false }) {
+function ScrollNavigatorItem({
+	item,
+	itemGapPx,
+	label,
+	portfolioCasesLabel,
+	onNavigate,
+	clickPhase,
+	clickTargetId,
+}) {
 	const labelRef = useRef(null);
 	const portfolioMarkerLabelRef = useRef(null);
 	const circleRef = useRef(null);
@@ -368,19 +233,37 @@ function ScrollNavigatorItem({ item, itemGapPx, label, onNavigate, clickPhase, c
 	const clickTransitionSeenRef = useRef(false);
 	const mountedRef = useRef(false);
 	const renderedLabelRef = useRef(null);
+	const disappearTimerRef = useRef(0);
 	const [isHovered, setIsHovered] = useState(false);
 	const [isClickPinned, setIsClickPinned] = useState(false);
+	/** Keep true through disappear snake — same as left menu disappearingIndices. */
+	const [isLabelDisplayed, setIsLabelDisplayed] = useState(false);
 	const isPortfolio = item.id === "portfolioHub";
 	const showPortfolioMarker = isPortfolio && !item.isClipped;
-	const isActive = forceActive || (item.isCenter && !suppressNaturalActive);
+	const isActive = item.isRouteLabelActive === true;
 	const isItemClickTarget = clickPhase !== "idle" && clickTargetId === item.id;
 	const circleGlow = resolveCircleGlow(item.relative);
 	const circleOpacity = resolveNavigatorCircleOpacity(item.relative);
+
+	const clearDisappearTimer = useCallback(() => {
+		if (disappearTimerRef.current) {
+			clearTimeout(disappearTimerRef.current);
+			disappearTimerRef.current = 0;
+		}
+	}, []);
+
 	const playLabelSnake = useCallback((mode) => {
-		const options = {
-			timeBudgetMs: mode === "disappear" ? MENU_LABEL_DISAPPEAR_MS : MENU_LABEL_APPEAR_MS,
-			playSound: false,
-		};
+		/**
+		 * Hover: same as hub project-list `runHover()` — engine defaults 75/50 + 3 symbols.
+		 * Do not use hero locale options (40/40): that wave looks nearly sequential on short labels.
+		 */
+		const options =
+			mode === "hover"
+				? { playSound: false }
+				: {
+						timeBudgetMs: mode === "disappear" ? MENU_LABEL_DISAPPEAR_MS : MENU_LABEL_APPEAR_MS,
+						playSound: false,
+					};
 		const playOnLabel = (targetRef) =>
 			mode === "hover"
 				? (targetRef.current?.playHover?.(options) ?? 0)
@@ -389,7 +272,25 @@ function ScrollNavigatorItem({ item, itemGapPx, label, onNavigate, clickPhase, c
 					: (targetRef.current?.playDisappear?.(options) ?? 0);
 		const durationMs = Math.max(playOnLabel(labelRef), playOnLabel(portfolioMarkerLabelRef));
 		playRightNavigatorGlitchSound(durationMs);
+		return durationMs;
 	}, []);
+
+	const showLabel = useCallback(() => {
+		clearDisappearTimer();
+		setIsLabelDisplayed(true);
+	}, [clearDisappearTimer]);
+
+	const hideLabelAnimated = useCallback(() => {
+		clearDisappearTimer();
+		setIsLabelDisplayed(true);
+		const durationMs = playLabelSnake("disappear");
+		disappearTimerRef.current = window.setTimeout(() => {
+			disappearTimerRef.current = 0;
+			labelRef.current?.cancelAndHide?.();
+			portfolioMarkerLabelRef.current?.cancelAndHide?.();
+			setIsLabelDisplayed(false);
+		}, Math.max(MENU_LABEL_DISAPPEAR_MS, durationMs));
+	}, [clearDisappearTimer, playLabelSnake]);
 
 	useEffect(() => {
 		const wasActive = activeRef.current;
@@ -400,20 +301,28 @@ function ScrollNavigatorItem({ item, itemGapPx, label, onNavigate, clickPhase, c
 		mountedRef.current = true;
 
 		if (isActive && (!wasMounted || labelChanged)) {
+			showLabel();
 			playLabelSnake("appear");
 		} else if (isActive && !wasActive) {
-			playLabelSnake("appear");
+			showLabel();
+			// Hover already ran appear — click/activation must not hide+replay the snake.
+			if (!hoveredRef.current) {
+				playLabelSnake("appear");
+			}
 		} else if (!isActive && wasActive && !hoveredRef.current) {
-			playLabelSnake("disappear");
+			hideLabelAnimated();
 		}
-	}, [isActive, label, playLabelSnake]);
+	}, [hideLabelAnimated, isActive, label, playLabelSnake, showLabel]);
+
+	useEffect(() => () => clearDisappearTimer(), [clearDisappearTimer]);
 
 	const handlePointerEnter = useCallback(() => {
 		hoveredRef.current = true;
 		setIsHovered(true);
+		showLabel();
 		setNavigatorCursorAnchor(item.key, circleRef.current);
 		playLabelSnake(activeRef.current ? "hover" : "appear");
-	}, [item.key, playLabelSnake]);
+	}, [item.key, playLabelSnake, showLabel]);
 
 	const handlePointerLeave = useCallback(() => {
 		hoveredRef.current = false;
@@ -422,9 +331,9 @@ function ScrollNavigatorItem({ item, itemGapPx, label, onNavigate, clickPhase, c
 			clearNavigatorCursorAnchor(item.key);
 		}
 		if (!activeRef.current) {
-			playLabelSnake("disappear");
+			hideLabelAnimated();
 		}
-	}, [item.key, playLabelSnake]);
+	}, [hideLabelAnimated, item.key]);
 
 	const handleClick = useCallback(() => {
 		const navigationStarted = onNavigate(item.path);
@@ -469,8 +378,8 @@ function ScrollNavigatorItem({ item, itemGapPx, label, onNavigate, clickPhase, c
 	useEffect(() => () => clearNavigatorCursorAnchor(item.key), [item.key]);
 
 	return (
-		<button
-			type="button"
+		<div
+			role="button"
 			className={["scrollPageNavigatorItem", isActive && "center", item.isClipped && "clipped", showPortfolioMarker && "hasPortfolioMarker"].filter(Boolean).join(" ")}
 			style={{
 				"--navigator-y": `${item.relative * itemGapPx}px`,
@@ -480,40 +389,54 @@ function ScrollNavigatorItem({ item, itemGapPx, label, onNavigate, clickPhase, c
 			onPointerEnter={handlePointerEnter}
 			onPointerLeave={handlePointerLeave}
 			onClick={handleClick}
+			onKeyDown={(event) => {
+				if (event.key === "Enter" || event.key === " ") {
+					event.preventDefault();
+					handleClick();
+				}
+			}}
 			aria-label={label}
 			tabIndex={isActive ? 0 : -1}
 		>
 			<span className="scrollPageNavigatorLabel">
-				<LeftMenuGlitchLabel key={label} ref={labelRef} text={label} active={isActive || isHovered} isDisplayed reverse />
+				{/* No key={label}: remounting every locale rebuilds all glitch trees and hitchs home. */}
+				<LeftMenuGlitchLabel
+					ref={labelRef}
+					text={label}
+					active={isActive || isHovered}
+					isDisplayed={isLabelDisplayed}
+					reverse
+				/>
 			</span>
 			<span ref={circleRef} className="scrollPageNavigatorCircle">
-				<img src={item.icon} alt="" />
+				<span
+					className="scrollPageNavigatorCircleIcon"
+					style={{ "--navigator-icon-mask": `url("${item.icon}")` }}
+					aria-hidden="true"
+				/>
 			</span>
-			{showPortfolioMarker && <PortfolioNestedMarker labelRef={portfolioMarkerLabelRef} active={isActive || isHovered} />}
-		</button>
+			{showPortfolioMarker && (
+				<PortfolioNestedMarker
+					labelRef={portfolioMarkerLabelRef}
+					active={isActive || isHovered}
+					isDisplayed={isLabelDisplayed}
+					label={portfolioCasesLabel}
+				/>
+			)}
+		</div>
 	);
 }
 
 function ScrollNavigatorLine({
 	instances,
-	subitemInstances,
 	itemGapPx,
 	viewportHeight,
 	directionValue,
-	aboutStageActive,
-	aboutStagePosition,
-	aboutEntryProgress,
-	aboutReverseEntry,
-	aboutReverseSequenceProgress,
-	aboutMainActivation,
-	aboutMainExitProgress,
-	aboutHandoffProgress,
 }) {
 	const svgId = useId().replace(/:/g, "");
 	const maskId = `${svgId}-mask`;
 	const gradientId = `${svgId}-gradient`;
 	const circleRadius = 22.5;
-	const subitemRadius = 12;
 	const mainHoles = instances
 		.map((item) => {
 			const y = viewportHeight / 2 + item.relative * itemGapPx;
@@ -530,43 +453,19 @@ function ScrollNavigatorLine({
 			};
 		})
 		.filter(Boolean);
-	const subitemHoles = subitemInstances
-		.map((item) => {
-			const y = viewportHeight / 2 + item.relative * itemGapPx;
-			if (y < -70 || y > viewportHeight + 70) {
-				return null;
-			}
-			return {
-				key: item.key,
-				parentKey: item.parentKey,
-				index: item.index,
-				x: LINE_X,
-				y,
-				r: subitemRadius,
-			};
-		})
-		.filter(Boolean);
-	const holes = [...mainHoles, ...subitemHoles];
-	const snakeReferenceHoles = aboutStageActive ? holes : mainHoles;
-	const snakeStrength = snakeReferenceHoles.reduce((max, hole) => {
+	const holes = mainHoles;
+	const snakeStrength = holes.reduce((max, hole) => {
 		const distance = Math.abs(hole.y - viewportHeight / 2);
 		return Math.max(max, smoothstep01(1 - Math.min(distance / (itemGapPx * 0.52), 1)));
 	}, 0);
-	const lastAboutStageFocus = aboutStageActive ? smoothstep01(aboutStagePosition - (ABOUT_SUBITEM_OFFSETS.length - 2)) : 0;
-	const compactSnakeFocus = useDampedValue(lastAboutStageFocus, 0.1);
-	const normalSnakeLength = 174 - snakeStrength * 104;
-	const compactSnakeLength = 40;
-	const snakeLength = normalSnakeLength + (compactSnakeLength - normalSnakeLength) * compactSnakeFocus;
+	const snakeLength = 174 - snakeStrength * 104;
 	const snakeY1 = viewportHeight / 2 - snakeLength / 2;
 	const snakeY2 = viewportHeight / 2 + snakeLength / 2;
-	const snakeThicknessScale = 1 - compactSnakeFocus * 0.25;
-	const snakeBloomWidth = (7 + snakeStrength * 4) * snakeThicknessScale;
-	const snakeCoreWidth = (1.2 + snakeStrength * 1.5) * snakeThicknessScale;
+	const snakeBloomWidth = 7 + snakeStrength * 4;
+	const snakeCoreWidth = 1.2 + snakeStrength * 1.5;
 	const snakeOpacity = 0.4 + snakeStrength * 0.28;
-	const snakeBrightnessScale = Math.min(aboutStageActive ? 0.72 : 1, 1 - compactSnakeFocus * 0.38);
-	const directionalSnakeHead = 18 + ((directionValue + 1) / 2) * 64;
-	const handoffHeadBlend = smoothstep01(aboutHandoffProgress / 0.16);
-	const snakeHead = aboutStageActive ? 50 + (directionalSnakeHead - 50) * handoffHeadBlend : directionalSnakeHead;
+	const snakeBrightnessScale = 1;
+	const snakeHead = 18 + ((directionValue + 1) / 2) * 64;
 	const snakeHeadOffset = `${snakeHead.toFixed(2)}%`;
 	const snakeHeadPrevOffset = `${Math.max(0, snakeHead - 10).toFixed(2)}%`;
 	const snakeHeadNextOffset = `${Math.min(100, snakeHead + 10).toFixed(2)}%`;
@@ -574,9 +473,6 @@ function ScrollNavigatorLine({
 	const centerY = viewportHeight / 2;
 	const activeCircleGlow = mainHoles
 		.map((hole) => {
-			if (aboutStageActive && hole.id === "about") {
-				return null;
-			}
 			const distance = Math.abs(hole.y - centerY);
 			const baseStrength = smoothstep01(1 - Math.min(distance / (itemGapPx * 0.22), 1));
 			const strength = hole.id === "about" ? clamp01(baseStrength * 2) : baseStrength;
@@ -605,53 +501,6 @@ function ScrollNavigatorLine({
 			};
 		})
 		.filter(Boolean);
-	const activeAboutHole = aboutStageActive ? (mainHoles.filter((hole) => hole.id === "about").sort((a, b) => Math.abs(a.relative) - Math.abs(b.relative))[0] ?? null) : null;
-	const activeAboutSubitems = activeAboutHole ? subitemHoles.filter((item) => item.parentKey === activeAboutHole.key).sort((a, b) => a.index - b.index) : [];
-	const aboutVisibility = activeAboutHole ? Number(resolveNavigatorCircleOpacity(activeAboutHole.relative)) : 0;
-	const activeAboutMainGlow =
-		activeAboutHole && aboutMainActivation > 0.001
-			? {
-					x: activeAboutHole.x,
-					y: activeAboutHole.y,
-					activation: clamp01(aboutMainActivation),
-					visibility: aboutVisibility,
-					distanceAttenuation: Math.pow(0.7, aboutStagePosition),
-					exitProgress: clamp01(aboutMainExitProgress),
-					clipPathId: `${gradientId}-about-main-exit`,
-					spread: aboutMainExitProgress > 0.001 ? 179 : Math.min(179, 16 + clamp01(aboutMainActivation) * 163),
-				}
-			: null;
-	const activeAboutSubitemGlow = activeAboutSubitems.map((subitem, index) => {
-		const baseActivation = resolveAboutSubitemActivation(index, aboutStagePosition, aboutEntryProgress);
-		const reverseReveal = aboutReverseEntry ? resolveSequentialReveal(aboutReverseSequenceProgress, resolveAboutReverseSequenceOrder(index)) : 1;
-		const exitProgress = resolveSequentialReveal(aboutHandoffProgress, resolveAboutExitSequenceOrder(index));
-		const exitVisibility = 1 - exitProgress;
-		const activation = baseActivation * reverseReveal * exitVisibility;
-		const previous = index === 0 ? activeAboutHole : activeAboutSubitems[index - 1];
-		const previousRadius = index === 0 ? circleRadius : subitemRadius;
-		const connectorY1 = previous.y + previousRadius + 0.4;
-		const connectorEnd = Math.max(connectorY1, subitem.y - subitemRadius - 0.4);
-		const connectorY2 = connectorY1 + (connectorEnd - connectorY1) * activation;
-		const activeDistance = Math.abs(aboutStagePosition - index);
-		const focus = smoothstep01(1 - Math.min(activeDistance, 1));
-		const emphasis = resolveAboutSubitemEmphasis(index, aboutStagePosition);
-
-		return {
-			key: `${subitem.key}:stage-ring`,
-			connectorGradientId: `${gradientId}-about-subitem-${subitem.key.replace(/[^a-zA-Z0-9_-]/g, "-")}`,
-			clipPathId: `${gradientId}-about-subitem-exit-${subitem.key.replace(/[^a-zA-Z0-9_-]/g, "-")}`,
-			x: subitem.x,
-			y: subitem.y,
-			y1: connectorY1,
-			y2: connectorY2,
-			activation,
-			focus,
-			emphasis,
-			exitProgress,
-			visibility: aboutVisibility,
-			spread: exitProgress > 0.001 ? 179 : Math.min(179, 16 + activation * 163),
-		};
-	});
 	return (
 		<svg className="scrollPageNavigatorLine" viewBox={`0 0 ${NAVIGATOR_WIDTH} ${viewportHeight}`} preserveAspectRatio="none" aria-hidden="true">
 			<defs>
@@ -700,34 +549,6 @@ function ScrollNavigatorLine({
 						<stop offset="100%" stopColor="var(--mainColor)" stopOpacity="0" />
 					</linearGradient>
 				))}
-				{activeAboutSubitemGlow.map((glow) => (
-					<linearGradient key={`${glow.key}:connector`} id={glow.connectorGradientId} x1="0" y1={glow.y1} x2="0" y2={glow.y2} gradientUnits="userSpaceOnUse">
-						<stop offset="0%" stopColor="var(--mainColor)" stopOpacity={0.2 + glow.activation * 0.22} />
-						<stop offset="58%" stopColor="white" stopOpacity={0.12 + glow.activation * 0.26} />
-						<stop offset="100%" stopColor="var(--mainColor)" stopOpacity={0.22 + glow.activation * 0.34} />
-					</linearGradient>
-				))}
-				{activeAboutSubitemGlow.map((glow) => {
-					const wipeTop = glow.y - subitemRadius - 18;
-					const wipeBottom = glow.y + subitemRadius + 18;
-					const wipeY = wipeTop + (wipeBottom - wipeTop) * glow.exitProgress;
-					return (
-						<clipPath key={`${glow.key}:exit-clip`} id={glow.clipPathId}>
-							<rect x="0" y={wipeY} width={NAVIGATOR_WIDTH} height={Math.max(0, viewportHeight + 80 - wipeY)} />
-						</clipPath>
-					);
-				})}
-				{activeAboutMainGlow &&
-					(() => {
-						const wipeTop = activeAboutMainGlow.y - circleRadius - 22;
-						const wipeBottom = activeAboutMainGlow.y + circleRadius + 22;
-						const wipeY = wipeTop + (wipeBottom - wipeTop) * activeAboutMainGlow.exitProgress;
-						return (
-							<clipPath id={activeAboutMainGlow.clipPathId}>
-								<rect x="0" y={wipeY} width={NAVIGATOR_WIDTH} height={Math.max(0, viewportHeight + 80 - wipeY)} />
-							</clipPath>
-						);
-					})()}
 				<mask id={maskId} maskUnits="userSpaceOnUse">
 					<rect x="0" y="0" width={NAVIGATOR_WIDTH} height={viewportHeight} fill="white" />
 					{holes.map((hole) => (
@@ -780,54 +601,22 @@ function ScrollNavigatorLine({
 					/>
 				</g>
 			))}
-			{activeAboutSubitemGlow.map((glow) => (
-				<g
-					key={glow.key}
-					className="scrollPageNavigatorAboutSubitemCluster"
-					opacity={glow.visibility * glow.activation * (0.08 + glow.activation * (0.12 + glow.emphasis * 0.64))}
-				>
-					<line x1={glow.x} y1={glow.y1} x2={glow.x} y2={glow.y2} stroke={`url(#${glow.connectorGradientId})`} strokeWidth={0.9 + glow.activation * 0.9} />
-					<g clipPath={glow.exitProgress > 0.001 ? `url(#${glow.clipPathId})` : undefined}>
-						<circle
-							className="scrollPageNavigatorAboutSubitemHalo"
-							cx={glow.x}
-							cy={glow.y}
-							r={subitemRadius + 2.5}
-							strokeWidth={1.1 + glow.activation * 0.8 + glow.emphasis * 0.55}
-							opacity={glow.activation * (0.1 + glow.emphasis * 0.68)}
-						/>
-						<g className="scrollPageNavigatorSnakeRing">
-							<path d={describeCircleArc(glow.x, glow.y, subitemRadius, -90, -90 + glow.spread, 1)} strokeWidth={0.9 + glow.activation * 1.35} />
-							<path d={describeCircleArc(glow.x, glow.y, subitemRadius, -90, -90 - glow.spread, 0)} strokeWidth={0.9 + glow.activation * 1.35} />
-						</g>
-					</g>
-				</g>
-			))}
-			{activeAboutMainGlow && (
-				<g
-					className="scrollPageNavigatorSnakeRing scrollPageNavigatorAboutMainRing"
-					clipPath={activeAboutMainGlow.exitProgress > 0.001 ? `url(#${activeAboutMainGlow.clipPathId})` : undefined}
-					opacity={
-						activeAboutMainGlow.visibility * activeAboutMainGlow.distanceAttenuation * activeAboutMainGlow.activation * (0.16 + activeAboutMainGlow.activation * 0.78)
-					}
-				>
-					<path
-						d={describeCircleArc(activeAboutMainGlow.x, activeAboutMainGlow.y, circleRadius, -90, -90 + activeAboutMainGlow.spread, 1)}
-						strokeWidth={0.9 + activeAboutMainGlow.activation * 1.35}
-					/>
-					<path
-						d={describeCircleArc(activeAboutMainGlow.x, activeAboutMainGlow.y, circleRadius, -90, -90 - activeAboutMainGlow.spread, 0)}
-						strokeWidth={0.9 + activeAboutMainGlow.activation * 1.35}
-					/>
-				</g>
-			)}
 			{activeCircleGlow.map((glow) => (
 				<g key={glow.key} className="scrollPageNavigatorSnakeRing" opacity={0.16 + glow.strength * 0.78}>
 					<path d={describeCircleArc(glow.x, glow.y, circleRadius, glow.entryAngle, glow.entryAngle + glow.spread, 1)} strokeWidth={0.9 + glow.strength * 1.35} />
 					<path d={describeCircleArc(glow.x, glow.y, circleRadius, glow.entryAngle, glow.entryAngle - glow.spread, 0)} strokeWidth={0.9 + glow.strength * 1.35} />
 				</g>
 			))}
-			<line className="scrollPageNavigatorLineCore" x1={LINE_X} y1="-80" x2={LINE_X} y2={viewportHeight + 80} stroke={`url(#${gradientId})`} mask={`url(#${maskId})`} />
+			<line
+				className="scrollPageNavigatorLineCore"
+				x1={LINE_X}
+				y1="-80"
+				x2={LINE_X}
+				y2={viewportHeight + 80}
+				stroke={`url(#${gradientId})`}
+				strokeWidth={1}
+				mask={`url(#${maskId})`}
+			/>
 		</svg>
 	);
 }
@@ -836,7 +625,6 @@ function ScrollPageNavigatorContent() {
 	const proxyStore = useStore();
 	const location = useLocation();
 	const [viewportHeight, setViewportHeight] = useState(() => (typeof window !== "undefined" ? window.innerHeight : 940));
-	const aboutStageCursorTimerRef = useRef(0);
 	const currentId = proxyStore.sceneCarouselCurrentId ?? "home";
 	const rawProgress = Number.isFinite(proxyStore.sceneCarouselProgress) ? proxyStore.sceneCarouselProgress : 0;
 	const rawProgressTarget = Number.isFinite(proxyStore.sceneCarouselProgressTarget) ? proxyStore.sceneCarouselProgressTarget : rawProgress;
@@ -848,47 +636,18 @@ function ScrollPageNavigatorContent() {
 	const clickDistance = isDirectClickTravel ? shortestLoopDistance(clickTargetIndex, currentIndex, MAIN_ITEMS.length) : 1;
 	const progress = rawProgress * clickDistance;
 	const progressTarget = rawProgressTarget * clickDistance;
-	const lastDirectionRef = useRef("down");
-	if (isDirectClickTravel && Math.abs(clickDistance) > 0.001) {
-		lastDirectionRef.current = clickDistance > 0 ? "down" : "up";
-	} else if (progressTarget > progress + 0.001) {
-		lastDirectionRef.current = "down";
-	} else if (progressTarget < progress - 0.001) {
-		lastDirectionRef.current = "up";
-	}
-	const scrollDirection = lastDirectionRef.current;
-	const directionTarget = scrollDirection === "down" ? 1 : -1;
-	const directionValue = useDampedValue(directionTarget, 0.12);
-	const siteLocale = normalizeSiteLocale(proxyStore.siteLocale);
-	const aboutStageActive = currentId === "about" && proxyStore.aboutExperience.active === true;
-	const handleAboutStageNavigate = useCallback(
-		(stateIndex) => {
-			if (!aboutStageActive) {
-				return;
-			}
+	const aboutActive = proxyStore.aboutExperience.active === true;
+	const aboutStoryProgress = Number.isFinite(proxyStore.aboutExperience.storyProgress) ? proxyStore.aboutExperience.storyProgress : 0;
+	const aboutStoryProgressTarget = Number.isFinite(proxyStore.aboutExperience.storyProgressTarget)
+		? proxyStore.aboutExperience.storyProgressTarget
+		: aboutStoryProgress;
 
-			store.cursor.stageNavigationHidden = true;
-			store.aboutStageNavigationRequest = {
-				stateIndex,
-				requestId: performance.now(),
-			};
-			if (aboutStageCursorTimerRef.current) {
-				window.clearTimeout(aboutStageCursorTimerRef.current);
-			}
-			aboutStageCursorTimerRef.current = window.setTimeout(() => {
-				aboutStageCursorTimerRef.current = 0;
-				store.cursor.stageNavigationHidden = false;
-			}, ABOUT_STAGE_CURSOR_HIDE_MS);
-		},
-		[aboutStageActive],
-	);
-	const aboutStagePosition = Number.isFinite(proxyStore.aboutExperience.stagePosition)
-		? Math.max(0, Math.min(ABOUT_SUBITEM_OFFSETS.length - 1, proxyStore.aboutExperience.stagePosition))
-		: 0;
 	const isAboutClickRoutePhase = clickPhase !== "idle" && clickTargetId === "about";
 	const isDirectAboutEntry = isDirectClickTravel && clickTargetId === "about" && currentId !== "about";
-	const isEnteringAboutForward = isDirectAboutEntry || (currentId === "portfolioHub" && (rawProgress > 0.001 || rawProgressTarget > 0.001) && !isDirectClickTravel);
-	const isEnteringAboutFromContacts = currentId === "contacts" && (rawProgress < -0.001 || rawProgressTarget < -0.001) && !isDirectClickTravel;
+	const isEnteringAboutForward =
+		isDirectAboutEntry || (currentId === "portfolioHub" && (rawProgress > 0.001 || rawProgressTarget > 0.001) && !isDirectClickTravel);
+	const isEnteringAboutFromContacts =
+		currentId === "contacts" && (rawProgress < -0.001 || rawProgressTarget < -0.001) && !isDirectClickTravel;
 	const directAboutEntryRef = useRef(false);
 	if (isAboutClickRoutePhase) {
 		directAboutEntryRef.current = true;
@@ -896,12 +655,14 @@ function ScrollPageNavigatorContent() {
 		directAboutEntryRef.current = false;
 	}
 	const preserveDirectAboutEntry = currentId === "about" && directAboutEntryRef.current;
-	const isSettlingIntoAboutForward = currentId === "about" && (proxyStore.sceneCarouselLastCommitDirection === "forward" || (preserveDirectAboutEntry && !aboutStageActive));
+	const isSettlingIntoAboutForward =
+		currentId === "about" &&
+		(proxyStore.sceneCarouselLastCommitDirection === "forward" || (preserveDirectAboutEntry && !aboutActive));
 	const isSettlingIntoAboutFromContacts =
 		currentId === "about" &&
 		!preserveDirectAboutEntry &&
 		((proxyStore.sceneCarouselLastCommitFromId === "contacts" && proxyStore.sceneCarouselLastCommitDirection === "backward") ||
-			(!aboutStageActive && rawProgress > 0.001 && rawProgressTarget <= 0.001));
+			(!aboutActive && rawProgress > 0.001 && rawProgressTarget <= 0.001));
 	const forwardAboutEntryRef = useRef(false);
 	if (isEnteringAboutForward || isSettlingIntoAboutForward) {
 		forwardAboutEntryRef.current = true;
@@ -916,97 +677,36 @@ function ScrollPageNavigatorContent() {
 		reverseAboutEntryRef.current = false;
 	}
 	const preserveReverseAboutEntry = currentId === "about" && reverseAboutEntryRef.current;
-	const navigatorAboutStagePosition =
-		isEnteringAboutForward || isSettlingIntoAboutForward || (preserveForwardAboutEntry && !aboutStageActive)
-			? 0
-			: isEnteringAboutFromContacts || isSettlingIntoAboutFromContacts
-				? ABOUT_SUBITEM_OFFSETS.length - 1
-				: aboutStagePosition;
-	const aboutReverseEntry = isEnteringAboutFromContacts || preserveReverseAboutEntry || (aboutStageActive && aboutStagePosition > 0.5);
-	const aboutTrackActive = aboutStageActive || isEnteringAboutForward || isEnteringAboutFromContacts || isSettlingIntoAboutForward || isSettlingIntoAboutFromContacts;
-	const timedAboutEntryProgress = useTimedActivation(aboutStageActive, 240, aboutStagePosition > 0.5 || preserveForwardAboutEntry || preserveReverseAboutEntry);
-	const aboutTrackOffset = resolveAboutTrackOffset(navigatorAboutStagePosition);
-	const aboutForwardMainTravel = isDirectAboutEntry ? clickDistance : 1;
-	const aboutForwardTrackBlend = isEnteringAboutForward ? (isDirectAboutEntry ? clamp01(Math.abs(progress / aboutForwardMainTravel)) : clamp01(progress)) : 0;
-	const aboutReverseTrackBlend = isEnteringAboutFromContacts ? clamp01(-progress) : 0;
-	const aboutTrackBlend = isEnteringAboutForward
-		? aboutForwardTrackBlend
-		: isEnteringAboutFromContacts
-			? aboutReverseTrackBlend
-			: aboutTrackActive
-				? 1 - clamp01(Math.abs(rawProgress))
-				: 0;
-	const navigatorProgress = progress + aboutTrackOffset * aboutTrackBlend;
-	const aboutForwardFirstStageRelative = aboutForwardMainTravel + ABOUT_SUBITEM_OFFSETS[0] - navigatorProgress;
-	const aboutForwardSequenceProgress = isEnteringAboutForward ? smoothstep01(1 - Math.abs(aboutForwardFirstStageRelative) / 0.22) : 0;
-	const aboutReverseLastStageOffset = ABOUT_SUBITEM_OFFSETS[ABOUT_SUBITEM_OFFSETS.length - 1];
-	const aboutReverseLastStageRelative = (currentId === "contacts" ? -1 + aboutReverseLastStageOffset : aboutReverseLastStageOffset) - navigatorProgress;
-	const aboutReverseArrivalActivation = smoothstep01(1 - Math.abs(aboutReverseLastStageRelative) / 0.22);
-	const reverseAboutArrivalCompleteRef = useRef(false);
-	if ((isEnteringAboutFromContacts || preserveReverseAboutEntry) && aboutReverseArrivalActivation > 0.999) {
-		reverseAboutArrivalCompleteRef.current = true;
-	} else if (currentId !== "about" && !isEnteringAboutFromContacts) {
-		reverseAboutArrivalCompleteRef.current = false;
-	}
-	const reverseAboutArrivalComplete = reverseAboutArrivalCompleteRef.current;
-	const timedAboutReverseSequenceProgress = useTimedActivation(
-		aboutStageActive && aboutReverseEntry && (!preserveReverseAboutEntry || reverseAboutArrivalComplete),
-		420,
-		aboutStagePosition <= 0.5 && !preserveReverseAboutEntry,
-		preserveReverseAboutEntry ? 0.2 : 0,
-	);
-	const reverseAboutIsApproaching = (isEnteringAboutFromContacts || preserveReverseAboutEntry) && !reverseAboutArrivalComplete;
-	const aboutReverseSequenceProgress = reverseAboutIsApproaching
-		? 0.2 * aboutReverseArrivalActivation
-		: preserveReverseAboutEntry
-			? Math.max(0.2, timedAboutReverseSequenceProgress)
-			: timedAboutReverseSequenceProgress;
-	const aboutEntryProgress = isEnteringAboutForward
-		? aboutForwardSequenceProgress
-		: isEnteringAboutFromContacts || preserveReverseAboutEntry
-			? 1
-			: preserveForwardAboutEntry
-				? 1
-				: timedAboutEntryProgress;
-	const isLeavingAboutForContacts = currentId === "about" && (progress > 0.001 || progressTarget > 0.001) && (!isDirectClickTravel || clickTargetId === "contacts");
-	const aboutExitProgress = isLeavingAboutForContacts ? clamp01(progress) : 0;
-	const aboutForwardMainDistance = Math.max(0, aboutForwardMainTravel - navigatorProgress);
-	const aboutMainBaseActivation = aboutTrackActive
-		? isDirectAboutEntry
-			? aboutForwardSequenceProgress
-			: isEnteringAboutForward
-				? smoothstep01(1 - aboutForwardMainDistance / 0.22)
-				: aboutReverseEntry
-					? resolveSequentialReveal(aboutReverseSequenceProgress, resolveAboutReverseSequenceOrder(-1))
-					: 1
-		: 0;
-	const aboutMainExitProgress = resolveSequentialReveal(aboutExitProgress, resolveAboutExitSequenceOrder(-1));
-	const aboutMainActivation = aboutMainBaseActivation * (1 - aboutMainExitProgress);
-	const instances = useMemo(() => resolveItemInstances(currentId, navigatorProgress), [currentId, navigatorProgress]);
-	const subitemInstances = useMemo(() => resolveAboutSubitemInstances(instances), [instances]);
-	const activeAboutParentKey = aboutTrackActive
-		? (instances.filter((item) => item.id === "about").sort((a, b) => Math.abs(a.relative) - Math.abs(b.relative))[0]?.key ?? null)
-		: null;
-	const subitemVisuals = subitemInstances.map((item) => {
-		const isActiveTrack = item.parentKey === activeAboutParentKey;
-		const baseActivation = isActiveTrack ? resolveAboutSubitemActivation(item.index, navigatorAboutStagePosition, aboutEntryProgress) : 0;
-		const reverseReveal = isActiveTrack && aboutReverseEntry ? resolveSequentialReveal(aboutReverseSequenceProgress, resolveAboutReverseSequenceOrder(item.index)) : 1;
-		const exitVisibility = 1 - resolveSequentialReveal(aboutExitProgress, resolveAboutExitSequenceOrder(item.index));
-		const activation = baseActivation * reverseReveal * exitVisibility;
-		const focus = isActiveTrack ? smoothstep01(1 - Math.min(Math.abs(navigatorAboutStagePosition - item.index), 1)) : 0;
-		const emphasis = isActiveTrack ? resolveAboutSubitemEmphasis(item.index, navigatorAboutStagePosition) : 0;
-		const circleOpacity = Number(resolveNavigatorCircleOpacity(item.relative));
-		const numberOpacity = circleOpacity * (0.44 + activation * (0.12 + emphasis * 0.4));
 
-		return {
-			item,
-			activation,
-			focus,
-			emphasis,
-			circleOpacity,
-			numberOpacity,
-		};
+	const { navigatorProgress } = resolveAboutNavigatorProgress({
+		currentId,
+		rawProgress,
+		progress,
+		aboutActive,
+		storyProgress: aboutStoryProgress,
+		isDirectClickTravel,
+		clickTargetId,
+		clickDistance,
+		preserveForwardEntry: preserveForwardAboutEntry,
+		preserveReverseEntry: preserveReverseAboutEntry,
 	});
+
+	const lastDirectionRef = useRef("down");
+	if (isDirectClickTravel && Math.abs(clickDistance) > 0.001) {
+		lastDirectionRef.current = clickDistance > 0 ? "down" : "up";
+	} else if (currentId === "about" && aboutActive && Math.abs(aboutStoryProgressTarget - aboutStoryProgress) > 0.001) {
+		lastDirectionRef.current = aboutStoryProgressTarget > aboutStoryProgress ? "down" : "up";
+	} else if (progressTarget > progress + 0.001) {
+		lastDirectionRef.current = "down";
+	} else if (progressTarget < progress - 0.001) {
+		lastDirectionRef.current = "up";
+	}
+	const scrollDirection = lastDirectionRef.current;
+	const directionTarget = scrollDirection === "down" ? 1 : -1;
+	const directionValue = useDampedValue(directionTarget, 0.12);
+	const siteLocale = normalizeSiteLocale(proxyStore.siteLocale);
+	const portfolioCasesLabel = getNavPortfolioCasesMarker(projectsData.length, siteLocale);
+	const instances = useMemo(() => resolveItemInstances(currentId, navigatorProgress), [currentId, navigatorProgress]);
 	const itemGapPx = Math.min(230, Math.max(172, viewportHeight * 0.245));
 
 	useEffect(() => {
@@ -1017,11 +717,6 @@ function ScrollPageNavigatorContent() {
 
 	useEffect(
 		() => () => {
-			if (aboutStageCursorTimerRef.current) {
-				window.clearTimeout(aboutStageCursorTimerRef.current);
-				aboutStageCursorTimerRef.current = 0;
-			}
-			store.cursor.stageNavigationHidden = false;
 			clearNavigatorCursorAnchor();
 		},
 		[],
@@ -1043,37 +738,10 @@ function ScrollPageNavigatorContent() {
 			<div className="scrollPageNavigatorMasked">
 				<ScrollNavigatorLine
 					instances={instances}
-					subitemInstances={subitemInstances}
 					itemGapPx={itemGapPx}
 					viewportHeight={viewportHeight}
 					directionValue={directionValue}
-					aboutStageActive={aboutTrackActive}
-					aboutStagePosition={navigatorAboutStagePosition}
-					aboutEntryProgress={aboutEntryProgress}
-					aboutReverseEntry={aboutReverseEntry}
-					aboutReverseSequenceProgress={aboutReverseSequenceProgress}
-					aboutMainActivation={aboutMainActivation}
-					aboutMainExitProgress={aboutMainExitProgress}
-					aboutHandoffProgress={aboutExitProgress}
 				/>
-				{subitemVisuals.map(({ item, activation, focus, emphasis, circleOpacity }) => {
-					return (
-						<span
-							key={item.key}
-							className={["scrollPageNavigatorSubitem", activation > 0.001 && "active", focus > 0.001 && "current"].filter(Boolean).join(" ")}
-							style={{
-								"--navigator-y": `${item.relative * itemGapPx}px`,
-								"--navigator-subcircle-opacity": circleOpacity.toFixed(3),
-								"--navigator-subcircle-activation": activation.toFixed(3),
-								"--navigator-subcircle-focus": focus.toFixed(3),
-								"--navigator-subcircle-emphasis": emphasis.toFixed(3),
-							}}
-							aria-hidden="true"
-						>
-							<span className="scrollPageNavigatorSubcircle" />
-						</span>
-					);
-				})}
 			</div>
 			<div className="scrollPageNavigatorItems">
 				{instances.map((item) => (
@@ -1082,29 +750,12 @@ function ScrollPageNavigatorContent() {
 						item={item}
 						itemGapPx={itemGapPx}
 						label={getNavItemLabel(item.navId, siteLocale)}
+						portfolioCasesLabel={portfolioCasesLabel}
 						onNavigate={handleNavigate}
 						clickPhase={clickPhase}
 						clickTargetId={clickTargetId}
-						forceActive={item.id === "about" && item.key === activeAboutParentKey && aboutMainActivation > 0.5}
-						suppressNaturalActive={
-							(item.id === "about" && (isEnteringAboutFromContacts || isSettlingIntoAboutFromContacts || aboutReverseEntry)) ||
-							(item.id === "contacts" && aboutTrackActive)
-						}
 					/>
 				))}
-				{aboutStageActive &&
-					subitemVisuals
-						.filter(({ item }) => item.parentKey === activeAboutParentKey)
-						.map(({ item, focus, numberOpacity }) => (
-							<AboutStageButton
-								key={`${item.key}:button`}
-								item={item}
-								itemGapPx={itemGapPx}
-								numberOpacity={numberOpacity}
-								focus={focus}
-								onNavigate={handleAboutStageNavigate}
-							/>
-						))}
 			</div>
 		</>
 	);
@@ -1157,7 +808,7 @@ export default function ScrollPageNavigator() {
 			className={`scrollPageNavigator${visuallyHidden ? " hidden" : ""}`}
 			aria-label="Page scroll navigation"
 			aria-hidden={visuallyHidden}
-			inert={visuallyHidden || undefined}
+			{...(visuallyHidden ? { inert: "" } : {})}
 		>
 			{contentMounted ? <ScrollPageNavigatorContent /> : null}
 		</nav>

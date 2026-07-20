@@ -2,6 +2,10 @@
 	--nav-cyan: var(--mainColor);
 	--nav-white: rgba(255, 255, 255, 0.86);
 	--nav-muted: rgba(255, 255, 255, 0.2);
+	/** Circles + vertical scroll stroke share this weight. */
+	--nav-stroke-width: 1px;
+	/** Matches LineCore stopOpacity 0.2. */
+	--nav-rail-color: color-mix(in srgb, var(--mainColor) 20%, transparent);
 	--navigator-width: 236px;
 	--navigator-line-right-gap: 70px;
 	--navigator-side-fade-width: 190px;
@@ -128,25 +132,8 @@
 	mix-blend-mode: screen;
 }
 
-.scrollPageNavigatorAboutSubitemCluster {
-	fill: none;
-	stroke-linecap: round;
-	filter: drop-shadow(0 0 3px color-mix(in srgb, white 24%, transparent)) drop-shadow(0 0 8px color-mix(in srgb, var(--mainColor) 44%, transparent))
-		drop-shadow(0 0 16px color-mix(in srgb, var(--mainColor) 18%, transparent));
-	mix-blend-mode: screen;
-}
-
-.scrollPageNavigatorAboutSubitemHalo {
-	stroke: color-mix(in srgb, var(--mainColor) 72%, transparent);
-	filter: blur(2px);
-}
-
-.scrollPageNavigatorAboutSubitemRing {
-	stroke: var(--mainColor);
-}
-
 .scrollPageNavigatorLineCore {
-	stroke-width: 1px;
+	stroke-width: var(--nav-stroke-width);
 	stroke-linecap: round;
 }
 
@@ -161,11 +148,15 @@
 	height: 54px;
 	padding: 0;
 	border: 0;
+	outline: none;
 	background: transparent;
 	color: var(--nav-muted);
 	font: inherit;
 	pointer-events: auto;
 	cursor: pointer;
+	user-select: none;
+	-webkit-user-select: none;
+	-webkit-tap-highlight-color: transparent;
 	transform: translate3d(0, calc(-50% + var(--navigator-y)), 0);
 	transition:
 		opacity 220ms ease,
@@ -218,10 +209,42 @@
 	color: var(--nav-cyan);
 }
 
+/* Cyan label text → white glowing snake glyphs. */
+.scrollPageNavigatorLabel .leftMenuGlitchLabel.active .symbol,
+.scrollPageNavigatorLabel .leftMenuGlitchLabel.active .symbol.appearSymbol,
+.scrollPageNavigatorItem.center .scrollPageNavigatorLabel .leftMenuGlitchLabel .symbol,
+.scrollPageNavigatorItem.center .scrollPageNavigatorLabel .leftMenuGlitchLabel .symbol.appearSymbol {
+	color: rgba(255, 255, 255, 0.96);
+	text-shadow:
+		0 0 4px rgba(255, 255, 255, 0.9),
+		0 0 9px rgba(255, 255, 255, 0.55),
+		0 0 16px color-mix(in srgb, var(--mainColor) 35%, transparent);
+}
+
 .scrollPageNavigatorItem.center .scrollPageNavigatorLabel {
 	color: var(--nav-cyan);
 	opacity: 1;
 	transform: translateX(0);
+
+	.leftMenuGlitchLabel.active .letter {
+		text-shadow:
+			0 0 5px color-mix(in srgb, var(--mainColor) 55%, transparent),
+			0 0 12px color-mix(in srgb, var(--mainColor) 35%, transparent);
+	}
+}
+
+/* Portfolio: pair «портфолио» + cases count, centered on the circle as a stack. */
+.scrollPageNavigatorItem.hasPortfolioMarker {
+	--portfolio-label-stack-offset: 8px;
+}
+
+.scrollPageNavigatorItem.hasPortfolioMarker .scrollPageNavigatorLabel {
+	top: 50%;
+	transform: translate3d(10px, calc(-50% - var(--portfolio-label-stack-offset)), 0);
+}
+
+.scrollPageNavigatorItem.center.hasPortfolioMarker .scrollPageNavigatorLabel {
+	transform: translate3d(0, calc(-50% - var(--portfolio-label-stack-offset)), 0);
 }
 
 .scrollPageNavigatorCircle {
@@ -233,7 +256,7 @@
 	place-items: center;
 	width: var(--navigator-circle-size);
 	height: var(--navigator-circle-size);
-	border: 1px solid color-mix(in srgb, white 20%, transparent);
+	border: var(--nav-stroke-width) solid var(--nav-rail-color);
 	border-radius: 50%;
 	background: transparent;
 	opacity: var(--navigator-circle-opacity, 1);
@@ -244,214 +267,53 @@
 		background 220ms ease;
 }
 
-.scrollPageNavigatorCircle::before,
-.scrollPageNavigatorCircle::after {
+.scrollPageNavigatorCircle::before {
 	content: "";
 	position: absolute;
+	inset: -1px;
 	border-radius: 50%;
 	pointer-events: none;
-}
-
-.scrollPageNavigatorCircle::before {
-	inset: -1px;
 	box-shadow: 0 0 calc(4px + 7px * var(--circle-glow)) color-mix(in srgb, var(--mainColor) calc(3% + 11% * var(--circle-glow)), transparent);
 	opacity: calc(0.05 + 0.24 * var(--circle-glow));
 }
 
-.scrollPageNavigatorCircle::after {
-	inset: 6px;
-	border: 1px solid color-mix(in srgb, white 8%, transparent);
-}
-
-.scrollPageNavigatorCircle img {
+.scrollPageNavigatorCircleIcon {
 	position: relative;
 	z-index: 1;
 	width: 18px;
 	height: 18px;
-	object-fit: contain;
-	opacity: 0.34;
-	filter: saturate(0.35) brightness(1.25);
+	background: var(--nav-rail-color);
+	opacity: 1;
+	-webkit-mask-image: var(--navigator-icon-mask);
+	mask-image: var(--navigator-icon-mask);
+	-webkit-mask-repeat: no-repeat;
+	mask-repeat: no-repeat;
+	-webkit-mask-position: center;
+	mask-position: center;
+	-webkit-mask-size: contain;
+	mask-size: contain;
 	transition:
 		opacity 220ms ease,
+		background 220ms ease,
 		filter 220ms ease,
 		transform 220ms ease;
 }
 
 .scrollPageNavigatorItem.center .scrollPageNavigatorCircle {
-	border-color: color-mix(in srgb, white 28%, transparent);
+	border-color: var(--nav-cyan);
 	background: transparent;
 	box-shadow:
-		0 0 10px color-mix(in srgb, var(--mainColor) 18%, transparent),
-		0 0 24px color-mix(in srgb, var(--mainColor) 8%, transparent);
+		0 0 10px color-mix(in srgb, var(--mainColor) 28%, transparent),
+		0 0 24px color-mix(in srgb, var(--mainColor) 12%, transparent);
 }
 
-.scrollPageNavigatorItem.center .scrollPageNavigatorCircle img {
+.scrollPageNavigatorItem.center .scrollPageNavigatorCircleIcon {
+	background: var(--nav-cyan);
 	opacity: 1;
-	filter: drop-shadow(0 0 4px color-mix(in srgb, var(--mainColor) 26%, transparent)) brightness(1.18);
-}
-
-.scrollPageNavigatorSubitem {
-	--navigator-subcircle-size: 24px;
-	--navigator-subcircle-activation: 0;
-	--navigator-subcircle-focus: 0;
-	--navigator-subcircle-emphasis: 0;
-	position: absolute;
-	top: 50%;
-	right: 0;
-	display: block;
-	width: 170px;
-	height: var(--navigator-subcircle-size);
-	pointer-events: none;
-	opacity: var(--navigator-subcircle-opacity, 1);
-	transform: translate3d(0, calc(-50% + var(--navigator-y)), 0);
-	transition: opacity 220ms ease;
-}
-
-.scrollPageNavigatorStageButton {
-	position: absolute;
-	top: 50%;
-	right: calc(var(--navigator-line-right-gap) - 15px);
-	z-index: 4;
-	width: 60px;
-	height: 24px;
-	padding: 0;
-	border: 0;
-	outline: none;
-	background: transparent;
-	color: color-mix(in srgb, var(--mainColor) calc(48% + 52% * var(--navigator-subnumber-emphasis, 0)), white);
-	font: inherit;
-	pointer-events: auto;
-	cursor: pointer;
-	opacity: var(--navigator-subnumber-opacity, 0.44);
-	transform: translate3d(0, calc(-50% + var(--navigator-y)), 0);
-	transition:
-		opacity 180ms ease,
-		color 180ms ease,
-		filter 180ms ease;
-}
-
-.scrollPageNavigatorStageButton:focus-visible {
-	color: color-mix(in srgb, var(--mainColor) 88%, white);
-	filter: drop-shadow(0 0 7px color-mix(in srgb, var(--mainColor) 34%, transparent));
-}
-
-.scrollPageNavigatorStageButton:hover,
-.scrollPageNavigatorStageButton.current {
-	color: color-mix(in srgb, var(--mainColor) 88%, white);
-	filter: drop-shadow(0 0 7px color-mix(in srgb, var(--mainColor) 30%, transparent));
-}
-
-.scrollPageNavigatorStageNumber {
-	position: absolute;
-	top: 50%;
-	right: 33px;
-	min-width: 20px;
-	font-family: ManifoldExtended, "Manifold CF", "Arial", sans-serif;
-	font-size: 8px;
-	font-weight: 700;
-	line-height: 1;
-	letter-spacing: 0.08em;
-	text-align: right;
-	font-variant-numeric: tabular-nums;
-	transform: translateY(-50%);
-	text-shadow:
-		0 0 4px color-mix(in srgb, var(--mainColor) calc(16% + 20% * var(--navigator-subnumber-emphasis, 0)), transparent),
-		0 0 9px color-mix(in srgb, var(--mainColor) calc(5% + 12% * var(--navigator-subnumber-emphasis, 0)), transparent);
-}
-
-.scrollPageNavigatorStageNumber .leftMenuGlitchLabel {
-	color: inherit;
-	font-family: inherit;
-	font-size: inherit;
-	font-weight: inherit;
-	line-height: inherit;
-	letter-spacing: inherit;
-}
-
-.scrollPageNavigatorStageNumber .charBlock {
-	text-align: right;
-}
-
-.scrollPageNavigatorStageHitCircle {
-	position: absolute;
-	top: 0;
-	right: 3px;
-	width: 24px;
-	height: 24px;
-	border-radius: 50%;
-}
-
-.scrollPageNavigatorStageButton:focus-visible .scrollPageNavigatorStageHitCircle {
-	box-shadow:
-		0 0 0 1px color-mix(in srgb, var(--mainColor) 70%, white),
-		0 0 9px color-mix(in srgb, var(--mainColor) 28%, transparent);
-}
-
-.scrollPageNavigatorSubnumber {
-	position: absolute;
-	top: 50%;
-	right: calc(var(--navigator-line-right-gap) + 18px);
-	z-index: 3;
-	min-width: 20px;
-	color: color-mix(in srgb, var(--mainColor) calc(48% + 52% * var(--navigator-subnumber-emphasis, 0)), white);
-	font-family: ManifoldExtended, "Manifold CF", "Arial", sans-serif;
-	font-size: 8px;
-	font-weight: 700;
-	line-height: 1;
-	letter-spacing: 0.08em;
-	text-align: right;
-	font-variant-numeric: tabular-nums;
-	pointer-events: none;
-	opacity: var(--navigator-subnumber-opacity, 0.44);
-	transform: translate3d(0, calc(-50% + var(--navigator-y)), 0);
-	text-shadow:
-		0 0 4px color-mix(in srgb, var(--mainColor) calc(16% + 20% * var(--navigator-subnumber-emphasis, 0)), transparent),
-		0 0 9px color-mix(in srgb, var(--mainColor) calc(5% + 12% * var(--navigator-subnumber-emphasis, 0)), transparent);
-	transition:
-		opacity 180ms ease,
-		color 180ms ease,
-		text-shadow 180ms ease;
-}
-
-.scrollPageNavigatorSubnumber.current {
-	color: color-mix(in srgb, var(--mainColor) 88%, white);
-}
-
-.scrollPageNavigatorSubcircle {
-	position: absolute;
-	right: calc(var(--navigator-line-right-gap) - (var(--navigator-subcircle-size) * 0.5));
-	top: 0;
-	width: var(--navigator-subcircle-size);
-	height: var(--navigator-subcircle-size);
-	border: 1px solid color-mix(in srgb, white calc(20% + 8% * var(--navigator-subcircle-emphasis)), transparent);
-	border-radius: 50%;
-	background: color-mix(in srgb, var(--mainColor) calc(2% + 4% * var(--navigator-subcircle-focus)), transparent);
-	box-shadow:
-		0 0 calc(6px + 6px * var(--navigator-subcircle-activation)) color-mix(in srgb, var(--mainColor) calc(5% + 11% * var(--navigator-subcircle-emphasis)), transparent),
-		0 0 calc(13px + 10px * var(--navigator-subcircle-focus)) color-mix(in srgb, var(--mainColor) calc(2% + 8% * var(--navigator-subcircle-focus)), transparent);
-	transition:
-		border-color 220ms ease,
-		background 220ms ease,
-		box-shadow 220ms ease;
-}
-
-.scrollPageNavigatorSubcircle::before,
-.scrollPageNavigatorSubcircle::after {
-	content: "";
-	position: absolute;
-	border-radius: 50%;
-	pointer-events: none;
-}
-
-.scrollPageNavigatorSubcircle::before {
-	inset: -1px;
-	box-shadow: 0 0 calc(4px + 7px * var(--navigator-subcircle-activation)) color-mix(in srgb, var(--mainColor) calc(2% + 13% * var(--navigator-subcircle-emphasis)), transparent);
-	opacity: calc(0.04 + 0.3 * var(--navigator-subcircle-emphasis));
-}
-
-.scrollPageNavigatorSubcircle::after {
-	inset: 5px;
-	border: 1px solid color-mix(in srgb, white calc(8% + 8% * var(--navigator-subcircle-emphasis)), transparent);
+	filter:
+		drop-shadow(0 0 3px color-mix(in srgb, white 40%, transparent))
+		drop-shadow(0 0 7px color-mix(in srgb, var(--mainColor) 70%, transparent))
+		drop-shadow(0 0 14px color-mix(in srgb, var(--mainColor) 40%, transparent));
 }
 
 .scrollPageNavigatorPortfolioMarker {
@@ -466,19 +328,17 @@
 
 .scrollPageNavigatorPortfolioText {
 	position: absolute;
-	top: 28px;
+	top: 50%;
 	right: 60px;
 	z-index: 3;
-	color: color-mix(in srgb, var(--mainColor) 88%, white);
+	color: var(--nav-white);
 	font-family: ManifoldExtended, "Manifold CF", "Arial", sans-serif;
 	font-size: 9px;
 	font-weight: 700;
 	line-height: 1;
 	letter-spacing: 0.08em;
 	white-space: nowrap;
-	text-shadow:
-		0 0 5px color-mix(in srgb, var(--mainColor) 78%, transparent),
-		0 0 12px color-mix(in srgb, var(--mainColor) 38%, transparent);
+	transform: translateY(calc(-50% + var(--portfolio-label-stack-offset, 8px)));
 
 	.leftMenuGlitchLabel {
 		color: inherit;
@@ -486,11 +346,28 @@
 		font-weight: 700;
 		line-height: 1;
 		letter-spacing: 0.08em;
+
+		/* Snake glyphs — site cyan neon (override global white appearSymbol). */
+		.symbol,
+		.symbol.appearSymbol {
+			color: var(--nav-cyan);
+			text-shadow:
+				0 0 4px color-mix(in srgb, white 35%, transparent),
+				0 0 8px color-mix(in srgb, var(--mainColor) 75%, transparent),
+				0 0 16px color-mix(in srgb, var(--mainColor) 40%, transparent);
+		}
 	}
 }
 
 .scrollPageNavigator .scrollPageNavigatorPortfolioText .leftMenuGlitchLabel.active {
-	color: var(--nav-cyan);
+	color: var(--nav-white);
+
+	.letter {
+		text-shadow:
+			0 0 5px rgba(255, 255, 255, 0.65),
+			0 0 10px color-mix(in srgb, var(--mainColor) 50%, transparent),
+			0 0 18px color-mix(in srgb, var(--mainColor) 28%, transparent);
+	}
 }
 
 @media (max-width: 900px) {

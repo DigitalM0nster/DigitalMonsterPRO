@@ -6,7 +6,6 @@ import {
 	getSettledScrollAnchor,
 	isCaseScrollSnapSettled,
 } from "@/portfolio/core/caseScrollSnap.js";
-import { isSceneDevToolsWheelTarget } from "@/three/dev/sceneDevPanelUtils.js";
 import { cancelSharedAnimationFrame, requestSharedAnimationFrame } from "@/utils/sharedAnimationFrame.js";
 
 /** Скорость догоняния scrollTop (меньше = плавнее). */
@@ -38,7 +37,7 @@ function getScrollMax(el) {
 function isEditableKeyboardTarget(target) {
 	return (
 		target instanceof Element &&
-		Boolean(target.closest("input, textarea, select, [contenteditable='true'], .sceneDevTools"))
+		Boolean(target.closest("input, textarea, select, [contenteditable='true']"))
 	);
 }
 
@@ -243,7 +242,7 @@ export function useSmoothCaseScroll(containerRef, enabled = true, snapAnchors = 
 				return false;
 			}
 
-			// The overflow now belongs to SceneCarousel. Keep only the DOM boundary here.
+			// Overflow belongs to case-boundary leave (scroll-driven hex). Keep DOM at edge.
 			scrollTargetRef.current = boundary;
 			syncStoreScrollTarget(max, boundary);
 			traceScrollState("boundary-overflow-transferred", {
@@ -251,6 +250,10 @@ export function useSmoothCaseScroll(containerRef, enabled = true, snapAnchors = 
 				direction,
 				handoffActive,
 			});
+			// About-like return through 0: leftover px continues into interior stages.
+			if (typeof handled === "number" && Math.abs(handled) > 0.01) {
+				applyInputDelta(handled);
+			}
 			return true;
 		};
 
@@ -426,7 +429,15 @@ export function useSmoothCaseScroll(containerRef, enabled = true, snapAnchors = 
 					event,
 					handoffActive: true,
 				});
-				return handled !== false;
+				if (handled === false) {
+					// Leave settled back at 0 — interior owns this wheel (like About).
+					return false;
+				}
+				if (typeof handled === "number" && Math.abs(handled) > 0.01) {
+					applyInputDelta(handled);
+					return true;
+				}
+				return true;
 			}
 
 			// Target can reach the edge several frames before the visible scroll and
@@ -453,8 +464,7 @@ export function useSmoothCaseScroll(containerRef, enabled = true, snapAnchors = 
 
 			// Even when the DOM is already exactly at 0/1, route the first boundary
 			// wheel through the virtual -0.5...1.5 target. The scroll loop then hands
-			// that overflow to SceneCarousel. This keeps stageTarget continuous and
-			// avoids bypassing the local boundary animation.
+			// that overflow to case-boundary leave (scroll-driven hex to adjacent case).
 			if (allowBoundaryOvershootRef.current) {
 				traceScrollState("boundary-wheel-queued-as-overflow", { delta, direction });
 				return false;
@@ -470,17 +480,27 @@ export function useSmoothCaseScroll(containerRef, enabled = true, snapAnchors = 
 				event,
 				handoffActive: false,
 			});
-			if (handled !== false) {
-				scrollTargetRef.current = boundary;
-				syncStoreScrollTarget(max, boundary);
+			if (handled === false) {
+				traceScrollState("boundary-wheel-result", {
+					delta,
+					direction,
+					handoffDelta: delta + pendingOverflow,
+					handled: false,
+				});
+				return false;
+			}
+			scrollTargetRef.current = boundary;
+			syncStoreScrollTarget(max, boundary);
+			if (typeof handled === "number" && Math.abs(handled) > 0.01) {
+				applyInputDelta(handled);
 			}
 			traceScrollState("boundary-wheel-result", {
 				delta,
 				direction,
 				handoffDelta: delta + pendingOverflow,
-				handled: handled !== false,
+				handled: true,
 			});
-			return handled !== false;
+			return true;
 		};
 
 		const onWheel = (event) => {
@@ -490,11 +510,6 @@ export function useSmoothCaseScroll(containerRef, enabled = true, snapAnchors = 
 			if (event.defaultPrevented) {
 				return;
 			}
-			// Dev-панель (Case1 ring и др.) должна скроллиться сама.
-			if (isSceneDevToolsWheelTarget(event)) {
-				return;
-			}
-
 			const eventNow = performance.now();
 			if (eventNow < wheelSuppressedUntil) {
 				wheelSuppressedUntil = eventNow + WHEEL_IDLE_MS;

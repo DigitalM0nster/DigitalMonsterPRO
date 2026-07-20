@@ -27,6 +27,7 @@ import {
 } from "./utils/heroSceneTierScale.js";
 import { getGraphicsTier } from "@/utils/getGraphicsTier.js";
 import { createHeroTitleText } from "./heroText/createHeroTitleText.js";
+import { isRingDormantReason } from "@/three/scenes/lifecycle/sceneLifecycle.js";
 
 /**
  * Hero-сцена: цифровой океан + FBX кит.
@@ -114,6 +115,7 @@ export class DigitalWhaleScene {
 		this._carouselEnterPending = false;
 		this._heroTitleIntroShown = false;
 		this._heroTitleHiddenForLeave = false;
+		this._heroShowRaf = 0;
 		this._lastDisplayedPage = "/";
 		this.lastRouteKey = "";
 		this.whaleWake = null;
@@ -145,6 +147,20 @@ export class DigitalWhaleScene {
 		}
 	}
 
+	/**
+	 * Build hero meshes under the preloader (hidden). Programs must be compiled
+	 * after this — see DigitalMonsterThreeApp._prepareApplication.
+	 */
+	prepareHeroTextUnderCurtain() {
+		if (!this._heroRenderer || this.heroTitle) {
+			return;
+		}
+		this.heroTitle = createHeroTitleText(this._heroRenderer, this.threeScene);
+		// prepareHidden / scrollHint reset — meshes stay in the graph for warmupPrograms.
+		this.heroTitle.reset();
+		this._heroTitleHiddenForLeave = true;
+	}
+
 	_showHeroTitle({ waitForLoaderCurtain = false } = {}) {
 		if (!this._appStarted || !this._heroRenderer) {
 			return;
@@ -160,47 +176,58 @@ export class DigitalWhaleScene {
 		}
 	}
 
-	/** Убрать hero-текст сразу (hexTransition вместо exit-анимации). */
+	/**
+	 * Hide hero for leave/hex — keep meshes. Dispose+recreate on return was the
+	 * hitch when home reappeared after portfolio→home.
+	 */
 	_resetHeroTitle() {
-		if (!this.heroTitle) {
-			this._heroTitleHiddenForLeave = true;
-			return;
-		}
-
-		this.heroTitle.dispose();
-		this.heroTitle = null;
 		this._heroTitleHiddenForLeave = true;
+		this.heroTitle?.hide?.();
 	}
 
 	/**
-	 * Показ/сброс hero-текста только по фактическому роуту на экране (currentPage / displayPathname).
-	 * Листание карусели до commit не трогает буквы — hex их закрывает, роут ещё `/`.
+	 * Show/position hero when home is the displayed route.
+	 * Do NOT wipe hero on leave to portfolio/etc. — home stays live as carousel
+	 * `previous` for reverse. Ring dormant (`resetCarouselState` next-*) owns hide.
 	 */
 	_syncHeroTitleRoute(currentPage) {
 		if (!this._appStarted || !this._heroRenderer) {
 			return;
 		}
 
-		const homeDisplayed = this._isHomePath(currentPage);
-
-		if (!homeDisplayed) {
-			if (this.heroTitle) {
-				this._resetHeroTitle();
-			}
+		if (!this._isHomePath(currentPage)) {
+			// Page-owned: «листайте вниз» must not linger on hub/case/about.
+			this.heroTitle?.hideScrollHint?.();
 			return;
 		}
 
 		if (this.heroTitle) {
-			this.heroTitle.applyPosition?.();
-			return;
-		}
-
-		if (this._heroTitleHiddenForLeave) {
-			this._showHeroTitle({ waitForLoaderCurtain: false });
+			if (this._heroTitleHiddenForLeave) {
+				// Off the carousel-commit frame — reveal must not stack with hub dormant work.
+				this._scheduleHeroTitleShow();
+			} else {
+				this.heroTitle.applyPosition?.();
+			}
 			return;
 		}
 
 		this._ensureHeroTitle();
+	}
+
+	_scheduleHeroTitleShow() {
+		if (this._heroShowRaf) {
+			return;
+		}
+		this._heroShowRaf = requestAnimationFrame(() => {
+			this._heroShowRaf = 0;
+			if (!this._appStarted || !this._isHomePath(this._lastDisplayedPage)) {
+				return;
+			}
+			if (!this._heroTitleHiddenForLeave && this.heroTitle) {
+				return;
+			}
+			this._showHeroTitle({ waitForLoaderCurtain: false });
+		});
 	}
 
 	_ensureHeroTitle() {
@@ -252,9 +279,13 @@ export class DigitalWhaleScene {
 	}
 
 	/**
-	 * Reset карусели — только hero-текст. Позу кита не трогаем (enter один раз за сессию).
+	 * Ring dormant (next-only). Ignore leave-pose / unknown reasons.
+	 * Hero hide only here — not from route leave (`_syncHeroTitleRoute`).
 	 */
-	resetCarouselState() {
+	resetCarouselState(ctx = {}) {
+		if (!isRingDormantReason(ctx.reason)) {
+			return;
+		}
 		this._resetHeroTitle();
 		this._carouselEnterPending = true;
 	}
@@ -660,9 +691,18 @@ export class DigitalWhaleScene {
 		const c = getHeroCameraForSceneProgress(this._lastSceneProgress);
 		const px = pointer.x ?? 0;
 		const py = pointer.y ?? 0;
+		/**
+		 * Vertical scroll parallax: +sceneProgress lowers camera (content rises).
+		 * lookAt.y follows the same ΔY so the frame translates — not just pitches.
+		 */
+		const scrollYDelta = c.y - heroCamera.y;
 
 		this.cameraPos.set(c.x + px * c.parallaxX, c.y + py * c.parallaxY, c.z);
-		this.lookAtTarget.set(HERO_LOOK_AT.x + px * c.parallaxX * c.parallaxLook, HERO_LOOK_AT.y + py * c.parallaxY * c.parallaxLook, HERO_LOOK_AT.z);
+		this.lookAtTarget.set(
+			HERO_LOOK_AT.x + px * c.parallaxX * c.parallaxLook,
+			HERO_LOOK_AT.y + scrollYDelta + py * c.parallaxY * c.parallaxLook,
+			HERO_LOOK_AT.z,
+		);
 		this._cameraFov = c.fov;
 	}
 
@@ -973,6 +1013,10 @@ export class DigitalWhaleScene {
 	dispose() {
 		this._disposed = true;
 		this._whaleLoadToken += 1;
+		if (this._heroShowRaf) {
+			cancelAnimationFrame(this._heroShowRaf);
+			this._heroShowRaf = 0;
+		}
 		this.heroTitle?.dispose();
 		this.heroTitle = null;
 

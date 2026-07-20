@@ -1,20 +1,6 @@
-import { getCasePanelHudState } from "@/portfolio/core/casePanelHudBridge.js";
-import {
-	isCasePanelHudRevealExiting,
-	playCasePanelHudExit,
-	releaseCasePanelHud,
-} from "@/portfolio/core/casePanelHudReveal.js";
-import { noteCaseEnterSourcePaths, noteCaseLeaveDestinationPaths, requestHexNavigation } from "@/utils/hexNavigation.js";
+import { requestHexNavigation } from "@/utils/hexNavigation.js";
+import { publishSiteRouteTransition } from "@/three/render/transition/siteTransitionIntent.js";
 import { store } from "@/store.jsx";
-
-function isPortfolioCasePath(path) {
-	const normalized = String(path ?? "/").replace(/\/+$/, "") || "/";
-	if (!normalized.startsWith("/portfolio/")) {
-		return false;
-	}
-	const rest = normalized.slice("/portfolio/".length);
-	return Boolean(rest) && !rest.includes("/");
-}
 
 /** Переход на страницу кейса (хаб, другой кейс, 3D, список). */
 export function requestPortfolioCaseNavigation(targetPath, fromPath = null) {
@@ -27,21 +13,7 @@ export function requestPortfolioCaseNavigation(targetPath, fromPath = null) {
 		return;
 	}
 
-	noteCaseEnterSourcePaths(from, targetPath);
-	noteCaseLeaveDestinationPaths(from, targetPath);
-
-	// Non-hex leave to non-case only: full HUD mosaic exit. Case→case keeps project nav.
-	if (
-		isPortfolioCasePath(from)
-		&& !isPortfolioCasePath(targetPath)
-		&& !isCasePanelHudRevealExiting()
-	) {
-		if (getCasePanelHudState().fromCanvas?.width) {
-			playCasePanelHudExit({ mosaicScope: "full" });
-		} else {
-			releaseCasePanelHud();
-		}
-	}
-
+	// Non-hex fallback — still one leave decision publisher (SITE_TRANSITION.md).
+	publishSiteRouteTransition(from, targetPath, { mode: "html-fallback" });
 	store.sceneCarouselNavigatePath = targetPath;
 }

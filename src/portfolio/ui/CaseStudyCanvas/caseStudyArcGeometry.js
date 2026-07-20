@@ -3,7 +3,6 @@ import {
 	caseStudyArcInternals,
 	caseStudyArcRuntime,
 } from "./caseStudyArcConfig.js";
-import { getArcNoFadeAngleBounds } from "./caseStudyArcOpacity.js";
 
 const DEG = Math.PI / 180;
 
@@ -55,13 +54,16 @@ export function resolveCaseStudyArcGeometry(viewportWidth, height, stateCount, i
 	const halfDiagonal = getViewportHalfDiagonal(viewportWidth, boundedHeight);
 	const mobileScale = isMobile ? 0.92 : 1;
 	let radius = halfDiagonal * internal.radiusDiagonalRatio * mobileScale;
-	const rotationDeg = (caseStudyArcConfig.rotationDeg ?? 0) + (caseStudyArcRuntime.introRotationDeg ?? 0);
-	const rotationRad = rotationDeg * DEG;
+	// Visible wedge on screen: config (dev) + enter intro. Project nodes are placed on a
+	// cyclic ring in draw (focus) — radius stays fixed while the ring spins.
+	const windowRotationDeg = (caseStudyArcConfig.rotationDeg ?? 0)
+		+ (caseStudyArcRuntime.introRotationDeg ?? 0);
+	const windowRotationRad = windowRotationDeg * DEG;
 
 	const arcHalfRad = internal.fadeEndDeg * DEG;
 	const margin = arcHalfRad * 0.008;
-	const angleStart = rotationRad - arcHalfRad + margin;
-	const angleEnd = rotationRad + arcHalfRad - margin;
+	const angleStart = windowRotationRad - arcHalfRad + margin;
+	const angleEnd = windowRotationRad + arcHalfRad - margin;
 
 	const layoutItemCount = Math.max(navCount, internal.maxNavItems);
 	// При 5+ пунктах фиксированный gap 14° может выйти за дугу ±fadeEndDeg — сжимаем равномерно.
@@ -70,15 +72,15 @@ export function resolveCaseStudyArcGeometry(viewportWidth, height, stateCount, i
 		layoutItemCount <= 1
 			? 0
 			: Math.min(internal.itemGapDeg, arcSpanDeg / (layoutItemCount - 1));
-	const baseItemAngles = getCaseStudyItemAngles(layoutItemCount, itemGapDeg).map(
-		(angle) => angle + (caseStudyArcConfig.rotationDeg ?? 0) * DEG,
+	const itemAngles = getCaseStudyItemAngles(layoutItemCount, itemGapDeg).map(
+		(angle) => angle + windowRotationRad,
 	);
-	const itemAngles = getCaseStudyItemAngles(layoutItemCount, itemGapDeg).map((angle) => angle + rotationRad);
-	if (verticalBounds && baseItemAngles.length > 0) {
-		// Radius belongs to the circle itself and must not change during intro rotation.
-		// Bounds are evaluated at the final resting angle; intro only rotates that fixed circle.
+	if (verticalBounds && layoutItemCount > 0) {
+		// Fit radius at the design pose (rotation 0). Intro / rotationDeg must only spin the
+		// circle — never shrink it when nodes swing toward the vertical.
+		const fitItemAngles = getCaseStudyItemAngles(layoutItemCount, itemGapDeg);
 		const maxVerticalFactor = Math.max(
-			...baseItemAngles.map((angle) => Math.abs(Math.sin(angle))),
+			...fitItemAngles.map((angle) => Math.abs(Math.sin(angle))),
 			0.001,
 		);
 		const labelSafetyPx = isMobile ? 20 : 38;
@@ -93,7 +95,8 @@ export function resolveCaseStudyArcGeometry(viewportWidth, height, stateCount, i
 		angleStart,
 		angleEnd,
 		arcHalfRad,
-		rotationRad,
+		/** Visible wedge orientation (rad). */
+		rotationRad: windowRotationRad,
 		itemAngles,
 		navCount,
 		layoutItemCount,
@@ -129,66 +132,74 @@ export function drawCaseStudyArcDebug(ctx, geo, canvasWidth, canvasHeight) {
 
 	const internal = caseStudyArcInternals;
 	const vw = geo.viewportWidth;
-	const fadeEndRad = internal.fadeEndDeg * DEG;
+	const cx = geo.centerX;
+	const cy = geo.centerY;
+	const r = geo.radius;
 
 	ctx.save();
-	ctx.setLineDash([6, 6]);
-	ctx.strokeStyle = "rgba(255, 80, 80, 0.35)";
-	ctx.lineWidth = 1;
+
+	// Full orbit circle — the path the visible arc rides on.
+	ctx.setLineDash([10, 8]);
+	ctx.strokeStyle = "rgba(255, 64, 96, 0.85)";
+	ctx.lineWidth = 1.5;
 	ctx.beginPath();
-	ctx.arc(geo.centerX, geo.centerY, geo.radius, 0, Math.PI * 2);
+	ctx.arc(cx, cy, r, 0, Math.PI * 2);
 	ctx.stroke();
 	ctx.setLineDash([]);
 
-	ctx.strokeStyle = "rgba(180, 180, 255, 0.5)";
-	ctx.lineWidth = 1.5;
+	// Visible arc segment (what the product draws as the track).
+	ctx.strokeStyle = "rgba(120, 220, 255, 0.95)";
+	ctx.lineWidth = 2.5;
 	ctx.beginPath();
-	ctx.arc(geo.centerX, geo.centerY, geo.radius, geo.angleStart, geo.angleEnd, false);
+	ctx.arc(cx, cy, r, geo.angleStart, geo.angleEnd, false);
 	ctx.stroke();
 
-	const noFade = getArcNoFadeAngleBounds(geo.itemAngles.slice(0, geo.navCount), 0);
-	if (noFade) {
-		const insetRad = internal.fadeInsetDeg * DEG;
-		ctx.strokeStyle = "rgba(80, 255, 140, 0.45)";
-		ctx.lineWidth = 2;
+	// Center + radius spokes at start / mid / end of the visible wedge.
+	const midAngle = (geo.angleStart + geo.angleEnd) * 0.5;
+	ctx.strokeStyle = "rgba(255, 64, 96, 0.55)";
+	ctx.lineWidth = 1;
+	for (const angle of [geo.angleStart, midAngle, geo.angleEnd]) {
 		ctx.beginPath();
-		ctx.arc(geo.centerX, geo.centerY, geo.radius, noFade.min - insetRad, noFade.max + insetRad, false);
+		ctx.moveTo(cx, cy);
+		ctx.lineTo(cx + Math.cos(angle) * r, cy + Math.sin(angle) * r);
 		ctx.stroke();
 	}
 
-	ctx.strokeStyle = "rgba(255, 80, 80, 0.45)";
-	ctx.lineWidth = 2;
+	ctx.fillStyle = "rgba(255, 64, 96, 1)";
 	ctx.beginPath();
-	ctx.arc(geo.centerX, geo.centerY, geo.radius, -fadeEndRad, geo.angleStart, false);
-	ctx.stroke();
+	ctx.arc(cx, cy, 5, 0, Math.PI * 2);
+	ctx.fill();
+
+	// Crosshair at circle center.
+	ctx.strokeStyle = "rgba(255, 64, 96, 0.7)";
 	ctx.beginPath();
-	ctx.arc(geo.centerX, geo.centerY, geo.radius, geo.angleEnd, fadeEndRad, false);
+	ctx.moveTo(cx - 14, cy);
+	ctx.lineTo(cx + 14, cy);
+	ctx.moveTo(cx, cy - 14);
+	ctx.lineTo(cx, cy + 14);
 	ctx.stroke();
 
-	for (const angle of geo.itemAngles) {
-		const x = geo.centerX + Math.cos(angle) * geo.radius;
-		const y = geo.centerY + Math.sin(angle) * geo.radius;
-		ctx.fillStyle = "rgba(255, 160, 220, 0.9)";
-		ctx.beginPath();
-		ctx.arc(x, y, 4, 0, Math.PI * 2);
-		ctx.fill();
-	}
+	ctx.font = "11px ui-monospace, SFMono-Regular, Menlo, monospace";
+	ctx.fillStyle = "rgba(255, 180, 190, 0.95)";
+	ctx.textAlign = "left";
+	ctx.textBaseline = "top";
+	const focusDeg = caseStudyArcRuntime.focusRotationDeg ?? 0;
+	ctx.fillText(
+		`orbit r=${r.toFixed(0)}  center=(${cx.toFixed(0)}, ${cy.toFixed(0)})  rot=${((geo.rotationRad * 180) / Math.PI).toFixed(1)}°  focus=${focusDeg.toFixed(1)}°`,
+		8,
+		8,
+	);
 
-	ctx.strokeStyle = "rgba(120, 200, 255, 0.45)";
+	ctx.strokeStyle = "rgba(120, 200, 255, 0.35)";
 	ctx.beginPath();
 	ctx.moveTo(vw, 0);
 	ctx.lineTo(vw, canvasHeight);
 	ctx.stroke();
 
 	if (canvasWidth > vw) {
-		ctx.fillStyle = "rgba(120, 200, 255, 0.06)";
+		ctx.fillStyle = "rgba(120, 200, 255, 0.05)";
 		ctx.fillRect(vw, 0, canvasWidth - vw, canvasHeight);
 	}
-
-	ctx.fillStyle = "rgba(255, 80, 80, 0.9)";
-	ctx.beginPath();
-	ctx.arc(geo.centerX, geo.centerY, 4, 0, Math.PI * 2);
-	ctx.fill();
 
 	ctx.restore();
 }

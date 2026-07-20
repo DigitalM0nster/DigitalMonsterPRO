@@ -1,17 +1,30 @@
 import { playGlitchTextSound } from "@/sounds/soundDesign.js";
+import {
+	DELAY_BETWEEN_LETTERS,
+	DELAY_BETWEEN_SYMBOLS,
+	getLetterAnimDuration,
+	getLetterStartDelay,
+	getSnakeLength,
+} from "@/shared/glitchText/glitchSnakeEngine.js";
 
-/** Тайминги как у Aten7 timeline — два symbol-шага на букву, змейка по слову. */
+/** Appear/disappear defaults (slightly denser than hub hover). Hover uses engine 75/50. */
 export const ATEN_DELAY_BETWEEN_LETTERS = 80;
 export const ATEN_SYMBOL_STEP_MS = 55;
 
-const BASE_SNAKE_LENGTH = 2;
-const SNAKE_CHARS_STEP = 12;
-const SNAKE_LENGTH_STEP = 2;
 const APPEAR_SYMBOL_CLASS = "appearSymbol";
 
 /** @typedef {'hover' | 'appear' | 'disappear'} AtenCharSnakeMode */
 
-/** @typedef {{ timeBudgetMs?: number, reverseOrder?: boolean, playSound?: boolean }} AtenCharSnakeOptions */
+/**
+ * @typedef {{
+ *   timeBudgetMs?: number,
+ *   timeScale?: number,
+ *   delayBetweenLetters?: number,
+ *   delayBetweenSymbols?: number,
+ *   reverseOrder?: boolean,
+ *   playSound?: boolean,
+ * }} AtenCharSnakeOptions
+ */
 
 const snakeTimeouts = new WeakMap();
 
@@ -59,19 +72,25 @@ function setOpacity(el, visible) {
 	el.style.opacity = visible ? "1" : "0";
 }
 
+function resolveAtenTiming(options = {}, mode) {
+	const useHubHoverDefaults = mode === "hover";
+	return {
+		delayBetweenLetters: Number.isFinite(options.delayBetweenLetters)
+			? options.delayBetweenLetters
+			: useHubHoverDefaults
+				? DELAY_BETWEEN_LETTERS
+				: ATEN_DELAY_BETWEEN_LETTERS,
+		delayBetweenSymbols: Number.isFinite(options.delayBetweenSymbols)
+			? options.delayBetweenSymbols
+			: useHubHoverDefaults
+				? DELAY_BETWEEN_SYMBOLS
+				: ATEN_SYMBOL_STEP_MS,
+	};
+}
+
+/** @deprecated use getSnakeLength from glitchSnakeEngine — same formula. */
 export function getAtenSnakeLength(charCount) {
-	return BASE_SNAKE_LENGTH + Math.floor(charCount / SNAKE_CHARS_STEP) * SNAKE_LENGTH_STEP;
-}
-
-function getCharAnimDuration() {
-	return ATEN_SYMBOL_STEP_MS * 3;
-}
-
-function getCharStartDelay(containerIndex, snakeLength) {
-	const waveIndex = Math.floor(containerIndex / snakeLength);
-	const indexInWave = containerIndex % snakeLength;
-	const waveStart = waveIndex * getCharAnimDuration();
-	return waveStart + indexInWave * ATEN_DELAY_BETWEEN_LETTERS;
+	return getSnakeLength(charCount);
 }
 
 export function getAtenSnakeTimeScale(naturalDurationMs, timeBudgetMs) {
@@ -109,68 +128,80 @@ export function restoreAtenVisible(root) {
 }
 
 /**
- * Одна буква Aten7: symbol₁ → symbol₂ → letter (appear), обратно при disappear.
+ * Одна буква: как GlitchSnakeEngine — каждый replacement на delayBetweenSymbols,
+ * затем восстановление основной буквы (appear/hover) или скрытие элемента (disappear).
  */
-function animateAtenCharElement(element, startDelay, mode, timeScale, root) {
+function animateAtenCharElement(element, startDelay, mode, timeScale, root, timing) {
 	const letter = element.querySelector(".letter");
-	const symbols = element.querySelectorAll(".symbol");
-	const sym0 = symbols[0];
-	const sym1 = symbols[1];
-	const step = () => scaleMs(ATEN_SYMBOL_STEP_MS, timeScale);
-
+	const symbols = [...element.querySelectorAll(".symbol")];
+	const symbolCount = Math.max(symbols.length, 1);
+	const stepMs = () => scaleMs(timing.delayBetweenSymbols, timeScale);
+	const letterDur = scaleMs(getLetterAnimDuration(symbolCount, timing), timeScale);
 	const schedule = (fn, ms) => scheduleSnakeTimeout(root, fn, ms);
 
 	schedule(() => {
 		if (mode === "hover" || mode === "appear") {
 			setOpacity(element, true);
 			setOpacity(letter, false);
-			setOpacity(sym0, false);
-			setOpacity(sym1, false);
+			symbols.forEach((sym) => {
+				sym.classList.remove(APPEAR_SYMBOL_CLASS);
+				setOpacity(sym, false);
+			});
+
+			symbols.forEach((sym, index) => {
+				schedule(() => {
+					sym.classList.add(APPEAR_SYMBOL_CLASS);
+					setOpacity(sym, true);
+					schedule(() => {
+						setOpacity(sym, false);
+						sym.classList.remove(APPEAR_SYMBOL_CLASS);
+					}, stepMs());
+				}, scaleMs(index * timing.delayBetweenSymbols, timeScale));
+			});
 
 			schedule(() => {
-				sym0?.classList.add(APPEAR_SYMBOL_CLASS);
-				setOpacity(sym0, true);
-				schedule(() => {
-					setOpacity(sym0, false);
-					sym0?.classList.remove(APPEAR_SYMBOL_CLASS);
-					sym1?.classList.add(APPEAR_SYMBOL_CLASS);
-					setOpacity(sym1, true);
-					schedule(() => {
-						setOpacity(sym1, false);
-						sym1?.classList.remove(APPEAR_SYMBOL_CLASS);
-						setOpacity(letter, true);
-					}, step());
-				}, step());
-			}, 0);
+				setOpacity(letter, true);
+			}, letterDur);
 			return;
 		}
 
 		setOpacity(letter, false);
-		schedule(() => {
-			setOpacity(sym1, true);
+		const reverseSymbols = [...symbols].reverse();
+		reverseSymbols.forEach((sym, index) => {
 			schedule(() => {
-				setOpacity(sym1, false);
-				setOpacity(sym0, true);
+				sym.classList.add(APPEAR_SYMBOL_CLASS);
+				setOpacity(sym, true);
 				schedule(() => {
-					setOpacity(sym0, false);
-					setOpacity(element, false);
-				}, step());
-			}, step());
-		}, 0);
+					setOpacity(sym, false);
+					sym.classList.remove(APPEAR_SYMBOL_CLASS);
+					if (index === reverseSymbols.length - 1) {
+						setOpacity(element, false);
+					}
+				}, stepMs());
+			}, scaleMs(index * timing.delayBetweenSymbols, timeScale));
+		});
+		if (reverseSymbols.length === 0) {
+			setOpacity(element, false);
+		}
 	}, scaleMs(startDelay, timeScale));
 }
 
-function getTotalAtenDuration(charElements, snakeLength, timeScale = 1) {
+function getSymbolCount(element) {
+	return Math.max(element.querySelectorAll(".symbol").length, 1);
+}
+
+function getTotalAtenDuration(charElements, snakeLength, timeScale, timing) {
 	if (!charElements.length) {
 		return 0;
 	}
 	const lastIndex = charElements.length - 1;
-	const lastStart = getCharStartDelay(lastIndex, snakeLength);
-	return scaleMs(lastStart + getCharAnimDuration(), timeScale);
+	const lastAdditional = getSymbolCount(charElements[lastIndex]);
+	const lastStart = getLetterStartDelay(lastIndex, snakeLength, lastAdditional, timing);
+	return scaleMs(lastStart + getLetterAnimDuration(lastAdditional, timing), timeScale);
 }
 
 /**
- * Змейка Aten7 по .charElement внутри .charWrapper.
+ * Змейка Aten по .charElement — та же волна, что GlitchSnakeEngine (hub project list).
  * @returns {number} длительность в мс
  */
 export function runAtenCharSnake(root, mode, options = {}) {
@@ -178,26 +209,33 @@ export function runAtenCharSnake(root, mode, options = {}) {
 		return 0;
 	}
 
-	clearSnakeTimeouts(root);
+	// Hub hover: do not cancel an in-flight snake — counters converge naturally.
+	if (mode !== "hover") {
+		clearSnakeTimeouts(root);
+	}
 
 	const charElements = getCharElements(root);
 	if (options.reverseOrder === true) {
 		charElements.reverse();
 	}
-	const snakeLength = getAtenSnakeLength(charElements.length);
-	const naturalDuration = getTotalAtenDuration(charElements, snakeLength, 1);
-	const timeScale = getAtenSnakeTimeScale(naturalDuration, options.timeBudgetMs);
+	const timing = resolveAtenTiming(options, mode);
+	const snakeLength = getSnakeLength(charElements.length);
+	const naturalDuration = getTotalAtenDuration(charElements, snakeLength, 1, timing);
+	const budgetScale = getAtenSnakeTimeScale(naturalDuration, options.timeBudgetMs);
+	const paceScale = Number.isFinite(options.timeScale) && options.timeScale > 0 ? options.timeScale : 1;
+	const timeScale = budgetScale * paceScale;
 
 	if (mode === "appear") {
 		prepareAtenHidden(root);
 	}
 
 	charElements.forEach((element, index) => {
-		const startDelay = getCharStartDelay(index, snakeLength);
-		animateAtenCharElement(element, startDelay, mode, timeScale, root);
+		const additionalCount = getSymbolCount(element);
+		const startDelay = getLetterStartDelay(index, snakeLength, additionalCount, timing);
+		animateAtenCharElement(element, startDelay, mode, timeScale, root, timing);
 	});
 
-	const durationMs = getTotalAtenDuration(charElements, snakeLength, timeScale);
+	const durationMs = getTotalAtenDuration(charElements, snakeLength, timeScale, timing);
 
 	if (durationMs > 0 && mode === "hover" && options.playSound !== false) {
 		playGlitchTextSound(durationMs, "hover");

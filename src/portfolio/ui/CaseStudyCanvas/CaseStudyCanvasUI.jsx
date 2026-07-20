@@ -18,16 +18,21 @@ import {
 	resolveCaseStudyCanvasPixelRatio,
 } from "./caseStudyCanvasSurface.js";
 import {
+	markCaseStudyArcDirty,
 	registerCaseStudyArcPaint,
 	registerCaseStudyPanelScrollPaint,
 	registerCaseStudyPanelStagePaint,
 	stopCaseStudyAnimationFrame,
 	wakeCaseStudyAnimationFrame,
-	markCaseStudyArcDirty,
 } from "@/portfolio/core/caseStudyAnimationFrame.js";
+import { syncArcGlowTargetFromScroll } from "./caseStudyArcGlowMotion.js";
+import {
+	clearCaseStudyArcPreviewProjectId,
+	setCaseStudyArcPreviewProjectId,
+} from "./caseStudyArcProjects.js";
 import { getStageProgress } from "@/portfolio/core/stageProgress.js";
 import { ensureCaseStudyCanvasFonts } from "./caseStudyCanvasText.js";
-import { measureLeftPanelFlowHeight, resolveAnchoredBottomLayout } from "./caseStudyLeftPanelFlow.js";
+import { resolveAnchoredBottomLayout } from "./caseStudyLeftPanelFlow.js";
 import { resolveCaseProjectNavigationReservePx } from "../CaseProjectNavigation/caseProjectNavigationLayout.js";
 import {
 	activateCaseProjectCanvasNavigation,
@@ -43,7 +48,6 @@ import {
 	captureCaseStudyPanelRegion,
 	createCanvasSnapshot,
 	drawCaseStudyPanelMosaicMix,
-	playCaseStudyPanelGlitch,
 	playCaseStudyPanelMosaicEnter,
 	playCaseStudyPanelMosaicTransition,
 } from "./caseStudyPanelGlitchTransition.js";
@@ -52,22 +56,22 @@ import CaseStudySelectableText from "./CaseStudySelectableText.jsx";
 import { normalizeSiteLocale } from "@/utils/siteLocale.js";
 import { useRouteTransitionContext } from "@/context/RouteTransitionContext.jsx";
 import {
-	armCaseStudyArcNavSnakeAppear,
-	clearCaseStudyArcNavSnakeHover,
-	disposeCaseStudyArcNavSnake,
-	playCaseStudyArcNavSnakeAppear,
-	playCaseStudyArcNavSnakeDisappear,
-	playCaseStudyArcNavSnakeHover,
-	registerCaseStudyArcNavSnakeRepaint,
-	restoreCaseStudyArcNavSnakeVisible,
-} from "./caseStudyArcNavSnake.js";
-import {
 	clearCaseProjectNavSnakeHover,
 	disposeCaseProjectNavSnake,
 	playCaseProjectNavSnakeHover,
 	registerCaseProjectNavSnakeRepaint,
 } from "./caseProjectNavSnake.js";
+import {
+	clearCaseStudyArcNavSnakeHover,
+	disposeCaseStudyArcNavSnake,
+	disposeCaseStudyArcNavSnakeIfOrphaned,
+	playCaseStudyArcNavSnakeHover,
+	registerCaseStudyArcNavSnakeRepaint,
+} from "./caseStudyArcNavSnake.js";
 import { resetCaseStudyArcShiftMotion } from "./caseStudyArcPositionMotion.js";
+import { resetCaseStudyArcFocusMotion } from "./caseStudyArcFocusMotion.js";
+import { resetCaseStudyArcSelectSequence } from "./caseStudyArcSelectSequence.js";
+import { resetArcLabelHover } from "./caseStudyArcLabelHover.js";
 import { setArcGlowPulseGate } from "./caseStudyArcNodeHighlight.js";
 import { isCaseEnterFromAnotherCase, isCaseLeavingToNonCase } from "@/utils/hexNavigation.js";
 
@@ -103,22 +107,26 @@ function clearCanvasPixels(canvas) {
 }
 
 /**
- * Общая вертикальная зона панели: от brand HUD до «ВСЕ ПРОЕКТЫ».
+ * Content band under the fixed header (contentTopPx). Header is never re-centered.
  * @returns {{ zoneTop: number, zoneBottom: number, zoneHeight: number } | null}
  */
-function resolveLeftPanelVerticalZone(caseNavigationLayout, canvasOriginY = 0, cachedZoneRef = null, zoneKey = "") {
+function resolveLeftPanelVerticalZone(caseNavigationLayout, canvasOriginY = 0, cachedZoneRef = null, zoneKey = "", viewportH = 0) {
 	if (cachedZoneRef?.current && cachedZoneRef.current.key === zoneKey) {
 		return cachedZoneRef.current.zone;
 	}
 
-	const brand = document.querySelector("[data-site-top-hud-brand]");
-	if (!brand || !caseNavigationLayout?.allProjects) {
+	let headerTop = null;
+	if (caseNavigationLayout?.headerTop != null && Number.isFinite(caseNavigationLayout.headerTop)) {
+		headerTop = caseNavigationLayout.headerTop;
+	} else if (caseNavigationLayout?.allProjects) {
+		headerTop = caseNavigationLayout.allProjects.y + caseNavigationLayout.allProjects.h + 14;
+	}
+	if (headerTop == null || !Number.isFinite(headerTop)) {
 		return null;
 	}
 
-	const brandRect = brand.getBoundingClientRect();
-	const zoneTop = brandRect.bottom - canvasOriginY;
-	const zoneBottom = caseNavigationLayout.allProjects.y;
+	const zoneTop = headerTop - canvasOriginY;
+	const zoneBottom = Math.max(zoneTop + 120, (viewportH || window.innerHeight || 900) - 48);
 	const zoneHeight = zoneBottom - zoneTop;
 	if (zoneHeight <= 0) {
 		return null;
@@ -129,32 +137,6 @@ function resolveLeftPanelVerticalZone(caseNavigationLayout, canvasOriginY = 0, c
 		cachedZoneRef.current = { key: zoneKey, zone };
 	}
 	return zone;
-}
-
-/**
- * Центрирует leftPanel по высоте конкретного frame внутри общей зоны.
- * Current и next считаются независимо — иначе при смене state один и тот же текст прыгает.
- */
-function applyLeftPanelContentCentering(ctx, layout, frame, cfg, verticalZone) {
-	if (!layout?.leftPanel || !verticalZone) {
-		return;
-	}
-
-	const pad = layout.leftPanel.padding ?? 0;
-	const innerW = Math.max(1, layout.leftPanel.width - pad * 2);
-	const contentHeight = measureLeftPanelFlowHeight(ctx, frame, cfg, innerW);
-	if (contentHeight <= 0) {
-		return;
-	}
-
-	const contentTop = verticalZone.zoneTop + Math.max(0, (verticalZone.zoneHeight - contentHeight) / 2);
-	layout.leftPanel.y = contentTop - pad;
-	if (layout.centerClear) {
-		// Как раньше: зона flow от верха этого текста до «ВСЕ ПРОЕКТЫ».
-		// У current и next свои panel.y → свой zoneHeight, footer не прыгает.
-		layout.centerClear.y = layout.leftPanel.y;
-		layout.centerClear.height = Math.max(120, verticalZone.zoneBottom - layout.leftPanel.y);
-	}
 }
 
 const CASE_NAV_CURSOR_SOURCE = "caseNav";
@@ -250,7 +232,6 @@ export default function CaseStudyCanvasUI({
 	const displayedLocaleRef = useRef(siteLocale);
 	const desiredLocaleRef = useRef(siteLocale);
 	const localeGlitchRunningRef = useRef(false);
-	displayedLocaleRef.current = siteLocale;
 
 	const { project, activeState, activeStateIndex, activeStateId, goToState, isInvestigating } = usePortfolioProject();
 
@@ -331,8 +312,10 @@ export default function CaseStudyCanvasUI({
 			...baseFrame,
 			scrollProgress: store.scroll,
 			hoveredArcStateId: hoveredArcStateIdRef.current,
+			activeProjectId: project.config.id,
+			locale: siteLocale,
 		};
-	}, []);
+	}, [project.config.id, siteLocale]);
 
 	const paintPanel = useCallback(() => {
 		if (hideLeftPanel || !fontsReadyRef.current || panelGlitchActiveRef.current || panelHexTransitionActiveRef.current) {
@@ -369,6 +352,7 @@ export default function CaseStudyCanvasUI({
 		const layout = resolveCaseStudyLayout(viewportW, viewportH, project.states.length, canvasOrigin, canvas, layoutOptions);
 		if (layout) {
 			const projectNavLayout = resolveCaseProjectCanvasNavigationLayout(viewportW, viewportH, layout.leftPanel);
+			projectNavLayout.headerTop = layout.leftPanel.y;
 			const stageGlitchConfig = {
 				...resolveLeftPanelDrawConfig(viewportW),
 				...(project.config.caseStudy?.leftPanel ?? {}),
@@ -382,8 +366,12 @@ export default function CaseStudyCanvasUI({
 				canvasOrigin.y ?? 0,
 				cachedPanelZoneRef,
 				`${siteLocale}|${viewportW}|${viewportH}|${panelConfigRevision}`,
+				viewportH,
 			);
-			applyLeftPanelContentCentering(ctx, layout, drawFrame, stageGlitchConfig, verticalZone);
+			if (verticalZone && layout.centerClear) {
+				layout.centerClear.y = layout.leftPanel.y;
+				layout.centerClear.height = Math.max(120, verticalZone.zoneBottom - layout.leftPanel.y);
+			}
 
 			const panel = layout.leftPanel;
 			const padding = 20;
@@ -438,13 +426,6 @@ export default function CaseStudyCanvasUI({
 						leftPanel: { ...layout.leftPanel },
 						centerClear: layout.centerClear ? { ...layout.centerClear } : null,
 					};
-					applyLeftPanelContentCentering(
-						ctx,
-						nextLayout,
-						{ ...paintNextFrameData, scrollProgress: store.scroll },
-						stageGlitchConfig,
-						verticalZone,
-					);
 					drawLeftPanel(ctx, nextLayout, { ...paintNextFrameData, scrollProgress: store.scroll }, canvas);
 					captureCaseStudyPanelRegion(
 						canvas,
@@ -572,20 +553,12 @@ export default function CaseStudyCanvasUI({
 		hitRegionsRef.current.length = 0;
 
 		const panelWidth = project.config.caseStudy?.panelWidth;
-		const navigationReserve = hideProjectNavigation ? 0 : resolveCaseProjectNavigationReservePx(viewportW, viewportH);
-		const configuredBottomInset = project.config.caseStudy?.arcContentBottomInsetPx ?? project.config.caseStudy?.contentBottomInsetPx ?? 0;
-		const arcViewportInset = project.config.caseStudy?.arcViewportInsetPx;
-		const arcViewportTopPx = project.config.caseStudy?.arcViewportTopPx ?? arcViewportInset;
-		const arcViewportBottomPx = project.config.caseStudy?.arcViewportBottomPx ?? (
-			arcViewportInset != null ? viewportH - arcViewportInset : null
-		);
+		// Arc is full-viewport; left-panel bottom reserve must not shrink it.
 		const layoutOptions = {
 			...(panelWidth ? { panelWidth } : {}),
 			...(project.config.caseStudy?.contentTopPx != null ? { contentTopPx: project.config.caseStudy.contentTopPx } : {}),
-			...(arcViewportTopPx != null ? { arcViewportTopPx } : {}),
-			...(arcViewportBottomPx != null ? { arcViewportBottomPx } : {}),
-			...(project.config.caseStudy?.arcViewportBottomInsetPx != null ? { arcViewportBottomInsetPx: project.config.caseStudy.arcViewportBottomInsetPx } : {}),
-			contentBottomInsetPx: Math.max(configuredBottomInset, navigationReserve),
+			arcViewportTopPx: project.config.caseStudy?.arcViewportTopPx ?? 0,
+			arcViewportBottomPx: project.config.caseStudy?.arcViewportBottomPx ?? viewportH,
 		};
 		const layout = resolveCaseStudyLayout(
 			viewportW,
@@ -601,18 +574,15 @@ export default function CaseStudyCanvasUI({
 		drawArcNavigation(ctx, layout, buildDrawFrame(resolvePaintFrames().current), hitRegionsRef.current, viewportW, viewportH, canvasCssW);
 	}, [
 		buildDrawFrame,
-		hideProjectNavigation,
-		project.config.caseStudy?.arcContentBottomInsetPx,
-		project.config.caseStudy?.arcViewportBottomInsetPx,
 		project.config.caseStudy?.arcViewportBottomPx,
-		project.config.caseStudy?.arcViewportInsetPx,
 		project.config.caseStudy?.arcViewportTopPx,
-		project.config.caseStudy?.contentBottomInsetPx,
 		project.config.caseStudy?.contentTopPx,
 		project.config.caseStudy?.panelWidth,
+		project.config.id,
 		project.states.length,
 		readViewport,
 		resolvePaintFrames,
+		siteLocale,
 		hideArcNavigation,
 	]);
 
@@ -635,29 +605,42 @@ export default function CaseStudyCanvasUI({
 			// CPU mosaic mix — only when left panel is Canvas2D (not WebGL HUD).
 			registerCaseStudyPanelStagePaint(() => paintPanelRef.current());
 		}
-		const unregisterSnakeRepaint = registerCaseStudyArcNavSnakeRepaint(() => paintArcRef.current());
 		const unregisterProjectNavSnakeRepaint = hideLeftPanel
 			? null
 			: registerCaseProjectNavSnakeRepaint(() => paintPanelRef.current());
+		const unregisterArcNavSnakeRepaint = hideArcNavigation
+			? null
+			: registerCaseStudyArcNavSnakeRepaint(() => paintArcRef.current());
 		return () => {
-			unregisterSnakeRepaint();
 			unregisterProjectNavSnakeRepaint?.();
-			disposeCaseStudyArcNavSnake();
+			unregisterArcNavSnakeRepaint?.();
 			if (!hideLeftPanel) {
 				disposeCaseProjectNavSnake();
 			}
+			// Keep arc snake glyph caches across case→case remount; dispose if orphaned.
+			if (!hideArcNavigation) {
+				disposeCaseStudyArcNavSnakeIfOrphaned();
+			}
+			clearCaseStudyArcPreviewProjectId();
 			setArcGlowPulseGate(0);
 			registerCaseStudyArcPaint(null);
 			registerCaseStudyPanelScrollPaint(null);
 			registerCaseStudyPanelStagePaint(null);
 			stopCaseStudyAnimationFrame();
 		};
-	}, [hideLeftPanel]);
+	}, [hideArcNavigation, hideLeftPanel]);
 
 	useEffect(() => {
+		// Kill leftover orbit debug from removed Case Arc panel.
+		caseStudyArcInternals.showDebug = false;
 		if (hideArcNavigation) {
 			// The pulse gate is module-global; clear it when /about hides the case arc.
 			setArcGlowPulseGate(0);
+			// Leaving case arc entirely — drop ring/glow sequence (case→case keeps module state).
+			resetCaseStudyArcFocusMotion();
+			resetCaseStudyArcSelectSequence();
+			resetArcLabelHover();
+			disposeCaseStudyArcNavSnake();
 		}
 	}, [hideArcNavigation]);
 
@@ -713,15 +696,13 @@ export default function CaseStudyCanvasUI({
 		}
 
 		if (enterFromAnotherCaseRef.current) {
-			// case→case: arc at rest, titles snake in later.
+			// case→case: arc at rest (project labels are plain Canvas2D, no snake cache).
 			caseStudyArcRuntime.introRotationDeg = 0;
 			caseStudyArcRuntime.introOpacity = 1;
-			armCaseStudyArcNavSnakeAppear();
 		} else {
 			// hub/about/home/… → case: park arc off-orbit for slide-in appear.
 			caseStudyArcRuntime.introRotationDeg = CASE_STUDY_ARC_INTRO_START_DEG;
 			caseStudyArcRuntime.introOpacity = 0;
-			restoreCaseStudyArcNavSnakeVisible();
 		}
 
 		return () => {
@@ -770,16 +751,15 @@ export default function CaseStudyCanvasUI({
 			panelGlitchActiveRef.current = false;
 			if (!hideArcNavigation) {
 				if (enterFromAnotherCaseRef.current) {
-					armCaseStudyArcNavSnakeAppear();
+					caseStudyArcRuntime.introRotationDeg = 0;
+					caseStudyArcRuntime.introOpacity = 1;
 				} else {
 					caseStudyArcRuntime.introRotationDeg = CASE_STUDY_ARC_INTRO_START_DEG;
 					caseStudyArcRuntime.introOpacity = 0;
-					restoreCaseStudyArcNavSnakeVisible();
 				}
 			}
 			paintAllRef.current();
 			if (!hideArcNavigation && enterFromAnotherCaseRef.current) {
-				armCaseStudyArcNavSnakeAppear();
 				paintArcRef.current();
 			}
 
@@ -887,10 +867,7 @@ export default function CaseStudyCanvasUI({
 			if (fromAnotherCase) {
 				caseStudyArcRuntime.introRotationDeg = 0;
 				caseStudyArcRuntime.introOpacity = 1;
-				void playCaseStudyArcNavSnakeAppear().finally(() => {
-					arcIntroPlayedRef.current = true;
-					paintArcRef.current();
-				});
+				arcIntroPlayedRef.current = true;
 				paintArcRef.current();
 				wakeCaseStudyAnimationFrame();
 				return;
@@ -926,7 +903,8 @@ export default function CaseStudyCanvasUI({
 			}
 			if (!arcIntroPlayedRef.current) {
 				if (fromAnotherCase) {
-					armCaseStudyArcNavSnakeAppear();
+					caseStudyArcRuntime.introRotationDeg = 0;
+					caseStudyArcRuntime.introOpacity = 1;
 				} else {
 					caseStudyArcRuntime.introRotationDeg = CASE_STUDY_ARC_INTRO_START_DEG;
 					caseStudyArcRuntime.introOpacity = 0;
@@ -942,7 +920,9 @@ export default function CaseStudyCanvasUI({
 		const previousStateIndex = lastAnimatedStateIndexRef.current;
 		const stateChanged = previousStateId !== null && previousStateId !== activeStateId;
 		const localeChanged = previousLocale !== null && previousLocale !== siteLocale;
-		const shouldAnimateContentChange = localeChanged || (stateChanged && panelNavigationClickRef.current);
+		// Locale glitch only while this case is the current page; otherwise instant paint.
+		const shouldAnimateLocale = localeChanged && store.openedCase === true;
+		const shouldAnimateContentChange = shouldAnimateLocale || (stateChanged && panelNavigationClickRef.current);
 		lastAnimatedStateIdRef.current = activeStateId;
 		lastAnimatedStateIndexRef.current = activeStateIndex;
 		lastAnimatedLocaleRef.current = siteLocale;
@@ -950,8 +930,16 @@ export default function CaseStudyCanvasUI({
 
 		if (!shouldAnimateContentChange || !fontsReadyRef.current || !canvas || hideLeftPanel) {
 			localeGlitchRunningRef.current = false;
+			if (localeChanged) {
+				displayedLocaleRef.current = siteLocale;
+			}
 			paintAllRef.current();
 			wakeCaseStudyAnimationFrame();
+			return undefined;
+		}
+
+		// Mid locale wipe: ignore (desiredLocaleRef already updated by store subscribe).
+		if (localeChanged && localeGlitchRunningRef.current) {
 			return undefined;
 		}
 
@@ -971,6 +959,8 @@ export default function CaseStudyCanvasUI({
 			paintPanelRef.current();
 
 			if (localeChanged) {
+				// This wipe landed on siteLocale; chain only if the user clicked again.
+				displayedLocaleRef.current = siteLocale;
 				localeGlitchRunningRef.current = false;
 				const desiredLocale = desiredLocaleRef.current;
 				if (desiredLocale !== displayedLocaleRef.current) {
@@ -979,9 +969,7 @@ export default function CaseStudyCanvasUI({
 			}
 		};
 
-		if (localeChanged) {
-			cancelPanelGlitchRef.current = playCaseStudyPanelGlitch(canvas, fromCanvas, toCanvas, finishGlitch);
-		} else {
+		{
 			const direction = activeStateIndex >= (previousStateIndex ?? activeStateIndex)
 				? "forward"
 				: "backward";
@@ -989,6 +977,7 @@ export default function CaseStudyCanvasUI({
 				...resolveLeftPanelDrawConfig(canvas.clientWidth || window.innerWidth),
 				...(project.config.caseStudy?.leftPanel ?? {}),
 			};
+			// Locale + stage click: same mosaic wipe (leave old / appear new).
 			cancelPanelGlitchRef.current = playCaseStudyPanelMosaicTransition(
 				canvas,
 				fromCanvas,
@@ -1028,38 +1017,8 @@ export default function CaseStudyCanvasUI({
 		}
 
 		let lastLeaving = null;
-		let orbitExitRaf = 0;
-		const cancelOrbitExit = () => {
-			if (orbitExitRaf) {
-				cancelAnimationFrame(orbitExitRaf);
-				orbitExitRaf = 0;
-			}
-		};
 
-		const playArcOrbitExit = () => {
-			cancelOrbitExit();
-			const startRot = caseStudyArcRuntime.introRotationDeg ?? 0;
-			const startOp = caseStudyArcRuntime.introOpacity ?? 1;
-			const startedAt = performance.now();
-			const tick = (now) => {
-				const progress = Math.min(1, (now - startedAt) / CASE_STUDY_ARC_INTRO_MS);
-				const eased = progress ** 3;
-				caseStudyArcRuntime.introRotationDeg = startRot
-					+ (CASE_STUDY_ARC_INTRO_START_DEG - startRot) * eased;
-				caseStudyArcRuntime.introOpacity = startOp * (1 - eased);
-				paintArcRef.current();
-				if (progress < 1) {
-					orbitExitRaf = requestAnimationFrame(tick);
-					return;
-				}
-				orbitExitRaf = 0;
-				caseStudyArcRuntime.introRotationDeg = CASE_STUDY_ARC_INTRO_START_DEG;
-				caseStudyArcRuntime.introOpacity = 0;
-				paintArcRef.current();
-			};
-			orbitExitRaf = requestAnimationFrame(tick);
-		};
-
+		// Observe only — arc/HUD leave starts in publishSiteRouteTransition (SITE_TRANSITION.md).
 		const syncLeaveArc = () => {
 			const leaving = store.sceneCarouselClickTransitionActive === true || routePhase === "exiting";
 			if (leaving === lastLeaving) {
@@ -1070,24 +1029,15 @@ export default function CaseStudyCanvasUI({
 			panelHexTransitionActiveRef.current = leaving;
 
 			if (leaving) {
-				if (isCaseLeavingToNonCase() || routePhase === "exiting") {
-					// Leave site: arc flies back to orbit intro park (same path as appear).
-					playArcOrbitExit();
-				} else {
-					// case→case: keep arc geometry; only titles snake out.
-					void playCaseStudyArcNavSnakeDisappear();
-				}
 				paintArcRef.current();
 				wakeCaseStudyAnimationFrame();
 				return;
 			}
 
-			cancelOrbitExit();
 			// Interrupted / reversed hex while still on this case: restore.
-			if (wasLeaving === true) {
+			if (wasLeaving === true && !isCaseLeavingToNonCase()) {
 				caseStudyArcRuntime.introRotationDeg = 0;
 				caseStudyArcRuntime.introOpacity = 1;
-				restoreCaseStudyArcNavSnakeVisible();
 				paintArcRef.current();
 				wakeCaseStudyAnimationFrame();
 			}
@@ -1098,7 +1048,6 @@ export default function CaseStudyCanvasUI({
 
 		return () => {
 			stopClickActive();
-			cancelOrbitExit();
 			panelHexTransitionActiveRef.current = false;
 		};
 	}, [hideArcNavigation, routePhase]);
@@ -1198,6 +1147,26 @@ export default function CaseStudyCanvasUI({
 
 			const hit = hideArcNavigation ? null : pickCaseStudyHitRegion(localX, localY, hitRegionsRef.current, 1);
 
+			if (hit?.type === "arcProject" && hit.targetPath) {
+				event.preventDefault();
+				event.stopPropagation();
+				const projectId = hit.projectId ?? hit.stateId;
+				// Move glow/labels immediately — do not wait for route commit.
+				if (projectId && projectId !== project.config.id) {
+					setCaseStudyArcPreviewProjectId(projectId);
+					if (Number.isFinite(hit.angle)) {
+						syncArcGlowTargetFromScroll(hit.angle);
+					}
+					markCaseStudyArcDirty();
+					paintArcRef.current();
+				}
+				activateCaseProjectCanvasNavigation(
+					{ type: "projectNavigation", id: projectId, targetPath: hit.targetPath },
+					pathname,
+				);
+				return;
+			}
+
 			if (hit?.type === "state") {
 				event.preventDefault();
 				event.stopPropagation();
@@ -1208,7 +1177,7 @@ export default function CaseStudyCanvasUI({
 
 		window.addEventListener("pointerdown", onPointerDown, { capture: true });
 		return () => window.removeEventListener("pointerdown", onPointerDown, { capture: true });
-	}, [activeStateId, goToState, hideArcNavigation, hideProjectNavigation, isInvestigating, pathname]);
+	}, [activeStateId, goToState, hideArcNavigation, hideProjectNavigation, isInvestigating, pathname, project.config.id]);
 
 	useEffect(() => {
 		const arcCanvas = arcCanvasRef.current;
@@ -1233,7 +1202,7 @@ export default function CaseStudyCanvasUI({
 			if (panelCanvas) {
 				panelCanvas.style.cursor = hasHover ? "pointer" : "";
 			}
-			if (hit?.type === "state") {
+			if (hit?.type === "arcProject" || hit?.type === "state") {
 				setCaseNavCursorAnchor(hit, rect);
 			} else if (projectNavHit?.type === "projectNavigation") {
 				setCaseProjectNavCursor();
@@ -1241,7 +1210,9 @@ export default function CaseStudyCanvasUI({
 				clearCaseNavCursorAnchor();
 			}
 
-			const hoveredStateId = hit?.type === "state" ? hit.stateId : null;
+			const hoveredStateId = hit?.type === "arcProject"
+				? hit.stateId
+				: null;
 			if (hoveredStateId !== hoveredArcStateIdRef.current) {
 				clearCaseStudyArcNavSnakeHover(hoveredArcStateIdRef.current);
 				hoveredArcStateIdRef.current = hoveredStateId;

@@ -1,64 +1,115 @@
-import { isPageSoundAllowed } from "./pageVisibilitySound.js";
+/**
+ * Left-panel HUD mosaic SFX (About stages + case stages / enter).
+ *
+ * Progress scrub: playhead advances on |d progress|; rate follows
+ * |d progress / dt|. Always the reversed sample (wheel-down timbre) for
+ * both scroll directions. No loop — silence near rest.
+ */
+import { isPageSoundAllowed, registerPageVisibilitySoundHandlers } from "./pageVisibilitySound.js";
+import { isSoundAudible, registerSiteSoundMuteHandler } from "./siteSoundToggle.js";
 import {
 	connectGainWithPanToMasterBus,
 	getMasterAudioContext,
 	resumeMasterAudioContext,
 } from "./masterAudioBus.js";
+import { SOUND_CATALOG } from "./soundDesign.js";
 
-const SOUND_SRC = "/audio/logo_reveal.mp3";
+/** Match CASE_STUDY_LEFT_SOUND_PAN — do not import the pan constant (cycle risk). */
 const SOUND_PAN = -0.65;
-const VOLUME = 1;
-const MIN_SPEED = 0.0025;
-const MIN_PLAYBACK_RATE = 0.22;
+const VOLUME = 1.2;
+/**
+ * Soft spring settle is slower than this — keep silent so the reversed bed
+ * does not crawl as a heartbeat knock on the left HUD.
+ */
+const MIN_SPEED = 0.014;
+/** Below this playback rate the sample reads as pulse/knock — treat as rest. */
+const MIN_AUDIBLE_RATE = 0.55;
+const MIN_PLAYBACK_RATE = 0.55;
 const MAX_PLAYBACK_RATE = 2.8;
-const HARD_SYNC_DRIFT_S = 0.1;
-const REST_FADE_MS = 100;
+/** Idle / settle — long enough to avoid a hard cut when the spring rests. */
+const REST_FADE_MS = 520;
+/** Mute / hide — short stop without a hard cut. */
+const RESTART_FADE_MS = 120;
+/** Soft attack so BufferSource start never reads as a click. */
+const ATTACK_S = 0.05;
 
 let loadPromise = null;
-let forwardBuffer = null;
-let reverseBuffer = null;
+/** @type {AudioBuffer | null} */
+let buffer = null;
+/** @type {null | {
+ *   source: AudioBufferSourceNode,
+ *   gain: GainNode,
+ *   panner: StereoPannerNode | null,
+ *   rate: number,
+ *   offset: number,
+ *   startedAt: number,
+ *   stopping: boolean,
+ *   disposed: boolean,
+ * }} */
 let playback = null;
 let lastProgress = 0;
+/** Monotonic 0..1 playhead — advances on |d progress|; buffer is time-reversed (wheel-down). */
+let scrubProgress = 0;
 let suppressedUntil = 0;
+let handlersBound = false;
 
 function clamp01(value) {
-	return Math.max(0, Math.min(1, value));
+	return Math.max(0, Math.min(1, Number(value) || 0));
 }
 
-async function loadBuffers() {
-	if (forwardBuffer && reverseBuffer) {
-		return;
+function wrap01(value) {
+	const wrapped = value % 1;
+	return wrapped < 0 ? wrapped + 1 : wrapped;
+}
+
+async function loadBuffer() {
+	if (buffer) {
+		return buffer;
 	}
 	if (loadPromise) {
 		return loadPromise;
 	}
 
-	loadPromise = fetch(SOUND_SRC)
+	loadPromise = fetch(SOUND_CATALOG.panel_hud_text)
 		.then((response) => response.arrayBuffer())
 		.then(async (arrayBuffer) => {
 			const ctx = getMasterAudioContext();
 			if (!ctx) {
-				return;
+				return null;
 			}
-			forwardBuffer = await ctx.decodeAudioData(arrayBuffer);
-			reverseBuffer = ctx.createBuffer(
-				forwardBuffer.numberOfChannels,
-				forwardBuffer.length,
-				forwardBuffer.sampleRate,
-			);
-			for (let channel = 0; channel < forwardBuffer.numberOfChannels; channel += 1) {
-				const source = forwardBuffer.getChannelData(channel);
-				const destination = reverseBuffer.getChannelData(channel);
+			const forward = await ctx.decodeAudioData(arrayBuffer.slice(0));
+			// Time-reversed bed = scroll-down timbre (both wheel directions use this).
+			buffer = ctx.createBuffer(forward.numberOfChannels, forward.length, forward.sampleRate);
+			for (let channel = 0; channel < forward.numberOfChannels; channel += 1) {
+				const source = forward.getChannelData(channel);
+				const destination = buffer.getChannelData(channel);
 				for (let left = 0, right = source.length - 1; left < source.length; left += 1, right -= 1) {
 					destination[left] = source[right];
 				}
 			}
+			return buffer;
 		})
 		.catch(() => {
 			loadPromise = null;
+			return null;
 		});
 
 	return loadPromise;
+}
+
+function ensureHandlers() {
+	if (handlersBound) {
+		return;
+	}
+	handlersBound = true;
+	registerSiteSoundMuteHandler(() => {
+		if (!isSoundAudible()) {
+			stopPlayback(RESTART_FADE_MS);
+		}
+	});
+	registerPageVisibilitySoundHandlers({
+		onHidden: () => stopPlayback(RESTART_FADE_MS),
+	});
 }
 
 function disposePlayback(entry) {
@@ -93,36 +144,43 @@ function stopPlayback(fadeMs = REST_FADE_MS) {
 	}
 
 	const now = ctx.currentTime;
+	const fadeS = Math.max(0.02, fadeMs / 1000);
+	const current = Math.max(0.0001, entry.gain.gain.value);
 	entry.gain.gain.cancelScheduledValues(now);
-	entry.gain.gain.setValueAtTime(entry.gain.gain.value, now);
-	entry.gain.gain.linearRampToValueAtTime(0, now + fadeMs / 1000);
-	setTimeout(() => disposePlayback(entry), fadeMs + 20);
+	entry.gain.gain.setValueAtTime(current, now);
+	entry.gain.gain.exponentialRampToValueAtTime(0.0001, now + fadeS);
+	entry.gain.gain.setValueAtTime(0, now + fadeS);
+	setTimeout(() => disposePlayback(entry), fadeMs + 40);
 }
 
-function getPlaybackOffset(progress, direction, duration) {
-	const normalized = direction > 0 ? progress : 1 - progress;
-	return Math.max(0, Math.min(duration * 0.998, normalized * duration));
+function getPlaybackOffset(progress, duration) {
+	return Math.max(0, Math.min(duration * 0.998, progress * duration));
 }
 
-function startPlayback(direction, rate, progress) {
+function startPlayback(rate, progress) {
 	const ctx = getMasterAudioContext();
-	const buffer = direction > 0 ? forwardBuffer : reverseBuffer;
 	if (!ctx || !buffer) {
 		return;
 	}
 
-	stopPlayback(35);
+	// Never hard-cut an active voice — rate chase is enough for scrub feel.
+	if (playback && !playback.disposed && !playback.stopping) {
+		playback.rate = Math.max(MIN_PLAYBACK_RATE, Math.min(MAX_PLAYBACK_RATE, rate));
+		playback.source.playbackRate.setTargetAtTime(playback.rate, ctx.currentTime, 0.05);
+		return;
+	}
 
 	const source = ctx.createBufferSource();
 	const gain = ctx.createGain();
-	const offset = getPlaybackOffset(progress, direction, buffer.duration);
+	const offset = getPlaybackOffset(progress, buffer.duration);
 	const startedAt = ctx.currentTime;
 	const safeRate = Math.max(MIN_PLAYBACK_RATE, Math.min(MAX_PLAYBACK_RATE, rate));
 
 	source.buffer = buffer;
+	source.loop = true;
 	source.playbackRate.value = safeRate;
-	gain.gain.setValueAtTime(0, startedAt);
-	gain.gain.linearRampToValueAtTime(VOLUME, startedAt + 0.015);
+	gain.gain.setValueAtTime(0.0001, startedAt);
+	gain.gain.exponentialRampToValueAtTime(VOLUME, startedAt + ATTACK_S);
 	const panner = connectGainWithPanToMasterBus(ctx, gain, SOUND_PAN);
 	source.connect(gain);
 
@@ -130,7 +188,6 @@ function startPlayback(direction, rate, progress) {
 		source,
 		gain,
 		panner,
-		direction,
 		rate: safeRate,
 		offset,
 		startedAt,
@@ -142,74 +199,83 @@ function startPlayback(direction, rate, progress) {
 	source.start(0, offset);
 }
 
-function syncPlayback(direction, rate, progress) {
+function syncPlayback(rate, progress) {
 	const ctx = getMasterAudioContext();
-	const buffer = direction > 0 ? forwardBuffer : reverseBuffer;
 	if (!ctx || !buffer) {
 		return;
 	}
 
-	const targetOffset = getPlaybackOffset(progress, direction, buffer.duration);
-	const expectedOffset = playback
-		? playback.offset + (ctx.currentTime - playback.startedAt) * playback.rate
-		: 0;
-	const directionChanged = playback?.direction !== direction;
-	const drifted = !playback || Math.abs(expectedOffset - targetOffset) > HARD_SYNC_DRIFT_S;
-
-	if (directionChanged || drifted || playback?.stopping) {
-		startPlayback(direction, rate, progress);
+	if (!playback || playback.stopping || playback.disposed) {
+		startPlayback(rate, progress);
 		return;
 	}
 
+	// Rate-only chase — hard offset resync was the sharp fading click on scroll.
 	playback.rate = Math.max(MIN_PLAYBACK_RATE, Math.min(MAX_PLAYBACK_RATE, rate));
-	playback.source.playbackRate.value = playback.rate;
+	playback.source.playbackRate.setTargetAtTime(playback.rate, ctx.currentTime, 0.05);
 }
 
 export function preloadCaseStudyTextTransitionSound() {
-	return loadBuffers();
+	ensureHandlers();
+	return loadBuffer();
 }
 
-export function updateCaseStudyTextTransitionSound(delta, progress) {
+/**
+ * @param {number} delta seconds
+ * @param {number} progress visual mix 0..1
+ * @param {number} [_progressTarget] ignored — scrub follows painted motion only
+ */
+export function updateCaseStudyTextTransitionSound(delta, progress, _progressTarget = progress) {
+	ensureHandlers();
 	const currentProgress = clamp01(progress);
-	if (performance.now() < suppressedUntil || !isPageSoundAllowed()) {
+	if (performance.now() < suppressedUntil || !isPageSoundAllowed() || !isSoundAudible()) {
 		lastProgress = currentProgress;
 		return;
 	}
 
 	if (Math.abs(currentProgress - lastProgress) > 0.8) {
-		stopPlayback(35);
+		stopPlayback(RESTART_FADE_MS);
+		scrubProgress = 0;
 		lastProgress = currentProgress;
 		return;
 	}
 
 	const speed = delta > 1e-6 ? (currentProgress - lastProgress) / delta : 0;
-	if (Math.abs(speed) <= MIN_SPEED) {
+	const absSpeed = Math.abs(speed);
+	const duration = buffer?.duration ?? 0;
+	if (!duration) {
+		void loadBuffer();
+		lastProgress = currentProgress;
+		return;
+	}
+
+	const rate = absSpeed * duration;
+	// Slow auto-settle / crawl: no scrub (avoids heartbeat thump in left text).
+	if (absSpeed <= MIN_SPEED || rate < MIN_AUDIBLE_RATE) {
 		stopPlayback();
 		lastProgress = currentProgress;
 		return;
 	}
 
-	const direction = Math.sign(speed) || 1;
-	const duration = forwardBuffer?.duration ?? reverseBuffer?.duration ?? 0;
-	if (!duration) {
-		void loadBuffers();
-		lastProgress = currentProgress;
-		return;
-	}
-
-	const rate = Math.abs(speed) * duration;
+	// Both scroll directions advance the same reversed playhead (wheel-down timbre).
+	scrubProgress = wrap01(scrubProgress + Math.abs(currentProgress - lastProgress));
 	void resumeMasterAudioContext();
-	syncPlayback(direction, rate, currentProgress);
+	syncPlayback(rate, scrubProgress);
 	lastProgress = currentProgress;
 }
 
 export function suppressCaseStudyTextTransitionSound(durationMs) {
 	suppressedUntil = Math.max(suppressedUntil, performance.now() + Math.max(0, durationMs));
-	stopPlayback(35);
+	stopPlayback(REST_FADE_MS);
 }
 
 export function resetCaseStudyTextTransitionSound() {
 	stopPlayback(0);
 	lastProgress = 0;
+	scrubProgress = 0;
 	suppressedUntil = 0;
+}
+
+export function disposeCaseStudyTextTransitionSound() {
+	resetCaseStudyTextTransitionSound();
 }

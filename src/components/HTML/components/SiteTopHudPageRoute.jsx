@@ -189,7 +189,19 @@ export default function SiteTopHudPageRoute({ pathname, locale }) {
 
 	useEffect(() => {
 		desiredLocaleRef.current = normalizedLocale;
-		startBreadcrumbLanguageSwitch();
+		// Defer past the click frame so home hero 4K canvas snakes can start without HTML glitch storm.
+		let raf2 = 0;
+		const raf1 = requestAnimationFrame(() => {
+			raf2 = requestAnimationFrame(() => {
+				startBreadcrumbLanguageSwitch();
+			});
+		});
+		return () => {
+			cancelAnimationFrame(raf1);
+			if (raf2) {
+				cancelAnimationFrame(raf2);
+			}
+		};
 	}, [normalizedLocale, startBreadcrumbLanguageSwitch]);
 
 	useLayoutEffect(() => {

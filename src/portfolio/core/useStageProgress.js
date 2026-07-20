@@ -21,6 +21,7 @@ import {
 	updateCaseStudyTextTransitionSound,
 } from "@/sounds/caseStudyTextTransitionSound.js";
 import { isCaseStageClickMosaicActive } from "@/portfolio/core/caseStageClickMosaic.js";
+import { isCaseExperienceRuntimeActive } from "@/portfolio/core/caseExperienceRuntime.js";
 
 /**
  * Плавный stageProgress внутри активного state: target от store.scroll, progress догоняет в общем rAF.
@@ -51,57 +52,48 @@ export function useStageProgress(project, activeStateIndex, onStageCommit, initi
 		const committedTarget = getStageProgressTarget();
 		store.portfolioExperience.stageProgress = committedProgress;
 		store.portfolioExperience.stageProgressTarget = committedTarget;
-		updateCaseStudyTextTransitionSound(0, committedProgress);
+		updateCaseStudyTextTransitionSound(0, committedProgress, committedTarget);
 	}, [activeStateIndex]);
 
 	useEffect(() => {
 		const syncStageTargetFromScroll = () => {
-			if (isCaseStageClickMosaicActive()) {
+			if (isCaseStageClickMosaicActive() || isCaseExperienceRuntimeActive()) {
 				return;
 			}
 			// Всегда React-индекс из deps — store может кратко отставать / сбрасываться в cleanup.
 			const stateIndex = activeStateIndex;
-			const usesBoundaryHandoff = Boolean(project.config.caseStudy?.carouselBoundaryHandoff);
-			const scrollTarget = usesBoundaryHandoff ? store.caseScrollTarget : store.scroll;
 			const target = computeStageProgressTarget(
 				project.states,
 				stateIndex,
 				store.scroll,
-				scrollTarget,
+				store.scroll,
 			);
-			const lastScrollableStateIndex = Math.max(0, project.states.length - 2);
-			const preserveBoundaryOvershoot = usesBoundaryHandoff && (
-				(stateIndex === 0 && target < 0) ||
-				(stateIndex === lastScrollableStateIndex && target > 1)
-			);
-			syncStageProgressTarget(target, { preserveBoundaryOvershoot });
+			syncStageProgressTarget(target);
 			store.portfolioExperience.stageProgressTarget = getStageProgressTarget();
 			wakeCaseStudyAnimationFrame();
 		};
 
 		syncStageTargetFromScroll();
 		const unsubscribeScroll = subscribeKey(store, "scroll", syncStageTargetFromScroll);
-		const unsubscribeTarget = subscribeKey(store, "caseScrollTarget", syncStageTargetFromScroll);
 		return () => {
 			unsubscribeScroll();
-			unsubscribeTarget();
 		};
 	}, [
 		project.states,
 		activeStateIndex,
 		project.config.slug,
-		project.config.caseStudy?.carouselBoundaryHandoff,
 	]);
 
 	useEffect(() => {
 		const onStageProgressTick = (delta) => {
-			if (isCaseStageClickMosaicActive()) {
+			if (isCaseStageClickMosaicActive() || isCaseExperienceRuntimeActive()) {
 				return;
 			}
 			const progress = getStageProgress();
+			const progressTarget = getStageProgressTarget();
 			store.portfolioExperience.stageProgress = progress;
-			store.portfolioExperience.stageProgressTarget = getStageProgressTarget();
-			updateCaseStudyTextTransitionSound(delta, progress);
+			store.portfolioExperience.stageProgressTarget = progressTarget;
+			updateCaseStudyTextTransitionSound(delta, progress, progressTarget);
 
 			const stateIndex = store.portfolioExperience.activeStateIndex ?? activeStateIndex;
 			const state = project.states[stateIndex];

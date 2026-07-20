@@ -1,16 +1,11 @@
 /**
- * Reserved bottom band for desktop case-to-case navigation.
- * It tracks the CSS node/bottom sizing and always leaves a visual gap above it.
+ * Bottom band reserved for prev/next chrome — removed; stages live on the left rail,
+ * project list on the arc, «all projects» sits above the fixed case header.
  */
-export function resolveCaseProjectNavigationReservePx(viewportWidth, viewportHeight) {
+export function resolveCaseProjectNavigationReservePx(viewportWidth, _viewportHeight) {
 	const width = Math.max(0, Number(viewportWidth) || 0);
-	const height = Math.max(0, Number(viewportHeight) || 0);
-
 	if (width < 768) {
 		return 0;
 	}
-
-	const heightBasedReserve = height * 0.15;
-	const compactAdjustment = width < 1180 ? 8 : 0;
-	return Math.round(Math.min(164, Math.max(118, heightBasedReserve + compactAdjustment)));
+	return 0;
 }

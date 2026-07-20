@@ -9,6 +9,8 @@ import { drawGlitchTextLine } from "@/shared/glitchText/drawGlitchText.js";
 import { HeroTextGlitchController } from "@/three/scenes/home/heroText/HeroTextGlitchController.js";
 import { getHeroGlitchSnakeRunOptions } from "@/three/scenes/home/heroText/heroTextGlitchConfig.js";
 import { SITE_LOCALES } from "@/utils/siteLocale.js";
+import { getPortfolioLocale } from "@/i18n/portfolioProjectsCopy.js";
+import { store } from "@/store.jsx";
 const MIN_CANVAS_WIDTH = 320;
 const MIN_CANVAS_HEIGHT = 160;
 const LABEL_SLOT_DEFS = [
@@ -1117,6 +1119,8 @@ export class HubPlateProjectLabels {
 		this.attachments = [];
 		this.focusProjectIndex = -1;
 		this._localeUpdateChain = Promise.resolve();
+		/** Segments updated off-page without canvas upload — paint on next focus/enter. */
+		this._localeTexturesStale = false;
 	}
 
 	_getFocusedAttachment() {
@@ -1215,12 +1219,14 @@ export class HubPlateProjectLabels {
 	}
 
 	/** Обновить подписи на плитах при смене языка (змейка на активной плите). */
-	updateLocale(locale, cfg = portfolioHubPlatesConfig) {
-		this._localeUpdateChain = this._localeUpdateChain.then(() => this._updateLocaleImpl(locale, cfg));
+	updateLocale(locale, cfg = portfolioHubPlatesConfig, { animate = true } = {}) {
+		this._localeUpdateChain = this._localeUpdateChain.then(() =>
+			this._updateLocaleImpl(locale, cfg, { animate }),
+		);
 		return this._localeUpdateChain;
 	}
 
-	async _updateLocaleImpl(locale, cfg = portfolioHubPlatesConfig) {
+	async _updateLocaleImpl(locale, cfg = portfolioHubPlatesConfig, { animate = true } = {}) {
 		const labelCfg = cfg.plateLabel ?? {};
 		const focused = this._getFocusedAttachment();
 
@@ -1231,21 +1237,71 @@ export class HubPlateProjectLabels {
 			}
 
 			const nextSegments = getHubPlateLabelSegments(project, locale);
+
+			// Off-page: keep OLD segments for a later snake; stash next copy.
+			// Do not overwrite segments or paint — setFocusReveal would pop new language.
+			if (!animate) {
+				attachment.entry.pendingSegments = nextSegments;
+				this._localeTexturesStale = true;
+				continue;
+			}
+
 			const isFocusedVisible = focused && attachment === focused && attachment.entry.group.visible;
 			let switchCompleted = true;
+			const toSegments = attachment.entry.pendingSegments ?? nextSegments;
 
 			if (isFocusedVisible) {
-				switchCompleted = await this._runFocusedLocaleSwitch(attachment.entry, nextSegments, labelCfg, cfg);
+				// Keep entry.segments = OLD during snake — switch paints old→new.
+				switchCompleted = await this._runFocusedLocaleSwitch(attachment.entry, toSegments, labelCfg, cfg);
 			}
 
 			if (!switchCompleted) {
 				continue;
 			}
 
-			attachment.entry.segments = nextSegments;
+			attachment.entry.segments = toSegments;
+			attachment.entry.pendingSegments = null;
 			applyLabelEntry(attachment.entry, cfg);
-			initLabelGlitchState(attachment.entry, nextSegments, labelCfg);
+			initLabelGlitchState(attachment.entry, toSegments, labelCfg);
 		}
+		if (animate) {
+			this._localeTexturesStale = false;
+		}
+	}
+
+	/**
+	 * Apply deferred locale after returning to hub.
+	 * Focused plate snakes old→new; others paint silently.
+	 */
+	async playPendingLocaleReveal(cfg = portfolioHubPlatesConfig) {
+		if (!this._localeTexturesStale) {
+			return;
+		}
+		if (this.focusProjectIndex < 0) {
+			this.focusProjectIndex = Math.max(0, store.portfolioHubFocusIndex ?? 0);
+		}
+		const focused = this._getFocusedAttachment();
+		if (focused) {
+			focused.entry.group.visible = true;
+		}
+		await this._updateLocaleImpl(getPortfolioLocale(), cfg, { animate: true });
+	}
+
+	/** Paint deferred locale segments (after off-page silent update) — no snake. */
+	flushPendingLocaleTextures(cfg = portfolioHubPlatesConfig) {
+		if (!this._localeTexturesStale) {
+			return;
+		}
+		const labelCfg = cfg.plateLabel ?? {};
+		for (const attachment of this.attachments) {
+			if (attachment.entry.pendingSegments) {
+				attachment.entry.segments = attachment.entry.pendingSegments;
+				attachment.entry.pendingSegments = null;
+			}
+			applyLabelEntry(attachment.entry, cfg);
+			initLabelGlitchState(attachment.entry, attachment.entry.segments, labelCfg);
+		}
+		this._localeTexturesStale = false;
 	}
 
 	/** Подпись только на активной плитке — синхронно с логотипом. */
@@ -1276,6 +1332,9 @@ export class HubPlateProjectLabels {
 				}
 				continue;
 			}
+
+			// Never instant-paint deferred locale here — that skipped the snake when
+			// language changed while hub was previous (About/home). Enter / playPendingLocaleReveal owns it.
 
 			for (const plane of attachment.entry.planes) {
 				const slotId = plane.userData.labelSlot?.id;

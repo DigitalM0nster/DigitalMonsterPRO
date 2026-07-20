@@ -289,6 +289,14 @@ export function createHeroTitleText(renderer, scene) {
 		renderScrollHintOverlay(renderer) {
 			scrollHint.renderScreenOverlay(renderer);
 		},
+		/** Idle: screen overlay. Hex: embed label in models RT. */
+		setScrollHintComposeMode(mode) {
+			scrollHint.setComposeMode(mode);
+		},
+		/** Hide «листайте вниз» when carousel has left home (titles may linger for hex). */
+		hideScrollHint() {
+			scrollHint.reset();
+		},
 		/** Dev: змейка смены языка без клика по меню. */
 		previewGlitchLocaleSwitch(locale) {
 			return localeSwitch.previewSwitchTo(locale);

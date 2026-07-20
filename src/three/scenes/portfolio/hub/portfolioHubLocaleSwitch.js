@@ -6,8 +6,17 @@ import { portfolioHubPlatesConfig } from "./portfolioHubConfig.js";
 
 /**
  * Смена языка на /portfolio (HUD-список, подписи на плитах, кнопка «Смотреть кейс»).
+ *
+ * Hub stays live as carousel `previous` after leave — never run snake/texture storms
+ * while the user is on another page (home/about/contacts). Silent update only;
+ * full animate when hub is the current ring page.
  */
-export function createPortfolioHubLocaleSwitchController({ getProjectsColumn, getPlateLabels, getPlateDetailsButtons } = {}) {
+export function createPortfolioHubLocaleSwitchController({
+	getProjectsColumn,
+	getPlateLabels,
+	getPlateDetailsButtons,
+	shouldAnimateLocale,
+} = {}) {
 	let displayedLocale = getPortfolioLocale();
 	let desiredLocale = displayedLocale;
 	let isSwitching = false;
@@ -20,17 +29,28 @@ export function createPortfolioHubLocaleSwitchController({ getProjectsColumn, ge
 
 		isSwitching = true;
 		const targetLocale = desiredLocale;
+		const animate = shouldAnimateLocale?.() === true;
 
 		try {
 			const projectsColumn = getProjectsColumn?.();
 			const plateLabels = getPlateLabels?.();
 			const plateDetailsButtons = getPlateDetailsButtons?.();
 
-			await Promise.all([
-				projectsColumn?.switchLocale?.(targetLocale),
-				plateDetailsButtons?.updateLocale?.(targetLocale, portfolioHubPlatesConfig),
-				plateLabels?.updateLocale?.(targetLocale, portfolioHubPlatesConfig),
-			]);
+			if (!animate) {
+				// Defer past the click/hero frame — zero canvas work, but don't contend with home snakes.
+				await new Promise((resolve) => {
+					requestAnimationFrame(() => resolve());
+				});
+				void projectsColumn?.switchLocale?.(targetLocale, { animate: false });
+				void plateDetailsButtons?.updateLocale?.(targetLocale, portfolioHubPlatesConfig, { animate: false });
+				void plateLabels?.updateLocale?.(targetLocale, portfolioHubPlatesConfig, { animate: false });
+			} else {
+				await Promise.all([
+					projectsColumn?.switchLocale?.(targetLocale, { animate: true }),
+					plateDetailsButtons?.updateLocale?.(targetLocale, portfolioHubPlatesConfig, { animate: true }),
+					plateLabels?.updateLocale?.(targetLocale, portfolioHubPlatesConfig, { animate: true }),
+				]);
+			}
 			displayedLocale = targetLocale;
 		} catch (error) {
 			console.error("[portfolioHubLocaleSwitch] locale switch failed", error);

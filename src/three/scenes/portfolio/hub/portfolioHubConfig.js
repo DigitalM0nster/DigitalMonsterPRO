@@ -27,12 +27,12 @@ export const portfolioHubPlatesConfig = {
 	gridRotation: [-19, 44, 13],
 	/** Сдвиг сетки по глубине в шагах плиты (−1 = на 1 плиту назад от камеры). */
 	gridDepthShiftPlates: -1,
-	/** Появление сетки: сразу видима, короче списка; listIntroDelayMs — HUD после старта плит. */
+	/** Появление сетки: dormant opacity 0 → 1; listIntroDelayMs — HUD после старта плит. */
 	gridEnter: {
 		fromOffset: [5, 0, -2.1],
 		fromRotation: [-20, 50, 0],
 		durationMs: 900,
-		fromOpacity: 0.55,
+		fromOpacity: 0,
 		listIntroDelayMs: 120,
 	},
 	/** Исчезновение сетки: gridOffset / gridRotation → to + fade-out плит. */

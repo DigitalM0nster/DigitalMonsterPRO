@@ -3,30 +3,35 @@ import { resolveLeftPanelDrawConfig } from "./caseStudyLeftPanelConfig.js";
 import { measureLeftPanelFlowHeight, paintLeftPanelFlow } from "./caseStudyLeftPanelFlow.js";
 import { caseStudyDensePanelOverrides } from "@/portfolio/core/caseStudyReferencePanelPreset.js";
 import { CASE_STUDY_DISPLAY_FONT, measureTextWithSpacing } from "./caseStudyCanvasText.js";
-import { drawCaseStudyArcDebug, getCaseStudyArcStepPositionsFromAngles, getCaseStudyItemAngles, resolveCaseStudyArcGeometry } from "./caseStudyArcGeometry.js";
+import {
+	drawCaseStudyArcNavSnakeLabel,
+	syncCaseStudyArcNavSnakeLines,
+} from "./caseStudyArcNavSnake.js";
+import { drawCaseStudyArcDebug, getCaseStudyArcStepPositionsFromAngles, resolveCaseStudyArcGeometry } from "./caseStudyArcGeometry.js";
 import {
 	caseStudyArcConfig,
 	caseStudyArcInternals,
 	caseStudyArcRuntime,
-	getActiveBloomGlowColors,
-	getArcLineStrokeStyle,
-	lerpHexColor,
 	resolveNodeMarkerRadii,
-	getTrackStrokeStyle,
 } from "./caseStudyArcConfig.js";
-import { drawArcInnerCoreGlow, drawArcOuterRingStrokeBloom } from "./caseStudyArcBloom.js";
-import { getNodeArcGlowHighlight, strokeArcActiveNodeGlow } from "./caseStudyArcActiveGlow.js";
-import { getArcGlowCenterAngleRad, isArcGlowManualOverride, syncArcGlowTargetFromScroll } from "./caseStudyArcGlowMotion.js";
-import { resolveArcGlowAngleFromScroll } from "./caseStudyArcScrollGlow.js";
-import { getInnerBloomPulseBlur, setArcGlowPulseGate } from "./caseStudyArcNodeHighlight.js";
-import { strokeArcFaded, getArcSegmentOpacity, getArcLineCutoutHalfRad, getArcNoFadeAngleBounds } from "./caseStudyArcOpacity.js";
-import { caseStudyArcActiveLineConfig } from "./caseStudyArcActiveLineConfig.js";
-import { strokeArcTrailToGlow } from "./caseStudyArcTrailLine.js";
-import { caseStudyArcTrailLineConfig, ARC_TRAIL_ACTIVE_HIGHLIGHT_THRESHOLD, resolveArcNodeTrailBlend, resolveArcNodeMarkerHighlight } from "./caseStudyArcTrailLineConfig.js";
-import { resolveArcNavLabelTargetColors } from "./caseStudyArcNavLabelColors.js";
-import { getArcNavLabelDisplayColors, setArcNavLabelSlotCount, syncArcNavLabelColorTargets } from "./caseStudyArcNavLabelMotion.js";
-import { drawCaseStudyArcNavSnakeLabel, syncCaseStudyArcNavSnakeLines } from "./caseStudyArcNavSnake.js";
+import { isArcGlowManualOverride } from "./caseStudyArcGlowMotion.js";
+import { setArcGlowPulseGate } from "./caseStudyArcNodeHighlight.js";
+import { getArcSegmentOpacity, getArcLineCutoutHalfRad, resolveArcFadeBounds } from "./caseStudyArcOpacity.js";
+import { setArcNavLabelSlotCount, syncArcNavLabelColorTargets } from "./caseStudyArcNavLabelMotion.js";
 import { getCaseStudyArcShift, setCaseStudyArcShiftTarget } from "./caseStudyArcPositionMotion.js";
+import { getCyclicItemRelativeDeg } from "./caseStudyArcCycle.js";
+import {
+	resolveCaseStudyArcProjectItems,
+	syncCaseStudyArcPreviewNavigation,
+} from "./caseStudyArcProjects.js";
+import { getCaseStudyArcSelectPhase, syncCaseStudyArcSelectSequence } from "./caseStudyArcSelectSequence.js";
+import {
+	getArcLabelMaskMul,
+	setArcLabelHoverSlots,
+	setArcLabelHoverTarget,
+} from "./caseStudyArcLabelHover.js";
+import { getCachedArcPathTitleLayout } from "./caseStudyArcLabelLayoutCache.js";
+import { getSceneCarousel } from "@/three/render/transition/carouselPage.js";
 
 function wrapArcLabelWords(ctx, title, maxWidth, letterSpacing) {
 	const words = String(title).toUpperCase().split(/\s+/).filter(Boolean);
@@ -113,7 +118,7 @@ export function drawLeftPanel(ctx, layout, data) {
 	paintLeftPanelFlow(ctx, 0, 0, innerW, cfg, theme, data, zoneHeight);
 	ctx.restore();
 
-	// Footer рисуется внутри paintLeftPanelFlow при anchorFooterBlock или zoneHeight > 0
+	// Stage rail is chrome-only (paintCaseStudyPanelHudChrome) — never in mosaic from/to.
 }
 
 /**
@@ -139,176 +144,126 @@ export function drawArcNavigation(ctx, layout, data, hitRegions, viewportWidth, 
 		return;
 	}
 
+	// Arc = portfolio project list (stages moved to left rail). Overflow → CASE_NAV_FOLLOWUPS.md
+	const carousel = getSceneCarousel();
+	const navigating = Boolean(
+		carousel?.isHexNavigationActive?.() || carousel?.isCaseBoundaryDrive?.(),
+	);
+	syncCaseStudyArcPreviewNavigation(navigating);
+	const arcProjects = resolveCaseStudyArcProjectItems(data.locale, data.activeProjectId ?? null);
+	const navStates = arcProjects.items;
+	const internal = caseStudyArcInternals;
+	const ringGapDeg = arcProjects.ringGapDeg;
+	const ringPeriodDeg = arcProjects.ringPeriodDeg;
+	const focusIndex = arcProjects.activeNavIndex;
+	// Focus may be frozen while glow travels — use live runtime angle for layout.
+	const focusDeg = caseStudyArcRuntime.focusRotationDeg ?? (focusIndex >= 0 ? focusIndex * ringGapDeg : 0);
+
 	const arcGeo = resolveCaseStudyArcGeometry(
 		viewportWidth,
 		canvasHeight,
-		data.states.length,
+		Math.min(navStates.length, internal.maxNavItems ?? 5),
 		layout.isMobile,
 		layout.arc?.viewportTop != null && layout.arc?.viewportBottom != null ? { top: layout.arc.viewportTop, bottom: layout.arc.viewportBottom } : null,
 	);
 	let { centerX } = arcGeo;
-	const { centerY, radius, angleStart, angleEnd, itemAngles, navCount, layoutItemCount } = arcGeo;
-	const internal = caseStudyArcInternals;
-	const navStates = data.states.slice(0, navCount);
-	const useEvenNavSpacing = Boolean(data.arcNavigationEvenSpacing);
-	const evenItemGapDeg = navStates.length <= 1 ? 0 : Math.min(internal.itemGapDeg, (internal.fadeEndDeg * 2 - internal.fadeInsetDeg * 2) / (navStates.length - 1));
-	const navItemAngles = useEvenNavSpacing ? getCaseStudyItemAngles(navStates.length, evenItemGapDeg).map((angle) => angle + arcGeo.rotationRad) : itemAngles;
-	const positionIndices = useEvenNavSpacing
-		? Array.from({ length: navStates.length }, (_, i) => i)
-		: navStates.length >= internal.maxNavItems
-			? Array.from({ length: navStates.length }, (_, i) => i)
-			: navStates.length === 1
-				? [Math.floor((layoutItemCount - 1) / 2)]
-				: Array.from({ length: navStates.length }, (_, i) => Math.round((i * (layoutItemCount - 1)) / (navStates.length - 1)));
+	const { centerY, radius, angleStart, angleEnd } = arcGeo;
+	const DEG = Math.PI / 180;
+	const navItemAngles = navStates.map((_, index) => (
+		getCyclicItemRelativeDeg(index, focusDeg, ringGapDeg, navStates.length) * DEG + arcGeo.rotationRad
+	));
+	const positionIndices = Array.from({ length: navStates.length }, (_, i) => i);
 
+	const focusSpinning = getCaseStudyArcSelectPhase() === "focusSpin";
 	const titleFontSize = layout.isMobile ? 8 : 9;
 	const indexFontSize = layout.isMobile ? 9 : 10;
-	const titleSpacing = titleFontSize * 0.16;
+	/** Em units for CanvasGlitchText (`fontSize * letterSpacing`); px for measure/wrap. */
+	const titleLetterSpacingEm = 0.16;
+	const titleSpacing = titleFontSize * titleLetterSpacingEm;
 	const labelGap = layout.isMobile ? 10 : internal.labelGapRight;
 	const stackGap = internal.labelStackGap;
 	const titleLineH = titleFontSize * 1.15;
 	ctx.font = `500 ${titleFontSize}px ${CASE_STUDY_DISPLAY_FONT}`;
 	const labelLineMaxWidth = layout.isMobile ? 72 : 110;
-	const pathTitleLines = navStates.map((state) => wrapArcLabelWords(ctx, state.pathTitle ?? state.title, labelLineMaxWidth, titleSpacing));
-	const maxRenderedLineWidth = Math.max(1, ...pathTitleLines.flat().map((line) => measureTextWithSpacing(ctx, line, titleSpacing)));
-	const initialPositions = getCaseStudyArcStepPositionsFromAngles(navItemAngles, centerX, centerY, radius);
-	const rightmostNodeX = Math.max(0, ...positionIndices.map((slotIndex) => initialPositions[slotIndex]?.x ?? 0));
-	const viewportRightInset = layout.isMobile ? 8 : 20;
-	const labelOverflow = Math.max(0, rightmostNodeX + labelGap + maxRenderedLineWidth - (viewportWidth - viewportRightInset));
-	setCaseStudyArcShiftTarget(labelOverflow);
+	const { pathTitleLines, maxRenderedLineWidth } = getCachedArcPathTitleLayout(
+		ctx,
+		navStates,
+		labelLineMaxWidth,
+		titleSpacing,
+		titleFontSize,
+		wrapArcLabelWords,
+	);
+	const wedgePadDeg = 6;
+	const inWedgeMask = navStates.map((_, index) => (
+		Math.abs(getCyclicItemRelativeDeg(index, focusDeg, ringGapDeg, navStates.length))
+		<= internal.fadeEndDeg + wedgePadDeg
+	));
+	// Freeze horizontal shift while the ring spins — recomputing overflow every frame is wasted work.
+	if (!focusSpinning) {
+		const initialPositions = getCaseStudyArcStepPositionsFromAngles(navItemAngles, centerX, centerY, radius);
+		const rightmostNodeX = Math.max(
+			0,
+			...positionIndices
+				.filter((slotIndex) => inWedgeMask[slotIndex])
+				.map((slotIndex) => initialPositions[slotIndex]?.x ?? 0),
+		);
+		const viewportRightInset = layout.isMobile ? 8 : 20;
+		const labelOverflow = Math.max(0, rightmostNodeX + labelGap + maxRenderedLineWidth - (viewportWidth - viewportRightInset));
+		setCaseStudyArcShiftTarget(labelOverflow);
+	}
 	centerX -= getCaseStudyArcShift();
 	arcGeo.centerX = centerX;
 	const labelPositions = getCaseStudyArcStepPositionsFromAngles(navItemAngles, centerX, centerY, radius);
 
-	const trackStyle = getTrackStrokeStyle(caseStudyArcConfig, internal);
 	const { outer: markerOuterR } = resolveNodeMarkerRadii(internal, layout.isMobile);
-	const lineCutoutAngles = positionIndices.map((slotIndex) => labelPositions[slotIndex]?.angle).filter((angle) => angle != null);
+	// Cutouts / fade zone only for nodes inside the visible wedge (cyclic ring may place others far away).
+	const lineCutoutAngles = navStates
+		.map((_, index) => (inWedgeMask[index] ? (labelPositions[positionIndices[index]]?.angle ?? null) : null))
+		.filter((angle) => angle != null);
 	const lineCutoutHalfRad = getArcLineCutoutHalfRad(markerOuterR, radius, internal.trackWidth);
-	const noFadeBounds = getArcNoFadeAngleBounds(lineCutoutAngles, lineCutoutHalfRad);
-	const arcFadeBounds = noFadeBounds
-		? {
-				angleStart,
-				angleEnd,
-				noFadeMin: noFadeBounds.min,
-				noFadeMax: noFadeBounds.max,
-			}
-		: null;
+	const arcFadeBounds = resolveArcFadeBounds(
+		angleStart,
+		angleEnd,
+		lineCutoutAngles,
+		lineCutoutHalfRad,
+	);
 
-	const activeNavIndex = navStates.findIndex((state) => state.id === data.activeStateId);
+	const activeNavIndex = arcProjects.activeNavIndex;
 	const activeSlotIndex = activeNavIndex >= 0 ? positionIndices[activeNavIndex] : -1;
 	const activeAngle = activeSlotIndex >= 0 ? labelPositions[activeSlotIndex]?.angle : null;
 
-	const navAnglesByIndex = navStates.map((_, index) => labelPositions[positionIndices[index]]?.angle ?? null);
-	const navAnchors = navStates.map((state, index) => state.scrollAnchor ?? index / Math.max(navStates.length - 1, 1));
-
+	// Glow → then ring spin (see caseStudyArcSelectSequence).
 	if (!isArcGlowManualOverride()) {
-		const scrollGlowAngle = resolveArcGlowAngleFromScroll(
-			data.scrollProgress,
-			navAnglesByIndex.filter((angle) => angle != null),
-			navAnchors,
-		);
-		if (scrollGlowAngle != null) {
-			syncArcGlowTargetFromScroll(scrollGlowAngle);
-		} else if (activeAngle != null) {
-			syncArcGlowTargetFromScroll(activeAngle);
-		}
+		syncCaseStudyArcSelectSequence({
+			activeIndex: activeNavIndex,
+			ringGapDeg,
+			ringPeriodDeg,
+			activeAngleRad: activeAngle,
+		});
 	}
 
-	const glowCenterAngleRad = getArcGlowCenterAngleRad();
+	setArcLabelHoverSlots(navStates.map((state) => state.id));
+	setArcLabelHoverTarget(data.hoveredArcStateId ?? null);
 
-	const arcGlowStrength = 1;
-
-	ctx.save();
-	ctx.globalAlpha = alpha;
-
-	strokeArcFaded(
-		ctx,
-		centerX,
-		centerY,
-		radius,
-		angleStart,
-		angleEnd,
-		viewportWidth,
-		canvasHeight,
-		trackStyle,
-		internal.trackWidth,
-		alpha,
-		lineCutoutAngles,
-		lineCutoutHalfRad,
-		arcFadeBounds,
-	);
-
-	if (glowCenterAngleRad != null) {
-		strokeArcTrailToGlow(
-			ctx,
-			centerX,
-			centerY,
-			radius,
-			angleStart,
-			angleEnd,
-			viewportWidth,
-			canvasHeight,
-			glowCenterAngleRad,
-			caseStudyArcConfig.activeColor,
-			internal.trackWidth,
-			alpha,
-			lineCutoutAngles,
-			lineCutoutHalfRad,
-			arcFadeBounds,
-			caseStudyArcTrailLineConfig,
-		);
-	}
-
-	if (glowCenterAngleRad != null && arcGlowStrength > 0.01) {
-		strokeArcActiveNodeGlow(
-			ctx,
-			centerX,
-			centerY,
-			radius,
-			angleStart,
-			angleEnd,
-			viewportWidth,
-			alpha,
-			internal.trackWidth,
-			lineCutoutAngles,
-			lineCutoutHalfRad,
-			arcFadeBounds,
-			glowCenterAngleRad,
-			arcGlowStrength,
-			caseStudyArcConfig,
-			internal,
-			caseStudyArcActiveLineConfig,
-		);
-	}
-
-	// 4) Кружки на пунктах дуги
+	// Keep glow pulse idle — node bloom lives in WebGL.
 	setArcGlowPulseGate(0);
-	drawArcNodeMarkers(
-		ctx,
+	pushArcNodeHitRegions(
 		navStates,
 		labelPositions,
 		positionIndices,
-		data,
 		viewportWidth,
 		alpha,
-		internal,
-		theme,
-		layout.isMobile,
+		markerOuterR,
 		hitRegions,
 		arcFadeBounds,
-		glowCenterAngleRad,
-		arcGlowStrength,
-		caseStudyArcTrailLineConfig,
-		activeNavIndex,
-		navAnglesByIndex,
 	);
 
-	// Подписи — без shadowBlur
+	// Labels (snake) + hit — единственный Canvas-слой дуги
+	ctx.save();
+	ctx.globalAlpha = alpha;
 
 	const activeLabelColor = caseStudyArcConfig.activeColor;
-	const trailLabelColor = getArcLineStrokeStyle(activeLabelColor, caseStudyArcTrailLineConfig.opacity);
 	const inactiveLabelColor = theme.textDim;
-	const cfg = caseStudyArcConfig;
 
 	setArcNavLabelSlotCount(navStates.length);
 
@@ -317,39 +272,39 @@ export function drawArcNavigation(ctx, layout, data, hitRegions, viewportWidth, 
 		if (!pos) {
 			return;
 		}
-		const glowHighlight = glowCenterAngleRad != null ? getNodeArcGlowHighlight(pos.angle, glowCenterAngleRad, cfg, arcGlowStrength) : 0;
-		const trailBlend = resolveArcNodeTrailBlend(index, activeNavIndex, glowCenterAngleRad, navAnglesByIndex);
+		const labelAlpha = getArcSegmentOpacity(pos.angle, pos.x, viewportWidth, arcFadeBounds) * alpha;
+		if (labelAlpha < 0.02) {
+			return;
+		}
+		const isActiveProject = index === activeNavIndex;
+		// Discrete active/inactive only — never bake traveling glow into glyph cache colors
+		// (per-frame color → drawInPlace was the main CPU spike on rapid case→case).
+		const targetColors = isActiveProject
+			? { index: activeLabelColor, title: theme.text }
+			: { index: inactiveLabelColor, title: inactiveLabelColor };
+		if (getCaseStudyArcSelectPhase() === "idle") {
+			syncArcNavLabelColorTargets(index, targetColors.index, targetColors.title);
+		}
 
-		const targetColors = resolveArcNavLabelTargetColors({
-			index,
-			activeNavIndex,
-			trailBlend,
-			glowHighlight,
-			activeLabelColor,
-			trailLabelColor,
-			inactiveLabelColor,
-			activeTitleColor: theme.text,
-		});
-		syncArcNavLabelColorTargets(index, targetColors.index, targetColors.title);
-
-		const { index: indexLabelColor, title: titleLabelColor } = getArcNavLabelDisplayColors(index);
 		const titleLines = pathTitleLines[index].length > 0 ? pathTitleLines[index] : [""];
-		const chapterNum = String(index + 1).padStart(2, "0");
+		const chapterNum = state.routeNumber
+			?? String((state.registryIndex ?? index) + 1).padStart(2, "0");
 
 		const nodeX = pos.x;
 		const nodeY = pos.y;
 
 		ctx.font = `500 ${titleFontSize}px ${CASE_STUDY_DISPLAY_FONT}`;
 		const titleW = Math.max(1, ...titleLines.map((line) => measureTextWithSpacing(ctx, line, titleSpacing)));
-
 		ctx.font = `500 ${indexFontSize}px ${CASE_STUDY_DISPLAY_FONT}`;
 		const indexW = ctx.measureText(chapterNum).width;
 		const labelW = Math.max(indexW, titleW);
 		const labelBlockH = indexFontSize + stackGap + titleLineH * titleLines.length;
-
 		hitRegions.push({
-			type: "state",
+			type: "arcProject",
 			stateId: state.id,
+			projectId: state.id,
+			targetPath: state.route,
+			angle: pos.angle,
 			x: nodeX + labelGap + labelW / 2,
 			y: nodeY + titleLineH * Math.max(0, titleLines.length - 1) * 0.5,
 			r: Math.max(labelBlockH / 2 + 6, labelW / 2 + 8),
@@ -358,27 +313,48 @@ export function drawArcNavigation(ctx, layout, data, hitRegions, viewportWidth, 
 			anchorDiameter: markerOuterR * 2,
 		});
 
+		// Dim mask on all labels; hover smoothly lifts it.
+		const maskMul = getArcLabelMaskMul(index);
 		ctx.save();
+		ctx.globalAlpha = labelAlpha * maskMul;
 		ctx.translate(nodeX, nodeY);
 		ctx.textAlign = "left";
 
-		ctx.font = `500 ${indexFontSize}px ${CASE_STUDY_DISPLAY_FONT}`;
-		ctx.textBaseline = "bottom";
-		ctx.fillStyle = indexLabelColor;
-		ctx.fillText(chapterNum, labelGap, -stackGap / 2);
-
-		ctx.font = `500 ${titleFontSize}px ${CASE_STUDY_DISPLAY_FONT}`;
-		ctx.textBaseline = "top";
-		ctx.fillStyle = titleLabelColor;
+		// Snake caches use discrete active/inactive colors (not per-frame lerps).
+		const cacheIndexColor = isActiveProject ? activeLabelColor : inactiveLabelColor;
+		const cacheTitleColor = isActiveProject ? theme.text : inactiveLabelColor;
 		syncCaseStudyArcNavSnakeLines(state.id, titleLines.length);
-		titleLines.forEach((line, lineIndex) => {
-			drawCaseStudyArcNavSnakeLabel(ctx, `${state.id}::${lineIndex}`, line, labelGap, stackGap / 2 + lineIndex * titleLineH, {
-				fontSize: titleFontSize,
+		drawCaseStudyArcNavSnakeLabel(
+			ctx,
+			`${state.id}::num`,
+			chapterNum,
+			labelGap,
+			-stackGap / 2 - indexFontSize,
+			{
+				fontSize: indexFontSize,
 				fontWeight: 500,
-				letterSpacing: 0.16,
+				letterSpacing: 0,
 				fontFamily: CASE_STUDY_DISPLAY_FONT,
-				color: titleLabelColor,
-			});
+				color: cacheIndexColor,
+				uppercase: false,
+			},
+		);
+		titleLines.forEach((line, lineIndex) => {
+			drawCaseStudyArcNavSnakeLabel(
+				ctx,
+				`${state.id}::${lineIndex}`,
+				line,
+				labelGap,
+				stackGap / 2 + lineIndex * titleLineH,
+				{
+					fontSize: titleFontSize,
+					fontWeight: 500,
+					letterSpacing: titleLetterSpacingEm,
+					fontFamily: CASE_STUDY_DISPLAY_FONT,
+					color: cacheTitleColor,
+					uppercase: true,
+				},
+			);
 		});
 
 		ctx.restore();
@@ -390,217 +366,43 @@ export function drawArcNavigation(ctx, layout, data, hitRegions, viewportWidth, 
 }
 
 /**
- * Кружок на линии дуги у каждого пункта навигации.
- *
- * @param {CanvasRenderingContext2D} ctx
- * @param {import('@/portfolio/core/types.js').PortfolioState[]} navStates
- * @param {ReturnType<typeof getCaseStudyArcStepPositionsFromAngles>} labelPositions
- * @param {number[]} positionIndices
- * @param {{ activeStateId: string, activeStateIndex: number }} data
- * @param {number} viewportWidth
- * @param {number} baseAlpha
- * @param {typeof caseStudyArcInternals} internal
- * @param {typeof CASE_STUDY_CANVAS_THEME} theme
- * @param {boolean} isMobile
- * @param {CaseStudyHitRegion[]} hitRegions
- * @param {number | null} glowCenterAngleRad
- * @param {number} arcGlowStrength
- * @param {typeof caseStudyArcTrailLineConfig} trailCfg
- * @param {number} activeNavIndex
- * @param {(number | null | undefined)[]} navAnglesByIndex
+ * Node hit targets only — ring/glow visuals are WebGL (CaseStudyArcMesh).
  */
-function drawArcNodeMarkers(
-	ctx,
+function pushArcNodeHitRegions(
 	navStates,
 	labelPositions,
 	positionIndices,
-	data,
 	viewportWidth,
 	baseAlpha,
-	internal,
-	theme,
-	isMobile,
+	nodeRadius,
 	hitRegions,
 	arcFadeBounds,
-	glowCenterAngleRad,
-	arcGlowStrength,
-	trailCfg,
-	activeNavIndex,
-	navAnglesByIndex,
 ) {
-	const cfg = caseStudyArcConfig;
-	const { outer: nodeRadius, mid: midRadius, inner: innerRadius } = resolveNodeMarkerRadii(internal, isMobile);
-	const baseLineW = internal.trackWidth;
-	const midFill = getTrackStrokeStyle(cfg, internal, cfg.nodeMidOpacity);
-	let maxGlowHighlight = 0;
-
 	navStates.forEach((state, index) => {
 		const pos = labelPositions[positionIndices[index]];
 		if (!pos) {
 			return;
 		}
-
 		const segmentAlpha = getArcSegmentOpacity(pos.angle, pos.x, viewportWidth, arcFadeBounds) * baseAlpha;
-
-		const glowHighlight = glowCenterAngleRad != null ? getNodeArcGlowHighlight(pos.angle, glowCenterAngleRad, cfg, arcGlowStrength) : 0;
-		const trailBlend = resolveArcNodeTrailBlend(index, activeNavIndex, glowCenterAngleRad, navAnglesByIndex);
-
-		const highlight = resolveArcNodeMarkerHighlight(index, activeNavIndex, glowHighlight, trailBlend);
-
-		maxGlowHighlight = Math.max(maxGlowHighlight, highlight);
-		const { x, y } = pos;
-
-		hitRegions.push({
-			type: "state",
-			stateId: state.id,
-			x,
-			y,
-			r: nodeRadius + 8,
-			anchorX: x,
-			anchorY: y,
-			anchorDiameter: nodeRadius * 2,
-		});
-
 		if (segmentAlpha < 0.001) {
 			return;
 		}
-
-		let outerColorHex;
-		let outerOpacity;
-		let innerOpacity;
-		let lineW;
-		let outerBloomBlur;
-		let outerBloomStrength;
-		let innerBloomBlur;
-		let innerBloomStrength;
-		let outerStrokeColor;
-		let innerFillColor;
-		let outerBloomGlow;
-
-		const isTrailNode = trailBlend >= 0.999;
-		const isActiveNode = highlight > ARC_TRAIL_ACTIVE_HIGHLIGHT_THRESHOLD;
-		const isHoveredNode = state.id === data.hoveredArcStateId;
-
-		const trailOuterOpacity = trailCfg.opacity;
-		const trailStroke = getArcLineStrokeStyle(cfg.activeColor, trailOuterOpacity);
-		const activeOuterColorHex = lerpHexColor(internal.trackColor, cfg.activeColor, highlight);
-		const activeOuterOpacity = cfg.trackOpacity + highlight * (cfg.activeOpacity - cfg.trackOpacity);
-		const activeInnerColorHex = lerpHexColor(internal.trackColor, cfg.activeColor, highlight);
-		const activeInnerOpacity = cfg.trackOpacity + highlight * (cfg.activeOpacity - cfg.trackOpacity);
-
-		const mix = (a, b) => a + (b - a) * trailBlend;
-
-		if (isTrailNode) {
-			outerColorHex = cfg.activeColor;
-			outerOpacity = trailOuterOpacity;
-			innerOpacity = trailOuterOpacity;
-			lineW = baseLineW;
-			outerBloomBlur = 0;
-			outerBloomStrength = 0;
-			innerBloomBlur = 0;
-			innerBloomStrength = 0;
-			outerStrokeColor = trailStroke;
-			innerFillColor = trailStroke;
-			outerBloomGlow = getActiveBloomGlowColors(cfg, 0);
-		} else if (trailBlend > 0.001 && index <= activeNavIndex) {
-			outerColorHex = lerpHexColor(activeOuterColorHex, cfg.activeColor, trailBlend);
-			outerOpacity = mix(activeOuterOpacity, trailOuterOpacity);
-			innerOpacity = mix(activeInnerOpacity, trailOuterOpacity);
-			lineW = mix(baseLineW + highlight * (cfg.activeLineWidth - baseLineW), baseLineW);
-			const activeOuterBloom = highlight > 0.02 ? cfg.activeOuterBloomBlur * (0.85 + highlight * 0.4) : 0;
-			const activeOuterBloomStr = highlight > 0.02 ? cfg.activeOuterBloomStrength * (0.9 + highlight * 0.5) : 0;
-			outerBloomBlur = mix(activeOuterBloom, 0);
-			outerBloomStrength = mix(activeOuterBloomStr, 0);
-			innerBloomBlur = mix(highlight > 0.02 ? getInnerBloomPulseBlur(highlight, cfg.activeInnerBloomBlur) : 0, 0);
-			innerBloomStrength = mix(highlight > 0.02 ? cfg.activeInnerBloomStrength : 0, 0);
-			outerStrokeColor = getArcLineStrokeStyle(outerColorHex, outerOpacity);
-			innerFillColor = getArcLineStrokeStyle(lerpHexColor(activeInnerColorHex, cfg.activeColor, trailBlend), innerOpacity);
-			outerBloomGlow = getActiveBloomGlowColors(cfg, outerBloomStrength);
-		} else {
-			outerColorHex = activeOuterColorHex;
-			outerOpacity = activeOuterOpacity;
-			outerStrokeColor = getArcLineStrokeStyle(outerColorHex, outerOpacity);
-			innerOpacity = activeInnerOpacity;
-			innerFillColor = getArcLineStrokeStyle(activeInnerColorHex, innerOpacity);
-			lineW = baseLineW + highlight * (cfg.activeLineWidth - baseLineW);
-			outerBloomBlur = highlight > 0.02 ? cfg.activeOuterBloomBlur * (0.85 + highlight * 0.4) : 0;
-			outerBloomStrength = highlight > 0.02 ? cfg.activeOuterBloomStrength * (0.9 + highlight * 0.5) : 0;
-			outerBloomGlow = getActiveBloomGlowColors(cfg, outerBloomStrength);
-			innerBloomBlur = highlight > 0.02 ? getInnerBloomPulseBlur(highlight, cfg.activeInnerBloomBlur) : 0;
-			innerBloomStrength = highlight > 0.02 ? cfg.activeInnerBloomStrength : 0;
-		}
-
-		ctx.save();
-		ctx.globalAlpha *= segmentAlpha;
-
-		if (!isTrailNode && innerBloomStrength > 0.01) {
-			drawArcInnerCoreGlow(ctx, x, y, innerRadius, cfg.activeColor, innerBloomBlur, innerBloomStrength, highlight);
-		}
-
-		if (!isTrailNode && outerBloomStrength > 0.01) {
-			drawArcOuterRingStrokeBloom(ctx, x, y, nodeRadius, lineW, outerStrokeColor, outerBloomGlow, outerBloomBlur, outerBloomStrength);
-		}
-
-		// 1) Внешний кружок — обводка той же толщины, что дуга
-		ctx.save();
-		ctx.lineCap = "butt";
-		ctx.beginPath();
-		ctx.arc(x, y, nodeRadius, 0, Math.PI * 2);
-		ctx.strokeStyle = outerStrokeColor;
-		ctx.lineWidth = lineW;
-		ctx.stroke();
-		ctx.restore();
-
-		// 2) Средний — прозрачная заливка
-		if (midRadius > innerRadius && cfg.nodeMidOpacity > 0.01) {
-			ctx.beginPath();
-			ctx.arc(x, y, midRadius, 0, Math.PI * 2);
-			ctx.fillStyle = midFill;
-			ctx.fill();
-		}
-
-		// 3) Центральная точка — белое ядро на активном, trail / дуга в покое
-		if (innerRadius > 0 && innerOpacity > 0.01) {
-			const coreFill = isActiveNode && !isTrailNode ? getArcLineStrokeStyle("#ffffff", innerOpacity) : innerFillColor;
-
-			ctx.beginPath();
-			ctx.arc(x, y, innerRadius, 0, Math.PI * 2);
-			ctx.fillStyle = coreFill;
-			ctx.fill();
-		}
-
-		ctx.restore();
-
-		if (isHoveredNode) {
-			ctx.save();
-			ctx.globalAlpha *= segmentAlpha * 0.32;
-			ctx.beginPath();
-			ctx.arc(x, y, nodeRadius, 0, Math.PI * 2);
-			ctx.strokeStyle = cfg.activeColor;
-			ctx.lineWidth = lineW + 0.7;
-			ctx.stroke();
-
-			if (innerRadius > 0) {
-				ctx.beginPath();
-				ctx.arc(x, y, innerRadius, 0, Math.PI * 2);
-				ctx.fillStyle = "#ffffff";
-				ctx.fill();
-			}
-			ctx.restore();
-		}
+		hitRegions.push({
+			type: "arcProject",
+			stateId: state.id,
+			projectId: state.id,
+			targetPath: state.route,
+			angle: pos.angle,
+			x: pos.x,
+			y: pos.y,
+			r: nodeRadius + 8,
+			anchorX: pos.x,
+			anchorY: pos.y,
+			anchorDiameter: nodeRadius * 2,
+		});
 	});
-
-	setArcGlowPulseGate(maxGlowHighlight);
 }
 
-/**
- * @param {CanvasRenderingContext2D} ctx
- * @param {number} x
- * @param {number} y
- * @param {number} w
- * @param {number} h
- * @param {number} r
- */
 function roundRect(ctx, x, y, w, h, r) {
 	const radius = Math.min(r, w / 2, h / 2);
 	ctx.beginPath();

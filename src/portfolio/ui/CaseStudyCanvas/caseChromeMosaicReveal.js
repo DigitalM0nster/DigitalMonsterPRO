@@ -1,10 +1,13 @@
 /**
- * DOM mosaic for case project-nav chrome (all-projects / prev / next).
- * Driven by casePanelHudReveal enterProgress — no WebGL upload.
- * mosaicScope "full" only (non-case ↔ case). Case→case ("band") leaves chrome idle.
+ * DOM mosaic for case «all projects» chrome.
+ * Enter matches left WebGL CaseStudyPanelHudMesh.mosaicReveal (same delay / settle /
+ * lift / scatter). Exit keeps upward leave for leave-site.
  */
 import { prepareCaseStudyCanvasContext } from "./caseStudyCanvasSurface.js";
-import { getCaseChromeMosaicPhaseConfig } from "./caseChromeMosaicConfig.js";
+import {
+	getCaseChromeMosaicEnterConfig,
+	getCaseChromeMosaicPhaseConfig,
+} from "./caseChromeMosaicConfig.js";
 
 function clamp01(value) {
 	return Math.max(0, Math.min(1, value));
@@ -16,6 +19,36 @@ function easeInOut(t) {
 
 function noise(seed) {
 	return (Math.sin(seed * 12.9898) * 43758.5453) % 1;
+}
+
+/**
+ * Same settle curve as WebGL smoothstep(0.82, 1.0, p).
+ * @param {number} p
+ */
+function settleMix(p) {
+	if (p <= 0.82) {
+		return 0;
+	}
+	if (p >= 1) {
+		return 1;
+	}
+	const t = (p - 0.82) / 0.18;
+	return t * t * (3 - 2 * t);
+}
+
+/**
+ * Match CaseStudyPanelHudMesh tileMotion localProgress.
+ * @param {number} p
+ * @param {number} delay
+ */
+function localTileProgress(p, delay) {
+	const maxDelay = clamp01(delay);
+	let delayed = clamp01((p - maxDelay) / Math.max(0.0001, 1 - maxDelay));
+	const settle = settleMix(p);
+	delayed = delayed + (1 - delayed) * settle;
+	let local = clamp01(p * 0.15 + delayed * 0.85);
+	local = local + (1 - local) * settle;
+	return local;
 }
 
 /**
@@ -79,10 +112,7 @@ export function prepareCaseChromeMosaicSurfaces(destCanvas, sourceCanvas, viewpo
 /**
  * One-frame mosaic compose onto the visible chrome canvas.
  * progress 0 = hidden, 1 = fully assembled.
- * travelSign +1: enter; -1: exit — picks enter/exit tunables from caseChromeMosaicConfig.
- *
- * Enter: each tile randomly from above or below (dirY magnitude = travel strength).
- * Exit: all tiles travel upward.
+ * travelSign +1: enter (same as left WebGL band); -1: exit upward.
  *
  * @param {{
  *   destCanvas: HTMLCanvasElement,
@@ -138,17 +168,14 @@ export function composeCaseChromeMosaicReveal(args) {
 		return;
 	}
 
-	const phase = travelSign < 0 ? "exit" : "enter";
-	const cfg = getCaseChromeMosaicPhaseConfig(phase);
+	const isExit = travelSign < 0;
+	const cfg = isExit ? getCaseChromeMosaicPhaseConfig("exit") : getCaseChromeMosaicEnterConfig();
 	const columns = cfg.columns;
 	const rows = cfg.rows;
 	const maxDelay = cfg.delay;
 	const tileW = Math.ceil(sw / columns);
 	const tileH = Math.ceil(sh / rows);
-	const dirY = cfg.dirY;
-	const dirX = cfg.dirX;
 
-	ctx.globalAlpha = cfg.fadeAlpha ? p : 1;
 	ctx.imageSmoothingEnabled = false;
 
 	for (let row = 0; row < rows; row += 1) {
@@ -166,18 +193,21 @@ export function composeCaseChromeMosaicReveal(args) {
 			const randomB = noise(seed * 11.91 + 9.2);
 			const randomC = Math.abs(noise(seed * 19.37 + 5.4));
 			const delay = randomA * maxDelay;
-			const localProgress = easeInOut(clamp01((p - delay) / Math.max(0.0001, 1 - delay)));
+			const localProgress = isExit
+				? easeInOut(clamp01((p - delay) / Math.max(0.0001, 1 - delay)))
+				: localTileProgress(p, delay);
 			const remaining = 1 - localProgress;
-			const travelY = (sh + tileH) * cfg.liftStrength + randomC * cfg.randomLift;
-			const travelX = cfg.scatterX + Math.abs(randomB) * cfg.scatterX * 0.35;
-			const yStrength = Math.abs(dirY);
-			// Enter: random ±Y. Exit: always upward (−Y).
-			const ySign = yStrength > 0.001
-				? (phase === "exit" ? -1 : (randomA < 0.5 ? -1 : 1))
-				: 0;
-			const offsetY = ySign * yStrength * travelY * remaining;
-			const offsetX = (dirX * travelX + randomB * cfg.scatterX) * remaining;
 
+			// Match WebGL: travel = (rectH + tileH) * lift + randomLift(px).
+			const travelY = (sh + tileH) * cfg.liftStrength + randomC * cfg.randomLift;
+			const scatterX = randomB * cfg.scatterX;
+			// Enter: from below (+Y in canvas). Exit: upward (−Y).
+			const offsetY = (isExit ? -1 : 1) * travelY * remaining;
+			const offsetX = scatterX * remaining;
+
+			ctx.globalAlpha = isExit
+				? (cfg.fadeAlpha === false ? 1 : localProgress)
+				: localProgress;
 			ctx.drawImage(
 				sourceCanvas,
 				sx + tileX,

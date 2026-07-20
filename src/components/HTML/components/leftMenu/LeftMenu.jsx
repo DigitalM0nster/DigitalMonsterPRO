@@ -7,7 +7,6 @@ import { playLeftMenuGlitchSound } from "@/sounds/soundDesign.js";
 import { requestHexNavigation } from "@/utils/hexNavigation.js";
 import LeftMenuItem from "./LeftMenuItem.jsx";
 import LeftMenuLanguageButton from "./LeftMenuLanguageButton.jsx";
-import SoundComponent from "../SoundComponent.jsx";
 import { clearMenuCursorAnchor, setMenuCursorAnchor } from "./leftMenuCursorAnchor.js";
 import {
 	measureLeftMenuContentAnchor,
@@ -339,9 +338,6 @@ export default function LeftMenu() {
 			</div>
 
 			<div className={styles.bottomSection} data-menu-bottom-section>
-				<div className={styles.soundSlot}>
-					<SoundComponent startApp={proxyStore.appStarted} />
-				</div>
 				<LeftMenuLanguageButton />
 			</div>
 		</nav>

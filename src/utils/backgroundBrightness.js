@@ -9,8 +9,8 @@ export function getBackgroundBrightnessTarget(page) {
 	return page === "/" ? 0.75 : (case1PostProcessConfig.background.brightness ?? 0.01);
 }
 
-/** Fallback, если в dev-конфиге нет поля. */
-export const CAROUSEL_BACKGROUND_BRIGHTNESS = 0.025;
+/** Fallback, если в dev-конфиге нет поля. TEMP: was 0.025 — restore with case1 brightness. */
+export const CAROUSEL_BACKGROUND_BRIGHTNESS = 0.22;
 export const CAROUSEL_BACKGROUND_LIQUID_SCALE = 1;
 
 /** Liquid-фон карусели — из case1PostProcessConfig (панель B). */

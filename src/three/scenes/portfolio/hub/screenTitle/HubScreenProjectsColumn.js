@@ -61,6 +61,9 @@ export class HubScreenProjectsColumn {
 		this._projectsIntroGlitchActive = false;
 		this._projectsIntroVisualComplete = null;
 		this._projectsIntroFinishedLayers = [];
+		this._dormantFlushRaf = 0;
+		/** Locale changed while hub is off-page — apply canvases on next enter only. */
+		this._pendingLocale = null;
 	}
 
 	_layoutStack() {
@@ -340,6 +343,10 @@ export class HubScreenProjectsColumn {
 	}
 
 	playEnterGlitch({ onComplete } = {}) {
+		this._flushPendingLocale();
+		// Also sync layerCfg → hidden canvases when pending was applied earlier via
+		// setLocaleTextHidden, or cfg drifted while opacity was 0.
+		this._ensureLocaleCanvasesMatchCfg();
 		this._clearGlitchAppearFallback();
 		this._syncAllLayersGlitchHidden();
 		this._flushGlitchTexturesToGpu();
@@ -349,6 +356,40 @@ export class HubScreenProjectsColumn {
 		this._markProjectsIntroGlitchActive();
 		playHubCanvasEnterFromScene();
 		this._scheduleGlitchAppearFallback();
+	}
+
+	/** If canvas string ≠ layerCfg (locale changed while HUD opacity 0), prepare hidden. */
+	_ensureLocaleCanvasesMatchCfg() {
+		const uppercase = getPortfolioProjectListUppercase();
+		this.layers.forEach((layer, projectIndex) => {
+			const project = projectsData[projectIndex];
+			if (!project || !layer.glitchText) {
+				return;
+			}
+			const want = getPortfolioProjectName(project.id, getPortfolioLocale());
+			const have = String(layer.glitchText.options?.text ?? "");
+			const wantCmp = uppercase ? want.toUpperCase() : want;
+			const haveCmp = uppercase ? have.toUpperCase() : have;
+			if (wantCmp !== haveCmp) {
+				layer.setLocaleTextHidden(want, { uppercase });
+			}
+		});
+	}
+
+	/** Apply deferred off-page locale into canvases (enter frame only). */
+	_flushPendingLocale() {
+		if (this._pendingLocale == null || this.layers.length === 0) {
+			return;
+		}
+		const locale = this._pendingLocale;
+		this._pendingLocale = null;
+		const uppercase = getPortfolioProjectListUppercase();
+		this.layers.forEach((layer, projectIndex) => {
+			const project = projectsData[projectIndex];
+			if (project) {
+				layer.setLocaleTextHidden(getPortfolioProjectName(project.id, locale), { uppercase });
+			}
+		});
 	}
 
 	playExitGlitch() {
@@ -369,8 +410,9 @@ export class HubScreenProjectsColumn {
 		this._clearProjectsIntroGlitchTimer();
 		this._projectsIntroGlitchActive = false;
 		cancelRouteGlitchStagger("portfolioHub");
+		// Hide only — never mark/upload textures on leave (home land frame must stay light).
+		// Enter glitch will flush when the list actually appears again.
 		this._syncAllLayersGlitchHidden();
-		this._flushGlitchTexturesToGpu();
 	}
 
 	_clearProjectsIntroGlitchTimer() {
@@ -512,12 +554,50 @@ export class HubScreenProjectsColumn {
 	}
 
 	/** Смена языка названий проектов (змейка на каждом слое, как hero subtitle). */
-	async switchLocale(locale = getPortfolioLocale()) {
+	async switchLocale(locale = getPortfolioLocale(), { animate = true } = {}) {
 		if (this.layers.length === 0) {
 			return;
 		}
 
 		const uppercase = getPortfolioProjectListUppercase();
+
+		// Off-page: defer canvas work. If glyphs are already stashed (appearPending),
+		// swap hidden copy now (left-menu pattern) so enter snake uses the new language.
+		if (!animate) {
+			const introIsStillHidden =
+				!this._projectsIntroGlitchActive
+				&& this.layers.every((layer) => {
+					const engine = layer.glitchText?.engine;
+					return (
+						engine
+						&& !engine.hasActiveAnimation()
+						&& engine.slots.every((slot) => slot.isSpace || slot.appearPending)
+					);
+				});
+
+			if (introIsStillHidden) {
+				this._pendingLocale = null;
+				this.layers.forEach((layer, projectIndex) => {
+					const project = projectsData[projectIndex];
+					if (project) {
+						layer.setLocaleTextHidden(getPortfolioProjectName(project.id, locale), { uppercase });
+					}
+				});
+				return;
+			}
+
+			this._pendingLocale = locale;
+			this.layers.forEach((layer, projectIndex) => {
+				const project = projectsData[projectIndex];
+				if (project && layer.layerCfg) {
+					layer.layerCfg.text = getPortfolioProjectName(project.id, locale);
+					layer.layerCfg.uppercase = uppercase;
+				}
+			});
+			return;
+		}
+
+		this._pendingLocale = null;
 		const introIsStillHidden =
 			!this._projectsIntroGlitchActive &&
 			this.layers.every((layer) => {
@@ -529,6 +609,7 @@ export class HubScreenProjectsColumn {
 				);
 			});
 
+		// On-page but list still hidden for enter: prepare new copy; enter snake owns appear.
 		if (introIsStillHidden) {
 			this.layers.forEach((layer, projectIndex) => {
 				const project = projectsData[projectIndex];
@@ -578,6 +659,10 @@ export class HubScreenProjectsColumn {
 	}
 
 	dispose() {
+		if (this._dormantFlushRaf) {
+			cancelAnimationFrame(this._dormantFlushRaf);
+			this._dormantFlushRaf = 0;
+		}
 		this._clearGlitchAppearFallback();
 		this._projectsIntroVisualComplete = null;
 		this._clearProjectsIntroGlitchTimer();

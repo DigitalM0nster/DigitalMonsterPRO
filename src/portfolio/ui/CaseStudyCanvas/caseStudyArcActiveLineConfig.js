@@ -4,13 +4,13 @@
  */
 export const caseStudyArcActiveLineConfig = {
 	/** Половина длины свечения по дуге, ° (от центра к краю зоны). */
-	halfSpanDeg: 9,
-	/** Bloom свечения — shadowBlur. */
-	bloomBlur: 5,
+	halfSpanDeg: 5,
+	/** Bloom свечения — shadowBlur (Canvas reference). */
+	bloomBlur: 2.3,
 	/** Сила bloom. */
-	bloomStrength: 1.7,
+	bloomStrength: 1.65,
 	/** Доп. яркость линии в центре свечения (0–1). */
-	opacityBoost: 0.07,
+	opacityBoost: 0,
 };
 
 /** Только DEV: ручная позиция ° для отладки (не влияет на прод). */

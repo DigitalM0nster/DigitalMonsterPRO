@@ -3,7 +3,6 @@ import { easing } from "maath";
 import { createGLTFLoader, enrichGLTFResult } from "@/three/assets/gltfLoader.js";
 import { ROUTE_TRANSITION_ENTER_MS } from "@/config/routeTransition.js";
 import { restoreRootForShow } from "@/three/scenes/utils/sceneRoot.js";
-import { Case1RingDevTools } from "@/three/dev/Case1RingDevTools.js";
 import {
 	createCaseStudyPanelHud,
 	disposeCaseStudyPanelHud,
@@ -21,6 +20,12 @@ import {
 const CASE_SCENE_ID = "case01";
 const DESKTOP_ROOT_SCALE = 1.1;
 const MOBILE_ROOT_SCALE = 0.7;
+/**
+ * Canonical case FOV (matches EmptyPortfolioCaseScene / home hero).
+ * Shared camera inherits hub FOV=40 after hub→case; without an explicit set
+ * the model reads too close, then jumps farther on case→home (home FOV=50).
+ */
+const CASE1_CAMERA_FOV = 50;
 
 const LOGO_NODE_NAMES = [
 	"logoCircle",
@@ -93,9 +98,7 @@ export class Case1Scene {
 		/** Live radius grain blur (скролл → 0…blurRadiusMax). */
 		this.grainBlurRadius = { current: 0 };
 
-		this.ringDevTools = import.meta.env.DEV ? new Case1RingDevTools(this) : null;
-
-		/** Panel HUD: hex → models RT; idle → after-bloom screen overlay (sharp). */
+		/** Panel HUD: after-bloom screen overlay; hex cuts via shader mask (not models RT). */
 		this.panelHud = createCaseStudyPanelHud(this.threeScene);
 
 		this.lifecycle = createCaseSceneLifecycle(this, {
@@ -130,7 +133,8 @@ export class Case1Scene {
 		});
 
 		this.lifecycle.hideRoot();
-		this._loadAssets();
+		/** Included in SceneManager.readyPromise — Case1 must warm under the preloader. */
+		this.readyPromise = this._loadAssets();
 	}
 
 	getRingConfig() {
@@ -162,7 +166,7 @@ export class Case1Scene {
 	_loadAssets() {
 		const gltfLoader = createGLTFLoader();
 
-		Promise.all([
+		return Promise.all([
 			gltfLoader.loadAsync("/models/case1/NipigasLogoModel.glb"),
 			gltfLoader.loadAsync("/models/case1/ring_test.glb"),
 		])
@@ -175,7 +179,6 @@ export class Case1Scene {
 				this._buildRings(ringsGltfRaw.scene);
 				this._buildLogo(logoGltf);
 				this.applyRingConfig(this.ringConfig);
-				this.ringDevTools?.bindScene(this);
 				this.loaded = true;
 
 				// setRouteState/playEnter мог вызвать до load — без повторного wake сцена вечно scale=0.
@@ -188,6 +191,7 @@ export class Case1Scene {
 			})
 			.catch((err) => {
 				console.error("[Case1Scene] load failed", err);
+				// Still settle readyPromise so the preloader warm gate can finish.
 			});
 	}
 
@@ -371,6 +375,10 @@ export class Case1Scene {
 		if (camera) {
 			camera.position.set(0, 0 - scroll * 35, 9);
 			camera.lookAt(0, camera.position.y, 0);
+			if (camera.fov !== CASE1_CAMERA_FOV) {
+				camera.fov = CASE1_CAMERA_FOV;
+				camera.updateProjectionMatrix();
+			}
 		}
 	}
 
@@ -392,6 +400,10 @@ export class Case1Scene {
 		const scroll = this.lifecycle.resolveCameraScroll();
 		camera.position.set(0, 0 - scroll * 35, 9);
 		camera.lookAt(0, camera.position.y, 0);
+		if (camera.fov !== CASE1_CAMERA_FOV) {
+			camera.fov = CASE1_CAMERA_FOV;
+			camera.updateProjectionMatrix();
+		}
 	}
 
 	_clearEnterTimer() {
@@ -406,7 +418,8 @@ export class Case1Scene {
 		this.lifecycle.clearExitCameraFreeze();
 		this.lifecycle.setActivePage(false);
 		this.root.visible = true;
-		this.root.scale.set(0, 0, 0);
+		// Keep presentation scale — never flash scale→0 (reads as zoom-out if a
+		// frame composites before _snapPresentationPose / delayed activate).
 		restoreRootForShow(this.root);
 		this._snapPresentationPose();
 		this._poseNeedsSnap = true;
@@ -433,8 +446,16 @@ export class Case1Scene {
 		this.lifecycle.setRouteState(routeState);
 	}
 
-	setPointerState({ pointerDown }) {
-		this.pointerDown = pointerDown;
+	setPointerState({ pointerDown, pointerBlocked = false }) {
+		this.pointerDown = pointerBlocked ? false : pointerDown;
+	}
+
+	beginWarmupDraw() {
+		return this.lifecycle.beginWarmupDraw();
+	}
+
+	endWarmupDraw(token) {
+		this.lifecycle.endWarmupDraw(token);
 	}
 
 	setMixPreviewActive(active) {
@@ -458,7 +479,8 @@ export class Case1Scene {
 	}
 
 	getModelsBloomLogoReveal() {
-		return this.activePage ? 1 : 0;
+		// Mix-preview (case-boundary enter) must bloom too — match Case3.
+		return this.activePage || this._mixPreview ? 1 : 0;
 	}
 
 	getModelsGrainBlurConfig() {
@@ -469,6 +491,10 @@ export class Case1Scene {
 		if (!this.lifecycle.isFramingActive()) {
 			camera.position.set(0, 0, 9);
 			camera.lookAt(0, 0, 0);
+			if (camera.fov !== CASE1_CAMERA_FOV) {
+				camera.fov = CASE1_CAMERA_FOV;
+				camera.updateProjectionMatrix();
+			}
 			return;
 		}
 
@@ -582,8 +608,6 @@ export class Case1Scene {
 
 	dispose() {
 		this._clearEnterTimer();
-		this.ringDevTools?.dispose();
-		this.ringDevTools = null;
 		disposeCaseStudyPanelHud(this.panelHud);
 		this.panelHud = null;
 		this.threeScene = null;

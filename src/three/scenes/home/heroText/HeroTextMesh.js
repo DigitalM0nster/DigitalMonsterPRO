@@ -7,6 +7,8 @@ import { createHeroTextRevealUniforms, HeroTextRevealController } from "./heroTe
 import { getHeroGlitchSnakeRunOptions, heroTextGlitchConfig, applyHeroGlitchShaderUniforms } from "./heroTextGlitchConfig.js";
 import { HeroTextGlitchController } from "./HeroTextGlitchController.js";
 import { drawHeroGlitchLine } from "./drawHeroGlitchText.js";
+import { resolveReplacementGlowMetrics } from "@/shared/glitchText/drawGlitchText.js";
+import { sceneOwnsHexHitAtClientY } from "../../../render/overlay/hexHitOwnership.js";
 
 const HERO_CLICK_WAVE_COUNT = 8;
 
@@ -107,11 +109,17 @@ export class HeroTextMesh {
 		this._textTexture = null;
 		this.reveal = new HeroTextRevealController([], { revealSeed });
 		this._onMouseMove = (event) => {
+			if (!sceneOwnsHexHitAtClientY("home", event.clientY)) {
+				return;
+			}
 			this.mouse.x = event.clientX / window.innerWidth;
 			this.mouse.y = -(event.clientY / window.innerHeight) + 1;
 		};
 		this._onPointerDown = (event) => {
 			if (this.shaderProfile !== "title" || (event.button !== undefined && event.button !== 0)) {
+				return;
+			}
+			if (!sceneOwnsHexHitAtClientY("home", event.clientY)) {
 				return;
 			}
 			const cfg = heroTextShaderConfig;
@@ -306,9 +314,20 @@ export class HeroTextMesh {
 
 		this._glitchController = new HeroTextGlitchController({
 			uppercase: false,
-			onRedraw: () => this._redrawGlitchCanvas(),
+			// Coalesce letter ticks — full 4K canvas redraw per snake step freezes home locale.
+			onRedraw: () => this._scheduleGlitchRedraw(),
 		});
 		return this._glitchController;
+	}
+
+	_scheduleGlitchRedraw() {
+		if (this._glitchRedrawRaf) {
+			return;
+		}
+		this._glitchRedrawRaf = requestAnimationFrame(() => {
+			this._glitchRedrawRaf = 0;
+			this._redrawGlitchCanvas();
+		});
 	}
 
 	_syncGlitchTexture() {
@@ -322,13 +341,15 @@ export class HeroTextMesh {
 			return;
 		}
 
-		const lineY = normalizedFontSize * 0.12;
+		const padX = this._glitchPadX ?? 1;
+		const padY = this._glitchPadY ?? 0;
+		const lineY = padY + normalizedFontSize * 0.12;
 		const lineWidthPx = this.canvasWidth * this.decorativeLineWidthVw;
 		context.strokeStyle = "rgba(69, 216, 255, 0.38)";
 		context.lineWidth = Math.max(1, normalizedFontSize * 0.018);
 		context.beginPath();
-		context.moveTo(1, lineY);
-		context.lineTo(lineWidthPx, lineY);
+		context.moveTo(padX, lineY);
+		context.lineTo(padX + lineWidthPx, lineY);
 		context.stroke();
 	}
 
@@ -359,21 +380,92 @@ export class HeroTextMesh {
 			letterSpacing: this.letterSpacing,
 			color: this.fontColor,
 			replacementGlowStrength: heroTextGlitchConfig.replacementGlowStrength,
+			drawProfile: "hero",
 		};
 
+		const padX = this._glitchPadX ?? 1;
+		const padY = this._glitchPadY ?? 0;
 		const lineCount = Math.max(text.length, glitch.primaryGroups.length, glitch.secondaryGroups?.length ?? 0);
 
 		for (let index = 0; index < lineCount; index += 1) {
-			const y = textTopInset + index * normalizedLineHeight;
+			const y = padY + textTopInset + index * normalizedLineHeight;
 			const primaryGroup = glitch.primaryGroups[index];
 			const secondaryGroup = glitch.secondaryGroups?.[index];
 
 			if (primaryGroup) {
-				drawHeroGlitchLine(context, primaryGroup.slots, 1, y, glitchStyle);
+				drawHeroGlitchLine(context, primaryGroup.slots, padX, y, glitchStyle);
 			}
 			if (secondaryGroup) {
-				drawHeroGlitchLine(context, secondaryGroup.slots, 1, y, glitchStyle);
+				drawHeroGlitchLine(context, secondaryGroup.slots, padX, y, glitchStyle);
 			}
+		}
+	}
+
+	/** Full-frame canvas height (legacy layout). Glitch meshes use a tight content height. */
+	_resolveLayoutCanvasHeight() {
+		return this.canvasWidth / Math.max(0.001, this.aspectRatio);
+	}
+
+	_resolveGlitchGlowPad(normalizedFontSize) {
+		const { blur } = resolveReplacementGlowMetrics(
+			normalizedFontSize,
+			heroTextGlitchConfig.replacementGlowStrength,
+		);
+		// Room for stronger neon canvas halo (glowStrength > 1 → larger blur).
+		return Math.ceil(blur * 3.2 + normalizedFontSize * 0.85);
+	}
+
+	_resolveGlitchContentCanvasHeight(lineCount = this.text?.length ?? 1) {
+		const normalizedLineHeight = this.reverseNormalizeItem(this.lineHeight);
+		const normalizedFontSize = this.reverseNormalizeItem(this.fontSize);
+		const glowPad = this._resolveGlitchGlowPad(normalizedFontSize);
+		this._glitchPadX = glowPad;
+		this._glitchPadY = glowPad;
+		const textTopInset = this.decorativeTopLine ? normalizedLineHeight * 0.72 : 0;
+		return Math.max(
+			32,
+			Math.ceil(glowPad + textTopInset + Math.max(1, lineCount) * normalizedLineHeight + glowPad),
+		);
+	}
+
+	/**
+	 * Portfolio HUD canvases are text-sized; hero glitch used full viewport aspect (~4K×2K).
+	 * Locale snake was clearing/uploading ~9MPx/frame → FPS≈5. Keep width, clip height to glyphs.
+	 */
+	_ensureGlitchCanvasForLines(lineCount) {
+		if (!this.useGlitchSnake || !this.canvas) {
+			return;
+		}
+		const neededH = this._resolveGlitchContentCanvasHeight(lineCount);
+		if (this.canvas.height === neededH && this.canvas.width === this.canvasWidth) {
+			return;
+		}
+		this.canvasHeight = neededH;
+		this.canvas.width = this.canvasWidth;
+		this.canvas.height = neededH;
+		this._syncGlitchPlaneGeometry();
+	}
+
+	_syncGlitchPlaneGeometry() {
+		if (!this.useGlitchSnake || this.useInstancedLetters || !this.textMesh) {
+			return;
+		}
+		const layoutH = this._layoutCanvasHeight || this._resolveLayoutCanvasHeight();
+		const planeH = 2 * (this.canvasHeight / Math.max(1, layoutH));
+		const padNdcX = 2 * ((this._glitchPadX ?? 0) / Math.max(1, this.canvasWidth));
+		const padNdcY = 2 * ((this._glitchPadY ?? 0) / Math.max(1, layoutH));
+		const prev = this.textMesh.geometry;
+		const geom = new THREE.PlaneGeometry(2, planeH);
+		// Plane top/left include glow pad — shift so glyph baseline matches pre-pad layout.
+		geom.translate(-padNdcX, 1 - planeH / 2 + padNdcY, 0);
+		this.textMesh.geometry = geom;
+		prev?.dispose?.();
+		const material = this.textMaterial;
+		if (material?.uniforms?.uPlaneSize) {
+			material.uniforms.uPlaneSize.value.set(2, planeH);
+		}
+		if (material?.uniforms?.uLineHeightNorm) {
+			material.uniforms.uLineHeightNorm.value = this.lineHeight / this.canvasHeight;
 		}
 	}
 
@@ -399,7 +491,7 @@ export class HeroTextMesh {
 		context.imageSmoothingQuality = "high";
 
 		this._drawDecorativeLine(context, normalizedFontSize);
-		this._layoutTextLines(context, this.text, normalizedLineHeight, normalizedFontSize, letterSpacingPx);
+		// Layout (measureText) only when copy/size changes — not every snake tick.
 		const textTopInset = this.decorativeTopLine ? normalizedLineHeight * 0.72 : 0;
 		this._drawGlitchLines(context, this.text, normalizedLineHeight, normalizedFontSize, letterSpacingPx, textTopInset);
 		this._syncGlitchTexture();
@@ -423,7 +515,10 @@ export class HeroTextMesh {
 		this.canvas = document.createElement("canvas");
 		const text = this.text;
 
-		this.canvasHeight = this.canvasWidth / this.aspectRatio;
+		this._layoutCanvasHeight = this._resolveLayoutCanvasHeight();
+		this.canvasHeight = this.useGlitchSnake
+			? this._resolveGlitchContentCanvasHeight(text.length)
+			: this._layoutCanvasHeight;
 		this.canvas.width = this.canvasWidth;
 		this.canvas.height = this.canvasHeight;
 
@@ -474,8 +569,8 @@ export class HeroTextMesh {
 			this._textTexture = textTexture;
 			textTexture.needsUpdate = true;
 			textTexture.colorSpace = THREE.SRGBColorSpace;
-			if (this.shaderProfile === "stack") {
-				// No mipmaps — small UI glyphs stay crisp in the models RT.
+			if (this.shaderProfile === "stack" || this.useGlitchSnake) {
+				// No mipmaps — crisp glyphs + stable cyan for HDR snake bloom mask.
 				textTexture.minFilter = THREE.LinearFilter;
 				textTexture.magFilter = THREE.LinearFilter;
 				textTexture.generateMipmaps = false;
@@ -690,10 +785,19 @@ export class HeroTextMesh {
 	}
 
 	_buildPlaneMesh(textTexture) {
-		const textGeometry = new THREE.PlaneGeometry(2, 2);
+		const layoutH = this._layoutCanvasHeight || this._resolveLayoutCanvasHeight();
+		const planeH = this.useGlitchSnake
+			? 2 * (this.canvasHeight / Math.max(1, layoutH))
+			: 2;
+		const textGeometry = new THREE.PlaneGeometry(2, planeH);
+		if (this.useGlitchSnake) {
+			const padNdcX = 2 * ((this._glitchPadX ?? 0) / Math.max(1, this.canvasWidth));
+			const padNdcY = 2 * ((this._glitchPadY ?? 0) / Math.max(1, layoutH));
+			textGeometry.translate(-padNdcX, 1 - planeH / 2 + padNdcY, 0);
+		}
 		this.textMaterial = new THREE.ShaderMaterial({
 			uniforms: {
-				uPlaneSize: { value: new THREE.Vector2(textGeometry.parameters.width, textGeometry.parameters.height) },
+				uPlaneSize: { value: new THREE.Vector2(2, planeH) },
 				uTime: { value: this.time },
 				uProgress: { value: 1 },
 				uTexture: { value: textTexture },
@@ -715,7 +819,8 @@ export class HeroTextMesh {
 			transparent: true,
 			depthTest: false,
 			depthWrite: false,
-			// Stack is UI chrome — Normal stays sharp; Additive washed cyan into bloom.
+			// Stack stays Normal (sharp white UI); subtitle Additive helps tagline snake read.
+			// Neon itself is HDR via uReplacementBloomBoost (site bloom threshold ≈ 1).
 			blending: this.shaderProfile === "stack" ? THREE.NormalBlending : THREE.AdditiveBlending,
 			toneMapped: false,
 		});
@@ -884,7 +989,11 @@ export class HeroTextMesh {
 	}
 
 	/** Смена языка змейкой (subtitle / stack). */
-	switchLocaleWithSnake(nextLines, { fontFamily } = {}) {
+	switchLocaleWithSnake(nextLines, { fontFamily, animate = true } = {}) {
+		if (!animate) {
+			return this.switchLocaleInstant(nextLines, { fontFamily });
+		}
+
 		if (!this.useGlitchSnake) {
 			return this.switchLocaleText(nextLines, { fontFamily });
 		}
@@ -895,14 +1004,51 @@ export class HeroTextMesh {
 
 		const nextText = Array.isArray(nextLines) ? [...nextLines] : [String(nextLines)];
 
-		return this._loadFontAndRun(() =>
-			this._ensureGlitchController()
+		return this._loadFontAndRun(() => {
+			this._ensureGlitchCanvasForLines(Math.max(this.text.length, nextText.length));
+			return this._ensureGlitchController()
 				.runLanguageSwitch(nextText, getHeroGlitchSnakeRunOptions())
 				.then(() => {
 					this.text = nextText;
+					const context = this.canvas.getContext("2d", { alpha: true });
+					if (context) {
+						const normalizedFontSize = this.reverseNormalizeItem(this.fontSize);
+						const normalizedLineHeight = this.reverseNormalizeItem(this.lineHeight);
+						const letterSpacingPx = this.letterSpacing * normalizedFontSize;
+						context.font = `${this.fontWeight} ${normalizedFontSize}px ${this.fontFamily}`;
+						this._layoutTextLines(context, nextText, normalizedLineHeight, normalizedFontSize, letterSpacingPx);
+					}
 					this._redrawGlitchCanvas();
-				}),
-		);
+				});
+		});
+	}
+
+	/** Off-page locale prepare — new copy on canvas, no snake / reveal. */
+	switchLocaleInstant(nextLines, { fontFamily } = {}) {
+		if (fontFamily) {
+			this.fontFamily = fontFamily;
+		}
+
+		const nextText = Array.isArray(nextLines) ? [...nextLines] : [String(nextLines)];
+
+		return this._loadFontAndRun(() => {
+			this.text = nextText;
+			if (this.useGlitchSnake) {
+				this._ensureGlitchCanvasForLines(nextText.length);
+				this._ensureGlitchController().setText(nextText);
+				const context = this.canvas.getContext("2d", { alpha: true });
+				if (context) {
+					const normalizedFontSize = this.reverseNormalizeItem(this.fontSize);
+					const normalizedLineHeight = this.reverseNormalizeItem(this.lineHeight);
+					const letterSpacingPx = this.letterSpacing * normalizedFontSize;
+					context.font = `${this.fontWeight} ${normalizedFontSize}px ${this.fontFamily}`;
+					this._layoutTextLines(context, nextText, normalizedLineHeight, normalizedFontSize, letterSpacingPx);
+				}
+				this._redrawGlitchCanvas();
+				return undefined;
+			}
+			return this.setText(nextText);
+		});
 	}
 
 	/**
@@ -953,6 +1099,10 @@ export class HeroTextMesh {
 	dispose() {
 		window.removeEventListener("mousemove", this._onMouseMove);
 		window.removeEventListener("pointerdown", this._onPointerDown);
+		if (this._glitchRedrawRaf) {
+			cancelAnimationFrame(this._glitchRedrawRaf);
+			this._glitchRedrawRaf = 0;
+		}
 		this._glitchController?.dispose();
 		this._glitchController = null;
 		const sharedGeometry = this.textMesh?.geometry;

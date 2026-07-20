@@ -272,7 +272,9 @@ export class HeroScrollHintMesh {
 		this.mesh.visible = false;
 		this.scene.add(this.mesh);
 
-		// Label composites after bloom — same pattern as CaseStudyPanelHudMesh screen mode.
+		// Label: idle after bloom (sharp); during hex → models RT so wipe can cut it.
+		this.modelsParent = scene;
+		this.composeMode = "screen";
 		this.overlayScene = new THREE.Scene();
 		this.overlayCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 		this.labelMaterial = createHintMaterial(this.texture, labelFragmentShader);
@@ -306,15 +308,16 @@ export class HeroScrollHintMesh {
 
 	_startLocaleAnimation() {
 		if (this.localeSwitching || this.desiredLocale === this.displayedLocale) return;
-		this.localeSwitching = true;
 		const targetLocale = this.desiredLocale;
 		const targetText = HERO_SCROLL_HINT_COPY[targetLocale] ?? HERO_SCROLL_HINT_COPY.ru;
 
-		this.glitchController.runLanguageSwitch([targetText], { playSound: false }).then(() => {
-			this.displayedLocale = targetLocale;
-			this.localeSwitching = false;
+		// Always instant — never race a third canvas snake against hero subtitle/stack.
+		this.glitchController.setText([targetText]);
+		this.displayedLocale = targetLocale;
+		this._draw();
+		if (this.desiredLocale !== this.displayedLocale) {
 			this._startLocaleAnimation();
-		});
+		}
 	}
 
 	playRevealEnter(durationMs = heroTextRevealConfig.enterDurationMs) {
@@ -333,9 +336,28 @@ export class HeroScrollHintMesh {
 		this.labelMesh.visible = false;
 	}
 
-	/** After final blit — sharp LDR label (not in HalfFloat bloom chain). */
+	/**
+	 * @param {'screen' | 'models'} mode
+	 * screen — after-bloom overlay (idle sharpness)
+	 * models — inside home RT so hexTransition can cut the label
+	 */
+	setComposeMode(mode) {
+		const next = mode === "models" ? "models" : "screen";
+		if (next === this.composeMode) {
+			return;
+		}
+		this.composeMode = next;
+		this.labelMesh.removeFromParent();
+		if (next === "screen") {
+			this.overlayScene.add(this.labelMesh);
+		} else {
+			this.modelsParent.add(this.labelMesh);
+		}
+	}
+
+	/** After final blit — sharp LDR label when composeMode === "screen". */
 	renderScreenOverlay(renderer) {
-		if (!this.labelMesh.visible) {
+		if (this.composeMode !== "screen" || !this.labelMesh.visible) {
 			return;
 		}
 
@@ -526,8 +548,8 @@ export class HeroScrollHintMesh {
 	dispose() {
 		this.unsubscribe?.();
 		this.glitchController.dispose();
-		this.scene.remove(this.mesh);
-		this.overlayScene.remove(this.labelMesh);
+		this.mesh.removeFromParent();
+		this.labelMesh.removeFromParent();
 		this.geometry.dispose();
 		this.material.dispose();
 		this.labelMaterial.dispose();

@@ -59,7 +59,8 @@ export function sceneProgressSnapForRoleChange(role, prevRole) {
 }
 
 /**
- * sceneProgressTarget при backward-коммите: current → next, progress уже = 1 → target 0.
+ * sceneProgressTarget при смене роли после коммита.
+ * Backward lands at progress=0 (зеркало forward): old current → next at −1.
  * @param {CarouselSceneRole} role
  * @param {CarouselSceneRole} prevRole
  * @param {number} progress

@@ -1,15 +1,19 @@
 /**
- * Four About scroll stops. Anchors sit near each scene peak so the HUD
- * sub-track and keyboard snaps land on readable poses.
- * Ranges (see ScrollTimeline): 0–0.22, 0.22–0.47, 0.47–0.72, 0.72–1.
+ * Four About stages. Each stage owns its own 0…1 scroll range
+ * (storyProgress 0→1, 1→2, 2→3, 3→4). Rest snaps to integer story stops.
  */
 const states = [
-	{ id: "monolith", scrollAnchor: 0 },
-	{ id: "data_flow", scrollAnchor: 0.345 },
-	{ id: "engineering", scrollAnchor: 0.595 },
-	{ id: "layers", scrollAnchor: 1 },
+	{ id: "monolith" },
+	{ id: "data_flow" },
+	{ id: "engineering" },
+	{ id: "layers" },
 ];
 
-export const ABOUT_SCROLL_ANCHORS = states.map((state) => state.scrollAnchor);
+export const ABOUT_STAGE_COUNT = states.length;
+
+/** @deprecated equal legacy anchors — prefer story index / stageProgress */
+export const ABOUT_SCROLL_ANCHORS = states.map((_, index) =>
+	index / Math.max(states.length - 1, 1),
+);
 
 export default states;

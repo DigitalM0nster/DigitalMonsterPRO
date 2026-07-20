@@ -1,0 +1,15 @@
+---
+description: Canonical spring scroll (progressTarget / progress) for carousel pages and About stages — use SceneCarousel reference, no hard idle snaps.
+globs: src/about/**/*,src/three/render/transition/**/*,src/portfolio/**/*Scroll*,src/components/HTML/components/ScrollPageNavigator/**/*
+alwaysApply: false
+---
+
+# Carousel / segment scroll spring
+
+When implementing or changing wheel/scroll progress between pages, scenes, or About stages:
+
+1. **Read and follow** [`src/three/render/transition/CAROUSEL_SCROLL_SPRING.md`](src/three/render/transition/CAROUSEL_SCROLL_SPRING.md).
+2. **Canonical code:** `SceneCarousel.js` (`_applyProgressTargetRest` + progress chase). About stages: `useAboutExperience.js` (same shape, may use softer smooth rates).
+3. **Required shape:** wheel → `progressTarget`; every frame spring target to local `0` or `1` (threshold `0.5`); `progress` exp-chases target. No idle timeout that teleports `target` to an anchor.
+4. **Tune feel** only via smooth / final-mul constants — keep thresholds and two-value model.
+5. At About ↔ carousel boundaries, only one system owns wheel at a time (`AGENTS.md`).

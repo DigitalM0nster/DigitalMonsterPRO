@@ -14,6 +14,7 @@
     "@react-three/drei": "^9.80.6",
     "@react-three/fiber": "^8.13.7",
     "@react-three/postprocessing": "^2.15.1",
+    "audio-decode": "^4.0.0",
     "html-to-image": "^1.11.13",
     "leva": "^0.9.35",
     "maath": "^0.7.0",

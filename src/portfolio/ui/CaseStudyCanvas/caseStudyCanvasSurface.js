@@ -15,10 +15,7 @@ const CASE_STUDY_BLEED_MUL = {
  * @param {'low' | 'medium' | 'high'} [graphicsTier]
  */
 export function resolveCaseStudyCanvasPixelRatio(graphicsTier = "medium") {
-	const device =
-		typeof window !== "undefined" && Number.isFinite(window.devicePixelRatio)
-			? window.devicePixelRatio
-			: 1;
+	const device = typeof window !== "undefined" && Number.isFinite(window.devicePixelRatio) ? window.devicePixelRatio : 1;
 
 	const resolved = resolveRendererPixelRatio(graphicsTier, device);
 	const cap = getGraphicsConfig(graphicsTier).caseCanvasDprCap ?? resolved;
@@ -30,10 +27,7 @@ export function resolveCaseStudyCanvasPixelRatio(graphicsTier = "medium") {
  * @param {'low' | 'medium' | 'high'} [graphicsTier]
  */
 export function resolveCaseStudyPanelHudPixelRatio(graphicsTier = "medium") {
-	const device =
-		typeof window !== "undefined" && Number.isFinite(window.devicePixelRatio)
-			? window.devicePixelRatio
-			: 1;
+	const device = typeof window !== "undefined" && Number.isFinite(window.devicePixelRatio) ? window.devicePixelRatio : 1;
 	return resolveRendererPixelRatio(graphicsTier, device);
 }
 

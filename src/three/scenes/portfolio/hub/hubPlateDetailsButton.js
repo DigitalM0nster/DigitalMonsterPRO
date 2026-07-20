@@ -11,6 +11,7 @@ import { drawGlitchTextLine } from "@/shared/glitchText/drawGlitchText.js";
 import { HeroTextGlitchController } from "@/three/scenes/home/heroText/HeroTextGlitchController.js";
 import { getHeroGlitchSnakeRunOptions } from "@/three/scenes/home/heroText/heroTextGlitchConfig.js";
 import { getPortfolioHubGlitchConfig } from "./portfolioHubGlitchConfig.js";
+import { store } from "@/store.jsx";
 
 const MIN_CANVAS_WIDTH = 200;
 const MIN_CANVAS_HEIGHT = 80;
@@ -832,6 +833,8 @@ export class HubPlateDetailsButtons {
 		this.focusProjectIndex = -1;
 		this._locale = getPortfolioLocale();
 		this._stableCanvasSize = null;
+		/** Locale changed off-page without canvas upload — paint on next focus/enter. */
+		this._localeTexturesStale = false;
 		/** 0…1 — hover: кнопка выше поверхности плиты. */
 		this._detailsHover = 0;
 		this._detailsHoverTarget = 0;
@@ -849,19 +852,38 @@ export class HubPlateDetailsButtons {
 	}
 
 	/** Обновить подпись кнопки при смене языка (змейка на видимой плите). */
-	async updateLocale(locale, cfg = portfolioHubPlatesConfig) {
+	async updateLocale(locale, cfg = portfolioHubPlatesConfig, { animate = true } = {}) {
 		const targetLocale = normalizeSiteLocale(locale);
 
-		if (targetLocale === this._locale) {
+		if (targetLocale === this._locale && !this._localeTexturesStale) {
 			return;
 		}
 
 		await this._attachPromise;
-		await ensureDetailsFont();
 		const previousLocale = this._locale;
+		this._locale = targetLocale;
+
+		// Off-page: remember locale only — no measure/paint storm while on home.
+		if (!animate) {
+			this._localeTexturesStale = true;
+			return;
+		}
+
+		await this._paintLocaleTextures(cfg, previousLocale, { animate: true });
+	}
+
+	async flushPendingLocaleTextures(cfg = portfolioHubPlatesConfig) {
+		if (!this._localeTexturesStale) {
+			return;
+		}
+		await this._paintLocaleTextures(cfg, this._locale, { animate: false });
+	}
+
+	async _paintLocaleTextures(cfg, previousLocale, { animate = true } = {}) {
+		await ensureDetailsFont();
 		await this._syncStableCanvasSize(cfg);
 
-		this._locale = targetLocale;
+		const targetLocale = this._locale;
 		const resolvedCfg = this._getResolvedCfg(cfg);
 		const buttonCfg = resolvedCfg.plateDetailsButton ?? {};
 		const nextText = getPortfolioViewCaseButtonLabel(targetLocale);
@@ -881,10 +903,14 @@ export class HubPlateDetailsButtons {
 		}
 
 		if (focused?.entry.group.visible) {
-			await this._runFocusedLocaleSwitch(focused.entry, buttonCfg, nextText, uppercase, runOptions, previousLocale);
+			if (animate) {
+				await this._runFocusedLocaleSwitch(focused.entry, buttonCfg, nextText, uppercase, runOptions, previousLocale);
+			}
 			applyDetailsEntry(focused.entry, resolvedCfg, this._stableCanvasSize);
 			initDetailsGlitchState(focused.entry, targetLocale);
 		}
+
+		this._localeTexturesStale = false;
 	}
 
 	async _runFocusedLocaleSwitch(entry, buttonCfg, nextText, uppercase, runOptions, previousLocale) {
@@ -1169,7 +1195,27 @@ export class HubPlateDetailsButtons {
 		this._updateFocusedGlitchTexture(resolvedCfg);
 	}
 
+	/**
+	 * Apply deferred locale after returning to hub — snake on focused plate.
+	 */
+	async playPendingLocaleReveal(cfg = portfolioHubPlatesConfig) {
+		if (!this._localeTexturesStale) {
+			return;
+		}
+		if (this.focusProjectIndex < 0) {
+			this.focusProjectIndex = Math.max(0, store.portfolioHubFocusIndex ?? 0);
+		}
+		const focused = this._getFocusedAttachment();
+		if (focused) {
+			focused.entry.group.visible = true;
+		}
+		await this.updateLocale(this._locale, cfg, { animate: true });
+	}
+
 	setFocusReveal(projectIndex, alpha = 0, revealState = {}, cfg = portfolioHubPlatesConfig) {
+		// Do not flush deferred locale here — that skipped the snake when language
+		// changed while hub was previous. Enter / playPendingLocaleReveal owns it.
+
 		const resolvedCfg = this._getResolvedCfg(cfg);
 		const buttonCfg = resolvedCfg.plateDetailsButton ?? {};
 		const enabled = buttonCfg.enabled !== false;

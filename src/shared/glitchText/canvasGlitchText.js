@@ -335,9 +335,14 @@ export class CanvasGlitchText {
 
 		const dx = x - this.options.paddingLeft;
 		const dy = y - this.options.paddingTop;
-		// Destination ctx is usually DPR-transformed (CSS units). Draw the hi-res
-		// cache into CSS box size so it stays 1:1 with device pixels — no upscale blur.
-		ctx.drawImage(this.canvas, dx, dy, this._cssWidth, this._cssHeight);
+		// Destination ctx is usually DPR-transformed (CSS units). Size the blit from the
+		// actual bitmap ÷ pixelRatio so a stale _cssWidth cannot squash glyphs.
+		const dpr = Math.max(0.001, this.pixelRatio);
+		const cssW = Math.max(1, this.canvas.width / dpr);
+		const cssH = Math.max(1, this.canvas.height / dpr);
+		this._cssWidth = cssW;
+		this._cssHeight = cssH;
+		ctx.drawImage(this.canvas, dx, dy, cssW, cssH);
 	}
 
 	_drawLocaleSwitchFrames(controller) {

@@ -10,10 +10,11 @@ import {
 	getHeroTaglineLines,
 } from "./heroTitleConfig.js";
 import { getNextSiteLocale, normalizeSiteLocale } from "@/utils/siteLocale.js";
+import { shouldAnimateSiteLocaleForRingScene } from "@/utils/siteLocaleSwitch.js";
 
 /**
  * Очередь смены языка для canvas hero-текстов (subtitle + stack).
- * Змейка — тот же GlitchSnakeEngine, что у portfolio CanvasGlitchText.
+ * Змейка только пока home — текущая страница; иначе мгновенная подмена.
  */
 export function createHeroLocaleSwitchController({
 	subtitle,
@@ -32,14 +33,18 @@ export function createHeroLocaleSwitchController({
 
 		isSwitching = true;
 		const targetLocale = desiredLocale;
+		const animate = shouldAnimateSiteLocaleForRingScene("home");
 
 		try {
+			// Both layers together — tight glitch canvases keep this cheap enough.
 			await Promise.all([
 				subtitle.switchLocaleWithSnake(getHeroTaglineLines(targetLocale), {
 					fontFamily: getHeroSubtitleFontFamily(targetLocale),
+					animate,
 				}),
 				stack.switchLocaleWithSnake(getHeroStackLines(targetLocale), {
 					fontFamily: getHeroStackFontFamily(targetLocale),
+					animate,
 				}),
 			]);
 

@@ -2,9 +2,15 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { DefaultLoadingManager } from "three";
 import { preloadSoundDesign } from "../../../sounds/soundDesign.js";
+import { preloadHexTransitionSound } from "../../../sounds/hexTransitionSound.js";
+import { preloadUnderwaterSound } from "../../../sounds/underwaterSound.js";
+import { rewarmCasePanelHudGpuForLocale } from "@/portfolio/ui/CaseStudyCanvas/warmCasePanelHudUnderCurtain.js";
+import { rewarmAboutPanelHudGpuForLocale } from "@/about/warmAboutPanelHudUnderCurtain.js";
+import { isDevFastPreloader } from "@/utils/devFastPreloader.js";
 import { store } from "../../../store.jsx";
 
 const SHOW_LEGACY_LOADER = false;
+const DEV_FAST_PRELOADER = isDevFastPreloader();
 
 function readBootstrapNumber(value, fallback = 0) {
 	const next = Number(value);
@@ -38,24 +44,27 @@ export default function DigitalMonsterLoader(props) {
 	const removeLoaderRef = useRef(removeLoader);
 	const realTargetRef = useRef(Math.max(45, initialProgressRef.current));
 	const assetCountsRef = useRef({ loaded: 0, total: 0 });
-	const fontsReadyRef = useRef(!document.fonts?.ready);
+	const fontsReadyRef = useRef(false);
+	const [fontsReady, setFontsReady] = useState(false);
 
 	renderedRef.current = props.rendered;
 	startAppRef.current = props.startApp;
 	removeLoaderRef.current = removeLoader;
 
-	// dt по Date.now() — работает в фоновой вкладке; линейная интерполяция без замедления в конце
-	const TICK_MS = 80;
+	// Cap dt: a long background tab must not apply hours of fake progress in one tick.
+	const TICK_MS = DEV_FAST_PRELOADER ? 40 : 80;
 	const TICK_SEC = TICK_MS / 1000;
-	const MAX_DISPLAY_RATE_PER_SEC = 8;
-	const MIN_DISPLAY_RATE_PER_SEC = 0.65;
-	const CONTINUOUS_TARGET_RATE_PER_SEC = 0.45;
+	const MAX_TICK_DT_SEC = 0.25;
+	const MAX_DISPLAY_RATE_PER_SEC = DEV_FAST_PRELOADER ? 40 : 8;
+	const MIN_DISPLAY_RATE_PER_SEC = DEV_FAST_PRELOADER ? 8 : 0.65;
+	const CONTINUOUS_TARGET_RATE_PER_SEC = DEV_FAST_PRELOADER ? 12 : 0.45;
 
 	useEffect(() => {
 		let active = true;
 		document.fonts?.ready.then(() => {
 			if (active) {
 				fontsReadyRef.current = true;
+				setFontsReady(true);
 			}
 		});
 		return () => {
@@ -206,7 +215,14 @@ export default function DigitalMonsterLoader(props) {
 			}
 
 			const now = Date.now();
-			const dtSec = Math.max(TICK_SEC, (now - lastTickTsRef.current) / 1000);
+			// Hidden tab: freeze the clock. GPU warm uses rAF and stalls in background —
+			// advancing to 98% here leaves the user staring at a lie until they return.
+			if (typeof document !== "undefined" && document.hidden) {
+				lastTickTsRef.current = now;
+				return;
+			}
+
+			const dtSec = Math.min(MAX_TICK_DT_SEC, Math.max(TICK_SEC, (now - lastTickTsRef.current) / 1000));
 			lastTickTsRef.current = now;
 			if (!renderedRef.current || !fontsReadyRef.current) {
 				realTargetRef.current = Math.min(98.5, realTargetRef.current + CONTINUOUS_TARGET_RATE_PER_SEC * dtSec);
@@ -241,6 +257,8 @@ export default function DigitalMonsterLoader(props) {
 		intervalIdRef.current = setInterval(advanceLoadingProgress, TICK_MS);
 
 		const onVisibilityChange = () => {
+			// Drop any backlog dt from the hidden period, then resume one capped tick.
+			lastTickTsRef.current = Date.now();
 			if (document.visibilityState === "visible") {
 				advanceLoadingProgress();
 			}
@@ -254,6 +272,9 @@ export default function DigitalMonsterLoader(props) {
 	}, []);
 
 	const showLoadingProgress = !props.startApp && !removeLoader;
+	/** Bar/snake visually filled — set once from the snake rAF (not from stepped %). */
+	const barVisuallyFullRef = useRef(false);
+	const [barVisuallyFull, setBarVisuallyFull] = useState(false);
 
 	const applySnakeCssVars = (root = loaderRootRef.current) => {
 		if (!root) {
@@ -309,6 +330,11 @@ export default function DigitalMonsterLoader(props) {
 				snakeTailRef.current = head;
 			}
 			applySnakeCssVars(root);
+			// Locale crossfade only after the bar has visually reached full.
+			if (!barVisuallyFullRef.current && head >= 99.9 && target >= 99.9) {
+				barVisuallyFullRef.current = true;
+				setBarVisuallyFull(true);
+			}
 		};
 
 		snakeLastTsRef.current = performance.now();
@@ -329,13 +355,67 @@ export default function DigitalMonsterLoader(props) {
 
 	const canShowStart = loadingProgress >= 99.5 && props.rendered;
 	const progressPercent = Math.min(100, Math.floor(loadingProgress));
-	const languageButtonsEnabled = progressPercent === 100 && props.rendered && fontsReadyRef.current;
+	// Swap only when the fill is visually full + scene/fonts ready.
+	const languageSwapReady = barVisuallyFull && props.rendered === true && fontsReady === true;
+	const [languageCtaMounted, setLanguageCtaMounted] = useState(false);
+	const [languageCtaReady, setLanguageCtaReady] = useState(false);
+	const [progressLeaving, setProgressLeaving] = useState(false);
 
-	const startApplication = () => {
-		if (props.startApp || removeLoader) {
+	useEffect(() => {
+		if (!languageSwapReady) {
+			setLanguageCtaMounted(false);
+			setLanguageCtaReady(false);
+			setProgressLeaving(false);
+			return undefined;
+		}
+		setLanguageCtaMounted(true);
+		return undefined;
+	}, [languageSwapReady]);
+
+	// Progress fades out in-flow; language (absolute) fades in over the same slot.
+	useLayoutEffect(() => {
+		if (!languageCtaMounted || !languageSwapReady) {
+			setLanguageCtaReady(false);
+			setProgressLeaving(false);
+			return undefined;
+		}
+		let innerRaf = 0;
+		const outerRaf = requestAnimationFrame(() => {
+			innerRaf = requestAnimationFrame(() => {
+				setProgressLeaving(true);
+				setLanguageCtaReady(true);
+			});
+		});
+		return () => {
+			cancelAnimationFrame(outerRaf);
+			if (innerRaf) {
+				cancelAnimationFrame(innerRaf);
+			}
+		};
+	}, [languageCtaMounted, languageSwapReady]);
+
+	const startingRef = useRef(false);
+
+	const startApplication = async () => {
+		if (props.startApp || removeLoader || startingRef.current) {
 			return;
 		}
+		startingRef.current = true;
 		stopLoadingProgress();
+		// Gesture-gated decode under the curtain — do not leave reverse-hex / underwater
+		// sync work for the first navigation click.
+		try {
+			await Promise.all([
+				preloadHexTransitionSound(),
+				preloadUnderwaterSound(),
+			]);
+		} catch (error) {
+			console.warn("[loader] sound preload failed", error);
+		}
+		if (props.startApp || removeLoader) {
+			startingRef.current = false;
+			return;
+		}
 		setRemoveLoader(true);
 		props.setStartApp(true);
 		store.appStarted = true;
@@ -346,11 +426,30 @@ export default function DigitalMonsterLoader(props) {
 	};
 
 	const selectLocale = (locale) => {
-		if (!languageButtonsEnabled) {
+		if (!languageCtaReady || startingRef.current || props.startApp || removeLoader) {
 			return;
 		}
+		startingRef.current = true;
 		store.siteLocale = locale;
-		startApplication();
+		if (DEV_FAST_PRELOADER) {
+			// Curtain HUD warm was skipped — don't block Start on locale rewarm.
+			startingRef.current = false;
+			void startApplication();
+			return;
+		}
+		// GPU HUD textures were warmed for the default locale under the curtain —
+		// swap to the chosen locale before the curtain opens (chunked, still under loader).
+		void Promise.all([
+			rewarmCasePanelHudGpuForLocale(locale),
+			rewarmAboutPanelHudGpuForLocale(locale),
+		])
+			.catch((error) => {
+				console.warn("[loader] HUD locale rewarm failed", error);
+			})
+			.finally(() => {
+				startingRef.current = false;
+				void startApplication();
+			});
 	};
 
 	return (
@@ -421,47 +520,69 @@ export default function DigitalMonsterLoader(props) {
 					</svg>
 
 					<div className="digitalMonsterLoaderContent">
-						<div className="digitalMonsterLoaderBrand" aria-label="Digital Monster">
-							<span>DIGITAL</span>
-							<span>MONSTER</span>
-						</div>
+						{/*
+						  Centered stack. At 100% the progress block is swapped for language CTAs
+						  in the same slot (not stacked below).
+						*/}
+						<div className="digitalMonsterLoaderMain">
+							<div className="digitalMonsterLoaderBrand" aria-label="Digital Monster">
+								<span>DIGITAL</span>
+								<span>MONSTER</span>
+							</div>
 
-						<div className="digitalMonsterLoaderLanguageLabel">
-							ВЫБЕРИТЕ ЯЗЫК / SELECT LANGUAGE / 选择语言
-						</div>
-						<div className="digitalMonsterLoaderLanguages" role="group" aria-label="Select language">
-							<button
-								type="button"
-								data-loading-label="Дождитесь загрузки"
-								disabled={!languageButtonsEnabled}
-								onClick={() => selectLocale("ru")}
-							>
-								РУССКИЙ
-							</button>
-							<button
-								type="button"
-								data-loading-label="Please wait"
-								disabled={!languageButtonsEnabled}
-								onClick={() => selectLocale("en")}
-							>
-								ENGLISH
-							</button>
-							<button
-								type="button"
-								data-loading-label="请等待加载"
-								disabled={!languageButtonsEnabled}
-								onClick={() => selectLocale("zh")}
-							>
-								中文
-							</button>
-						</div>
-
-						<div className="digitalMonsterLoaderProgress" aria-live="polite">
-							<strong>{progressPercent}%</strong>
-							<span>ЗАГРУЗКА / LOADING</span>
-							<div className="digitalMonsterLoaderTrack" aria-hidden="true">
-								<i />
-								<span className="digitalMonsterLoaderSnake" />
+							<div className="digitalMonsterLoaderSwap">
+								<div
+									className={`digitalMonsterLoaderProgress${progressLeaving ? " isLeaving" : ""}`}
+									aria-live="polite"
+									aria-hidden={progressLeaving ? "true" : undefined}
+								>
+									<strong>{progressPercent}%</strong>
+									<span>ЗАГРУЗКА / LOADING</span>
+									<div className="digitalMonsterLoaderTrack" aria-hidden="true">
+										<i />
+										<span className="digitalMonsterLoaderSnake" />
+									</div>
+								</div>
+								{languageCtaMounted ? (
+									<div
+										className={`digitalMonsterLoaderLanguageCta${languageCtaReady ? " isReady" : ""}`}
+										aria-hidden={languageCtaReady ? undefined : "true"}
+									>
+										<p className="digitalMonsterLoaderLanguageLabel">
+											<span>ВЫБЕРИТЕ ЯЗЫК</span>
+											<span className="digitalMonsterLoaderLanguageSep" aria-hidden="true">/</span>
+											<span>SELECT LANGUAGE</span>
+											<span className="digitalMonsterLoaderLanguageSep" aria-hidden="true">/</span>
+											<span>选择语言</span>
+										</p>
+										<div className="digitalMonsterLoaderLanguages" role="group" aria-label="Select language">
+											<button
+												type="button"
+												tabIndex={languageCtaReady ? 0 : -1}
+												disabled={!languageCtaReady}
+												onClick={() => selectLocale("ru")}
+											>
+												РУССКИЙ
+											</button>
+											<button
+												type="button"
+												tabIndex={languageCtaReady ? 0 : -1}
+												disabled={!languageCtaReady}
+												onClick={() => selectLocale("en")}
+											>
+												ENGLISH
+											</button>
+											<button
+												type="button"
+												tabIndex={languageCtaReady ? 0 : -1}
+												disabled={!languageCtaReady}
+												onClick={() => selectLocale("zh")}
+											>
+												中文
+											</button>
+										</div>
+									</div>
+								) : null}
 							</div>
 						</div>
 					</div>

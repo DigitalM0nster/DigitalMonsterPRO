@@ -103,6 +103,21 @@ export default function ThreeCanvasHost(props) {
 		syncCarouselFromPage(props.currentPage);
 	}, [props.currentPage]);
 
+	// After Start, re-sync carousel to the URL page (deep-link /about must not stay on home).
+	useEffect(() => {
+		if (!props.startApp) {
+			return;
+		}
+		const pageForCarousel = props.teleportPage || props.currentPage;
+		syncCarouselFromPage(pageForCarousel, { force: true });
+		appRef.current?.setProps({
+			currentPage: pageForCarousel,
+			teleportPage: props.teleportPage,
+			routeTransition,
+			startApp: props.startApp,
+		});
+	}, [props.startApp]);
+
 	useEffect(() => {
 		appRef.current?.setProps({
 			currentPage: props.currentPage,

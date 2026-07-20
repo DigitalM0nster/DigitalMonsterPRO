@@ -64,9 +64,7 @@ export class HubScreenHudLayout {
 
 	_applyVisibility() {
 		const stackAlpha = this.baseOpacity * this._visibilityMultiplier;
-		const hasContent =
-			this.leftColumn.layers.length > 0 ||
-			(this.hudCfg?.projects?.enabled !== false && this.projectsColumn.layers.length > 0);
+		const hasContent = this.leftColumn.layers.length > 0 || (this.hudCfg?.projects?.enabled !== false && this.projectsColumn.layers.length > 0);
 		this.root.visible = stackAlpha > 0.001 && hasContent;
 
 		this.leftColumn.setStackVisibility(stackAlpha);
@@ -159,10 +157,7 @@ export class HubScreenHudLayout {
 	}
 
 	/** Список + змейка сразу; анимация плиты — через PLATE_FOCUS_DEBOUNCE_MS. */
-	_applyActiveProjectIndex(
-		index = -1,
-		{ skipHoverGlitch = false, immediatePlate = false, immediateOpacity = false, reason = "unknown" } = {},
-	) {
+	_applyActiveProjectIndex(index = -1, { skipHoverGlitch = false, immediatePlate = false, immediateOpacity = false, reason = "unknown" } = {}) {
 		const next = index ?? -1;
 		if (next === this._activeProjectIndex) {
 			return;
@@ -236,10 +231,7 @@ export class HubScreenHudLayout {
 	}
 
 	_updateProjectsPointerHover(frame) {
-		const canPick =
-			this.root.visible &&
-			this._visibilityMultiplier > 0.001 &&
-			this.projectsColumn.layers.length > 0;
+		const canPick = this.root.visible && this._visibilityMultiplier > 0.001 && this.projectsColumn.layers.length > 0;
 
 		if (!canPick || !frame?.camera || !frame?.pointer) {
 			store.cursor.projectListHovered = false;
@@ -252,9 +244,7 @@ export class HubScreenHudLayout {
 			return;
 		}
 
-		const pointerChanged =
-			frame.pointer.x !== this._lastProjectsHoverPointerX ||
-			frame.pointer.y !== this._lastProjectsHoverPointerY;
+		const pointerChanged = frame.pointer.x !== this._lastProjectsHoverPointerX || frame.pointer.y !== this._lastProjectsHoverPointerY;
 		const canPickChanged = canPick !== this._lastProjectsHoverCanPick;
 
 		if (!pointerChanged && !canPickChanged && !this._projectsHoverNeedsRaycast) {
@@ -271,10 +261,7 @@ export class HubScreenHudLayout {
 		if (hits.length > 0) {
 			this._projectsHoverLocalPoint.copy(hits[0].point);
 			this.rightGroup.worldToLocal(this._projectsHoverLocalPoint);
-			hitIndex = this.projectsColumn.resolveProjectIndexAtLocalPoint(
-				this._projectsHoverLocalPoint.x,
-				this._projectsHoverLocalPoint.y,
-			);
+			hitIndex = this.projectsColumn.resolveProjectIndexAtLocalPoint(this._projectsHoverLocalPoint.x, this._projectsHoverLocalPoint.y);
 		}
 
 		this._lastProjectsHoverPointerX = frame.pointer.x;

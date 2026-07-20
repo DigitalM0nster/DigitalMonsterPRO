@@ -3,10 +3,23 @@ import {
 	getCasePanelHudEnterProgress,
 	getCasePanelHudEnterTravelSign,
 	getCasePanelHudState,
-	registerCasePanelHudSyncListener,
 } from "@/portfolio/core/casePanelHudBridge.js";
+import {
+	getAboutPanelHudEnterProgress,
+	getAboutPanelHudEnterTravelSign,
+	getAboutPanelHudMixProgress,
+	getAboutPanelHudState,
+} from "@/about/aboutPanelHudBridge.js";
 import { getCaseStageClickMosaicProgress } from "@/portfolio/core/caseStageClickMosaic.js";
+import { getCasePanelHudLocaleMixProgress } from "@/portfolio/core/casePanelHudLocaleMix.js";
 import { getStageProgress } from "@/portfolio/core/stageProgress.js";
+import {
+	createHexGridCutUniforms,
+	HEX_GRID_CUT_CORE_GLSL,
+	HEX_GRID_CUT_SOURCE_VISIBLE_GLSL,
+	HEX_GRID_CUT_UNIFORMS_GLSL,
+	syncHexGridCutFromHexMaterial,
+} from "@/three/render/overlay/hexGridCutGlsl.js";
 
 const vertexShader = /* glsl */ `
 varying vec2 vUv;
@@ -17,11 +30,9 @@ void main() {
 `;
 
 /**
- * Shared HUD fragment:
- * uLayerMode 0 = left content (may live in models RT during hex).
- * uLayerMode 1 = project nav chrome (always screen overlay — never hex).
- * uClipRect discards outside the layer band. Mosaic runs inside uMosaicRect.
- * uFollowEnter: chrome only — when 0, ignore enterProgress (case→case keep nav).
+ * Left content HUD fragment (always screen overlay after bloom).
+ * Hex leave: same per-cell UV shrink/wave as HexGridOverlayPass (hexCutHudSourceWarp).
+ * Mosaic runs inside uMosaicRect via enterProgress / mixProgress.
  */
 const fragmentShader = /* glsl */ `
 precision highp float;
@@ -43,6 +54,10 @@ uniform vec2 uTexelSize;
 uniform vec4 uMosaicRect;
 uniform vec4 uClipRect;
 varying vec2 vUv;
+
+${HEX_GRID_CUT_UNIFORMS_GLSL}
+${HEX_GRID_CUT_CORE_GLSL}
+${HEX_GRID_CUT_SOURCE_VISIBLE_GLSL}
 
 vec3 sRGBToLinear(vec3 c) {
 	bvec3 cutoff = lessThanEqual(c, vec3(0.04045));
@@ -95,7 +110,11 @@ void tileMotion(vec2 cell, float p, out float localProgress, out vec2 fromOffset
 	float maxDelay = clamp(uDelay, 0.0, 0.999);
 	float delay = randomA * maxDelay;
 	float delayedProgress = clamp((p - delay) / max(1.0 - delay, 0.0001), 0.0, 1.0);
+	// Collapse late tile delays before enter→idle so the last frames do not snap.
+	float settle = smoothstep(0.82, 1.0, p);
+	delayedProgress = mix(delayedProgress, 1.0, settle);
 	localProgress = clamp(p * 0.15 + delayedProgress * 0.85, 0.0, 1.0);
+	localProgress = mix(localProgress, 1.0, settle);
 	float remaining = 1.0 - localProgress;
 
 	float rectH = max(uMosaicRect.w - uMosaicRect.y, 0.0001);
@@ -112,6 +131,44 @@ vec2 cellId(vec2 uv) {
 	return floor(clamp(toLocal(uv), 0.0, 0.99999) * uGrid);
 }
 
+/**
+ * Mosaic / crossfade must match idle lighting: vec4(sampled.rgb, sampled.a * cover).
+ * Never reconstruct rgb via /alpha — that turns AA coverage greys into bright white.
+ */
+vec4 hudIdleStyle(vec4 color, float alphaScale) {
+	return vec4(color.rgb, color.a * alphaScale * opacity);
+}
+
+vec4 hudOverIdle(vec4 fromColor, float fromCover, vec4 toColor, float toCover) {
+	float aFrom = fromColor.a * fromCover;
+	float aTo = toColor.a * toCover;
+	if (aTo > aFrom) {
+		return vec4(toColor.rgb, aTo * opacity);
+	}
+	return vec4(fromColor.rgb, aFrom * opacity);
+}
+
+/**
+ * Enter/exit mosaic must show the same stage the idle path shows.
+ * Idle at mix≈1 samples mapTo (next stage); enter used to always sample mapFrom,
+ * so case→case leave from a late stage-mix animated the *previous* stage text.
+ * Note: never ternary-select samplers — WebGL rejects cond ? mapTo : mapFrom.
+ */
+vec4 sampleEnterHud(vec2 uv) {
+	float p = clamp(mixProgress, 0.0, 1.0);
+	float mixIdleEps = 0.04;
+	if (p >= 1.0 - mixIdleEps) {
+		return sampleHud(mapTo, uv);
+	}
+	if (p <= mixIdleEps) {
+		return sampleHud(mapFrom, uv);
+	}
+	if (p >= 0.5) {
+		return sampleHud(mapTo, uv);
+	}
+	return sampleHud(mapFrom, uv);
+}
+
 void mosaicReveal(float ep) {
 	float lpGuess;
 	vec2 fromOffGuess;
@@ -124,14 +181,43 @@ void mosaicReveal(float ep) {
 	vec2 toOff;
 	tileMotion(cellId(toSrcGuess), ep, lpTo, fromOffUnused, toOff);
 	vec2 toSample = vUv + toOff;
-	vec4 toColor = (inTex(toSample) && inMosaic(toSample)) ? sampleHud(mapFrom, toSample) : vec4(0.0);
-	float aOut = lpTo * toColor.a;
-	gl_FragColor = vec4(toColor.rgb, aOut * opacity);
+	vec4 toColor = (inTex(toSample) && inMosaic(toSample)) ? sampleEnterHud(toSample) : vec4(0.0);
+	gl_FragColor = hudIdleStyle(toColor, lpTo);
+}
+
+/** Idle / stage content at a UV (no enter mosaic). */
+vec4 sampleIdleHudAt(vec2 uv) {
+	float p = clamp(mixProgress, 0.0, 1.0);
+	float mixIdleEps = 0.04;
+	if (p <= mixIdleEps) {
+		return sampleHud(mapFrom, uv);
+	}
+	if (p >= 1.0 - mixIdleEps) {
+		return sampleHud(mapTo, uv);
+	}
+	if (p >= 0.5) {
+		return sampleHud(mapTo, uv);
+	}
+	return sampleHud(mapFrom, uv);
 }
 
 void main() {
 	if (!inClip(vUv)) {
 		discard;
+	}
+
+	// Hex owns the fragment while a cell is wiping — same UV warp as models overlay.
+	// Hard-threshold keep: soft alpha over bloom reads as filled black/ghost hexes on text.
+	vec3 hexWarp = hexCutHudSourceWarpPack(vUv);
+	if (hexWarp.z >= 0.0) {
+		if (hexWarp.z < 0.5) {
+			discard;
+		}
+		vec2 sampleUv = hexWarp.xy;
+		vec4 color = inTex(sampleUv) ? sampleIdleHudAt(sampleUv) : vec4(0.0);
+		color.rgb *= color.a;
+		gl_FragColor = vec4(color.rgb, color.a * opacity);
+		return;
 	}
 
 	bool useEnter = uEnterProgress >= 0.0 && (uLayerMode < 0.5 || uFollowEnter > 0.5);
@@ -143,13 +229,11 @@ void main() {
 			return;
 		}
 		if (ep >= 0.9999) {
-			vec4 color = sampleHud(mapFrom, vUv);
-			gl_FragColor = vec4(color.rgb, color.a * opacity);
+			gl_FragColor = hudIdleStyle(sampleEnterHud(vUv), 1.0);
 			return;
 		}
 		if (!inMosaic(vUv)) {
-			vec4 color = sampleHud(mapFrom, vUv);
-			gl_FragColor = vec4(color.rgb, color.a * ep * opacity);
+			gl_FragColor = hudIdleStyle(sampleEnterHud(vUv), ep);
 			return;
 		}
 		mosaicReveal(ep);
@@ -157,53 +241,44 @@ void main() {
 	}
 
 	float p = clamp(mixProgress, 0.0, 1.0);
+	// Deadzone: tiny wheel must stay on the idle sample path (same as models —
+	// no brightness shift). Mosaic only moves tiles; it must not re-light glyphs.
+	float mixIdleEps = 0.04;
 	if (uLayerMode > 0.5) {
-		// Chrome: no stage mosaic — always show from (or crossfade if needed).
-		if (p <= 0.0001) {
-			vec4 color = sampleHud(mapFrom, vUv);
-			gl_FragColor = vec4(color.rgb, color.a * opacity);
+		// Chrome path unused for WebGL left band — keep for shader symmetry.
+		if (p <= mixIdleEps) {
+			gl_FragColor = hudIdleStyle(sampleHud(mapFrom, vUv), 1.0);
 			return;
 		}
-		if (p >= 0.9999) {
-			vec4 color = sampleHud(mapTo, vUv);
-			gl_FragColor = vec4(color.rgb, color.a * opacity);
+		if (p >= 1.0 - mixIdleEps) {
+			gl_FragColor = hudIdleStyle(sampleHud(mapTo, vUv), 1.0);
 			return;
 		}
-		vec4 fromColor = sampleHud(mapFrom, vUv);
-		vec4 toColor = sampleHud(mapTo, vUv);
-		float aFrom = fromColor.a * (1.0 - p);
-		float aTo = toColor.a * p;
-		float aOut = aFrom + aTo * (1.0 - aFrom);
-		vec3 rgb = vec3(0.0);
-		if (aOut > 0.0001) {
-			rgb = (fromColor.rgb * aFrom + toColor.rgb * aTo * (1.0 - aFrom)) / aOut;
-		}
-		gl_FragColor = vec4(rgb, aOut * opacity);
+		gl_FragColor = hudOverIdle(
+			sampleHud(mapFrom, vUv),
+			1.0 - p,
+			sampleHud(mapTo, vUv),
+			p
+		);
 		return;
 	}
 
-	if (p <= 0.0001) {
-		vec4 color = sampleHud(mapFrom, vUv);
-		gl_FragColor = vec4(color.rgb, color.a * opacity);
+	if (p <= mixIdleEps) {
+		gl_FragColor = hudIdleStyle(sampleHud(mapFrom, vUv), 1.0);
 		return;
 	}
-	if (p >= 0.9999) {
-		vec4 color = sampleHud(mapTo, vUv);
-		gl_FragColor = vec4(color.rgb, color.a * opacity);
+	if (p >= 1.0 - mixIdleEps) {
+		gl_FragColor = hudIdleStyle(sampleHud(mapTo, vUv), 1.0);
 		return;
 	}
 
 	if (!inMosaic(vUv)) {
-		vec4 fromColor = sampleHud(mapFrom, vUv);
-		vec4 toColor = sampleHud(mapTo, vUv);
-		float aFrom = fromColor.a * (1.0 - p);
-		float aTo = toColor.a * p;
-		float aOut = aFrom + aTo * (1.0 - aFrom);
-		vec3 rgb = vec3(0.0);
-		if (aOut > 0.0001) {
-			rgb = (fromColor.rgb * aFrom + toColor.rgb * aTo * (1.0 - aFrom)) / aOut;
-		}
-		gl_FragColor = vec4(rgb, aOut * opacity);
+		gl_FragColor = hudOverIdle(
+			sampleHud(mapFrom, vUv),
+			1.0 - p,
+			sampleHud(mapTo, vUv),
+			p
+		);
 		return;
 	}
 
@@ -228,14 +303,7 @@ void main() {
 	vec2 toSample = vUv + toOff;
 	vec4 toColor = (inTex(toSample) && inMosaic(toSample)) ? sampleHud(mapTo, toSample) : vec4(0.0);
 
-	float aFrom = (1.0 - lpFrom) * fromColor.a;
-	float aTo = lpTo * toColor.a;
-	float aOut = aFrom + aTo * (1.0 - aFrom);
-	vec3 rgb = vec3(0.0);
-	if (aOut > 0.0001) {
-		rgb = (fromColor.rgb * aFrom + toColor.rgb * aTo * (1.0 - aFrom)) / aOut;
-	}
-	gl_FragColor = vec4(rgb, aOut * opacity);
+	gl_FragColor = hudOverIdle(fromColor, 1.0 - lpFrom, toColor, lpTo);
 }
 `;
 
@@ -245,6 +313,10 @@ function syncTexture(existing, canvas, needsUpload) {
 		return null;
 	}
 	if (existing && existing.image === canvas) {
+		// Repair if hex-bake / compositor briefly stamped sRGB onto this UI map.
+		if (existing.colorSpace !== THREE.NoColorSpace) {
+			existing.colorSpace = THREE.NoColorSpace;
+		}
 		if (needsUpload) {
 			existing.needsUpdate = true;
 		}
@@ -278,7 +350,8 @@ function createHudMaterial(layerMode) {
 			mixProgress: { value: 0 },
 			uEnterProgress: { value: -1 },
 			opacity: { value: 1 },
-			uWorkingLinear: { value: layerMode === 1 ? 0 : 1 },
+			// Screen overlay path — never Linear models RT for left HUD.
+			uWorkingLinear: { value: 0 },
 			uLayerMode: { value: layerMode },
 			uFollowEnter: { value: 1 },
 			uGrid: { value: new THREE.Vector2(DEFAULT_MOSAIC.columns, DEFAULT_MOSAIC.rows) },
@@ -290,6 +363,7 @@ function createHudMaterial(layerMode) {
 			uTexelSize: { value: new THREE.Vector2(1 / 1920, 1 / 1080) },
 			uMosaicRect: { value: new THREE.Vector4(0, 0, 1, 1) },
 			uClipRect: { value: new THREE.Vector4(0, 0, 1, 1) },
+			...createHexGridCutUniforms(),
 		},
 		vertexShader,
 		fragmentShader,
@@ -314,23 +388,38 @@ function setRectUniform(uniform, rect, fallback = { minX: 0, minY: 0, maxX: 1, m
 /**
  * Left-panel HUD only (WebGL).
  * Project nav / all-projects chrome is pure DOM in CaseStudyPanelHudPainter —
- * never uploaded here, never hex-embedded.
+ * never uploaded here, never hex-embedded in models RT.
  */
 export class CaseStudyPanelHudMesh {
 	/**
-	 * @param {THREE.Scene | THREE.Object3D} modelsParent — case threeScene for hex participation
+	 * @param {THREE.Scene | THREE.Object3D} modelsParent — retained for API compat; mesh lives in overlay
 	 */
 	constructor(modelsParent) {
 		this.modelsParent = modelsParent;
 		this.parent = modelsParent;
 		this.overlayScene = new THREE.Scene();
 		this.overlayCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
-		/** @type {'models' | 'screen'} */
-		this.composeMode = "models";
+		/** @type {'models' | 'screen'} Always screen while case open; models only when hidden. */
+		this.composeMode = "screen";
 		this.revision = -1;
+		/** Layout fingerprint — avoid rewriting static mosaic uniforms every frame. */
+		this._layoutKey = "";
 		this.fromTexture = null;
 		this.toTexture = null;
 		this.visible = true;
+		/** When true, empty bridge must not dispose GPU textures (preloader warm). */
+		this.keepAliveTextures = false;
+		/**
+		 * Session GPU maps keyed by canvas element. With keepAlive, pair swaps only
+		 * rebind uniforms — never dispose/recreate mid-scroll.
+		 * @type {Map<HTMLCanvasElement, THREE.CanvasTexture>}
+		 */
+		this._texturePool = new Map();
+		/**
+		 * About left HUD — read About bridge via this module's import (same singleton as
+		 * DigitalMonsterThreeApp). Avoid setBridgeSource closures from a duplicated chunk.
+		 */
+		this._useAboutBridge = false;
 
 		this.contentMaterial = createHudMaterial(0);
 
@@ -344,11 +433,82 @@ export class CaseStudyPanelHudMesh {
 		this.mesh = this.contentMesh;
 		this.material = this.contentMaterial;
 
-		this.modelsParent.add(this.contentMesh);
+		this.overlayScene.add(this.contentMesh);
+		// No bridge sync listener — active HUD polls enter/mix in syncAnimUniforms
+		// (avoids every dormant case mesh waking on enterProgress ticks).
+		/** @type {null | {
+		 *   getState: () => ReturnType<typeof getCasePanelHudState>,
+		 *   getEnterProgress: () => number | null,
+		 *   getEnterTravelSign: () => number,
+		 *   getMixProgress?: () => number,
+		 * }} */
+		this._bridgeSource = null;
+	}
 
-		this._unmapSync = registerCasePanelHudSyncListener(() => {
-			this.syncFromBridge();
-		});
+	/**
+	 * Bind this mesh to the About-owned HUD bridge (not the case bridge).
+	 * Prefer this over setBridgeSource so readers share one module instance.
+	 * @param {boolean} enabled
+	 */
+	setUseAboutBridge(enabled) {
+		this._useAboutBridge = Boolean(enabled);
+		this._bridgeSource = null;
+		this.revision = -1;
+		this._layoutKey = "";
+	}
+
+	/**
+	 * Override case bridge readers (legacy). Prefer setUseAboutBridge for About.
+	 * @param {null | {
+	 *   getState: () => ReturnType<typeof getCasePanelHudState>,
+	 *   getEnterProgress: () => number | null,
+	 *   getEnterTravelSign: () => number,
+	 *   getMixProgress?: () => number,
+	 * }} source
+	 */
+	setBridgeSource(source) {
+		this._bridgeSource = source ?? null;
+		if (source) {
+			this._useAboutBridge = false;
+		}
+		this.revision = -1;
+		this._layoutKey = "";
+	}
+
+	_bridgeGetState() {
+		if (this._useAboutBridge) {
+			return getAboutPanelHudState();
+		}
+		return this._bridgeSource?.getState?.() ?? getCasePanelHudState();
+	}
+
+	_bridgeGetEnterProgress() {
+		if (this._useAboutBridge) {
+			return getAboutPanelHudEnterProgress();
+		}
+		return this._bridgeSource?.getEnterProgress?.() ?? getCasePanelHudEnterProgress();
+	}
+
+	_bridgeGetEnterTravelSign() {
+		if (this._useAboutBridge) {
+			return getAboutPanelHudEnterTravelSign();
+		}
+		return this._bridgeSource?.getEnterTravelSign?.() ?? getCasePanelHudEnterTravelSign();
+	}
+
+	_bridgeGetMixProgress() {
+		if (this._useAboutBridge) {
+			return getAboutPanelHudMixProgress();
+		}
+		if (typeof this._bridgeSource?.getMixProgress === "function") {
+			return this._bridgeSource.getMixProgress();
+		}
+		const localeMix = getCasePanelHudLocaleMixProgress();
+		if (localeMix != null) {
+			return localeMix;
+		}
+		const clickMix = getCaseStageClickMosaicProgress();
+		return clickMix != null ? clickMix : getStageProgress();
 	}
 
 	setVisible(visible) {
@@ -356,12 +516,106 @@ export class CaseStudyPanelHudMesh {
 		this.contentMesh.visible = this.visible && Boolean(this.fromTexture);
 	}
 
+	/**
+	 * Acquire / refresh a pooled CanvasTexture for a warm canvas.
+	 * @param {HTMLCanvasElement} canvas
+	 * @param {boolean} needsUpload
+	 * @param {import('three').WebGLRenderer | null} [renderer]
+	 */
+	_poolTexture(canvas, needsUpload, renderer = null) {
+		if (!canvas?.width || !canvas?.height) {
+			return null;
+		}
+		let texture = this._texturePool.get(canvas) ?? null;
+		const created = !texture;
+		texture = syncTexture(texture, canvas, needsUpload || created);
+		if (!texture) {
+			return null;
+		}
+		this._texturePool.set(canvas, texture);
+		if (created && renderer?.initTexture) {
+			renderer.initTexture(texture);
+		} else if (needsUpload && renderer?.initTexture) {
+			renderer.initTexture(texture);
+		}
+		return texture;
+	}
+
+	/**
+	 * Drop pooled textures whose canvases are no longer in the session set.
+	 * @param {Iterable<HTMLCanvasElement>} keepCanvases
+	 */
+	_pruneTexturePool(keepCanvases) {
+		const keep = new Set(keepCanvases);
+		for (const [canvas, texture] of this._texturePool) {
+			if (keep.has(canvas)) {
+				continue;
+			}
+			texture.dispose();
+			this._texturePool.delete(canvas);
+		}
+	}
+
+	/**
+	 * GPU-upload canvases into the keepAlive pool (no visibility / bind changes).
+	 * @param {HTMLCanvasElement[]} canvases
+	 * @param {import('three').WebGLRenderer | null} [renderer]
+	 */
+	warmTexturePool(canvases, renderer = null) {
+		const poolCanvases = (canvases ?? []).filter((c) => c?.width && c?.height);
+		if (!poolCanvases.length) {
+			return;
+		}
+		this.keepAliveTextures = true;
+		this._pruneTexturePool(poolCanvases);
+		for (const canvas of poolCanvases) {
+			this._poolTexture(canvas, true, renderer);
+		}
+	}
+
+	/**
+	 * Upload prepared from/to canvases under the preloader. Meshes stay hidden
+	 * until the case is active; textures survive bridge clears.
+	 * Optional `extraCanvases` are GPU-warmed into the keepAlive pool so later
+	 * pair swaps (About text3/empty) never first-touch upload mid-scroll.
+	 * @param {HTMLCanvasElement} fromCanvas
+	 * @param {HTMLCanvasElement} toCanvas
+	 * @param {object | null} mosaic
+	 * @param {import('three').WebGLRenderer | null} [renderer]
+	 * @param {HTMLCanvasElement[]} [extraCanvases]
+	 */
+	applyWarmCanvases(fromCanvas, toCanvas, mosaic, renderer = null, extraCanvases = []) {
+		if (!fromCanvas?.width || !fromCanvas?.height) {
+			return;
+		}
+
+		const toC = toCanvas?.width ? toCanvas : fromCanvas;
+		this.warmTexturePool([fromCanvas, toC, ...extraCanvases], renderer);
+
+		const nextFrom = this._poolTexture(fromCanvas, false, renderer);
+		const nextTo = toC === fromCanvas
+			? nextFrom
+			: this._poolTexture(toC, false, renderer);
+
+		this.fromTexture = nextFrom;
+		this.toTexture = nextTo;
+		this.contentMaterial.uniforms.mapFrom.value = this.fromTexture;
+		this.contentMaterial.uniforms.mapTo.value = this.toTexture ?? this.fromTexture;
+
+		const contentRect = mosaic?.contentRectUv ?? mosaic?.rectUv ?? null;
+		this._applyLayerUniforms(this.contentMaterial, mosaic, fromCanvas, contentRect, contentRect);
+
+		this.contentMesh.visible = false;
+		this.visible = false;
+	}
+
 	setOpacity(opacity) {
 		this.contentMaterial.uniforms.opacity.value = Math.max(0, Math.min(1, opacity));
 	}
 
 	/**
-	 * Models during hex (left text cuttable), screen idle (after bloom).
+	 * Idle + hex: screen overlay (after bloom). Models only when case closed/hidden.
+	 * Hex cut is shader-side via setHexCutFromPass — do not reparent into models RT.
 	 * @param {'models' | 'screen'} mode
 	 */
 	setComposeMode(mode) {
@@ -375,24 +629,71 @@ export class CaseStudyPanelHudMesh {
 			this.overlayScene.add(this.contentMesh);
 			this.contentMaterial.uniforms.uWorkingLinear.value = 0;
 		} else {
-			this.modelsParent.add(this.contentMesh);
-			this.contentMaterial.uniforms.uWorkingLinear.value = 1;
+			// Hidden / inactive — keep mesh out of models RT (no bloom path for glyphs).
+			this.overlayScene.add(this.contentMesh);
+			this.contentMaterial.uniforms.uWorkingLinear.value = 0;
 		}
 	}
 
-	/** After final frame — left content when composeMode === "screen". */
+	/**
+	 * Sync hex wipe cut from the live HexGridOverlayPass material.
+	 * @param {THREE.ShaderMaterial | null | undefined} hexMaterial
+	 * @param {number} progressAbs
+	 * @param {boolean} revealFromTop
+	 */
+	setHexCutFromPass(hexMaterial, progressAbs, revealFromTop) {
+		syncHexGridCutFromHexMaterial(
+			this.contentMaterial,
+			hexMaterial,
+			progressAbs,
+			revealFromTop,
+		);
+	}
+
+	/** Clear hex cut (full HUD visible). */
+	clearHexCut() {
+		const u = this.contentMaterial.uniforms;
+		if (u.uHexProgress) {
+			u.uHexProgress.value = 0;
+		}
+	}
+
+	/**
+	 * After final frame — left content when composeMode === "screen".
+	 * Keep renderer.outputColorSpace as-is (SRGB after drawToScreen).
+	 * Forcing LinearSRGB made canvas rgba(255,255,255,α) textMuted read as
+	 * full-bright white — and it stuck looking wrong after the first leave scroll.
+	 */
 	renderScreenOverlay(renderer) {
 		if (this.composeMode !== "screen" || !this.contentMesh.visible) {
 			return;
 		}
 
 		const prevAutoClear = renderer.autoClear;
-		const prevOutputColorSpace = renderer.outputColorSpace;
 		renderer.autoClear = false;
-		renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
 		renderer.render(this.overlayScene, this.overlayCamera);
-		renderer.outputColorSpace = prevOutputColorSpace;
 		renderer.autoClear = prevAutoClear;
+	}
+
+	_layoutFingerprint(mosaic, canvas, clipRect) {
+		const cfg = mosaic ?? DEFAULT_MOSAIC;
+		const width = Math.max(1, canvas?.width || cfg.canvasWidth || 1920);
+		const height = Math.max(1, canvas?.height || cfg.canvasHeight || 1080);
+		const rect = clipRect ?? {};
+		return [
+			width,
+			height,
+			cfg.columns ?? DEFAULT_MOSAIC.columns,
+			cfg.rows ?? DEFAULT_MOSAIC.rows,
+			cfg.liftStrength ?? DEFAULT_MOSAIC.liftStrength,
+			cfg.randomLift ?? DEFAULT_MOSAIC.randomLift,
+			cfg.scatterX ?? DEFAULT_MOSAIC.scatterX,
+			cfg.delay ?? DEFAULT_MOSAIC.delay,
+			rect.minX ?? 0,
+			rect.minY ?? 0,
+			rect.maxX ?? 1,
+			rect.maxY ?? 1,
+		].join("|");
 	}
 
 	_applyLayerUniforms(material, mosaic, canvas, clipRect, mosaicRect) {
@@ -413,12 +714,21 @@ export class CaseStudyPanelHudMesh {
 		material.uniforms.uFollowEnter.value = 1;
 	}
 
-	syncFromBridge() {
-		const state = getCasePanelHudState();
+	/**
+	 * Textures + static mosaic layout — only when bridge revision / layout changes.
+	 * @returns {boolean} true when bridge has drawable content (or keepAlive warm)
+	 */
+	syncContentIfNeeded() {
+		const state = this._bridgeGetState();
 		const fromCanvas = state.fromCanvas;
 		const toCanvas = state.toCanvas;
 
 		if (!fromCanvas?.width || !fromCanvas?.height) {
+			if (this.keepAliveTextures && this.fromTexture) {
+				this.revision = state.revision;
+				this.contentMesh.visible = this.visible && Boolean(this.fromTexture);
+				return true;
+			}
 			if (this.fromTexture || this.toTexture) {
 				this.fromTexture?.dispose();
 				this.toTexture?.dispose();
@@ -427,9 +737,10 @@ export class CaseStudyPanelHudMesh {
 				this.contentMaterial.uniforms.mapFrom.value = null;
 				this.contentMaterial.uniforms.mapTo.value = null;
 				this.revision = state.revision;
+				this._layoutKey = "";
 			}
 			this.contentMesh.visible = false;
-			return;
+			return false;
 		}
 
 		if (state.revision !== this.revision) {
@@ -439,24 +750,32 @@ export class CaseStudyPanelHudMesh {
 			const fromDirty = !dirty || dirty.has(fromC);
 			const toDirty = !dirty || dirty.has(toC);
 
-			const pickExisting = (canvas) => {
-				if (this.fromTexture?.image === canvas) {
-					return this.fromTexture;
-				}
-				if (this.toTexture?.image === canvas) {
-					return this.toTexture;
-				}
-				return null;
-			};
+			let nextFrom;
+			let nextTo;
+			if (this.keepAliveTextures) {
+				// Rebind from the warm pool — never dispose the outgoing map mid-scroll.
+				nextFrom = this._poolTexture(fromC, fromDirty);
+				nextTo = toC === fromC ? nextFrom : this._poolTexture(toC, toDirty);
+			} else {
+				const pickExisting = (canvas) => {
+					if (this.fromTexture?.image === canvas) {
+						return this.fromTexture;
+					}
+					if (this.toTexture?.image === canvas) {
+						return this.toTexture;
+					}
+					return null;
+				};
 
-			const nextFrom = syncTexture(pickExisting(fromC), fromC, fromDirty);
-			const nextTo = toC === fromC
-				? nextFrom
-				: syncTexture(pickExisting(toC), toC, toDirty);
+				nextFrom = syncTexture(pickExisting(fromC), fromC, fromDirty);
+				nextTo = toC === fromC
+					? nextFrom
+					: syncTexture(pickExisting(toC), toC, toDirty);
 
-			for (const tex of [this.fromTexture, this.toTexture]) {
-				if (tex && tex !== nextFrom && tex !== nextTo) {
-					tex.dispose();
+				for (const tex of [this.fromTexture, this.toTexture]) {
+					if (tex && tex !== nextFrom && tex !== nextTo) {
+						tex.dispose();
+					}
 				}
 			}
 
@@ -469,34 +788,62 @@ export class CaseStudyPanelHudMesh {
 
 		const mosaic = state.mosaic;
 		const contentRect = mosaic?.contentRectUv ?? mosaic?.rectUv ?? null;
+		const layoutKey = this._layoutFingerprint(mosaic, fromCanvas, contentRect);
+		if (layoutKey !== this._layoutKey) {
+			this._layoutKey = layoutKey;
+			this._applyLayerUniforms(
+				this.contentMaterial,
+				mosaic,
+				fromCanvas,
+				contentRect,
+				contentRect,
+			);
+		}
 
-		this._applyLayerUniforms(
-			this.contentMaterial,
-			mosaic,
-			fromCanvas,
-			contentRect,
-			contentRect,
-		);
+		this.contentMesh.visible = this.visible && Boolean(this.fromTexture);
+		return Boolean(this.fromTexture);
+	}
 
-		const enter = getCasePanelHudEnterProgress();
+	/** Per-frame scalars only — mosaic motion / enter reveal. */
+	syncAnimUniforms() {
+		const enter = this._bridgeGetEnterProgress();
+		// null = idle full show (−1 disables enter path). 0 = hidden for appear/leave.
+		// Do NOT map null→0 when keepAlive lacks a bridge canvas — that permanently
+		// hides warm glyphs after a cleared bridge / botched locale reveal.
 		const enterValue = enter == null ? -1 : enter;
-		const travel = getCasePanelHudEnterTravelSign();
-		const clickMix = getCaseStageClickMosaicProgress();
-		const mix = clickMix != null ? clickMix : getStageProgress();
+		const travel = this._bridgeGetEnterTravelSign();
+		const mix = this._bridgeGetMixProgress();
 
 		this.contentMaterial.uniforms.uEnterProgress.value = enterValue;
 		this.contentMaterial.uniforms.uTravelSign.value = travel;
-		this.contentMaterial.uniforms.mixProgress.value = mix;
-
+		this.contentMaterial.uniforms.mixProgress.value = Number.isFinite(mix) ? mix : 0;
 		this.contentMesh.visible = this.visible && Boolean(this.fromTexture);
 	}
 
+	/** Active HUD: content (if dirty) + anim uniforms. */
+	syncFromBridge() {
+		if (!this.syncContentIfNeeded()) {
+			return;
+		}
+		// Hex-bake blit must not leave sRGB stamped on these maps for the screen pass.
+		for (const tex of [this.fromTexture, this.toTexture]) {
+			if (tex && tex.colorSpace !== THREE.NoColorSpace) {
+				tex.colorSpace = THREE.NoColorSpace;
+			}
+		}
+		this.syncAnimUniforms();
+	}
+
 	dispose() {
-		this._unmapSync?.();
-		this._unmapSync = null;
 		this.contentMesh.removeFromParent();
-		this.fromTexture?.dispose();
-		this.toTexture?.dispose();
+		for (const texture of this._texturePool.values()) {
+			texture.dispose();
+		}
+		this._texturePool.clear();
+		if (!this.keepAliveTextures) {
+			this.fromTexture?.dispose();
+			this.toTexture?.dispose();
+		}
 		this.contentMaterial.dispose();
 		this.contentMesh.geometry.dispose();
 		this.fromTexture = null;

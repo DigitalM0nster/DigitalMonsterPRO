@@ -493,9 +493,8 @@ export class GlitchCanvasTextLayer {
 		}
 
 		const nextUppercase = uppercase ?? this.layerCfg?.uppercase;
-		this.glitchText.setText(nextText, nextUppercase);
-		this.glitchText.prepareAppear();
-		this.glitchText.drawInPlace("both");
+		// setTextForAppear — no full-visible redraw flash before prepareAppear.
+		this.glitchText.setTextForAppear(nextText, nextUppercase);
 
 		if (this.layerCfg) {
 			this.layerCfg.text = nextText;

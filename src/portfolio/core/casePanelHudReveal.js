@@ -1,17 +1,23 @@
 /**
  * Case HUD enter/exit reveal (GPU enterProgress) + logo_reveal scroll sound.
  * Keeps from/to canvases idle-safe; only drives the enterProgress uniform.
+ *
+ * Case→case leave is NOT scroll-mosaic: hex overlay mask cuts the live HUD.
+ * Stage/enter mosaic stays on the shader (mixProgress / enterProgress). Do not
+ * reintroduce a per-frame Canvas leave driver (former syncCasePanelHudScrollLeave).
  */
 import {
 	clearCasePanelHudCanvas,
 	clearCasePanelHudContent,
 	getCasePanelHudEnterProgress,
 	getCasePanelHudState,
+	promoteCasePanelHudIfShowingMapTo,
 	setCasePanelHudEnterProgress,
 	setCasePanelHudEnterTravelSign,
 	setCasePanelHudState,
 } from "./casePanelHudBridge.js";
 import { stopCaseStudyAnimationFrame } from "./caseStudyAnimationFrame.js";
+import { getStageProgress, setStageProgressState } from "./stageProgress.js";
 import {
 	preloadCaseStudyTextTransitionSound,
 	resetCaseStudyTextTransitionSound,
@@ -50,6 +56,29 @@ function cancelRevealTimers() {
 		window.clearTimeout(delayId);
 		delayId = 0;
 	}
+}
+
+/** Densify mosaic tiles for band leave; chrome stays live (chromeFollowEnter false). */
+function armBandMosaicForLeave() {
+	mosaicScope = "band";
+	const hud = getCasePanelHudState();
+	if (!hud.mosaic) {
+		return;
+	}
+	const baseColumns = Math.max(1, Math.round(hud.mosaic.columns ?? 28));
+	const baseRows = Math.max(1, Math.round(hud.mosaic.rows ?? 24));
+	const alreadyDense = baseColumns >= 50 || baseRows >= 40;
+	const contentRect = hud.mosaic.contentRectUv ?? hud.mosaic.rectUv;
+	setCasePanelHudState({
+		mosaic: {
+			...hud.mosaic,
+			columns: alreadyDense ? baseColumns : baseColumns * 3,
+			rows: alreadyDense ? baseRows : baseRows * 2,
+			rectUv: contentRect,
+			contentRectUv: contentRect,
+			chromeFollowEnter: false,
+		},
+	});
 }
 
 export function getCasePanelHudRevealPhase() {
@@ -94,6 +123,15 @@ export function cancelCasePanelHudReveal() {
 	setCasePanelHudEnterProgress(0);
 }
 
+/**
+ * After hex leave commits to next/prev case: hold band at 0 for the next enter.
+ * Product leave visual is hex-cut on the live overlay — not scroll-band mosaic.
+ */
+export function commitCasePanelHudScrollLeave() {
+	phase = "idle";
+	finishExitHold("band");
+}
+
 /** Drop HUD + case work after exit (or immediate leave).
  * @param {{ keepChrome?: boolean }} [options] keepChrome: case→case — leave shared nav canvas.
  */
@@ -127,11 +165,16 @@ export function playCasePanelHudEnter(options = {}) {
 	setCasePanelHudEnterTravelSign(1);
 
 	const hud = getCasePanelHudState();
+	/** @type {{ columns: number, rows: number } | null} */
+	let mosaicRest = null;
 	if (hud.mosaic) {
 		const baseColumns = Math.max(1, Math.round(hud.mosaic.columns ?? 28));
 		const baseRows = Math.max(1, Math.round(hud.mosaic.rows ?? 24));
 		const alreadyDense = baseColumns >= 50 || baseRows >= 40;
 		const contentRect = hud.mosaic.contentRectUv ?? hud.mosaic.rectUv;
+		mosaicRest = alreadyDense
+			? null
+			: { columns: baseColumns, rows: baseRows };
 		setCasePanelHudState({
 			mosaic: {
 				...hud.mosaic,
@@ -147,6 +190,29 @@ export function playCasePanelHudEnter(options = {}) {
 
 	setCasePanelHudEnterProgress(0);
 	void preloadCaseStudyTextTransitionSound();
+
+	const finishEnter = () => {
+		if (phase !== "entering") {
+			return;
+		}
+		phase = "idle";
+		mosaicScope = "full";
+		if (mosaicRest) {
+			const live = getCasePanelHudState();
+			if (live.mosaic) {
+				setCasePanelHudState({
+					mosaic: {
+						...live.mosaic,
+						columns: mosaicRest.columns,
+						rows: mosaicRest.rows,
+						chromeFollowEnter: false,
+					},
+				});
+			}
+		}
+		setCasePanelHudEnterProgress(null);
+		onComplete?.();
+	};
 
 	const startAnim = () => {
 		delayId = 0;
@@ -168,11 +234,12 @@ export function playCasePanelHudEnter(options = {}) {
 				rafId = requestAnimationFrame(tick);
 				return;
 			}
-			rafId = 0;
-			phase = "idle";
-			mosaicScope = "full";
-			setCasePanelHudEnterProgress(null);
-			onComplete?.();
+			// Hold one settled frame at 1 before idle (null). Skipping this snapped
+			// mid-delay mosaic tiles → full idle and looked like a jump at the end.
+			rafId = requestAnimationFrame(() => {
+				rafId = 0;
+				finishEnter();
+			});
 		};
 		rafId = requestAnimationFrame(tick);
 	};
@@ -214,23 +281,34 @@ export function playCasePanelHudExit(options = {}) {
 	// Exit scrub of logo_reveal sounds awful (high reverse rate) and fights hex SFX.
 	suppressCaseStudyTextTransitionSound(getCaseChromeMosaicExitMs() + 200);
 
+	// Last stage sits at mix≈1 (mapTo). Exit / idle mix dips would flash mapFrom (prev stage).
+	if (promoteCasePanelHudIfShowingMapTo(getStageProgress())) {
+		setStageProgressState(0);
+		store.portfolioExperience.stageProgress = 0;
+		store.portfolioExperience.stageProgressTarget = 0;
+	}
+
 	// Painter skips paints while exiting — push rect/grid onto the bridge now.
-	const hud = getCasePanelHudState();
-	if (hud.mosaic) {
-		const baseColumns = Math.max(1, Math.round(hud.mosaic.columns ?? 28));
-		const baseRows = Math.max(1, Math.round(hud.mosaic.rows ?? 24));
-		const alreadyDense = baseColumns >= 50 || baseRows >= 40;
-		const contentRect = hud.mosaic.contentRectUv ?? hud.mosaic.rectUv;
-		setCasePanelHudState({
-			mosaic: {
-				...hud.mosaic,
-				columns: alreadyDense ? baseColumns : baseColumns * 3,
-				rows: alreadyDense ? baseRows : baseRows * 2,
-				rectUv: contentRect,
-				contentRectUv: contentRect,
-				chromeFollowEnter: mosaicScope === "full",
-			},
-		});
+	if (mosaicScope === "band") {
+		armBandMosaicForLeave();
+	} else {
+		const hud = getCasePanelHudState();
+		if (hud.mosaic) {
+			const baseColumns = Math.max(1, Math.round(hud.mosaic.columns ?? 28));
+			const baseRows = Math.max(1, Math.round(hud.mosaic.rows ?? 24));
+			const alreadyDense = baseColumns >= 50 || baseRows >= 40;
+			const contentRect = hud.mosaic.contentRectUv ?? hud.mosaic.rectUv;
+			setCasePanelHudState({
+				mosaic: {
+					...hud.mosaic,
+					columns: alreadyDense ? baseColumns : baseColumns * 3,
+					rows: alreadyDense ? baseRows : baseRows * 2,
+					rectUv: contentRect,
+					contentRectUv: contentRect,
+					chromeFollowEnter: true,
+				},
+			});
+		}
 	}
 
 	const current = getCasePanelHudEnterProgress();

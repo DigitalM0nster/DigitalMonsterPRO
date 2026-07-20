@@ -54,7 +54,7 @@ export default forwardRef(function Case3Model(props, ref) {
 	const materialRefs = [materialRef1, materialRef2, materialRef3, materialRef4, materialRef5, materialRef6, materialRef7];
 
 	useEffect(() => {
-		if (shouldActivateRoutePage(props.currentPage === "/portfolio/03", routePhase)) {
+		if (shouldActivateRoutePage(props.currentPage === "/portfolio/04", routePhase)) {
 			exitFadeCompleteRef.current = false;
 			if (ref.current) {
 				restoreRootForShow(ref.current);
@@ -78,14 +78,14 @@ export default forwardRef(function Case3Model(props, ref) {
 
 	// Removed bug with fast changing pages and delay 500
 	useEffect(() => {
-		if (props.currentPage === `/portfolio/03`) {
+		if (props.currentPage === `/portfolio/04`) {
 			store.scroll = 0;
 			camera.position.x = 0;
 			camera.position.y = 0;
 			camera.position.z = 9;
 			camera.lookAt(0, 0, 0);
 		}
-		if (props.currentPage != `/portfolio/03`) {
+		if (props.currentPage != `/portfolio/04`) {
 			setActivePage(false);
 		}
 	}, [activePage]);
@@ -107,7 +107,7 @@ export default forwardRef(function Case3Model(props, ref) {
 	};
 
 	useFrame((renderer, delta) => {
-		if (props.currentPage !== "/portfolio/03" && ref.current && !ref.current.visible && exitFadeCompleteRef.current) {
+		if (props.currentPage !== "/portfolio/04" && ref.current && !ref.current.visible && exitFadeCompleteRef.current) {
 			return;
 		}
 

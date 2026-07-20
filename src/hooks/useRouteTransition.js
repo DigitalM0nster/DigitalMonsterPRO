@@ -3,6 +3,7 @@ import { ROUTE_TRANSITION_ENTER_MS, ROUTE_TRANSITION_EXIT_MS } from "../config/r
 import { resolvePortfolioEnterSound, resolvePortfolioLeaveSound } from "@/three/scenes/portfolio/hub/projectsData.js";
 import { playPortfolioRouteEnterSound, playPortfolioRouteLeaveSound } from "@/sounds/soundDesign.js";
 import { shouldDeferHtmlRouteTransition } from "@/utils/hexNavigation.js";
+import { store } from "@/store.jsx";
 
 /** @typedef {'idle' | 'exiting' | 'entering'} RouteTransitionPhase */
 
@@ -10,6 +11,9 @@ import { shouldDeferHtmlRouteTransition } from "@/utils/hexNavigation.js";
  * URL (location.pathname) обновляется сразу при navigate.
  * displayPathname и phase — что на экране и анимация.
  * При быстрых кликах (главная → портфолио → главная) отменяем устаревшие таймеры.
+ *
+ * Scroll-commit карусели (`sceneCarouselSkipHtmlExit`): без EXIT_MS — HTML
+ * меняется сразу. Клики (hub→case и т.п.) по-прежнему ждут stagger exit.
  */
 export function useRouteTransition(location) {
 	const pathname = location.pathname;
@@ -33,6 +37,7 @@ export function useRouteTransition(location) {
 	useEffect(() => {
 		// Вернулись на URL, который уже показан — сброс «застрявшего» exit/enter
 		if (pathname === displayPathname) {
+			store.sceneCarouselSkipHtmlExit = false;
 			if (phase !== "idle") {
 				generationRef.current += 1;
 				clearTransitionTimers();
@@ -49,14 +54,12 @@ export function useRouteTransition(location) {
 		const generation = ++generationRef.current;
 		clearTransitionTimers();
 
-		const leaveSound = resolvePortfolioLeaveSound(displayPathname, pathname);
-		if (leaveSound) {
-			playPortfolioRouteLeaveSound(leaveSound);
+		const skipHtmlExit = store.sceneCarouselSkipHtmlExit === true;
+		if (skipHtmlExit) {
+			store.sceneCarouselSkipHtmlExit = false;
 		}
 
-		setPhase("exiting");
-
-		exitTimerRef.current = setTimeout(() => {
+		const beginEnter = () => {
 			if (generationRef.current !== generation) {
 				return;
 			}
@@ -73,7 +76,22 @@ export function useRouteTransition(location) {
 				}
 				setPhase("idle");
 			}, ROUTE_TRANSITION_ENTER_MS);
-		}, ROUTE_TRANSITION_EXIT_MS);
+		};
+
+		if (skipHtmlExit) {
+			/** Scroll carousel: 3D already committed — do not hold old HTML for EXIT_MS. */
+			beginEnter();
+			return clearTransitionTimers;
+		}
+
+		const leaveSound = resolvePortfolioLeaveSound(displayPathname, pathname);
+		if (leaveSound) {
+			playPortfolioRouteLeaveSound(leaveSound);
+		}
+
+		setPhase("exiting");
+
+		exitTimerRef.current = setTimeout(beginEnter, ROUTE_TRANSITION_EXIT_MS);
 
 		return clearTransitionTimers;
 	}, [pathname, displayPathname, phase, clearTransitionTimers]);

@@ -38,6 +38,25 @@ export function readLeftMenuReserve() {
 }
 
 /**
+ * Left edge of SiteTopHud brand («DIGITAL MONSTER»).
+ * Matches `.topHud { left: calc(var(--leftMenuWidth) + 50px) }` / `--caseContentBlockPositionX`.
+ */
+export function resolveSiteTopHudBrandLeftPx(viewportWidth = typeof window !== "undefined" ? window.innerWidth : 1920) {
+	const menuPx = getLeftMenuWidthPx(viewportWidth);
+	let gapPx = 50;
+	if (typeof document !== "undefined") {
+		const raw = getComputedStyle(document.documentElement)
+			.getPropertyValue("--caseContentBlockPositionX")
+			.trim();
+		const parsed = Number.parseFloat(raw);
+		if (Number.isFinite(parsed)) {
+			gapPx = parsed;
+		}
+	}
+	return menuPx + gapPx;
+}
+
+/**
  * Верх контентной зоны: home-icon или фиксированный offset от viewport (макет nipigas).
  */
 export function resolveCaseStudyPanelTopLocal(surfaceEl, originY = 0, options = {}) {
@@ -140,17 +159,14 @@ export function resolveCaseStudyLayout(width, height, stateCount, canvasOrigin =
 	}
 
 	const maxHeight = resolveCaseStudyContentMaxHeightLocal(surface, height, options);
-	const defaultArcTop = Math.min(116, Math.max(88, height * 0.105));
-	const defaultArcBottom = panelTopLocal + maxHeight;
-	const arcTop = Number.isFinite(options.arcViewportTopPx)
-		? options.arcViewportTopPx
-		: defaultArcTop;
+	// Right project arc uses the full viewport height (no top chrome / bottom-nav reserve).
+	const arcTop = Number.isFinite(options.arcViewportTopPx) ? options.arcViewportTopPx : 0;
 	const arcBottomFromInset = Number.isFinite(options.arcViewportBottomInsetPx)
 		? height - options.arcViewportBottomInsetPx
 		: null;
 	const arcBottom = Number.isFinite(options.arcViewportBottomPx)
 		? options.arcViewportBottomPx
-		: arcBottomFromInset ?? defaultArcBottom;
+		: arcBottomFromInset ?? height;
 	const panelWidthOverride = options.panelWidth ?? {};
 	const panelWidthMin = panelWidthOverride.min ?? cfg.panelWidthMin;
 	const panelWidthMax = panelWidthOverride.max ?? cfg.panelWidthMax;

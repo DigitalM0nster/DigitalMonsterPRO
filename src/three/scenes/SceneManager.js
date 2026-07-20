@@ -1,9 +1,13 @@
 import * as THREE from "three";
 import { PLACEHOLDER_SCENE_DEFINITIONS } from "./sceneDefinitions.js";
 import { resolveSceneId } from "./resolveSceneId.js";
-import { getSceneCarousel } from "../render/transition/carouselPage.js";
+import { getSceneCarousel } from "@/three/render/transition/carouselPage.js";
 import { isCarouselRoutePage } from "../render/transition/SceneCarousel.js";
-import { getHexShaderProgress } from "../render/overlay/hexShaderProgress.js";
+import { getHexRevealFromTop, getHexShaderProgress } from "../render/overlay/hexShaderProgress.js";
+import {
+	resolveHexHitOwnerSceneId,
+	yNormFromTopFromNdcY,
+} from "../render/overlay/hexHitOwnership.js";
 import { SceneCarouselLifecycleDispatcher } from "./lifecycle/SceneCarouselLifecycleDispatcher.js";
 import { DigitalWhaleScene } from "./home/DigitalWhaleScene.js";
 import { PlaceholderScene } from "./types/PlaceholderScene.js";
@@ -54,6 +58,8 @@ export class SceneManager {
 		this.lastDelta = 0;
 		/** @type {string | null} */
 		this._caseMixPreviewId = null;
+		/** Cached case panel HUD meshes — avoid scanning all scenes twice per frame. */
+		this._casePanelHuds = null;
 		this.routeState = {
 			currentPage: "/",
 			teleportPage: "/",
@@ -65,11 +71,11 @@ export class SceneManager {
 		this.scenes.get("home")?.initHeroText?.(this.renderer);
 		this.scenes.set("portfolioHub", new PortfolioHubScene());
 		this.scenes.set("case01", new Case1Scene(this.renderer, this.store));
-		this.scenes.set("case03", new Case3Scene(this.renderer, this.store));
+		this.scenes.set("case04", new Case3Scene(this.renderer, this.store));
 		this.scenes.set("about", new AboutScene(this.store));
 
 		for (const def of PLACEHOLDER_SCENE_DEFINITIONS) {
-			if (def.id === "case03" || def.id === "about") continue;
+			if (def.id === "case04" || def.id === "about") continue;
 			this.scenes.set(def.id, new PlaceholderScene(def, this.store));
 		}
 
@@ -85,12 +91,67 @@ export class SceneManager {
 	}
 
 	isCarouselHubActive() {
-		return isCarouselRoutePage(this.routeState.currentPage) || getSceneCarousel().isHexNavigationActive();
+		const carousel = getSceneCarousel();
+		return (
+			isCarouselRoutePage(this.routeState.currentPage)
+			|| carousel.isHexNavigationActive()
+			|| carousel.isCaseBoundaryDrive()
+		);
 	}
 
 	_getCarouselActiveIdSet() {
 		const carousel = getSceneCarousel();
 		return new Set(carousel.getActiveSceneIds(getHexShaderProgress()));
+	}
+
+	/**
+	 * Page content hits: settled current page, or during hex/carousel mix the
+	 * scene that owns the pointer's screen-Y band (see hexHitOwnership.js).
+	 * Neighbors stay live for render/reverse, but must not steal the other band.
+	 * @returns {string | null}
+	 */
+	_resolveInteractiveSceneId(carousel, carouselHub) {
+		if (this.getPointerBlocked()) {
+			return null;
+		}
+
+		const { sourceId, targetId } = carousel.getMixSourceTargetIds();
+		const mixProgress = getHexShaderProgress();
+
+		if (mixProgress > 0.001) {
+			const pointer = this.getViewportPointer() ?? this.getPointer();
+			return resolveHexHitOwnerSceneId({
+				yNormFromTop: yNormFromTopFromNdcY(pointer?.y ?? 0),
+				mixProgress,
+				revealFromTop: getHexRevealFromTop(),
+				sourceId,
+				targetId,
+			});
+		}
+
+		// Hex click just started (progress≈0) or awaitingRoute edge: full screen = source.
+		if (carousel.isInteractionLocked()) {
+			return sourceId ?? carousel.currentId;
+		}
+
+		if (carouselHub) {
+			return carousel.currentId;
+		}
+		return this.activeId;
+	}
+
+	/** @param {boolean} acceptsPointer */
+	_withInteractionFrame(frame, acceptsPointer) {
+		if (acceptsPointer) {
+			return { ...frame, interactionEnabled: true };
+		}
+		return {
+			...frame,
+			pointer: { x: 0, y: 0 },
+			pointerDown: false,
+			pointerBlocked: true,
+			interactionEnabled: false,
+		};
 	}
 
 	setRouteState({ currentPage, teleportPage, routePhase, appStarted }) {
@@ -106,6 +167,7 @@ export class SceneManager {
 			this.activeId = nextId;
 		}
 		const carousel = getSceneCarousel();
+		carousel.confirmCaseBoundaryRoute(nextId);
 		const routeWasConfirmed = carousel.confirmHexNavigationRoute(nextId);
 		// The confirmation callback can immediately start a queued transition.
 		// In that case this route is only an intermediate frame and must not play
@@ -153,13 +215,41 @@ export class SceneManager {
 		return this.scenes.get(sceneId)?.isDomPresentationActive?.() === true;
 	}
 
+	/** @returns {import('./portfolio/caseStudyText/CaseStudyPanelHudMesh.js').CaseStudyPanelHudMesh[]} */
+	_getCasePanelHudList() {
+		if (!this._casePanelHuds) {
+			const list = [];
+			for (const scene of this.scenes.values()) {
+				if (scene?.panelHud) {
+					list.push(scene.panelHud);
+				}
+			}
+			this._casePanelHuds = list;
+		}
+		return this._casePanelHuds;
+	}
+
 	/** Case panel HUD presenters (WebGL left text) — for compose mode / screen overlay. */
 	forEachCasePanelHud(visitor) {
-		for (const scene of this.scenes.values()) {
-			if (scene?.panelHud) {
-				visitor(scene.panelHud);
-			}
+		for (const hud of this._getCasePanelHudList()) {
+			visitor(hud);
 		}
+	}
+
+	/** Open case's left HUD (or null). */
+	getActiveCasePanelHud() {
+		return this.getActiveScene()?.panelHud ?? null;
+	}
+
+	/**
+	 * Click-hex mix-preview target HUD (not during case-boundary scroll).
+	 * @param {string | null | undefined} previewSceneId
+	 */
+	getCasePanelHudBySceneId(previewSceneId) {
+		if (!previewSceneId) {
+			return null;
+		}
+		return this.scenes.get(previewSceneId)?.panelHud ?? null;
 	}
 
 	/** Компилирует материалы всех сцен под прелоадером, отдавая браузеру кадр между сценами. */
@@ -186,15 +276,15 @@ export class SceneManager {
 
 				await new Promise((resolve) => requestAnimationFrame(() => resolve()));
 
+				// Force-visible so prepare-hidden overlays (hero, case HUD, dormant hub)
+				// still compile under the preloader curtain.
 				const temporarilyVisible = [];
-				if (id !== "home") {
-					scene.traverse((object) => {
-						if (object.visible === false) {
-							temporarilyVisible.push(object);
-							object.visible = true;
-						}
-					});
-				}
+				scene.traverse((object) => {
+					if (object.visible === false) {
+						temporarilyVisible.push(object);
+						object.visible = true;
+					}
+				});
 
 				try {
 					const frame = this._withSceneProgressFrame(this.getFrameContext(), id, getSceneCarousel());
@@ -299,6 +389,77 @@ export class SceneManager {
 		}
 	}
 
+	/**
+	 * First real draw under the preloader curtain (compile ≠ draw).
+	 * Sync helper — prefer {@link warmupSceneDrawChunked} so update and GPU split across paints.
+	 * @param {string} sceneId
+	 * @param {"a"|"b"} [mixSlot]
+	 * @returns {THREE.Texture | null}
+	 */
+	warmupSceneDraw(sceneId, mixSlot = "b") {
+		const sceneObj = this.scenes.get(sceneId);
+		const target = this._getMixLayerRenderTarget(sceneId, mixSlot);
+		if (!sceneObj || !target || this._isContextLost()) {
+			return null;
+		}
+
+		const warmToken = sceneObj.beginWarmupDraw?.() ?? null;
+		try {
+			this._warmupSceneUpdate(sceneId, sceneObj);
+			return this._renderSceneLayer(sceneId, target, { force: true });
+		} finally {
+			sceneObj.endWarmupDraw?.(warmToken);
+		}
+	}
+
+	/**
+	 * Careful preloader draw: wake+update on one paint, GPU draw on the next.
+	 * Keeps the loader UI responsive — never stack update+heavy RT in one sync spike.
+	 * @param {string} sceneId
+	 * @param {"a"|"b"} mixSlot
+	 * @param {() => Promise<void>} yieldFn
+	 * @returns {Promise<THREE.Texture | null>}
+	 */
+	async warmupSceneDrawChunked(sceneId, mixSlot, yieldFn) {
+		const sceneObj = this.scenes.get(sceneId);
+		const target = this._getMixLayerRenderTarget(sceneId, mixSlot);
+		if (!sceneObj || !target || this._isContextLost()) {
+			return null;
+		}
+
+		const warmToken = sceneObj.beginWarmupDraw?.() ?? null;
+		try {
+			this._warmupSceneUpdate(sceneId, sceneObj);
+			await yieldFn();
+			if (this.disposed || this._isContextLost()) {
+				return null;
+			}
+			return this._renderSceneLayer(sceneId, target, { force: true });
+		} finally {
+			sceneObj.endWarmupDraw?.(warmToken);
+		}
+	}
+
+	_warmupSceneUpdate(sceneId, sceneObj) {
+		const frame = this._withSceneProgressFrame(this.getFrameContext(), sceneId, getSceneCarousel());
+		const updateFrame = this._withInteractionFrame(frame, false);
+		sceneObj.setPointerState?.({ pointerDown: false, pointerBlocked: true });
+		sceneObj.update?.(1 / 60, updateFrame);
+	}
+
+	/**
+	 * Warm order: ring leave/enter neighbors first, then cases.
+	 * One scene per chunked draw — never batch multiple RT draws in one frame.
+	 */
+	getWarmupDrawSceneIds() {
+		const ids = [...this.scenes.keys()];
+		const ringOrder = ["home", "portfolioHub", "about", "contacts"];
+		const ring = ringOrder.filter((id) => this.scenes.has(id));
+		const cases = ids.filter((id) => id.startsWith("case"));
+		const rest = ids.filter((id) => !ring.includes(id) && !cases.includes(id));
+		return [...ring, ...cases, ...rest];
+	}
+
 	update(delta) {
 		this.lastDelta = delta;
 		this._syncCaseMixPreview();
@@ -306,26 +467,36 @@ export class SceneManager {
 		const carouselHub = this.isCarouselHubActive();
 		const carousel = getSceneCarousel();
 		const carouselActiveIds = carouselHub ? this._getCarouselActiveIdSet() : null;
+		const interactiveId = this._resolveInteractiveSceneId(carousel, carouselHub);
 
 		for (const [id, scene] of this.scenes.entries()) {
 			const isActive = scene === this.getActiveScene();
 			const inCarousel = carouselActiveIds?.has(id) ?? false;
+			const acceptsPointer = id === interactiveId;
+			const pointerState = {
+				pointerDown: acceptsPointer ? frame.pointerDown : false,
+				pointerBlocked: !acceptsPointer || frame.pointerBlocked,
+			};
 
 			if (carouselHub) {
 				if (inCarousel) {
-					scene.setPointerState?.({ pointerDown: frame.pointerDown, pointerBlocked: frame.pointerBlocked });
-					scene.update?.(delta, this._withSceneProgressFrame(frame, id, carousel));
+					const sceneFrame = this._withInteractionFrame(
+						this._withSceneProgressFrame(frame, id, carousel),
+						acceptsPointer,
+					);
+					scene.setPointerState?.(pointerState);
+					scene.update?.(delta, sceneFrame);
 				} else if (scene.shouldKeepUpdating?.()) {
-					// Case scenes leaving via hex still need exit cleanup after the hub is active.
-					scene.setPointerState?.({ pointerDown: frame.pointerDown, pointerBlocked: frame.pointerBlocked });
-					scene.update?.(delta, frame);
+					// Case scenes leaving via hex — update for exit, never accept hub/page hits.
+					scene.setPointerState?.({ pointerDown: false, pointerBlocked: true });
+					scene.update?.(delta, this._withInteractionFrame(frame, false));
 				}
 				continue;
 			}
 
 			if (isActive || scene.shouldKeepUpdating?.()) {
-				scene.setPointerState?.({ pointerDown: frame.pointerDown, pointerBlocked: frame.pointerBlocked });
-				scene.update?.(delta, frame);
+				scene.setPointerState?.(pointerState);
+				scene.update?.(delta, this._withInteractionFrame(frame, acceptsPointer));
 			}
 		}
 	}
@@ -423,14 +594,19 @@ export class SceneManager {
 		return !gl || gl.isContextLost();
 	}
 
-	_renderSceneLayer(sceneId, layerTarget) {
+	/**
+	 * @param {string} sceneId
+	 * @param {THREE.WebGLRenderTarget | null | undefined} layerTarget
+	 * @param {{ force?: boolean }} [options] force — skip shouldRender empty-clear (preloader warm)
+	 */
+	_renderSceneLayer(sceneId, layerTarget, options = {}) {
 		const sceneObj = this.scenes.get(sceneId);
 		const target = layerTarget ?? this._getLayerRenderTarget(sceneId);
 		if (!sceneObj || !target) {
 			return null;
 		}
 
-		if (sceneObj.shouldRender?.() === false) {
+		if (!options.force && sceneObj.shouldRender?.() === false) {
 			const prevTarget = this.renderer.getRenderTarget();
 			const prevAutoClear = this.renderer.autoClear;
 			this.renderer.setRenderTarget(target);

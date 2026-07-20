@@ -3,7 +3,6 @@ import { getGraphicsTier } from "@/utils/getGraphicsTier.js";
 /**
  * Пресеты hero-сцены (цифровой океан + FBX кит). Камера — heroCamera.js.
  * low — shader-плоскость, без линий сетки; high — плотная сетка для Points.
- * Dev: панели 1–3, 8 (devPanelHotkeys.js) или ?whaleDev=1
  */
 
 const DIGITAL_WHALE_PRESETS = {

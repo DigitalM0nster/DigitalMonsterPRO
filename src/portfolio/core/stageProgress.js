@@ -9,7 +9,6 @@
 
 import { promoteCasePanelHudCanvases } from "./casePanelHudBridge.js";
 import { isCaseStageClickMosaicActive } from "./caseStageClickMosaic.js";
-import { logStageProgressCommit } from "@/portfolio/dev/stageProgressTraceLogger.js";
 
 /** Скорость догоняния stageProgress → stageProgressTarget (exp decay, 1/с). */
 export const STAGE_PROGRESS_SMOOTH = 4;
@@ -192,18 +191,11 @@ export function tickStageProgress(dt) {
 	const crossedBackward = stageProgress < -STAGE_PROGRESS_COMMIT_EPS;
 
 	if (crossedForward) {
-		const beforeTarget = stageProgressTarget;
 		const committed = stageCommitCallback?.("forward") === true;
 		if (committed) {
 			holdBackwardOvershoot = false;
 			stageProgress -= 1;
 			stageProgressTarget -= 1;
-			logStageProgressCommit("forward", {
-				beforeProgress,
-				afterProgress: stageProgress,
-				beforeTarget,
-				afterTarget: stageProgressTarget,
-			});
 			promoteCasePanelHudCanvases("forward");
 			return true;
 		}
@@ -214,7 +206,6 @@ export function tickStageProgress(dt) {
 	}
 
 	if (crossedBackward) {
-		const beforeTarget = stageProgressTarget;
 		const committed = stageCommitCallback?.("backward") === true;
 		if (committed) {
 			stageProgress += 1;
@@ -224,12 +215,6 @@ export function tickStageProgress(dt) {
 			if (stageProgressTarget < 0) {
 				stageProgressTarget = 0;
 			}
-			logStageProgressCommit("backward", {
-				beforeProgress,
-				afterProgress: stageProgress,
-				beforeTarget,
-				afterTarget: stageProgressTarget,
-			});
 			promoteCasePanelHudCanvases("backward");
 			return true;
 		}

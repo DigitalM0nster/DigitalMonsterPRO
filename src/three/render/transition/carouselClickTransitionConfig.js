@@ -9,7 +9,5 @@ export const carouselClickTransitionConfig = {
 /** Плавный click-progress с нулевой скоростью на обоих концах перехода. */
 export function easeCarouselClickProgress(value) {
 	const t = Math.max(0, Math.min(1, value));
-	return t < 0.5
-		? 4 * t * t * t
-		: 1 - Math.pow(-2 * t + 2, 3) / 2;
+	return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 }

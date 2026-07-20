@@ -192,83 +192,48 @@
 			.digitalMonsterLoaderContent {
 				position: absolute;
 				inset: 0;
+				display: flex;
+				align-items: center;
+				justify-content: center;
 				font-family: MazzardM, sans-serif;
 				text-align: center;
+				border-radius: 50%;
+				overflow: hidden;
 			}
-			.digitalMonsterLoaderBrand {
-				position: absolute;
-				top: 19.5%;
-				left: 50%;
+			/* Brand + % / loading / bar — one block dead-center (no language until React @ 100%). */
+			.digitalMonsterLoaderMain {
+				position: relative;
 				display: flex;
 				flex-direction: column;
+				align-items: center;
+				width: min(78%, 420px);
+			}
+			.digitalMonsterLoaderBrand {
+				display: flex;
+				flex-direction: column;
+				align-items: center;
 				color: #f5f9ff;
 				font-family: Aquire, ManifoldExtended, sans-serif;
-				font-size: clamp(48px, 3.35vw, 68px);
+				font-size: clamp(42px, 3.1vw, 62px);
 				font-weight: 300;
 				line-height: 1.06;
 				letter-spacing: 10px;
 				white-space: nowrap;
-				transform: translateX(-50%);
 			}
-			.digitalMonsterLoaderLanguageLabel {
-				position: absolute;
-				top: 41.2%;
-				left: 50%;
-				color: rgba(218, 224, 230, 0.64);
-				font:
-					300 17px/1 MazzardM,
-					sans-serif;
-				white-space: nowrap;
-				transform: translateX(-50%);
-			}
-			.digitalMonsterLoaderLanguages {
-				position: absolute;
-				top: 47%;
-				left: 50%;
-				display: grid;
-				grid-template-columns: repeat(3, 1fr);
-				gap: 16px;
-				width: 74%;
-				transform: translateX(-50%);
-			}
-			.digitalMonsterLoaderLanguages button {
+			.digitalMonsterLoaderSwap {
 				position: relative;
-				height: 54px;
-				overflow: hidden;
-				border: 1px solid rgba(121, 144, 153, 0.28);
-				border-radius: 2px;
-				color: rgba(174, 188, 194, 0.34);
-				background: rgba(2, 7, 10, 0.7);
-				box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.72);
-				font:
-					300 17px/1 MazzardM,
-					sans-serif;
-				white-space: nowrap;
-				cursor: not-allowed;
-			}
-			.digitalMonsterLoaderLanguages button:disabled:hover {
-				color: transparent;
-			}
-			.digitalMonsterLoaderLanguages button:disabled:hover::after {
-				content: attr(data-loading-label);
-				position: absolute;
-				inset: 0;
-				display: grid;
-				place-items: center;
-				color: rgba(99, 218, 240, 0.72);
-				font-size: 10px;
-				line-height: 1;
-				white-space: nowrap;
-			}
-			.digitalMonsterLoaderProgress {
-				position: absolute;
-				top: 60.8%;
-				left: 50%;
 				display: flex;
 				flex-direction: column;
 				align-items: center;
 				width: 100%;
-				transform: translateX(-50%);
+				margin-top: 14px;
+			}
+			.digitalMonsterLoaderProgress {
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				width: 100%;
+				margin-top: 0;
 			}
 			.digitalMonsterLoaderProgress strong {
 				color: #f4f8ff;
@@ -287,9 +252,9 @@
 			.digitalMonsterLoaderTrack {
 				position: relative;
 				width: 54%;
-				height: 1px;
+				height: 2px;
 				margin-top: 29px;
-				background: rgba(231, 235, 238, 0.55);
+				background: rgba(231, 235, 238, 0.25);
 				overflow: visible;
 			}
 			.digitalMonsterLoaderTrack i {
@@ -350,16 +315,6 @@
 				.digitalMonsterLoaderBrand {
 					font-size: clamp(34px, 8vw, 52px);
 				}
-				.digitalMonsterLoaderLanguageLabel {
-					font-size: clamp(11px, 2.4vw, 15px);
-				}
-				.digitalMonsterLoaderLanguages {
-					gap: 8px;
-				}
-				.digitalMonsterLoaderLanguages button {
-					height: 46px;
-					font-size: 13px;
-				}
 				.digitalMonsterLoaderProgress strong {
 					font-size: clamp(32px, 8vw, 48px);
 				}
@@ -383,17 +338,15 @@
 						<circle class="loaderRingDotted" cx="500" cy="500" r="438"></circle>
 					</svg>
 					<div class="digitalMonsterLoaderContent">
-						<div class="digitalMonsterLoaderBrand"><span>DIGITAL</span><span>MONSTER</span></div>
-						<div class="digitalMonsterLoaderLanguageLabel">ВЫБЕРИТЕ ЯЗЫК / SELECT LANGUAGE / 选择语言</div>
-						<div class="digitalMonsterLoaderLanguages">
-							<button type="button" data-loading-label="Дождитесь загрузки" disabled>РУССКИЙ</button
-							><button type="button" data-loading-label="Please wait" disabled>ENGLISH</button
-							><button type="button" data-loading-label="请等待加载" disabled>中文</button>
-						</div>
-						<div class="digitalMonsterLoaderProgress">
-							<strong id="bootstrapLoaderPercent">0%</strong>
-							<span>ЗАГРУЗКА / LOADING</span>
-							<div class="digitalMonsterLoaderTrack"><i id="bootstrapLoaderTrack"></i><span class="digitalMonsterLoaderSnake" aria-hidden="true"></span></div>
+						<div class="digitalMonsterLoaderMain">
+							<div class="digitalMonsterLoaderBrand"><span>DIGITAL</span><span>MONSTER</span></div>
+							<div class="digitalMonsterLoaderSwap">
+								<div class="digitalMonsterLoaderProgress">
+									<strong id="bootstrapLoaderPercent">0%</strong>
+									<span>ЗАГРУЗКА / LOADING</span>
+									<div class="digitalMonsterLoaderTrack"><i id="bootstrapLoaderTrack"></i><span class="digitalMonsterLoaderSnake" aria-hidden="true"></span></div>
+								</div>
+							</div>
 						</div>
 					</div>
 				</div>
@@ -405,6 +358,8 @@
 			window.__loaderBootstrapSnakeHead = 0;
 			window.__loaderBootstrapSnakeTail = 0;
 			window.__loaderBootstrapResourceBonus = 0;
+			// Visible-only elapsed — wall-clock jumps to 98% after a long background tab.
+			window.__loaderBootstrapActiveElapsed = 0;
 			window.__loaderBootstrapLastTs = performance.now();
 			if ("PerformanceObserver" in window) {
 				window.__loaderBootstrapObserver = new PerformanceObserver(function (list) {
@@ -419,10 +374,16 @@
 			}
 			function __loaderBootstrapTick(now) {
 				window.__loaderBootstrapRaf = requestAnimationFrame(__loaderBootstrapTick);
+				// Pause fake progress while hidden; rAF still reschedules so we resume cleanly.
+				if (document.hidden) {
+					window.__loaderBootstrapLastTs = now;
+					return;
+				}
 				var last = window.__loaderBootstrapLastTs || now;
 				window.__loaderBootstrapLastTs = now;
 				var dt = Math.max(0.001, Math.min(0.05, (now - last) / 1000));
-				var elapsed = (Date.now() - window.__loaderBootstrapStartedAt) / 1000;
+				window.__loaderBootstrapActiveElapsed += dt;
+				var elapsed = window.__loaderBootstrapActiveElapsed;
 				var continuous = Math.min(98.5, Math.min(12, elapsed * 1.5) + Math.max(0, elapsed - 8) * 0.45);
 				var progress = Math.min(98.5, continuous + window.__loaderBootstrapResourceBonus);
 				window.__loaderBootstrapProgress = progress;
@@ -450,6 +411,9 @@
 					loader.style.setProperty("--loader-tip-opacity", head >= 99.9 ? "0" : "1");
 				}
 			}
+			document.addEventListener("visibilitychange", function () {
+				window.__loaderBootstrapLastTs = performance.now();
+			});
 			window.__loaderBootstrapRaf = requestAnimationFrame(__loaderBootstrapTick);
 		</script>
 		<script type="module" src="/src/main.jsx"></script>

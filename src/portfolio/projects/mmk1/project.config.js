@@ -1,8 +1,8 @@
 /** @type {import('@/portfolio/core/types.js').PortfolioProjectConfig} */
 const projectConfig = {
-	id: "03",
+	id: "04",
 	slug: "mmk1",
-	route: "/portfolio/03",
+	route: "/portfolio/04",
 	title: "MMK-1",
 	summary: "Аренда башенных кранов",
 	hubLogo: "/images/portfolio/case3.webp",
@@ -37,7 +37,7 @@ const projectConfig = {
 		},
 		mobileHorizontalSwipe: true,
 		panelWidth: { min: 460, max: 560, ratio: 0.27 },
-		contentTopPx: 100,
+		contentTopPx: 176,
 		contentBottomInsetPx: 48,
 		leftPanel: {
 			gapAfterBadge: 20,

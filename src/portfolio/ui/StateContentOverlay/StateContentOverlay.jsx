@@ -3,7 +3,7 @@ import InvestigationPanel from "../InvestigationPanel/InvestigationPanel.jsx";
 
 /**
  * HTML-слой только для режима investigation (hotspot).
- * Основной HUD кейса — CaseStudyCanvasUI.
+ * Case HUD: WebGL left panel; arc chrome is CaseStudyArcOverlay (site-level).
  *
  * @param {{ isInvestigating: boolean }} props
  */

@@ -8,14 +8,14 @@ import {
 } from "./atenCharSnakeAnimation.js";
 import "./leftMenuGlitchText.scss";
 
-/** Два glitch-символа на букву — как span.symbol у Aten7. */
+/** Все glitch-символы буквы — как replacements в hub GlitchSnakeEngine (обычно 3). */
 function getAtenSymbols(letter) {
 	if (letter === " ") {
 		return [];
 	}
 	const replacements = glitchLetterReplacements[letter.toUpperCase()] ?? "XY";
 	const chars = replacements.split("").filter((char) => char !== " ");
-	return [chars[0] ?? "X", chars[1] ?? chars[0] ?? "Y"];
+	return chars.length > 0 ? chars : ["X", "Y"];
 }
 
 /** Разбивает текст на слова и пробелы — отдельные inline-block группы как у Aten7. */
@@ -73,8 +73,19 @@ const LeftMenuGlitchLabel = forwardRef(function LeftMenuGlitchLabel(
 	ref,
 ) {
 	const rootRef = useRef(null);
+	const activeRef = useRef(active);
+	const isDisplayedRef = useRef(isDisplayed);
+	activeRef.current = active;
+	isDisplayedRef.current = isDisplayed;
 
 	useLayoutEffect(() => {
+		// Hidden labels: skip Aten rebuild/hide pass on locale (home hitch).
+		// Do NOT depend on active/isDisplayed — pointer-leave clears .active while
+		// disappear snake is still running; prepareAtenHidden would wipe it instantly
+		// (only the current-page item kept .active and looked correct).
+		if (!activeRef.current && !isDisplayedRef.current) {
+			return;
+		}
 		prepareAtenHidden(rootRef.current);
 	}, [text]);
 
@@ -82,6 +93,8 @@ const LeftMenuGlitchLabel = forwardRef(function LeftMenuGlitchLabel(
 		ref,
 		() => ({
 			playAppear(options = {}) {
+				// Locale may have updated while hidden without prepareAtenHidden.
+				prepareAtenHidden(rootRef.current);
 				return runAtenCharSnake(rootRef.current, "appear", { ...options, reverseOrder: reverse });
 			},
 			playDisappear(options = {}) {

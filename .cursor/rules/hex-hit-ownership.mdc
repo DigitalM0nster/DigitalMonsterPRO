@@ -1,0 +1,29 @@
+---
+description: During hex/carousel mix, page clicks/hovers follow screen-Y bands by mixProgress — not full-screen idle.
+alwaysApply: true
+---
+
+# Hex / carousel hit ownership (Y-bands)
+
+While a page participates in a hex or carousel mix, its content hits stay live but only inside the screen band it owns.
+
+- **Forward** (`P = mixProgress`): top `(1−P)` → source (current), bottom `P` → target (next). At `P=0.8` → top 20% current, bottom 80% next.
+- **Backward**: invert bands (reveal from top).
+- **Rest** (`P≈0`): full screen → current page.
+- **Global chrome** (left menu, page-dot navigator, locale) is not Y-gated.
+
+## Implementation
+
+1. Read [`src/three/render/transition/PAGE_INTERACTION.md`](src/three/render/transition/PAGE_INTERACTION.md).
+2. WebGL: `SceneManager._resolveInteractiveSceneId` + `hexHitOwnership.js`.
+3. HTML / `window` listeners: same helper (`sceneOwnsHexHitAtClientY` / `caseChromeOwnsHexHitAtClientY`). Do not invent a second progress rule.
+4. Scene self-checks may require `interactionEnabled`, but must **not** blanket-ban `hexProgress > 0`.
+5. Keep it **O(1)** — no per-hex-cell CPU hit tests for ordinary clicks.
+
+```js
+// ❌ BAD — kills all page hits during transition
+if (getHexShaderProgress() > 0.001) return;
+
+// ✅ GOOD — only the Y-band owner receives the pointer
+if (!sceneOwnsHexHitAtClientY("home", event.clientY)) return;
+```

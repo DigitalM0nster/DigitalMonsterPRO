@@ -23,7 +23,7 @@ function restoreRootForShow(root) {
 	delete root.raycast;
 }
 
-const CASE4_PATH = `/portfolio/04`;
+const CASE4_PATH = `/portfolio/06`;
 
 export default forwardRef(function Case4Model(props, ref) {
 	const store = useStore();

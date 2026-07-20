@@ -26,9 +26,10 @@ import { easing } from "maath";
 import { fadeOutSound, playHubCardMovementSound, playSound } from "../../../sounds/soundDesign.js";
 import { requestPortfolioCaseNavigation } from "../../../utils/portfolioHubNavigate.js";
 import { resetPortfolioHubBackgroundFocus, commitPortfolioHubFocusIndex } from "../../../utils/portfolioHubBackground.js";
-import { getSceneCarousel } from "../../render/transition/carouselPage.js";
+import { getSceneCarousel } from "@/three/render/transition/carouselPage.js";
 import { getHexShaderProgress } from "../../render/overlay/hexShaderProgress.js";
-import { isCarouselProgressAtSegmentStart } from "@/three/scenes/lifecycle/sceneLifecycle.js";
+import { shouldAnimateSiteLocaleForRingScene } from "@/utils/siteLocaleSwitch.js";
+import { isCarouselProgressAtSegmentStart, isRingDormantReason } from "@/three/scenes/lifecycle/sceneLifecycle.js";
 import { applySceneProgressToCamera } from "../utils/applySceneProgressToCamera.js";
 import { getLoaderCurtainRemainingMs } from "../../../config/loaderCurtain.js";
 
@@ -101,7 +102,7 @@ export class PortfolioHubScene {
 
 		this.showHub = false;
 		this.enterActive = false;
-		/** dormant — плиты в enter-позе, invisible; entering/active/exiting — анимации. */
+		/** dormant — стартовая поза, opacity 0, HUD спрятан; entering — opacity 0→1. */
 		this._hubLifecycle = "dormant";
 		this.lastRouteKey = "";
 		/** Текущий отображаемый роут — для HUD списка проектов (только /portfolio). */
@@ -127,6 +128,8 @@ export class PortfolioHubScene {
 			getProjectsColumn: () => this.screenTitle?.projectsColumn,
 			getPlateLabels: () => this.plateProjectLabels,
 			getPlateDetailsButtons: () => this.plateDetailsButtons,
+			// Animate only while hub is the current page — previous/next stay warm.
+			shouldAnimateLocale: () => shouldAnimateSiteLocaleForRingScene("portfolioHub") && (this._hubLifecycle === "active" || this._hubLifecycle === "entering"),
 		});
 		this._logoRevealAlpha = 0;
 		this._devPlateLabelRevealOverride = null;
@@ -390,12 +393,7 @@ export class PortfolioHubScene {
 			this._syncScreenTitleVisibility();
 		});
 
-		return Promise.allSettled([
-			this.centerPlateLogos.readyPromise,
-			labelsReady,
-			detailsReady,
-			screenTitleReady,
-		]);
+		return Promise.allSettled([this.centerPlateLogos.readyPromise, labelsReady, detailsReady, screenTitleReady]);
 	}
 
 	_getScreenTitleVisibility() {
@@ -573,8 +571,16 @@ export class PortfolioHubScene {
 		this._applyPlateOpacity(0);
 	}
 
-	/** Плиты в сцене, но invisible — для постоянного dual-render без пересоздания. */
+	/**
+	 * Dormant: стартовая поза, opacity 0, HUD спрятан.
+	 * Cheap on purpose — runs on the same commit frame as home land; no plate
+	 * position loops / texture uploads here.
+	 */
 	_ensureDormantState() {
+		if (this._hubLifecycle === "dormant" && this._gridEnterProgress <= 0 && this._carouselEnterPending) {
+			return;
+		}
+
 		resetPortfolioHubBackgroundFocus(appStore);
 		this.screenTitle?.stashProjectsHiddenForDormant?.();
 		this._clearHubEnterDelayTimer();
@@ -584,13 +590,12 @@ export class PortfolioHubScene {
 		this.showHub = true;
 		this.enterActive = true;
 		this.root.visible = true;
-		this._gridEnterProgress = 0;
 		this._logoRevealAlpha = 0;
 		this._cursorTiltRotX = 0;
 		this._cursorTiltRotY = 0;
 		this._resetPlateElementHover();
+		this._gridEnterProgress = 0;
 		this._applyGridTransformAtProgress(0);
-		this.platesRenderer.resetProjectPlatePositions();
 		this._applyPlateOpacity(0);
 		this.centerPlateLogos?.updatePlate?.(null);
 		this.centerPlateLogos?.setRevealAlpha?.(0, { entering: false });
@@ -615,23 +620,30 @@ export class PortfolioHubScene {
 	}
 
 	/**
-	 * Reset — dormant: плиты в enter-позе, HUD спрятан.
-	 * next-reset только при progress≈0; на активном /portfolio не трогаем список.
+	 * Ring dormant (next-only): start pose, opacity 0, HUD stashed.
+	 * Ignore leave-pose / route — page stays live as `previous` for reverse.
 	 */
 	resetCarouselState(ctx = {}) {
-		const { reason, carouselProgress } = ctx;
+		const { reason, carouselProgress, role, prevRole } = ctx;
 
-		if (reason === "became-next-at-rest" || reason === "hex-target-at-rest") {
-			if (Number.isFinite(carouselProgress) && !isCarouselProgressAtSegmentStart(carouselProgress)) {
-				return;
-			}
-
-			if (isPortfolioHubPath(this._routeDisplayedPage) && (this._hubLifecycle === "active" || this._hubLifecycle === "entering")) {
-				return;
-			}
+		if (!isRingDormantReason(reason)) {
+			return;
 		}
 
-		// returned-to-rest-as-next / became-previous — всегда сбрасываем (уже ушли с hub).
+		if (Number.isFinite(carouselProgress) && !isCarouselProgressAtSegmentStart(carouselProgress)) {
+			return;
+		}
+
+		// Defense in depth: never dormant on current→next commit frame.
+		if (role === "next" && prevRole === "current") {
+			return;
+		}
+
+		// Still the live hub page in the ring — never wipe mid-stay.
+		if (role === "current" || getSceneCarousel().currentId === "portfolioHub") {
+			return;
+		}
+
 		this._ensureDormantState();
 	}
 
@@ -642,7 +654,7 @@ export class PortfolioHubScene {
 		}
 	}
 
-	/** Анимация появления — только после carousel reset (dormant). */
+	/** Анимация появления — после carousel dormant, или list-only при reverse как previous. */
 	playEnterAnimation() {
 		if (this._gridExitActive || this._hubLifecycle === "exiting") {
 			this._cancelGridExitForReenter();
@@ -658,6 +670,11 @@ export class PortfolioHubScene {
 		}
 
 		if (!this._carouselEnterPending) {
+			// About→hub (and any reverse while hub stayed live as `previous`): plates stay up,
+			// route only hid the list — re-snake without grid enter / dormant wake.
+			if (this._hubLifecycle === "active" && this._gridEnterProgress >= 1 && isPortfolioHubPath(this._routeDisplayedPage)) {
+				this._playProjectsListReenterOnly();
+			}
 			return;
 		}
 
@@ -677,7 +694,34 @@ export class PortfolioHubScene {
 		this._playEnterAnimationImmediate();
 	}
 
-	/** Сетка сразу; фокус первой плиты сразу; список — чуть позже. */
+	/**
+	 * List snake only — hub already live (previous for reverse). Do not wake plates / grid enter.
+	 */
+	_playProjectsListReenterOnly() {
+		this._clearHubEnterDelayTimer();
+		this.screenTitle?.stashProjectsHiddenForDormant?.();
+		this._lastHudTitleVisibility = 0;
+		this.screenTitle?.setVisibility(0);
+		// Locale may have changed on About/home while hub stayed previous — snake it now.
+		void this.plateProjectLabels?.playPendingLocaleReveal?.(portfolioHubPlatesConfig);
+		void this.plateDetailsButtons?.playPendingLocaleReveal?.(portfolioHubPlatesConfig);
+		this._scheduleProjectsIntro();
+	}
+
+	_scheduleProjectsIntro() {
+		this._clearProjectsIntroDelayTimer();
+		const listDelayMs = Math.max(0, portfolioHubPlatesConfig.gridEnter?.listIntroDelayMs ?? 0);
+		if (listDelayMs > 0) {
+			this._projectsIntroDelayTimer = setTimeout(() => {
+				this._projectsIntroDelayTimer = 0;
+				this.screenTitle?.requestProjectsIntro?.();
+			}, listDelayMs);
+			return;
+		}
+		this.screenTitle?.requestProjectsIntro?.();
+	}
+
+	/** Сетка: opacity 0→1 + transform enter; фокус сразу; список — чуть позже. */
 	_playEnterAnimationImmediate() {
 		if (!this._carouselEnterPending) {
 			return;
@@ -692,17 +736,11 @@ export class PortfolioHubScene {
 		this._wakeHub();
 		// Plate slide + logo/label reveal — сразу, не ждать змейку списка.
 		commitPortfolioHubFocusIndex(appStore, 0);
+		// Locale may have changed while hub was previous/next — snake after focus is set.
+		void this.plateProjectLabels?.playPendingLocaleReveal?.(portfolioHubPlatesConfig);
+		void this.plateDetailsButtons?.playPendingLocaleReveal?.(portfolioHubPlatesConfig);
 
-		this._clearProjectsIntroDelayTimer();
-		const listDelayMs = Math.max(0, portfolioHubPlatesConfig.gridEnter?.listIntroDelayMs ?? 0);
-		if (listDelayMs > 0) {
-			this._projectsIntroDelayTimer = setTimeout(() => {
-				this._projectsIntroDelayTimer = 0;
-				this.screenTitle?.requestProjectsIntro?.();
-			}, listDelayMs);
-		} else {
-			this.screenTitle?.requestProjectsIntro?.();
-		}
+		this._scheduleProjectsIntro();
 	}
 
 	_clearHubEnterDelayTimer() {
@@ -726,10 +764,9 @@ export class PortfolioHubScene {
 	}
 
 	_getGridEnterVisibility(progress) {
-		const enter = portfolioHubPlatesConfig.gridEnter;
-		const fromOpacity = enter?.fromOpacity ?? 0;
+		// Dormant is always opacity 0 — enter eases 0→1 (ignore mid-start fromOpacity).
 		const t = easeInOutCubic(clamp01(progress));
-		return fromOpacity + (1 - fromOpacity) * t;
+		return t;
 	}
 
 	_updateGridEnterAnimation(nowSeconds) {
@@ -835,24 +872,64 @@ export class PortfolioHubScene {
 	}
 
 	shouldRender() {
-		if (!this.showHub || !this.root.visible) {
-			return false;
-		}
-
-		// Dormant hub как target в паре mix — пустой RT (hex при progress=0 всё равно берёт A).
-		if (this._hubLifecycle === "dormant") {
-			const { sourceId, targetId } = getSceneCarousel().getMixSourceTargetIds();
-			if (targetId === "portfolioHub" && sourceId !== "portfolioHub") {
-				return false;
-			}
-		}
-
-		return true;
+		// Never clear an empty RT for dormant hub — that cold-started plates on return.
+		return Boolean(this.showHub && this.root.visible);
 	}
 
-	/** Хаб всегда в dual-render паре с главной. */
+	/**
+	 * Preloader: force a real plates draw (opacity 1), then restore prior state.
+	 * Dormant hub skips shouldRender — first hex to/from hub would cold-start InstancedMesh.
+	 */
+	beginWarmupDraw() {
+		const token = {
+			showHub: this.showHub,
+			rootVisible: this.root?.visible === true,
+			gridEnterProgress: this._gridEnterProgress,
+			hubLifecycle: this._hubLifecycle,
+			logoRevealAlpha: this._logoRevealAlpha,
+		};
+		this.showHub = true;
+		if (this.root) {
+			this.root.visible = true;
+		}
+		this._gridEnterProgress = 1;
+		this._applyGridTransformAtProgress(1);
+		this._applyPlateOpacity(1);
+		this._logoRevealAlpha = 1;
+		this.centerPlateLogos?.setRevealAlpha?.(1, { entering: false });
+		return token;
+	}
+
+	endWarmupDraw(token) {
+		if (!token) {
+			return;
+		}
+		this.showHub = token.showHub;
+		if (this.root) {
+			this.root.visible = token.rootVisible;
+		}
+		this._gridEnterProgress = token.gridEnterProgress;
+		this._hubLifecycle = token.hubLifecycle;
+		this._logoRevealAlpha = token.logoRevealAlpha;
+		this._applyGridTransformAtProgress(token.gridEnterProgress);
+		this._applyPlateOpacity(token.gridEnterProgress > 0.001 && token.hubLifecycle !== "dormant" ? 1 : 0);
+		this.centerPlateLogos?.setRevealAlpha?.(token.logoRevealAlpha, { entering: false });
+		if (!token.showHub) {
+			this.showHub = false;
+			if (this.root) {
+				this.root.visible = false;
+			}
+		}
+	}
+
+	/** Хаб всегда в dual-render паре с соседями кольца. */
 	shouldKeepUpdating() {
 		return this.showHub;
+	}
+
+	/** Keep-alive full-scene draws were removed — they hitch home. Meshes stay in graph. */
+	needsRenderKeepAlive() {
+		return false;
 	}
 
 	getScene() {
@@ -875,7 +952,9 @@ export class PortfolioHubScene {
 				position: [cam.position[0], cam.position[1], baseZ],
 				lookAt: cam.lookAt,
 				fov: cam.fov,
-				scrollZ: 5,
+				/** +sceneProgress → content rises (scroll down). */
+				scrollY: 2.1,
+				scrollZ: 2.0,
 			},
 			sceneProgress,
 		);
@@ -955,9 +1034,7 @@ export class PortfolioHubScene {
 
 	_createPlateMaterial(m = portfolioHubPlatesConfig.material, role = "project") {
 		const typeKey = role === "decor" ? (m.decorType ?? m.type) : m.type;
-		const type = typeKey === "basic" || typeKey === "standard" || typeKey === "physical"
-			? typeKey
-			: "standard";
+		const type = typeKey === "basic" || typeKey === "standard" || typeKey === "physical" ? typeKey : "standard";
 		const color = new THREE.Color(m.color);
 		const opacity = m.opacity ?? 1;
 		const roughness = m.roughness ?? 0.07;
@@ -1089,12 +1166,23 @@ export class PortfolioHubScene {
 		this._plateHovered = hits.length > 0;
 	}
 
+	/**
+	 * Hub plates/list: SceneManager assigns interactionEnabled for the Y-band owner
+	 * during hex/carousel mix (source or target). Do not re-ban on hex progress here.
+	 */
+	_canAcceptHubInteraction(frame) {
+		if (frame?.pointerBlocked || frame?.interactionEnabled === false) {
+			return false;
+		}
+		return Boolean(this.showHub && this.root.visible);
+	}
+
 	/** Hit-test активной плитки: один Raycaster по одному mesh, recursive=false. */
 	_updatePlateElementHover(delta, frame) {
 		const hoverCfg = portfolioHubPlatesConfig.interaction?.hoverMotion;
 		const focusIndex = appStore.portfolioHubFocusIndex ?? -1;
 		const minReveal = hoverCfg?.minRevealAlpha ?? 0.55;
-		const canHover = focusIndex >= 0 && this._logoRevealAlpha >= minReveal && this._gridEnterProgress >= 1 && !this._gridExitActive;
+		const canHover = this._canAcceptHubInteraction(frame) && focusIndex >= 0 && this._logoRevealAlpha >= minReveal && this._gridEnterProgress >= 1 && !this._gridExitActive;
 
 		if (!canHover || !frame?.camera || !frame?.pointer) {
 			this._plateHovered = false;
@@ -1146,7 +1234,7 @@ export class PortfolioHubScene {
 
 	/** Клик по активной плитке → страница кейса. */
 	_tryOpenFocusedPlateOnClick(frame) {
-		if (!this.showHub || !frame?.camera || !frame?.pointer) {
+		if (!this._canAcceptHubInteraction(frame) || !frame?.camera || !frame?.pointer) {
 			return;
 		}
 
@@ -1175,10 +1263,12 @@ export class PortfolioHubScene {
 	}
 
 	/** pointer.y → rotX, pointer.x → rotY; сглаживание поверх gridRotation. @returns {boolean} changed */
-	_updateCursorGridTilt(delta, pointer) {
+	_updateCursorGridTilt(delta, pointer, frame = null) {
 		const cfg = portfolioHubPlatesConfig.interaction?.cursorGridTilt;
-		const canTilt = cfg && this.showHub && this.root.visible && this._gridEnterProgress >= 1 && !this._gridExitActive;
+		const canTilt = cfg && this._canAcceptHubInteraction(frame) && this._gridEnterProgress >= 1 && !this._gridExitActive;
 
+		// Left menu / chrome sets pointerBlocked → target 0, but still ease back.
+		// Hard-zero on !canTilt snapped the hub when hovering the menu.
 		const targetX = canTilt ? pointer.y * cfg.rotXRange : 0;
 		const targetY = canTilt ? pointer.x * cfg.rotYRange : 0;
 		const smooth = Math.max(cfg?.smoothDuration ?? 0.22, 0.001);
@@ -1189,8 +1279,7 @@ export class PortfolioHubScene {
 		this._cursorTiltRotX += (targetX - this._cursorTiltRotX) * t;
 		this._cursorTiltRotY += (targetY - this._cursorTiltRotY) * t;
 
-		if (!canTilt || (Math.abs(this._cursorTiltRotX) < 0.0001 && Math.abs(this._cursorTiltRotY) < 0.0001
-			&& Math.abs(targetX) < 0.0001 && Math.abs(targetY) < 0.0001)) {
+		if (Math.abs(this._cursorTiltRotX) < 0.0001 && Math.abs(this._cursorTiltRotY) < 0.0001 && Math.abs(targetX) < 0.0001 && Math.abs(targetY) < 0.0001) {
 			this._cursorTiltRotX = 0;
 			this._cursorTiltRotY = 0;
 		}
@@ -1404,6 +1493,7 @@ export class PortfolioHubScene {
 		if (mixProgress > 0.0001) {
 			const { targetId } = getSceneCarousel().getMixSourceTargetIds();
 			if (targetId === "portfolioHub" && this._hubLifecycle === "dormant") {
+				// Dormant plates are opacity 0 — bloom follows the wipe / enter.
 				return clamp01(mixProgress);
 			}
 		}
@@ -1461,13 +1551,12 @@ export class PortfolioHubScene {
 			const nowSeconds = performance.now() / 1000;
 			const pointer = frame?.pointer ?? { x: 0, y: 0 };
 
-			const tiltChanged = this._updateCursorGridTilt(_delta, pointer);
+			const tiltChanged = this._updateCursorGridTilt(_delta, pointer, frame);
 			this._updatePlateElementHover(_delta, frame);
 
 			if (this._pointerClickPending) {
 				this._pointerClickPending = false;
-				const canPickProjectsList =
-					isPortfolioHubPath(this._routeDisplayedPage) && (this._lastHudTitleVisibility ?? 0) > 0.001;
+				const canPickProjectsList = this._canAcceptHubInteraction(frame) && isPortfolioHubPath(this._routeDisplayedPage) && (this._lastHudTitleVisibility ?? 0) > 0.001;
 				if (!canPickProjectsList) {
 					this.screenTitle.clearProjectsPointerHit?.();
 				} else if (!this.screenTitle.tryOpenProjectOnClick()) {

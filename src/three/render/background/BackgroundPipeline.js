@@ -1,20 +1,24 @@
 import * as THREE from "three";
-import { EffectComposer, EffectPass, RenderPass } from "postprocessing";
-import { RGBELoader } from "three-stdlib";
 import { easing } from "maath";
-import BackgroundLiquidDistortionEffect from "../../../components/3D/effects/backgroundLiquid/BackgroundLiquidDistortion.jsx";
 import { ROUTE_TRANSITION_ENTER_MS } from "../../../config/routeTransition.js";
 import { isPortfolioHubPath, isPortfolioCasePath } from "../../scenes/portfolio/hub/projectsData.js";
 import { getHubBackgroundTargetScale, portfolioHubPlatesConfig } from "../../scenes/portfolio/hub/portfolioHubConfig.js";
 import { case1PostProcessConfig } from "../../scenes/portfolio/case1/case1PostProcessConfig.js";
-import { configureBackgroundRenderPass, renderComposerToTexture } from "../composerUtils.js";
 import { getBackgroundBrightnessTarget, getCarouselBackgroundTargets } from "../../../utils/backgroundBrightness.js";
 import { isCarouselRoutePage } from "../transition/SceneCarousel.js";
+import {
+	LIQUID_FRAME_STRIDE,
+	LIQUID_RT_SCALE,
+	createBackgroundLiquidDraw,
+	createBackgroundLiquidMaterial,
+	createBackgroundLiquidTarget,
+	syncBackgroundLiquidTuneUniforms,
+} from "./backgroundLiquidPass.js";
+import { backgroundLiquidTune } from "./backgroundLiquidTune.js";
 
 const BG_ENTER_SMOOTH_SEC = ROUTE_TRANSITION_ENTER_MS / 1000;
-/** Временно: заморозить анимацию liquid-фона (noise по iTime). */
+/** Временно: заморозить анимацию liquid-фона. */
 const PAUSE_BACKGROUND_ANIMATION = false;
-const backgroundScene = new THREE.Scene();
 
 function brightnessForPage(page) {
 	return getBackgroundBrightnessTarget(page);
@@ -31,17 +35,13 @@ function resolveBrightnessTarget(currentPage, teleportPage, routePhase) {
 }
 
 /**
- * Liquid HDR-фон — fullscreen, без border blur / «экранчика».
+ * Balatro-style liquid background — fullscreen shader RT, no HDR / EffectComposer.
  */
 export class BackgroundPipeline {
 	constructor(renderer, camera, store) {
 		this.renderer = renderer;
 		this.camera = camera;
 		this.store = store;
-
-		this.composer = new EffectComposer(renderer, { multisampling: 0, stencilBuffer: false });
-		this.composer.addPass(new RenderPass(backgroundScene, camera));
-		configureBackgroundRenderPass(this.composer);
 
 		this.liquidScale = { current: 1 };
 		this.brightness = { current: store.backgroundBrightness ?? 1 };
@@ -52,53 +52,61 @@ export class BackgroundPipeline {
 		this.teleportPage = "/";
 		this.routePhase = "idle";
 
+		this.liquidMaterial = null;
+		/** Facade: legacy callers use liquidEffect.distortionColor.set(...) */
 		this.liquidEffect = null;
-		this.liquidPass = null;
-		this.hdrTexture = null;
+		this.draw = null;
+		this.target = null;
 		this.lastTexture = null;
-		/** Stride counter: reuse last liquid RT every other frame when idle (still animates). */
+		/** Stride: reuse last liquid RT every other frame when settled. */
 		this._liquidComposerStride = 0;
 		this.size = { w: 0, h: 0 };
 		this._disposed = false;
 		this.ready = false;
-		this.readyPromise = this._loadHdr();
+		this.readyPromise = this._init();
 	}
 
-	async _loadHdr() {
+	async _init() {
 		try {
-			const texture = await new RGBELoader().loadAsync("/backgrounds/digitalMonster.hdr");
 			if (this._disposed) {
-				texture.dispose();
 				return false;
 			}
-			texture.mapping = THREE.EquirectangularReflectionMapping;
-			this.hdrTexture = texture;
-			this._buildPasses();
+			this._buildPass();
 			return true;
-		} catch (error) {
-			console.error("[BackgroundPipeline] HDR load failed", error);
-			return false;
 		} finally {
 			this.ready = true;
 		}
 	}
 
-	_buildPasses() {
-		if (!this.hdrTexture || this.liquidEffect) {
+	_buildPass() {
+		if (this.liquidMaterial) {
 			return;
 		}
 
-		this.liquidEffect = new BackgroundLiquidDistortionEffect({
-			backgroundTexture: this.hdrTexture,
-			liquidScale: this.liquidScale,
-			brightness: this.brightness,
-			distortionColor: new THREE.Color("#1b476f"),
-			iTime: this.iTime,
-		});
+		this.liquidMaterial = createBackgroundLiquidMaterial();
+		this.draw = createBackgroundLiquidDraw(this.liquidMaterial);
+		this.liquidEffect = {
+			distortionColor: this.liquidMaterial.uniforms.distortionColor.value,
+		};
 
-		this.liquidPass = new EffectPass(this.camera, this.liquidEffect);
-		this.composer.addPass(this.liquidPass);
-		this.composer.autoRenderToScreen = false;
+		if (this.size.w > 0 && this.size.h > 0) {
+			const dpr = this.renderer.getPixelRatio();
+			this._ensureTarget(Math.floor(this.size.w * dpr), Math.floor(this.size.h * dpr));
+		}
+	}
+
+	_ensureTarget(width, height) {
+		const tw = Math.max(1, Math.round(width * LIQUID_RT_SCALE));
+		const th = Math.max(1, Math.round(height * LIQUID_RT_SCALE));
+		if (this.target && this.target.width === tw && this.target.height === th) {
+			return;
+		}
+
+		this.target?.dispose();
+		this.target = createBackgroundLiquidTarget(tw, th);
+		this.liquidMaterial?.uniforms.iResolution.value.set(tw, th);
+		this._liquidComposerStride = 0;
+		this.lastTexture = null;
 	}
 
 	setRouteState({ currentPage, teleportPage, routePhase }) {
@@ -120,20 +128,65 @@ export class BackgroundPipeline {
 			return;
 		}
 		this.size = { w: width, h: height };
-		this.composer.setSize(width, height);
-		this._liquidComposerStride = 0;
+		if (this.liquidMaterial) {
+			const dpr = this.renderer.getPixelRatio();
+			this._ensureTarget(Math.floor(width * dpr), Math.floor(height * dpr));
+		}
 	}
 
-	/**
-	 * Carousel (/ /portfolio /about /contacts): фон берётся через renderCarouselBackground
-	 * в hex-mix, не из update(). Damp яркости/scale оставляем, composer не гоняем каждый кадр.
-	 */
-	_shouldSkipComposerRenderInUpdate() {
+	_shouldSkipDrawInUpdate() {
 		return isCarouselRoutePage(this.currentPage);
 	}
 
+	/** Always stride liquid (incl. scroll) — procedural pass is too heavy at 60fps. */
+	_shouldReuseLiquidTexture() {
+		if (!this.lastTexture) {
+			return false;
+		}
+		this._liquidComposerStride = (this._liquidComposerStride + 1) % LIQUID_FRAME_STRIDE;
+		return this._liquidComposerStride !== 0;
+	}
+
+	_syncUniforms(skipLiquid) {
+		const u = this.liquidMaterial.uniforms;
+		u.liquidScale.value = this.liquidScale.current;
+		u.brightness.value = this.brightness.current;
+		u.iTime.value = this.iTime.current;
+		u.skipLiquid.value = skipLiquid ? 1 : 0;
+		syncBackgroundLiquidTuneUniforms(this.liquidMaterial);
+	}
+
+	/** Force next liquid redraw (DEV sliders / resize). */
+	invalidateLiquid() {
+		this._liquidComposerStride = 0;
+		this.lastTexture = null;
+	}
+
+	_renderLiquidToTexture(skipLiquid = false) {
+		if (!this.liquidMaterial || !this.draw || !this.target) {
+			return null;
+		}
+
+		this._syncUniforms(skipLiquid);
+
+		const gl = this.renderer;
+		const prevTarget = gl.getRenderTarget();
+		const prevAutoClear = gl.autoClear;
+
+		gl.setRenderTarget(this.target);
+		gl.autoClear = true;
+		gl.setClearColor(0x000000, 1);
+		gl.clear(true, true, true);
+		gl.render(this.draw.scene, this.draw.camera);
+
+		gl.setRenderTarget(prevTarget);
+		gl.autoClear = prevAutoClear;
+
+		return this.target.texture;
+	}
+
 	update(delta, options = {}) {
-		if (!this.liquidEffect) {
+		if (!this.liquidMaterial) {
 			return null;
 		}
 
@@ -152,7 +205,7 @@ export class BackgroundPipeline {
 			brightnessTarget = carouselBg.brightness;
 			targetScale = carouselBg.scale;
 			smoothSec = Math.max(case1PostProcessConfig.background.smoothDuration ?? 0.5, 0.001);
-			if (carouselBg.distortionColor && this.liquidEffect.distortionColor) {
+			if (carouselBg.distortionColor && this.liquidEffect?.distortionColor) {
 				this.liquidEffect.distortionColor.set(carouselBg.distortionColor);
 			}
 		} else if (onPortfolioHub) {
@@ -164,7 +217,7 @@ export class BackgroundPipeline {
 			brightnessTarget = bg.brightness ?? 0.28;
 			targetScale = bg.liquidScale ?? 1;
 			smoothSec = Math.max(bg.smoothDuration ?? 0.75, 0.001);
-			if (bg.distortionColor && this.liquidEffect.distortionColor) {
+			if (bg.distortionColor && this.liquidEffect?.distortionColor) {
 				this.liquidEffect.distortionColor.set(bg.distortionColor);
 			}
 		}
@@ -172,19 +225,8 @@ export class BackgroundPipeline {
 		easing.damp(this.brightness, "current", brightnessTarget, smoothSec, delta);
 		easing.damp(this.liquidScale, "current", targetScale, smoothSec, delta);
 
-		const onHubPath = isPortfolioHubPath(this.currentPage);
-		const brightnessSettled = Math.abs(this.brightness.current - brightnessTarget) < 0.003;
-		const scaleSettled = Math.abs(this.liquidScale.current - targetScale) < 0.003;
-		// Keep liquid noise alive on hub + case. When idle, rebuild composer every other
-		// frame only — models/UI stay full-rate, liquid still moves via iTime.
-		const liquidStrideIdle =
-			this.routePhase === "idle"
-			&& brightnessSettled
-			&& scaleSettled
-			&& (onHubPath || onPortfolioCase);
-
 		if (!PAUSE_BACKGROUND_ANIMATION) {
-			this.iTime.current += delta * 0.1;
+			this.iTime.current += delta * (backgroundLiquidTune.timeSpeed ?? 0.1);
 		}
 
 		const brightness = this.brightness.current;
@@ -193,64 +235,38 @@ export class BackgroundPipeline {
 			this._lastPublishedBrightness = brightness;
 		}
 
-		if (this._shouldSkipComposerRenderInUpdate()) {
-			// Keep lastTexture for renderCarouselBackground reuse; do not null it.
+		if (this._shouldSkipDrawInUpdate()) {
 			return this.lastTexture;
 		}
-		// The app can skip a heavy frame because of a route/tier FPS cap. Keep the
-		// damped state and time current, but do not render the full-screen liquid
-		// composer when its result will not be presented.
 		if (options?.skipRender === true) {
 			return this.lastTexture;
 		}
 
-		if (this.composer.passes.length < 2) {
-			return null;
+		if (this._shouldReuseLiquidTexture()) {
+			return this.lastTexture;
 		}
 
-		if (liquidStrideIdle && this.lastTexture) {
-			this._liquidComposerStride = (this._liquidComposerStride + 1) % 2;
-			if (this._liquidComposerStride !== 0) {
-				return this.lastTexture;
-			}
-		} else {
-			this._liquidComposerStride = 0;
-		}
-
-		this.lastTexture = this._renderComposerToTexture(delta, options?.skipLiquid === true);
+		this.lastTexture = this._renderLiquidToTexture(options?.skipLiquid === true);
 		return this.lastTexture;
 	}
 
-	/** @param {boolean} skipLiquid — perf-test: только HDR RenderPass, без liquid pass. */
-	_renderComposerToTexture(delta, skipLiquid = false) {
-		if (this.liquidPass) {
-			this.liquidPass.enabled = !skipLiquid;
+	/** Единый liquid-фон карусели — always-on stride. */
+	renderCarouselBackground(_delta, options = {}) {
+		if (!this.liquidMaterial || !this.target) {
+			return this.lastTexture;
 		}
 
-		const texture = renderComposerToTexture(this.composer, delta, this.renderer);
-
-		if (this.liquidPass) {
-			this.liquidPass.enabled = true;
+		if (this._shouldReuseLiquidTexture()) {
+			return this.lastTexture;
 		}
 
-		return texture;
-	}
-
-	/** Единый HDR-фон карусели — один для mix/single, без per-page снимков. */
-	renderCarouselBackground(delta, options = {}) {
-		if (!this.liquidEffect || this.composer.passes.length < 2) {
-			return null;
-		}
-
-		const skipLiquid = options?.skipLiquid === true;
-		const texture = this._renderComposerToTexture(delta, skipLiquid);
+		const texture = this._renderLiquidToTexture(options?.skipLiquid === true);
 		this.lastTexture = texture;
 		return texture;
 	}
 
-	/** Мгновенно применить значения из dev-панели (без ожидания damp). */
 	applyBackgroundFromDev() {
-		if (!this.liquidEffect) {
+		if (!this.liquidMaterial) {
 			return;
 		}
 
@@ -261,14 +277,38 @@ export class BackgroundPipeline {
 		if (bg.liquidScale !== undefined) {
 			this.liquidScale.current = bg.liquidScale;
 		}
-		if (bg.distortionColor && this.liquidEffect.distortionColor) {
+		if (bg.distortionColor && this.liquidEffect?.distortionColor) {
 			this.liquidEffect.distortionColor.set(bg.distortionColor);
 		}
+		syncBackgroundLiquidTuneUniforms(this.liquidMaterial);
+		this.invalidateLiquid();
+	}
+
+	/** DEV panel: push tune → site brightness config + uniforms + redraw. */
+	applyLiquidTuneFromDev() {
+		if (!this.liquidMaterial) {
+			return;
+		}
+		const t = backgroundLiquidTune;
+		case1PostProcessConfig.background.brightness = t.brightness;
+		case1PostProcessConfig.background.liquidScale = t.liquidScale;
+		case1PostProcessConfig.background.distortionColor = t.distortionColor;
+		this.brightness.current = t.brightness;
+		this.liquidScale.current = t.liquidScale;
+		this.liquidEffect?.distortionColor?.set?.(t.distortionColor);
+		syncBackgroundLiquidTuneUniforms(this.liquidMaterial);
+		this.invalidateLiquid();
 	}
 
 	dispose() {
 		this._disposed = true;
-		this.composer.dispose();
-		this.hdrTexture?.dispose();
+		this.target?.dispose();
+		this.target = null;
+		this.draw?.geometry?.dispose();
+		this.liquidMaterial?.dispose();
+		this.liquidMaterial = null;
+		this.draw = null;
+		this.liquidEffect = null;
+		this.lastTexture = null;
 	}
 }

@@ -1,9 +1,5 @@
 import { hexGridOverlayDefaults } from "../overlay/hexGridOverlayConfig.js";
-import { logCarouselProgressCommit, logCarouselProgressFrame, logCarouselProgressWheel } from "@/three/dev/carouselProgressTargetLogger.js";
-import {
-	carouselClickTransitionConfig,
-	easeCarouselClickProgress,
-} from "./carouselClickTransitionConfig.js";
+import { carouselClickTransitionConfig, easeCarouselClickProgress } from "./carouselClickTransitionConfig.js";
 import {
 	clampSceneProgress,
 	getCarouselSceneRole,
@@ -11,47 +7,66 @@ import {
 	sceneProgressTargetForRole,
 	sceneProgressTargetForRoleChange,
 } from "./sceneCarouselSceneProgress.js";
+import {
+	applyLocalSegmentTargetRest,
+	CAROUSEL_PROGRESS_CHASE_FINAL_SMOOTH_MUL,
+	CAROUSEL_PROGRESS_CHASE_FINAL_THRESHOLD,
+	CAROUSEL_PROGRESS_SEGMENT_BACK_END,
+	CAROUSEL_PROGRESS_SEGMENT_END,
+	CAROUSEL_PROGRESS_SMOOTH,
+	CAROUSEL_PROGRESS_TARGET_ADVANCE_FINAL_THRESHOLD,
+	CAROUSEL_PROGRESS_TARGET_ADVANCE_SMOOTH,
+	CAROUSEL_PROGRESS_TARGET_ADVANCE_THRESHOLD,
+	CAROUSEL_PROGRESS_TARGET_FINAL_SMOOTH_MUL,
+	CAROUSEL_PROGRESS_TARGET_FINAL_ZONE,
+	CAROUSEL_PROGRESS_TARGET_RETREAT_FINAL_THRESHOLD,
+	CAROUSEL_PROGRESS_TARGET_RETREAT_SMOOTH,
+	CAROUSEL_PROGRESS_TARGET_RETREAT_THRESHOLD,
+	CAROUSEL_PROGRESS_TARGET_RETURN_SMOOTH,
+	CAROUSEL_PROGRESS_TARGET_RETURN_THRESHOLD,
+	chaseSegmentValue,
+	getAbsChaseSmoothMul,
+} from "./segmentScrollSpring.js";
 
 /** Бесконечное кольцо: previous ← current → next + scroll progress / progressTarget. */
 export const CAROUSEL_SCENE_IDS = ["home", "portfolioHub", "about", "contacts"];
 
-/** Скролл вперёд: target не выше 1.5 (полсегмента «вперёд» до коммита). */
+/** Скролл вперёд: target не выше 1.5 (полсегмента overshoot после 1). */
 export const CAROUSEL_PROGRESS_TARGET_MAX = 1.5;
-/** Скролл назад: target не ниже -0.5. */
-export const CAROUSEL_PROGRESS_TARGET_MIN = -0.5;
-/**
- * Если progressTarget ниже этого порога — плавно возвращается к 0 (без скролла).
- */
-export const CAROUSEL_PROGRESS_TARGET_RETURN_THRESHOLD = 0.5;
-/** Скорость возврата progressTarget → 0 (exp decay, 1/с). Меньше = медленнее. */
-export const CAROUSEL_PROGRESS_TARGET_RETURN_SMOOTH = 1.5;
-/**
- * Если progressTarget не ниже этого порога — плавно возвращается к 1 (без скролла).
- */
-export const CAROUSEL_PROGRESS_TARGET_ADVANCE_THRESHOLD = 0.5;
-/** Скорость возврата progressTarget → 1 (exp decay, 1/с). Меньше = медленнее. */
-export const CAROUSEL_PROGRESS_TARGET_ADVANCE_SMOOTH = 1.5;
-/** Финальная зона дотягивания progressTarget → 0 (≤ zone). */
-export const CAROUSEL_PROGRESS_TARGET_FINAL_ZONE = 0.02;
-/** ×15 rest progressTarget → 1, когда target > этого порога. */
-export const CAROUSEL_PROGRESS_TARGET_ADVANCE_FINAL_THRESHOLD = 0.92;
-/** Ускорение spring rest progressTarget в финальной зоне. */
-export const CAROUSEL_PROGRESS_TARGET_FINAL_SMOOTH_MUL = 15;
-/** Скорость догоняния progress → progressTarget (exp decay, 1/с). */
-export const CAROUSEL_PROGRESS_SMOOTH = 4;
-/** ×2 догоняние progress, когда progress > этого порога. */
-export const CAROUSEL_PROGRESS_CHASE_FINAL_THRESHOLD = 0.96;
-export const CAROUSEL_PROGRESS_CHASE_FINAL_SMOOTH_MUL = 2;
-/** Скорость догоняния sceneProgress → sceneProgressTarget. */
-export const CAROUSEL_SCENE_PROGRESS_SMOOTH = 1;
+/** Скролл назад: target не ниже −1.5 (зеркало +1.5; полный сегмент 0→−1 + overshoot). */
+export const CAROUSEL_PROGRESS_TARGET_MIN = -1.5;
 
-/** Конец сегмента вперёд: коммит при progress >= 1 (не > 1). */
-export const CAROUSEL_PROGRESS_SEGMENT_END = 1;
-/** Начало сегмента назад: коммит при progress <= 0, если шли в минус (idle 0,0 — нет). */
+/** Re-export spring constants (canonical values live in segmentScrollSpring.js). */
+export {
+	CAROUSEL_PROGRESS_TARGET_RETURN_THRESHOLD,
+	CAROUSEL_PROGRESS_TARGET_RETURN_SMOOTH,
+	CAROUSEL_PROGRESS_TARGET_ADVANCE_THRESHOLD,
+	CAROUSEL_PROGRESS_TARGET_RETREAT_THRESHOLD,
+	CAROUSEL_PROGRESS_TARGET_ADVANCE_SMOOTH,
+	CAROUSEL_PROGRESS_TARGET_RETREAT_SMOOTH,
+	CAROUSEL_PROGRESS_TARGET_FINAL_ZONE,
+	CAROUSEL_PROGRESS_TARGET_ADVANCE_FINAL_THRESHOLD,
+	CAROUSEL_PROGRESS_TARGET_RETREAT_FINAL_THRESHOLD,
+	CAROUSEL_PROGRESS_TARGET_FINAL_SMOOTH_MUL,
+	CAROUSEL_PROGRESS_SMOOTH,
+	CAROUSEL_PROGRESS_CHASE_FINAL_THRESHOLD,
+	CAROUSEL_PROGRESS_CHASE_FINAL_SMOOTH_MUL,
+	CAROUSEL_PROGRESS_SEGMENT_END,
+	CAROUSEL_PROGRESS_SEGMENT_BACK_END,
+};
+
+/**
+ * Скорость догоняния sceneProgress → sceneProgressTarget (камера).
+ * Was 1 — too sluggish vs ring chase (PROGRESS_SMOOTH=4). Keep a little
+ * smoothing, but camera must track the wheel closely.
+ */
+export const CAROUSEL_SCENE_PROGRESS_SMOOTH = 4.2;
+
+/** Покой сегмента (idle / post-commit land). */
 export const CAROUSEL_PROGRESS_SEGMENT_START = 0;
-/** Spring не доходит до ровно 1/0 — коммит и snap по epsilon (toFixed(4) в debug врёт). */
+/** Spring не доходит до ровно ±1/0 — коммит и snap по epsilon (toFixed(4) в debug врёт). */
 export const CAROUSEL_PROGRESS_COMMIT_EPS = 1e-4;
-/** Автодогонка progress → 1: добить progress до коммита, если target уже на конце сегмента. */
+/** Автодогонка progress → ±1: добить progress до коммита, если target уже на конце сегмента. */
 export const CAROUSEL_PROGRESS_COMMIT_SNAP_ZONE = 0.005;
 
 export const SCENE_ID_TO_PAGE = {
@@ -107,6 +122,15 @@ function clampProgressTarget(value) {
 	return Math.max(CAROUSEL_PROGRESS_TARGET_MIN, Math.min(CAROUSEL_PROGRESS_TARGET_MAX, value));
 }
 
+/**
+ * After ±1 commit, leftover overshoot must stay inside (−0.5, 0.5) so rest returns to 0.
+ * Landing exactly on ±0.5 would re-arm leave (rest → ±1) and bounce.
+ */
+function clampPostCommitProgressTarget(value) {
+	const limit = CAROUSEL_PROGRESS_TARGET_RETURN_THRESHOLD - CAROUSEL_PROGRESS_COMMIT_EPS;
+	return Math.max(-limit, Math.min(limit, value));
+}
+
 function createSceneProgressEntry(role, progressTarget) {
 	const sceneProgressTarget = sceneProgressTargetForRole(role, progressTarget);
 	const snap = sceneProgressSnapForRoleChange(role, "off");
@@ -128,10 +152,27 @@ export class SceneCarousel {
 		this.nextId = nextInCycle("home");
 		this.progress = 0;
 		this.progressTarget = 0;
-		// Wheel intent that crossed the Portfolio/Contacts boundary into About.
-		// It must survive the outer target's automatic rest while the visual
-		// progress catches up, otherwise the inner scene starts with a dead zone.
-		this._aboutBoundaryOverflowProgress = 0;
+		/** About route-edge overshoot drive — see adoptAboutBoundaryDrive(). */
+		this._aboutBoundaryDrive = false;
+		/**
+		 * Case content-edge scroll mix (caseA↔caseB) — see beginCaseBoundaryDrive().
+		 * Progress-driven hex like the ring; commit swaps case route (not timed click hex).
+		 */
+		this._caseBoundaryDrive = false;
+		/** Hold mix at ±1 until React/SceneManager confirms the new case route. */
+		this._caseBoundaryAwaitingRoute = false;
+		/** @type {string | null} */
+		this._caseBoundarySourceId = null;
+		/** @type {string | null} */
+		this._caseBoundaryForwardTargetId = null;
+		/** @type {string | null} */
+		this._caseBoundaryForwardTargetPath = null;
+		/** @type {string | null} */
+		this._caseBoundaryBackwardTargetId = null;
+		/** @type {string | null} */
+		this._caseBoundaryBackwardTargetPath = null;
+		/** @type {((payload: { path: string, sourceId: string, targetId: string, direction: 'forward' | 'backward' }) => void) | null} */
+		this._onCaseBoundaryCommit = null;
 		/**
 		 * Намерение последнего wheel: forward = вниз (→ next), backward = вверх (→ previous).
 		 * Коммит сегмента только при совпадении intent и границы progress.
@@ -202,6 +243,11 @@ export class SceneCarousel {
 			return false;
 		}
 
+		// Click hex owns the frame — abort any in-flight case scroll mix.
+		if (this._caseBoundaryDrive) {
+			this.clearCaseBoundaryDrive();
+		}
+
 		this._hexTargetSceneId = targetSceneId;
 		this._hexTargetPath = toPath;
 		this.scrollIntent = null;
@@ -209,11 +255,13 @@ export class SceneCarousel {
 		const sourceInCarousel = CAROUSEL_SCENE_IDS.includes(sourceSceneId);
 		const distanceFromStart = Math.abs(this.progress);
 		const distanceFromEnd = Math.abs(1 - this.progress);
-		const isBetweenEndpoints = sourceInCarousel
-			&& distanceFromStart > CAROUSEL_PROGRESS_COMMIT_EPS
-			&& distanceFromEnd > CAROUSEL_PROGRESS_COMMIT_EPS;
+		const isBetweenEndpoints = sourceInCarousel && distanceFromStart > CAROUSEL_PROGRESS_COMMIT_EPS && distanceFromEnd > CAROUSEL_PROGRESS_COMMIT_EPS;
 
 		if (isBetweenEndpoints) {
+			// Arm mix pair during settle so source/target stay held (SITE_TRANSITION.md).
+			// Previously _hexMixSourceId was null until enter → early hide / scale pops.
+			this._hexMixSourceId = sourceSceneId;
+			this._hexSourceSceneProgress = this.getSceneProgress(sourceSceneId);
 			this._clickPhase = "settling";
 			this._settleStartProgress = this.progress;
 			this._settleEndProgress = distanceFromStart <= distanceFromEnd ? 0 : 1;
@@ -229,9 +277,7 @@ export class SceneCarousel {
 	_beginHexEnter(sourceSceneId) {
 		this._hexMixSourceId = sourceSceneId;
 		// Freeze the source camera at the exact pose visible after scroll settling.
-		this._hexSourceSceneProgress = CAROUSEL_SCENE_IDS.includes(sourceSceneId)
-			? this.getSceneProgress(sourceSceneId)
-			: 0;
+		this._hexSourceSceneProgress = CAROUSEL_SCENE_IDS.includes(sourceSceneId) ? this.getSceneProgress(sourceSceneId) : 0;
 		this._clickEnterElapsed = 0;
 		this._clickPhase = "enter";
 		this.progress = 0;
@@ -239,8 +285,12 @@ export class SceneCarousel {
 		this._onHexLifecycleStart?.({ sourceId: sourceSceneId, targetId: this._hexTargetSceneId });
 	}
 
-	/** id кейса-цели для mix-preview во время enter. */
+	/** id кейса-цели для mix-preview во время click-hex enter или case-boundary scroll. */
 	getHexMixTargetSceneId() {
+		if (this._caseBoundaryDrive || this._caseBoundaryAwaitingRoute) {
+			const { targetId } = this.getMixSourceTargetIds();
+			return targetId?.startsWith("case") ? targetId : null;
+		}
 		if (this._clickPhase === "idle" || !this._hexTargetSceneId?.startsWith("case")) {
 			return null;
 		}
@@ -272,8 +322,7 @@ export class SceneCarousel {
 		this._settleElapsed += delta;
 		const linear = Math.min(1, this._settleElapsed / duration);
 		const eased = 1 - Math.pow(1 - linear, 3);
-		this.progress = this._settleStartProgress
-			+ (this._settleEndProgress - this._settleStartProgress) * eased;
+		this.progress = this._settleStartProgress + (this._settleEndProgress - this._settleStartProgress) * eased;
 		this.progressTarget = this.progress;
 		this._syncSettlingSceneProgresses();
 
@@ -467,24 +516,6 @@ export class SceneCarousel {
 			hexGridOverlayDefaults._devOverrideProgress = false;
 		}
 
-		const previousTarget = this.progressTarget;
-		const unboundedTarget = previousTarget + delta;
-		if (this.currentId === "portfolioHub" && this.nextId === "about" && delta > 0) {
-			const addedOverflow = Math.max(0, unboundedTarget - 1) - Math.max(0, previousTarget - 1);
-			this._aboutBoundaryOverflowProgress = Math.min(
-				CAROUSEL_PROGRESS_TARGET_MAX - 1,
-				Math.max(0, this._aboutBoundaryOverflowProgress + Math.max(0, addedOverflow)),
-			);
-		} else if (this.currentId === "contacts" && this.previousId === "about" && delta < 0) {
-			const addedOverflow = Math.min(0, unboundedTarget) - Math.min(0, previousTarget);
-			this._aboutBoundaryOverflowProgress = Math.max(
-				CAROUSEL_PROGRESS_TARGET_MIN,
-				Math.min(0, this._aboutBoundaryOverflowProgress + Math.min(0, addedOverflow)),
-			);
-		} else {
-			this._aboutBoundaryOverflowProgress = 0;
-		}
-
 		if (delta > 0) {
 			this.scrollIntent = "forward";
 		} else if (delta < 0) {
@@ -492,20 +523,17 @@ export class SceneCarousel {
 		}
 
 		this.progressTarget = clampProgressTarget(this.progressTarget + delta);
-		logCarouselProgressWheel(this, delta);
 	}
 
-	/** Dev / ручная подстановка target (G-панель). */
+	/** Manual target override (tests / future tooling). */
 	setProgressTarget(value) {
 		this.scrollIntent = null;
-		this._aboutBoundaryOverflowProgress = 0;
 		this.progressTarget = clampProgressTarget(value);
 	}
 
 	/** Dev: мгновенно выставить progress и target. */
 	setProgressState(progress, progressTarget = progress) {
 		this.scrollIntent = null;
-		this._aboutBoundaryOverflowProgress = 0;
 		this.progress = progress;
 		this.progressTarget = clampProgressTarget(progressTarget);
 		this._initSceneProgressStates();
@@ -515,7 +543,6 @@ export class SceneCarousel {
 		const eps = CAROUSEL_PROGRESS_COMMIT_EPS;
 		if (Math.abs(this.progress) <= eps && Math.abs(this.progressTarget) <= eps) {
 			this.scrollIntent = null;
-			this._aboutBoundaryOverflowProgress = 0;
 		}
 	}
 
@@ -525,26 +552,20 @@ export class SceneCarousel {
 		return this.progress >= CAROUSEL_PROGRESS_SEGMENT_END - eps;
 	}
 
-	_shouldCommitBackward(prevProgress) {
+	/** Коммит назад: progress достиг конца сегмента −1 (зеркало forward ≥ 1). */
+	_shouldCommitBackward() {
 		if (this.scrollIntent !== "backward") {
 			return false;
 		}
 
-		const start = CAROUSEL_PROGRESS_SEGMENT_START;
 		const eps = CAROUSEL_PROGRESS_COMMIT_EPS;
-
-		if (this.progress < start - eps) {
-			return true;
-		}
-
-		if (this.progress <= start + eps && prevProgress < start - eps) {
-			return true;
-		}
-
-		return this.progressTarget <= start + eps && this.progress <= this.progressTarget + eps && prevProgress < start - eps;
+		return this.progress <= CAROUSEL_PROGRESS_SEGMENT_BACK_END + eps;
 	}
 
-	/** progressTarget на 1 — дотянуть progress до коммита (spring не доходит до ровно 1). */
+	/**
+	 * When aiming at / past +1 — help progress commit (chase asymptote).
+	 * Overshoot target (1…1.5] is kept intact for About/case interior handoff.
+	 */
 	_snapProgressForForwardCommit() {
 		const eps = CAROUSEL_PROGRESS_COMMIT_EPS;
 		const end = CAROUSEL_PROGRESS_SEGMENT_END;
@@ -553,9 +574,32 @@ export class SceneCarousel {
 			return;
 		}
 
-		this.progressTarget = end;
+		if (Math.abs(this.progressTarget - end) <= eps) {
+			this.progressTarget = end;
+		}
 
 		if (this.progress >= end - CAROUSEL_PROGRESS_COMMIT_SNAP_ZONE) {
+			this.progress = end;
+		}
+	}
+
+	/**
+	 * When aiming at / past −1 — help progress commit backward.
+	 * Overshoot target [−1.5…−1) is kept intact the same way as forward.
+	 */
+	_snapProgressForBackwardCommit() {
+		const eps = CAROUSEL_PROGRESS_COMMIT_EPS;
+		const end = CAROUSEL_PROGRESS_SEGMENT_BACK_END;
+
+		if (this.progressTarget > end + eps) {
+			return;
+		}
+
+		if (Math.abs(this.progressTarget - end) <= eps) {
+			this.progressTarget = end;
+		}
+
+		if (this.progress <= end + CAROUSEL_PROGRESS_COMMIT_SNAP_ZONE) {
 			this.progress = end;
 		}
 	}
@@ -565,6 +609,14 @@ export class SceneCarousel {
 
 		if (Math.abs(this.progressTarget - CAROUSEL_PROGRESS_SEGMENT_END) < eps) {
 			this.progressTarget = CAROUSEL_PROGRESS_SEGMENT_END;
+			if (Math.abs(this.progress - this.progressTarget) < eps) {
+				this.progress = this.progressTarget;
+			}
+			return;
+		}
+
+		if (Math.abs(this.progressTarget - CAROUSEL_PROGRESS_SEGMENT_BACK_END) < eps) {
+			this.progressTarget = CAROUSEL_PROGRESS_SEGMENT_BACK_END;
 			if (Math.abs(this.progress - this.progressTarget) < eps) {
 				this.progress = this.progressTarget;
 			}
@@ -583,6 +635,170 @@ export class SceneCarousel {
 	 * Каждый кадр: progressTarget → 0 (если < порога), progress → progressTarget, коммит, sceneProgress.
 	 * @param {number} delta
 	 */
+	/**
+	 * About mirrors route-edge overshoot onto carousel progress for hex/cameras.
+	 * @param {number} progress
+	 * @param {number} progressTarget
+	 * @param {'forward' | 'backward'} intent
+	 */
+	adoptAboutBoundaryDrive(progress, progressTarget, intent) {
+		this._aboutBoundaryDrive = true;
+		this.progress = progress;
+		this.progressTarget = clampProgressTarget(progressTarget);
+		this.scrollIntent = intent;
+	}
+
+	clearAboutBoundaryDrive() {
+		if (!this._aboutBoundaryDrive) {
+			return;
+		}
+		this._aboutBoundaryDrive = false;
+	}
+
+	isAboutBoundaryDrive() {
+		return this._aboutBoundaryDrive === true;
+	}
+
+	/**
+	 * Case content-edge: scroll-driven hex between two case scenes (not ring neighbors).
+	 * @param {{
+	 *   sourceId: string,
+	 *   forwardTargetId: string,
+	 *   forwardTargetPath: string,
+	 *   backwardTargetId: string,
+	 *   backwardTargetPath: string,
+	 * }} pair
+	 */
+	beginCaseBoundaryDrive(pair) {
+		if (!pair?.sourceId || this._clickPhase !== "idle" || this._caseBoundaryAwaitingRoute) {
+			return false;
+		}
+		const sameSource = this._caseBoundarySourceId === pair.sourceId;
+		this._caseBoundarySourceId = pair.sourceId;
+		this._caseBoundaryForwardTargetId = pair.forwardTargetId ?? null;
+		this._caseBoundaryForwardTargetPath = pair.forwardTargetPath ?? null;
+		this._caseBoundaryBackwardTargetId = pair.backwardTargetId ?? null;
+		this._caseBoundaryBackwardTargetPath = pair.backwardTargetPath ?? null;
+		// Case runtime owns the spring (like About) — only reset when switching source.
+		if (!sameSource || !this._caseBoundaryDrive) {
+			this.progress = 0;
+			this.progressTarget = 0;
+			this.scrollIntent = null;
+		}
+		this._caseBoundaryDrive = true;
+		return true;
+	}
+
+	/**
+	 * Case runtime mirrors route-edge overshoot onto carousel progress for hex.
+	 * @param {number} progress
+	 * @param {number} progressTarget
+	 * @param {'forward' | 'backward' | null} intent
+	 */
+	adoptCaseBoundaryDrive(progress, progressTarget, intent) {
+		if (!this._caseBoundarySourceId || this._caseBoundaryAwaitingRoute) {
+			return;
+		}
+		this._caseBoundaryDrive = true;
+		this.progress = progress;
+		this.progressTarget = clampProgressTarget(progressTarget);
+		this.scrollIntent = intent;
+	}
+
+	clearCaseBoundaryDrive() {
+		if (!this._caseBoundaryDrive && !this._caseBoundaryAwaitingRoute) {
+			return;
+		}
+		this._caseBoundaryDrive = false;
+		this._caseBoundaryAwaitingRoute = false;
+		this._caseBoundarySourceId = null;
+		this._caseBoundaryForwardTargetId = null;
+		this._caseBoundaryForwardTargetPath = null;
+		this._caseBoundaryBackwardTargetId = null;
+		this._caseBoundaryBackwardTargetPath = null;
+		this.progress = 0;
+		this.progressTarget = 0;
+		this.scrollIntent = null;
+	}
+
+	isCaseBoundaryDrive() {
+		return this._caseBoundaryDrive === true || this._caseBoundaryAwaitingRoute === true;
+	}
+
+	isCaseBoundaryAwaitingRoute() {
+		return this._caseBoundaryAwaitingRoute === true;
+	}
+
+	setOnCaseBoundaryCommit(callback) {
+		this._onCaseBoundaryCommit = callback;
+	}
+
+	/**
+	 * Finished leave segment — freeze mix at ±1 and await case route confirm.
+	 * @param {'forward' | 'backward'} direction
+	 * @returns {false | { path: string, sourceId: string, targetId: string, direction: 'forward' | 'backward' }}
+	 */
+	commitCaseBoundaryLeave(direction) {
+		if (!this._caseBoundaryDrive || this._caseBoundaryAwaitingRoute) {
+			return false;
+		}
+		const sourceId = this._caseBoundarySourceId;
+		const targetId = direction === "backward" ? this._caseBoundaryBackwardTargetId : this._caseBoundaryForwardTargetId;
+		const path = direction === "backward" ? this._caseBoundaryBackwardTargetPath : this._caseBoundaryForwardTargetPath;
+		if (!path || !targetId || !sourceId) {
+			this.clearCaseBoundaryDrive();
+			return false;
+		}
+		this._caseBoundaryAwaitingRoute = true;
+		this._caseBoundaryDrive = false;
+		this.progress = direction === "backward" ? CAROUSEL_PROGRESS_SEGMENT_BACK_END : CAROUSEL_PROGRESS_SEGMENT_END;
+		this.progressTarget = this.progress;
+		this.scrollIntent = null;
+		const payload = {
+			path,
+			sourceId,
+			targetId,
+			direction,
+		};
+		this._onCaseBoundaryCommit?.(payload);
+		return payload;
+	}
+
+	/**
+	 * After HTML/SceneManager lands on the adjacent case — drop held mix.
+	 * @param {string} sceneId
+	 */
+	confirmCaseBoundaryRoute(sceneId) {
+		if (!this._caseBoundaryAwaitingRoute) {
+			return false;
+		}
+		const expected = this.progress < 0 ? this._caseBoundaryBackwardTargetId : this._caseBoundaryForwardTargetId;
+		if (!sceneId || sceneId !== expected) {
+			return false;
+		}
+		this.clearCaseBoundaryDrive();
+		return true;
+	}
+
+	/**
+	 * About `current` crossed the route edge — commit leave like a finished carousel segment.
+	 * @param {'forward' | 'backward'} direction
+	 */
+	commitAboutRouteLeave(direction) {
+		this._aboutBoundaryDrive = false;
+		if (direction === "backward") {
+			this.scrollIntent = "backward";
+			this.progress = Math.min(this.progress, CAROUSEL_PROGRESS_SEGMENT_BACK_END);
+			this.progressTarget = Math.min(this.progressTarget, CAROUSEL_PROGRESS_SEGMENT_BACK_END);
+			this._commitBackward();
+			return;
+		}
+		this.scrollIntent = "forward";
+		this.progress = Math.max(this.progress, CAROUSEL_PROGRESS_SEGMENT_END);
+		this.progressTarget = Math.max(this.progressTarget, CAROUSEL_PROGRESS_SEGMENT_END);
+		this._commitForward();
+	}
+
 	update(delta) {
 		if (!Number.isFinite(delta) || delta <= 0) {
 			return;
@@ -590,82 +806,49 @@ export class SceneCarousel {
 
 		if (this._clickPhase !== "idle") {
 			this._updateHexNavigation(delta);
-			logCarouselProgressFrame(this, delta);
+			this._updateSceneProgresses(delta);
+			return;
+		}
+
+		/** About / case-boundary own their spring — do not fight their progress. */
+		if (this._aboutBoundaryDrive || this._caseBoundaryDrive || this._caseBoundaryAwaitingRoute) {
 			this._updateSceneProgresses(delta);
 			return;
 		}
 
 		this._applyProgressTargetRest(delta);
 
-		const prevProgress = this.progress;
-		const progressChaseMul = this._getProgressChaseSmoothMul();
-		const t = 1 - Math.exp(-CAROUSEL_PROGRESS_SMOOTH * progressChaseMul * delta);
-		this.progress += (this.progressTarget - this.progress) * t;
+		const progressChaseMul = getAbsChaseSmoothMul(Math.abs(this.progress), {
+			threshold: CAROUSEL_PROGRESS_CHASE_FINAL_THRESHOLD,
+			mul: CAROUSEL_PROGRESS_CHASE_FINAL_SMOOTH_MUL,
+		});
+		this.progress = chaseSegmentValue(this.progress, this.progressTarget, delta, {
+			smooth: CAROUSEL_PROGRESS_SMOOTH,
+			chaseMul: progressChaseMul,
+		});
 		this._snapProgressToRestTarget();
 		this._snapProgressForForwardCommit();
+		this._snapProgressForBackwardCommit();
 
 		if (this._shouldCommitForward()) {
 			this.progress = CAROUSEL_PROGRESS_SEGMENT_END;
 			this._commitForward();
-		} else if (this._shouldCommitBackward(prevProgress)) {
+		} else if (this._shouldCommitBackward()) {
+			this.progress = CAROUSEL_PROGRESS_SEGMENT_BACK_END;
 			this._commitBackward();
 		} else {
 			this._clearScrollIntentIfAtRest();
 		}
 
-		logCarouselProgressFrame(this, delta);
-
 		this._updateSceneProgresses(delta);
 	}
 
-	/** ×2 догоняние progress → target в хвосте сегмента (progress > 0.96). */
-	_getProgressChaseSmoothMul() {
-		if (this.progress > CAROUSEL_PROGRESS_CHASE_FINAL_THRESHOLD) {
-			return CAROUSEL_PROGRESS_CHASE_FINAL_SMOOTH_MUL;
-		}
-
-		return 1;
-	}
-
-	/** ×15 rest progressTarget → 1 (target > 0.92) и → 0 (target ≤ zone). */
-	_getProgressTargetFinalSmoothMul() {
-		const zone = CAROUSEL_PROGRESS_TARGET_FINAL_ZONE;
-		const mul = CAROUSEL_PROGRESS_TARGET_FINAL_SMOOTH_MUL;
-		const target = this.progressTarget;
-
-		if (target > CAROUSEL_PROGRESS_TARGET_ADVANCE_FINAL_THRESHOLD && target >= CAROUSEL_PROGRESS_TARGET_ADVANCE_THRESHOLD) {
-			return mul;
-		}
-
-		if (target <= zone && target < CAROUSEL_PROGRESS_TARGET_RETURN_THRESHOLD) {
-			return mul;
-		}
-
-		return 1;
-	}
-
-	/** progressTarget вне «покоя» — плавно к 0 или к 1. */
+	/**
+	 * progressTarget rest via shared segment spring:
+	 * (−0.5, 0.5) → 0; ≥ 0.5 → 1; ≤ −0.5 → −1.
+	 */
 	_applyProgressTargetRest(delta) {
-		const finalMul = this._getProgressTargetFinalSmoothMul();
-
-		if (this.progressTarget < CAROUSEL_PROGRESS_TARGET_RETURN_THRESHOLD) {
-			const t = 1 - Math.exp(-CAROUSEL_PROGRESS_TARGET_RETURN_SMOOTH * finalMul * delta);
-			this.progressTarget += (0 - this.progressTarget) * t;
-
-			if (Math.abs(this.progressTarget) < 0.00005) {
-				this.progressTarget = 0;
-			}
-			return;
-		}
-
-		if (this.progressTarget >= CAROUSEL_PROGRESS_TARGET_ADVANCE_THRESHOLD) {
-			const t = 1 - Math.exp(-CAROUSEL_PROGRESS_TARGET_ADVANCE_SMOOTH * finalMul * delta);
-			this.progressTarget += (1 - this.progressTarget) * t;
-
-			if (Math.abs(this.progressTarget - 1) < 0.00005) {
-				this.progressTarget = 1;
-			}
-		}
+		this.progressTarget = applyLocalSegmentTargetRest(this.progressTarget, delta);
 	}
 
 	_updateSceneProgresses(delta) {
@@ -714,20 +897,18 @@ export class SceneCarousel {
 	}
 
 	_commitForward() {
+		this._aboutBoundaryDrive = false;
 		const fromId = this.currentId;
+		const enteringAbout = this.nextId === "about";
+		// Single overflow source: leftover past +1 before post-commit clamp.
+		const rawLeftover = this.progressTarget - CAROUSEL_PROGRESS_SEGMENT_END;
+		const boundaryOverflowProgress = enteringAbout ? Math.max(0, Math.min(CAROUSEL_PROGRESS_TARGET_MAX - 1, rawLeftover)) : 0;
 		this.previousId = this.currentId;
 		this.currentId = this.nextId;
 		this.nextId = nextInCycle(this.currentId);
-		const nextProgressTarget = this.progressTarget - 1;
-		const boundaryOverflowProgress = this.currentId === "about"
-			? Math.max(0, nextProgressTarget, this._aboutBoundaryOverflowProgress)
-			: 0;
-		this._aboutBoundaryOverflowProgress = 0;
-		this.progressTarget = nextProgressTarget;
+		// About owns interior spring — transfer leftover into story, zero ring target.
+		this.progressTarget = enteringAbout ? 0 : clampPostCommitProgressTarget(rawLeftover);
 		this.progress = 0;
-		if (this.currentId === "about") {
-			this.progressTarget = 0;
-		}
 		this.scrollIntent = null;
 		this._onCommit?.({
 			fromId,
@@ -735,25 +916,20 @@ export class SceneCarousel {
 			direction: "forward",
 			boundaryOverflowProgress,
 		});
-		logCarouselProgressCommit(this, "forward");
 	}
 
 	_commitBackward() {
+		this._aboutBoundaryDrive = false;
 		const fromId = this.currentId;
+		const enteringAbout = this.previousId === "about";
+		// Mirror forward: leftover past −1 before post-commit clamp.
+		const rawLeftover = this.progressTarget - CAROUSEL_PROGRESS_SEGMENT_BACK_END;
+		const boundaryOverflowProgress = enteringAbout ? Math.min(0, Math.max(CAROUSEL_PROGRESS_TARGET_MIN + 1, rawLeftover)) : 0;
 		this.nextId = this.currentId;
 		this.currentId = this.previousId;
 		this.previousId = prevInCycle(this.currentId);
-		const nextProgressTarget = this.progressTarget + 1;
-		const boundaryOverflowProgress = this.currentId === "about"
-			? Math.min(0, nextProgressTarget - 1, this._aboutBoundaryOverflowProgress)
-			: 0;
-		this._aboutBoundaryOverflowProgress = 0;
-		// After reindexing, progress=1 is the old page and progress=0 is the new
-		// previous page. Always chase zero. Keeping `nextProgressTarget` here made
-		// the clamped -0.5 boundary become exactly +0.5; the rest rule then chased
-		// one and immediately committed forward, bouncing About back onto itself.
-		this.progressTarget = 0;
-		this.progress = 1;
+		this.progressTarget = enteringAbout ? 0 : clampPostCommitProgressTarget(rawLeftover);
+		this.progress = 0;
 		this.scrollIntent = null;
 		this._onCommit?.({
 			fromId,
@@ -761,12 +937,11 @@ export class SceneCarousel {
 			direction: "backward",
 			boundaryOverflowProgress,
 		});
-		logCarouselProgressCommit(this, "backward");
 	}
 
-	/** 0…1 для mix-шейдера (current → next). */
+	/** 0…1 для mix-шейдера. Backward leave uses |progress| toward previous. */
 	getMixProgress() {
-		return Math.max(0, Math.min(1, this.progress));
+		return Math.max(0, Math.min(1, Math.abs(this.progress)));
 	}
 
 	getSceneProgress(sceneId) {
@@ -795,36 +970,75 @@ export class SceneCarousel {
 		return out;
 	}
 
-	syncFromPage(page) {
+	/**
+	 * @param {string} page
+	 * @param {{ force?: boolean }} [options]
+	 */
+	syncFromPage(page, options = {}) {
 		const sceneId = pageToCarouselSceneId(page);
 		if (!sceneId) {
 			return;
 		}
 
-		if (sceneId !== this.currentId) {
-			if (this._clickPhase !== "idle") {
+		if (sceneId === this.currentId) {
+			return;
+		}
+
+		const force = options.force === true;
+		if (!force && this._clickPhase !== "idle") {
+			return;
+		}
+
+		/**
+		 * HTML can lag or lead a scroll commit by a frame. Never hard-reset
+		 * progress/target while a spring is running — that killed the post-commit
+		 * chase (e.g. About→Portfolio settle 1→0).
+		 * `force` is for deep-link / Start alignment only.
+		 */
+		if (!force) {
+			const eps = CAROUSEL_PROGRESS_COMMIT_EPS;
+			const springActive =
+				Math.abs(this.progress - this.progressTarget) > eps || Math.abs(this.progress) > eps || Math.abs(this.progressTarget) > eps || this.scrollIntent !== null;
+			if (springActive) {
 				return;
 			}
-
-			this.currentId = sceneId;
-			this.previousId = prevInCycle(sceneId);
-			this.nextId = nextInCycle(sceneId);
-			this.progress = 0;
-			this.progressTarget = 0;
-			this.scrollIntent = null;
-			this._aboutBoundaryOverflowProgress = 0;
-			this._initSceneProgressStates();
 		}
+
+		this.currentId = sceneId;
+		this.previousId = prevInCycle(sceneId);
+		this.nextId = nextInCycle(sceneId);
+		this.progress = 0;
+		this.progressTarget = 0;
+		this.scrollIntent = null;
+		this._aboutBoundaryDrive = false;
+		this._initSceneProgressStates();
 	}
 
 	getCarouselSceneIds() {
 		return [this.previousId, this.currentId, this.nextId];
 	}
 
-	/** Mix: wheel-карусель или hex-навигация (клик). */
+	/** Mix: wheel-карусель, case-boundary scroll, или hex-навигация (клик). */
 	getMixSourceTargetIds() {
+		if ((this._caseBoundaryDrive || this._caseBoundaryAwaitingRoute) && this._caseBoundarySourceId) {
+			if (this.progress < 0) {
+				return {
+					sourceId: this._caseBoundarySourceId,
+					targetId: this._caseBoundaryBackwardTargetId ?? this._caseBoundarySourceId,
+				};
+			}
+			return {
+				sourceId: this._caseBoundarySourceId,
+				targetId: this._caseBoundaryForwardTargetId ?? this._caseBoundarySourceId,
+			};
+		}
+
 		if (this._clickPhase !== "idle" && this._hexMixSourceId && this._hexTargetSceneId) {
 			return { sourceId: this._hexMixSourceId, targetId: this._hexTargetSceneId };
+		}
+
+		if (this.progress < 0) {
+			return { sourceId: this.currentId, targetId: this.previousId };
 		}
 
 		return { sourceId: this.currentId, targetId: this.nextId };
@@ -833,6 +1047,14 @@ export class SceneCarousel {
 	getActiveSceneIds(mixProgress = this.getMixProgress()) {
 		// Hex (в т.ч. case→case): source и target нужны с первого кадра,
 		// иначе при progress≈0 остаётся только carousel.currentId и source не обновляется.
+		if ((this._caseBoundaryDrive || this._caseBoundaryAwaitingRoute) && this._caseBoundarySourceId) {
+			const { sourceId, targetId } = this.getMixSourceTargetIds();
+			if (mixProgress <= 0.0001) {
+				return [sourceId];
+			}
+			return sourceId === targetId ? [sourceId] : [sourceId, targetId];
+		}
+
 		if (this._clickPhase !== "idle" && this._hexMixSourceId && this._hexTargetSceneId) {
 			const { sourceId, targetId } = this.getMixSourceTargetIds();
 			return sourceId === targetId ? [sourceId] : [sourceId, targetId];

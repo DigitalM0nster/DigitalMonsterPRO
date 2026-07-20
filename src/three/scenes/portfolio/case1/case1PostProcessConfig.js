@@ -20,7 +20,8 @@ export const case1PostProcessConfig = {
 	},
 
 	background: {
-		brightness: 0.01,
+		/** TEMP: brighter liquid site-wide — restore to 0.01 when done reviewing. */
+		brightness: 0.22,
 
 		liquidScale: 1,
 

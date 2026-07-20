@@ -1,6 +1,7 @@
 import CanvasGlitchText from "@/shared/glitchText/canvasGlitchText.js";
 import { CASE_STUDY_LEFT_SOUND_PAN } from "@/sounds/soundDesign.js";
 import { store } from "@/store.jsx";
+import { shouldAnimateSiteLocaleForCaseChrome } from "@/utils/siteLocaleSwitch.js";
 import {
 	clearCaseAllProjectsLineSnake,
 	disposeCaseAllProjectsLineSnake,
@@ -41,12 +42,30 @@ function clearSwitchTimer(id) {
 }
 
 /**
+ * Instant copy swap when case chrome is not the current page.
+ * @param {{ glitch: CanvasGlitchText, desiredText: string, switching: boolean, disposed: boolean }} layer
+ * @param {'previous' | 'next'} id
+ */
+function applyDesiredTextInstant(layer, id) {
+	clearSwitchTimer(id);
+	layer.switching = false;
+	layer.glitch.clearHoverPassed();
+	layer.glitch.setText(layer.desiredText, true);
+	scheduleRepaint();
+}
+
+/**
  * Case→case / locale: old name disappears with snake, then new name appears with snake.
  * @param {{ glitch: CanvasGlitchText, desiredText: string, switching: boolean, disposed: boolean }} layer
  * @param {'previous' | 'next'} id
  */
 function runDesiredSwitch(layer, id) {
 	if (layer.disposed || layer.switching || layer.glitch.options.text === layer.desiredText) {
+		return;
+	}
+
+	if (!shouldAnimateSiteLocaleForCaseChrome()) {
+		applyDesiredTextInstant(layer, id);
 		return;
 	}
 

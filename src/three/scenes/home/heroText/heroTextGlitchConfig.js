@@ -16,12 +16,12 @@ export const heroTextGlitchConfig = {
 	/** Когда стартует appear: доля от длительности disappear (0.9 = почти в конце disappear). */
 	appearOverlapRatio: 0.9,
 	playSound: true,
-	/** Яркость cyan glitch-символов (canvas halo). */
-	replacementGlowStrength: 1,
+	/** Яркость cyan glitch-символов (canvas halo / neon fringe). */
+	replacementGlowStrength: 1.6,
 	/**
 	 * Множитель яркости glitch-символов в шейдере для site bloom (threshold ≈ 1).
 	 */
-	replacementBloomBoost: 7.5,
+	replacementBloomBoost: 4.5,
 	/** Цвет HDR-bloom glitch-символов (hex). */
 	replacementBloomColor: "#009dff",
 

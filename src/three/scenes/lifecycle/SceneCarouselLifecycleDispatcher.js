@@ -14,25 +14,47 @@ export class SceneCarouselLifecycleDispatcher {
 		/** @type {Record<string, import('./sceneLifecycle.js').CarouselSceneRole>} */
 		this._ringRoles = {};
 		this._hadNonZeroProgress = false;
+		/** True while carousel progress was away from segment start (edge → dormant as next). */
+		this._prevProgressAtRest = true;
+		/**
+		 * After current→next (backward leave): dormant on the next frame while still
+		 * next at progress ≈ 0 (commit frame must not wipe the leave pose).
+		 * @type {Set<string>}
+		 */
+		this._pendingDormantAsNext = new Set();
 	}
 
 	/** @param {import('@/three/render/transition/SceneCarousel.js').SceneCarousel} carousel */
 	onCarouselFrame(carousel) {
 		const progress = carousel.progress;
+		const atRest = isCarouselProgressAtSegmentStart(progress);
+		const progressBecameZero = atRest && !this._prevProgressAtRest;
 
-		if (!isCarouselProgressAtSegmentStart(progress)) {
+		if (!atRest) {
 			this._hadNonZeroProgress = true;
 		}
 
 		for (const sceneId of CAROUSEL_SCENE_IDS) {
 			const role = getCarouselSceneRole(sceneId, carousel);
 			const prevRole = this._ringRoles[sceneId] ?? "off";
+			const pendingDormantAsNext = this._pendingDormantAsNext.has(sceneId) && prevRole === "next";
+
 			const resetReason = getCarouselResetReason({
 				role,
 				prevRole,
 				carouselProgress: progress,
 				hadNonZeroProgress: this._hadNonZeroProgress,
+				progressBecameZero,
+				pendingDormantAsNext,
 			});
+
+			if (role === "next" && prevRole === "current" && atRest) {
+				this._pendingDormantAsNext.add(sceneId);
+			} else if (role !== "next") {
+				this._pendingDormantAsNext.delete(sceneId);
+			} else if (resetReason) {
+				this._pendingDormantAsNext.delete(sceneId);
+			}
 
 			if (resetReason) {
 				this._dispatchReset(sceneId, {
@@ -46,9 +68,10 @@ export class SceneCarouselLifecycleDispatcher {
 			this._ringRoles[sceneId] = role;
 		}
 
-		if (isCarouselProgressAtSegmentStart(progress)) {
+		if (atRest) {
 			this._hadNonZeroProgress = false;
 		}
+		this._prevProgressAtRest = atRest;
 	}
 
 	/**

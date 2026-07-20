@@ -1,6 +1,7 @@
 import * as THREE from "three";
 
 import { hexGridOverlayDefaults } from "./hexGridOverlayConfig.js";
+import { HEX_GRID_CUT_CORE_GLSL } from "./hexGridCutGlsl.js";
 
 const vertexShader = /* glsl */ `
 varying vec2 vUv;
@@ -16,6 +17,8 @@ uniform vec2 resolution;
 uniform float hexScale;
 uniform float fisheyeStrength;
 uniform float progress;
+/** 1 = wipe сверху вниз (scroll up / backward); 0 = снизу вверх (forward). */
+uniform float revealFromTop;
 uniform float innerMaxRadius;
 uniform float innerMinRadius;
 uniform float innerSoftness;
@@ -40,49 +43,46 @@ uniform sampler2D textureB;
 
 varying vec2 vUv;
 
-const vec2 HEX_BASIS = vec2(1.0, 1.7320508);
+${HEX_GRID_CUT_CORE_GLSL}
+
+const vec2 HEX_BASIS = HEX_CUT_BASIS;
 
 vec2 applyFisheye(vec2 p, float strength) {
-	if (abs(strength) < 1e-5) {
-		return p;
-	}
-	float r2 = dot(p, p);
-	return p * (1.0 + strength * r2);
+	return hexCutApplyFisheye(p, strength);
 }
 
 float hexDistance(vec2 localUV) {
-	vec2 p = abs(localUV);
-	return max(dot(p, HEX_BASIS * 0.5), p.x);
+	return hexCutDistance(localUV);
 }
 
 vec4 hexCoordinates(vec2 gridUV) {
-	vec4 hC = floor(vec4(gridUV, gridUV - vec2(0.5, 1.0)) / HEX_BASIS.xyxy) + 0.5;
-	vec4 h = vec4(gridUV - hC.xy * HEX_BASIS, gridUV - (hC.zw + 0.5) * HEX_BASIS);
-	return dot(h.xy, h.xy) < dot(h.zw, h.zw) ? vec4(h.xy, hC.xy) : vec4(h.zw, hC.zw + 0.5);
+	return hexCutCoordinates(gridUV);
 }
 
 float hash21(vec2 p) {
-	return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+	return hexCutHash21(p);
 }
 
 float cellScreenY(vec2 cellId, float scale) {
-	return (cellId * HEX_BASIS).y / scale;
+	return hexCutCellScreenY(cellId, scale);
 }
 
-float perCellRowProgress(
+float perCellRevealProgress(
 	vec2 cellId,
 	float globalProgress,
 	float hexScale,
 	float rowSoft,
 	float rowRandom
 ) {
-	float cellY = cellScreenY(cellId, hexScale);
-	float rowIndex = clamp(cellY * 0.5 + 0.5, 0.0, 1.0);
-	float jitterMix = sin(globalProgress * 3.14159265);
-	float jitter = (hash21(cellId) - 0.5) * rowRandom * jitterMix;
-	float threshold = clamp(rowIndex + jitter, 0.0, 1.0);
-	float soft = max(rowSoft * cellRevealSpan, 0.002);
-	return smoothstep(threshold - soft, threshold + soft, globalProgress);
+	return hexCutPerCellRevealProgress(
+		cellId,
+		globalProgress,
+		hexScale,
+		rowSoft,
+		rowRandom,
+		revealFromTop,
+		cellRevealSpan
+	);
 }
 
 /** Контур hex: яркое ядро + мягкий ореол (bloom подхватывает свечение). */
@@ -126,19 +126,13 @@ float hexBorderOpacityEnvelope(float localProgress, vec2 cellId) {
 	return envelope * keep * amplitude;
 }
 
-/** Аддитивное жёлто-оранжевое свечение поверх fill (HDR → bloom). */
-vec3 applyHexCellBorder(vec3 fill, float hexDist, float borderOpacity) {
+float hexCellBorderAmount(float hexDist, float borderOpacity) {
 	float edge = hexBorderLineMask(hexDist, lineWidth, lineInset);
-	float amount = edge * lineOpacity * borderOpacity;
-	return fill + lineColor * amount * lineGlowBoost;
+	return edge * lineOpacity * borderOpacity;
 }
 
 float innerTransitionT(float localProgress, float revealPower) {
-	float p = smoothstep(0.0, 1.0, localProgress);
-	if (revealPower > 0.001) {
-		p = pow(p, revealPower);
-	}
-	return p;
+	return hexCutInnerTransitionT(localProgress, revealPower);
 }
 
 /** Центр ячейки в UV (localUV — offset от центра в hex-пространстве). */
@@ -240,17 +234,14 @@ float innerHexRevealMask(
 	float softness,
 	float revealPower
 ) {
-	float p = innerTransitionT(localProgress, revealPower);
-	float radius = mix(maxRadius, minRadius, p);
-	float soft = max(softness, 0.001);
-
-	if (p <= 0.001) {
-		return step(hexDist, 0.5 + soft * 0.5);
-	}
-	if (radius <= soft * 0.5) {
-		return 0.0;
-	}
-	return smoothstep(radius + soft, radius - soft, hexDist);
+	return hexCutInnerRevealMask(
+		hexDist,
+		localProgress,
+		maxRadius,
+		minRadius,
+		softness,
+		revealPower
+	);
 }
 
 /** Внутренний hex — shrink (UV×>1); внешний — лупа + distort (UV×<1). */
@@ -281,6 +272,8 @@ vec4 hexCellRevealFromTextures(
 	float outerAmount = outerEffectAmount(localProgress, transitionT);
 	vec2 uvEnd = outerTextureSampleUv(vUv, localUV, cellId, hexScale, resolution, outerAmount);
 	vec4 colorEnd = texture2D(texEnd, uvEnd);
+	// Kill junk RGB on empty samples so UV-distort edges stay clean.
+	colorEnd.rgb *= colorEnd.a;
 
 	vec2 uvStart = innerTextureSampleUv(
 		vUv,
@@ -292,11 +285,16 @@ vec4 hexCellRevealFromTextures(
 		sourceTextureEffectStrength
 	);
 	vec4 colorStart = texture2D(texStart, uvStart);
+	colorStart.rgb *= colorStart.a;
 
 	vec4 fill = mix(colorEnd, colorStart, innerMask);
 	float borderOpacity = hexBorderOpacityEnvelope(localProgress, cellId);
-	vec3 rgb = applyHexCellBorder(fill.rgb, hexDist, borderOpacity);
-	return vec4(rgb, fill.a);
+	float lineAmt = hexCellBorderAmount(hexDist, borderOpacity);
+	float lineA = clamp(lineAmt * lineGlowBoost, 0.0, 1.0);
+	// fill.rgb is premultiplied; with opaque black-plate inputs a≈1 → same as straight.
+	vec3 rgb = fill.rgb + lineColor * lineA;
+	// Opaque hex RT (NoBlending) — left HUD ghosts are fixed by baking into the layer, not by crushing dark pixels.
+	return vec4(rgb, 1.0);
 }
 
 vec4 hexRowRevealCompositeTextures(
@@ -315,7 +313,7 @@ vec4 hexRowRevealCompositeTextures(
 	float rowSoft,
 	float rowRandom
 ) {
-	float localProgress = perCellRowProgress(cellId, globalProgress, hexScale, rowSoft, rowRandom);
+	float localProgress = perCellRevealProgress(cellId, globalProgress, hexScale, rowSoft, rowRandom);
 	vec4 fill;
 
 	if (globalProgress <= 0.001) {
@@ -367,7 +365,7 @@ void main() {
 		rowSoftness,
 		rowRandomStrength
 	);
-	gl_FragColor = rgba;
+	gl_FragColor = vec4(rgba.rgb, 1.0);
 }
 `;
 
@@ -380,6 +378,7 @@ export function createHexGridOverlayMaterial() {
 			hexScale: { value: defaults.hexScale },
 			fisheyeStrength: { value: defaults.fisheyeStrength },
 			progress: { value: defaults.progress ?? 0 },
+			revealFromTop: { value: 0 },
 			innerMaxRadius: { value: defaults.innerMaxRadius ?? 0.38 },
 			innerMinRadius: { value: defaults.innerMinRadius ?? 0 },
 			innerSoftness: { value: defaults.innerSoftness ?? 0.012 },

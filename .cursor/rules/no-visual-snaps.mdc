@@ -1,0 +1,33 @@
+---
+description: Site transition continuity — one leave/enter logic, no snaps
+alwaysApply: true
+---
+
+# Site transition continuity (binding)
+
+**Source of truth:** [`src/three/render/transition/SITE_TRANSITION.md`](src/three/render/transition/SITE_TRANSITION.md)
+
+One logic for every route, scroll, and chrome leave/enter on the site. Do not invent per-page hacks.
+
+## Law
+
+1. **One progress owner** at a time (ring spring / About story / case story / hex lock).
+2. **Leave decision** = `publishSiteRouteTransition(from, to, { mode })` — starts chrome exits. React/`routePhase`/`clickTransitionActive` only observe.
+3. **Appear and disappear are animated** (orbit, mosaic, springs, uniforms). No hard cut while still on screen.
+4. **Hold mix participants** by source/target + lock (including `progress≈0`). Hide with visibility/dormant — never `scale→0` mid-mix.
+5. **Cameras** only via `sceneProgress` — [`CAMERA_CONTINUITY.md`](src/three/render/transition/CAMERA_CONTINUITY.md).
+6. **Scroll feel** — [`CAROUSEL_SCROLL_SPRING.md`](src/three/render/transition/CAROUSEL_SCROLL_SPRING.md).
+7. **Hits** — [`PAGE_INTERACTION.md`](src/three/render/transition/PAGE_INTERACTION.md).
+
+## Forbidden
+
+- New `playCasePanelHudExit` / `playCaseArcOrbitExit` from React effects.
+- Gating “still in mix” on `hexProgress > 0` alone.
+- Gating home-only overlays (scroll hint) on `carousel.currentId === "home"` — after home→case, currentId stays home.
+- Drawing case stage rail at full opacity while HUD `enterProgress` is animating.
+- Second scroll engine or idle hard-snap to anchors.
+- One-frame camera/scale/opacity pops (“чуть дернулось”).
+
+## Verify
+
+Any from→to (menu, wheel, reverse, cancel, queued): continuous chrome + scene; case→home arc orbits out; case→case arc stays; no model shrink mid-hex.

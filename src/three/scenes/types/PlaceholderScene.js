@@ -6,20 +6,29 @@ import { carouselClickTransitionConfig } from "@/three/render/transition/carouse
 import {
 	createCaseStudyPanelHud,
 	disposeCaseStudyPanelHud,
-	hideCaseStudyPanelHud,
 	syncCaseStudyPanelHud,
 } from "@/three/scenes/portfolio/caseStudyText/caseStudyPanelHudHost.js";
 import { createCaseSceneLifecycle } from "@/three/scenes/portfolio/caseLifecycle/caseSceneLifecycle.js";
+import { isRingDormantReason } from "@/three/scenes/lifecycle/sceneLifecycle.js";
 
 const CAMERA_BASE = {
 	position: [0, 0, 9],
 	lookAt: [0, 0, 0],
+	/** Contacts / ring placeholders. Portfolio cases override to 50 (see applyScrollCamera). */
 	fov: 40,
-	scrollZ: 3,
+	/** Canonical: scroll down → content rises. */
+	scrollY: 1.6,
+	scrollZ: 1.8,
 };
 
-/** Стартовая дистанция enter: камера дальше, модель уже видна. */
-const ENTER_CAMERA_START_Z = 16;
+/** Match Case1 / home — avoid inheriting hub FOV=40 (reads as zoomed-in). */
+const CASE_PLACEHOLDER_FOV = 50;
+
+/**
+ * Case enter must NOT far-Z dollie (SITE_TRANSITION / CAMERA_CONTINUITY).
+ * z=16→9 during hex mix reads as a zoom jump. Cases use the same progress camera as rest.
+ */
+const ENTER_CAMERA_START_Z = CAMERA_BASE.position[2];
 const ENTER_CAMERA_END_Z = CAMERA_BASE.position[2];
 
 function pathForPlaceholderId(id) {
@@ -68,6 +77,8 @@ export class PlaceholderScene {
 		/** 0 = далеко (enter start), 1 = дефолтная поза. */
 		this._enterCameraT = 1;
 		this._enterCameraAnimating = false;
+		/** Carousel pages (contacts): enter only after ring-dormant reset. */
+		this._carouselEnterPending = false;
 
 		/** Left panel HUD — same WebGL path as Nipigas when caseStudy.renderTextInScene. */
 		this.panelHud = createCaseStudyPanelHud(this.threeScene);
@@ -84,18 +95,18 @@ export class PlaceholderScene {
 				getStore: () => this.store,
 				getPanelHud: () => this.panelHud,
 				isLoaded: () => true,
-				hideScale: 0.001,
+				hideScale: 0,
 				resetScrollOnEnter: false,
 				hooks: {
 					onEnterShow: () => {
-						this._enterCameraT = 0;
-						this._enterCameraAnimating = true;
+						this._enterCameraT = 1;
+						this._enterCameraAnimating = false;
 						this.lifecycle.setActivePage(true);
 						this.mesh.scale.setScalar(1);
 					},
 					onMixPreviewShow: () => {
-						this._enterCameraT = 0;
-						this._enterCameraAnimating = true;
+						this._enterCameraT = 1;
+						this._enterCameraAnimating = false;
 						this.mesh.scale.setScalar(1);
 					},
 					onExitHold: () => {
@@ -131,16 +142,20 @@ export class PlaceholderScene {
 		return 0;
 	}
 
-	resetCarouselState() {
+	resetCarouselState(ctx = {}) {
 		if (this.lifecycle) {
 			this.lifecycle.resetCarouselState();
 			return;
 		}
+		// Contacts (carousel): ring dormant next-only — stay live as previous for reverse.
+		if (!isRingDormantReason(ctx.reason)) {
+			return;
+		}
 		this.mesh.rotation.set(0, 0, 0);
-		this._enterCameraT = 0;
+		/** Keep settled camera — sceneProgress owns pose (no far-Z arm). */
+		this._enterCameraT = 1;
 		this._enterCameraAnimating = false;
-		this.showCase = false;
-		hideCaseStudyPanelHud(this.panelHud);
+		this._carouselEnterPending = true;
 	}
 
 	playEnterAnimation() {
@@ -148,8 +163,12 @@ export class PlaceholderScene {
 			this.lifecycle.playEnterAnimation();
 			return;
 		}
-		this._enterCameraT = 0;
-		this._enterCameraAnimating = true;
+		if (!this._carouselEnterPending) {
+			return;
+		}
+		this._carouselEnterPending = false;
+		this._enterCameraT = 1;
+		this._enterCameraAnimating = false;
 		this.panelHud?.setVisible(true);
 	}
 
@@ -159,12 +178,17 @@ export class PlaceholderScene {
 
 	applyScrollCamera(camera, frame) {
 		const sceneProgress = frame?.sceneProgress ?? 0;
+		if (!this._isPortfolioCase) {
+			applySceneProgressToCamera(camera, CAMERA_BASE, sceneProgress);
+			return;
+		}
 		const enterT = easeOutCubic(this._enterCameraT);
 		const z = THREE.MathUtils.lerp(ENTER_CAMERA_START_Z, ENTER_CAMERA_END_Z, enterT);
 		applySceneProgressToCamera(
 			camera,
 			{
 				...CAMERA_BASE,
+				fov: CASE_PLACEHOLDER_FOV,
 				position: [CAMERA_BASE.position[0], CAMERA_BASE.position[1], z],
 			},
 			sceneProgress,
@@ -188,9 +212,7 @@ export class PlaceholderScene {
 		this.showCase = show;
 
 		if (!show) {
-			this._enterCameraAnimating = false;
-			this._enterCameraT = 1;
-			hideCaseStudyPanelHud(this.panelHud);
+			// Do not wipe enter pose / HUD from route leave — ring dormant owns reset.
 			return;
 		}
 
@@ -198,6 +220,14 @@ export class PlaceholderScene {
 		if (shouldWake) {
 			this.playEnterAnimation();
 		}
+	}
+
+	beginWarmupDraw() {
+		return this.lifecycle?.beginWarmupDraw?.() ?? null;
+	}
+
+	endWarmupDraw(token) {
+		this.lifecycle?.endWarmupDraw?.(token);
 	}
 
 	setMixPreviewActive(active) {
@@ -211,7 +241,10 @@ export class PlaceholderScene {
 			return;
 		}
 
-		this._enterCameraT = 0;
+		if (this._isPortfolioCase) {
+			this._enterCameraT = 1;
+			this._enterCameraAnimating = false;
+		}
 		this.panelHud?.setVisible(true);
 		this.playEnterAnimation();
 	}

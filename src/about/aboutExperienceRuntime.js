@@ -64,6 +64,10 @@ import {
 	updateAboutPcbAppearSound,
 } from "@/sounds/aboutPcbAppearSound.js";
 import { isAboutPanelHudLocaleMixBusy } from "@/about/aboutPanelHudBridge.js";
+import {
+	registerSiteNavigationProgressOwner,
+	resolveStoryRest,
+} from "@/three/render/transition/siteNavigationProgressOwner.js";
 
 /**
  * Imperative About story/wheel owner.
@@ -491,6 +495,9 @@ function createAboutExperienceRuntime() {
 			return;
 		}
 		if (!ownsInput()) {
+			if (getSceneCarousel().isNavigationSettleActive("about")) {
+				return;
+			}
 			// Still chasing interior story after commit — don't drop the rAF forever
 			// (brief lock / id flicker would freeze mix until the next wheel).
 			if (getSceneCarousel().currentId === "about" && storyNeedsAnimation(current, target)) {
@@ -786,6 +793,65 @@ function createAboutExperienceRuntime() {
 	store.sceneCarouselLastCommitFromId = null;
 	store.sceneCarouselLastCommitDirection = null;
 	store.sceneCarouselLastCommitBoundaryOverflow = 0;
+	const navigationOwner = {
+		id: "about",
+		sceneId: "about",
+		snapshot: () => {
+			const rest = resolveStoryRest(target, STORY_MAX);
+			const carousel = getSceneCarousel();
+			if (rest < 0) {
+				return {
+					current,
+					target,
+					rest,
+					restPath: SCENE_ID_TO_PAGE[carousel.previousId] ?? "/portfolio",
+					restSceneId: carousel.previousId,
+					routeChanged: true,
+				};
+			}
+			if (rest > STORY_MAX) {
+				return {
+					current,
+					target,
+					rest,
+					restPath: SCENE_ID_TO_PAGE[carousel.nextId] ?? "/contacts",
+					restSceneId: carousel.nextId,
+					routeChanged: true,
+				};
+			}
+			return {
+				current,
+				target,
+				rest,
+				restPath: "/about",
+				restSceneId: "about",
+				routeChanged: false,
+			};
+		},
+		apply: (value, delta) => {
+			current = value;
+			target = value;
+			scrollIntent = value < 0 ? "backward" : value > STORY_MAX ? "forward" : null;
+			syncBoundaryDrive();
+			publish();
+			updateAboutFrontDissolveSound(delta, aboutStoryToFrontDissolve(current));
+			updateAboutBackDissolveSound(delta, aboutStoryToBackDissolve(current));
+			updateAboutPcbAppearSound(delta, aboutStoryToPcbReveal(current));
+			if (current >= 0 && current <= STORY_MAX) {
+				const mix = resolveAboutPanelHudStoryPair(clampStoryVisual(current)).mix;
+				updateCaseStudyTextTransitionSound(delta, mix, mix);
+			}
+		},
+		commit: () => {
+			if (!tryCommitRouteLeave()) {
+				scrollIntent = null;
+				syncBoundaryDrive();
+				publish();
+			}
+		},
+	};
+	const unregisterNavigationOwner = registerSiteNavigationProgressOwner(navigationOwner);
+
 	void preloadCaseStudyTextTransitionSound();
 	void preloadAboutFrontDissolveSound();
 	void preloadAboutBackDissolveSound();
@@ -808,6 +874,7 @@ function createAboutExperienceRuntime() {
 
 	return () => {
 		disposed = true;
+		unregisterNavigationOwner();
 		liveResetHandler = null;
 		experience.active = false;
 		getSceneCarousel().clearAboutBoundaryDrive();

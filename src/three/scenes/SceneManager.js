@@ -95,6 +95,7 @@ export class SceneManager {
 		return (
 			isCarouselRoutePage(this.routeState.currentPage)
 			|| carousel.isHexNavigationActive()
+			|| carousel.isNavigationSettleActive()
 			|| carousel.isCaseBoundaryDrive()
 		);
 	}
@@ -168,11 +169,13 @@ export class SceneManager {
 		}
 		const carousel = getSceneCarousel();
 		carousel.confirmCaseBoundaryRoute(nextId);
+		const settleWasConfirmed = carousel.confirmNavigationSettleRoute(nextId);
 		const routeWasConfirmed = carousel.confirmHexNavigationRoute(nextId);
 		// The confirmation callback can immediately start a queued transition.
 		// In that case this route is only an intermediate frame and must not play
 		// its normal scene-enter animation.
-		this.routeState.suppressSceneEnter = routeWasConfirmed && carousel.isHexNavigationActive();
+		this.routeState.suppressSceneEnter =
+			(routeWasConfirmed || settleWasConfirmed) && carousel.isInteractionLocked();
 
 		for (const scene of this.scenes.values()) {
 			scene.setRouteState?.(this.routeState);
@@ -515,6 +518,15 @@ export class SceneManager {
 	/** После SceneCarousel.update — reset по ролям кольца. */
 	afterCarouselUpdate(carousel) {
 		this._carouselLifecycle.onCarouselFrame(carousel);
+		// React may have committed the nearest rest route one frame before the
+		// fast-settle transaction changed to `awaitingRoute`. Re-check the already
+		// displayed route here so the handshake cannot deadlock waiting for a prop
+		// change that has already happened.
+		const displayedSceneId = resolveSceneId(this.routeState.currentPage);
+		const settleWasConfirmed = carousel.confirmNavigationSettleRoute(displayedSceneId);
+		if (settleWasConfirmed && carousel.isInteractionLocked()) {
+			this.routeState.suppressSceneEnter = true;
+		}
 	}
 
 	/** Старт hex-перехода — reset target, подготовка source. */

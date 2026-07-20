@@ -61,7 +61,7 @@ export class ProgressDevTools {
 				${row("c.progressTarget", "progressTarget")}
 				${row("c.mix", "mixProgress (|p|)")}
 				${row("c.hex", "hex shader")}
-				${row("c.flags", "aboutBound / caseBound / hexNav")}
+				${row("c.flags", "aboutBound / caseBound / hexNav / navSettle")}
 			</section>
 			<section class="section">
 				<p class="sectionTitle">About story</p>
@@ -165,6 +165,7 @@ export class ProgressDevTools {
 				fmtBool(carousel.isAboutBoundaryDrive?.()),
 				fmtBool(carousel.isCaseBoundaryDrive?.()),
 				fmtBool(carousel.isHexNavigationActive?.()),
+				fmtBool(carousel.isNavigationSettleActive?.()),
 			].join(" / "),
 		);
 

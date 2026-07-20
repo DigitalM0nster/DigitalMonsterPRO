@@ -725,10 +725,8 @@ function ScrollPageNavigatorContent() {
 	const handleNavigate = useCallback(
 		(path) => {
 			const from = normalizePath(location.pathname);
-			if (normalizePath(path) === from) {
-				return false;
-			}
-			return requestHexNavigation(path, from);
+			const handled = requestHexNavigation(path, from);
+			return handled || normalizePath(path) === from;
 		},
 		[location.pathname],
 	);

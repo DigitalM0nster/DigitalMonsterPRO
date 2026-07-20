@@ -46,9 +46,6 @@ export default function PortfolioProjectsList() {
 		: null;
 
 	const changeProject = (path) => {
-		if (path === browserPathname) {
-			return;
-		}
 		requestPortfolioCaseNavigation(path, browserPathname);
 	};
 

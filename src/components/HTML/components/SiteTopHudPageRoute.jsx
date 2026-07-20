@@ -114,10 +114,7 @@ export default function SiteTopHudPageRoute({ pathname, locale }) {
 
 	const navigateFromCrumb = useCallback((targetPath) => {
 		const fromPath = displayedPathnameRef.current;
-		if (fromPath === targetPath) {
-			return;
-		}
-		if (!requestHexNavigation(targetPath, fromPath)) {
+		if (!requestHexNavigation(targetPath, fromPath) && fromPath !== targetPath) {
 			navigate(targetPath);
 		}
 	}, [navigate]);

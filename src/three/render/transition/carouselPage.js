@@ -7,7 +7,12 @@ import {
 	SceneCarousel,
 } from "./SceneCarousel.js";
 import { sceneIdToPage } from "@/three/scenes/portfolio/hub/projectsData.js";
-import { handleHexNavigationComplete, handleHexNavigationRouteConfirmed } from "@/utils/hexNavigation.js";
+import {
+	handleHexNavigationCancelled,
+	handleHexNavigationComplete,
+	handleHexNavigationRouteConfirmed,
+	handleNavigationSettleComplete,
+} from "@/utils/hexNavigation.js";
 import { armAboutPanelHudForRoute } from "@/about/aboutPanelHudStory.js";
 import { startAboutExperienceRuntime } from "@/about/aboutExperienceRuntime.js";
 
@@ -31,7 +36,10 @@ carousel.setOnHexRouteConfirmed(({ path }) => {
 	handleHexNavigationRouteConfirmed(path);
 });
 
-carousel.setOnCommit(({ fromId, toId, direction, boundaryOverflowProgress }) => {
+carousel.setOnNavigationSettleComplete(handleNavigationSettleComplete);
+carousel.setOnHexCancelled(({ path }) => handleHexNavigationCancelled(path));
+
+carousel.setOnCommit(({ fromId, toId, direction, boundaryOverflowProgress, navigationSettle }) => {
 	const path = pathForSceneId(toId);
 	if (!path) {
 		return;
@@ -47,7 +55,13 @@ carousel.setOnCommit(({ fromId, toId, direction, boundaryOverflowProgress }) => 
 	store.sceneCarouselCurrentId = toId;
 	/** Wheel/spring commit only — click navigations must keep HTML exit stagger. */
 	store.sceneCarouselSkipHtmlExit = true;
-	store.sceneCarouselNavigatePath = path;
+	if (navigationSettle || carousel.isNavigationSettleAwaitingRoute()) {
+		// Browser URL already carries the latest intent. Mount the nearest rest
+		// route as the visual intermediate without overwriting that intent.
+		store.sceneCarouselDisplayPath = path;
+	} else {
+		store.sceneCarouselNavigatePath = path;
+	}
 	// About: start story runtime in this same turn (before paint) so overflow
 	// chase + mixProgress advance immediately. Host subscribe is async backup only.
 	// Arm after runtime publish — never arm(0) then rewrite mix after the chase started.

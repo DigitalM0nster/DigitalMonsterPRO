@@ -125,11 +125,10 @@ export default function LeftMenu() {
 
 	const handleNavigate = useCallback(
 		(path) => {
-			if (pathname === path) {
+			if (requestHexNavigation(path, pathname)) {
 				return;
 			}
-
-			if (requestHexNavigation(path, pathname)) {
+			if (pathname === path) {
 				return;
 			}
 

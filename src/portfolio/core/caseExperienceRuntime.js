@@ -36,6 +36,10 @@ import { normalizeSiteLocale } from "@/utils/siteLocale.js";
 import { commitCasePanelHudScrollLeave, isCasePanelHudRevealBusy } from "@/portfolio/core/casePanelHudReveal.js";
 import { isCaseStageClickMosaicActive } from "@/portfolio/core/caseStageClickMosaic.js";
 import { preloadCaseStudyTextTransitionSound, resetCaseStudyTextTransitionSound, updateCaseStudyTextTransitionSound } from "@/sounds/caseStudyTextTransitionSound.js";
+import {
+	registerSiteNavigationProgressOwner,
+	resolveStoryRest,
+} from "@/three/render/transition/siteNavigationProgressOwner.js";
 
 /** Default carousel rest rates (empty → segmentScrollSpring defaults). */
 const CAROUSEL_SPRING_RATES = {};
@@ -246,6 +250,11 @@ function createCaseExperienceRuntime({ project, commitStageStep, allowCaseLeave 
 				const to = normalizeSitePath(payload.path);
 				// One leave decision — chrome band exit + flags (SITE_TRANSITION.md).
 				publishSiteRouteTransition(from, to, { mode: "case-boundary" });
+				if (getSceneCarousel().isNavigationSettleAwaitingRoute()) {
+					store.sceneCarouselSkipHtmlExit = true;
+					store.sceneCarouselDisplayPath = to;
+					return;
+				}
 				setHexVisualPath(to);
 				// Same as ring scroll commit — skip HTML exiting wipe (kills Case1 activePage/bloom).
 				store.sceneCarouselSkipHtmlExit = true;
@@ -394,6 +403,9 @@ function createCaseExperienceRuntime({ project, commitStageStep, allowCaseLeave 
 		rafId = 0;
 		if (disposed) return;
 		if (!ownsInput()) {
+			if (getSceneCarousel().isNavigationSettleActive("case")) {
+				return;
+			}
 			getSceneCarousel().clearCaseBoundaryDrive();
 			clearBoundaryPair();
 			return;
@@ -568,10 +580,67 @@ function createCaseExperienceRuntime({ project, commitStageStep, allowCaseLeave 
 		jumpToStory(Number(story) || 0);
 	};
 
+	const sourcePath = normalizeSitePath(project.config.route);
+	const sourceSceneId = resolveSceneId(sourcePath);
+	const navigationOwner = {
+		id: "case",
+		sceneId: sourceSceneId,
+		snapshot: () => {
+			const rest = resolveStoryRest(target, STORY_MAX);
+			if (rest < 0 || rest > STORY_MAX) {
+				if (!ensureBoundaryPair() || !cachedBoundaryChrome) {
+					return null;
+				}
+				const boundary = rest < 0 ? cachedBoundaryChrome.backward : cachedBoundaryChrome.forward;
+				return {
+					current,
+					target,
+					rest,
+					restPath: boundary.route,
+					restSceneId: resolveSceneId(boundary.route),
+					routeChanged: true,
+				};
+			}
+			return {
+				current,
+				target,
+				rest,
+				restPath: sourcePath,
+				restSceneId: sourceSceneId,
+				routeChanged: false,
+			};
+		},
+		apply: (value, delta) => {
+			current = value;
+			target = value;
+			scrollIntent = value < 0 ? "backward" : value > STORY_MAX ? "forward" : null;
+			syncBoundaryDrive();
+			publish();
+			updateCaseStudyTextTransitionSound(
+				delta,
+				store.portfolioExperience.stageProgress,
+				store.portfolioExperience.stageProgressTarget,
+			);
+		},
+		commit: () => {
+			if (!tryCommitRouteLeave()) {
+				scrollIntent = null;
+				syncBoundaryDrive();
+				publish();
+			}
+		},
+	};
+	const unregisterNavigationOwner = registerSiteNavigationProgressOwner(navigationOwner);
+
 	getSceneCarousel().setOnCaseBoundaryCommit((payload) => {
 		const from = normalizeSitePath(project.config.route);
 		const to = normalizeSitePath(payload.path);
 		publishSiteRouteTransition(from, to, { mode: "case-boundary" });
+		if (getSceneCarousel().isNavigationSettleAwaitingRoute()) {
+			store.sceneCarouselSkipHtmlExit = true;
+			store.sceneCarouselDisplayPath = to;
+			return;
+		}
 		setHexVisualPath(to);
 		// Wheel/spring case→case — no HTML exiting stagger (parity with carouselPage commit).
 		store.sceneCarouselSkipHtmlExit = true;
@@ -589,6 +658,7 @@ function createCaseExperienceRuntime({ project, commitStageStep, allowCaseLeave 
 
 	return () => {
 		disposed = true;
+		unregisterNavigationOwner();
 		liveJumpHandler = null;
 		getSceneCarousel().clearCaseBoundaryDrive();
 		clearBoundaryPair();

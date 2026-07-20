@@ -145,9 +145,13 @@ function startCaseChromeLeave(chrome, from, to) {
 	}
 
 	if (isCasePanelHudRevealExiting()) {
-		// Already exiting — still ensure leave-site arc is armed (idempotent).
+		// A chained boundary settle can begin as case→case (band hold) and then
+		// immediately become case→site. Upgrade that same in-flight animation to a
+		// full release from its current progress; otherwise openedCase/HUD ownership
+		// remains stuck after the final hex.
 		if (chrome === "case-full") {
 			playCaseArcOrbitExit();
+			playCasePanelHudExit({ mosaicScope: "full", release: true, force: true });
 		}
 		return;
 	}

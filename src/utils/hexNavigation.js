@@ -10,6 +10,7 @@ import {
 	publishSiteRouteTransition,
 } from "@/three/render/transition/siteTransitionIntent.js";
 import { store } from "@/store.jsx";
+import { releaseCasePanelHud } from "@/portfolio/core/casePanelHudReveal.js";
 
 /** @see SITE_TRANSITION.md — flags live in siteTransitionIntent. */
 export function noteCaseEnterSourcePaths(fromPath, toPath) {
@@ -66,15 +67,13 @@ function canHexBetween(from, to) {
 	return sourceId !== targetId;
 }
 
-function tryStartHex(from, to) {
-	if (!canHexBetween(from, to)) {
+function tryStartNavigation(from, to) {
+	if (isDomDistortDemoPath(from) || isDomDistortDemoPath(to)) {
 		return false;
 	}
-
 	const sourceId = resolveSceneId(from);
 	const targetId = resolveSceneId(to);
-	const started = getSceneCarousel().startHexNavigation(from, to, sourceId, targetId);
-	return started;
+	return getSceneCarousel().startHexNavigation(from, to, sourceId, targetId);
 }
 
 /**
@@ -107,9 +106,22 @@ export function requestHexNavigation(targetPath, fromPath, options = {}) {
 	// displayed scene is meaningful: the active transition may be leaving it.
 	if (carousel.isInteractionLocked()) {
 		pendingPath = to;
-		publishSiteRouteTransition(from, to, { mode: "hex" });
+		carousel.retargetNavigation(to, resolveSceneId(to));
 		// The URL always represents the latest user intent. The rendered route
 		// remains on visualPath until the current hex frame has completed.
+		preserveBrowserUrl = true;
+		publishRequestedUrl();
+		return true;
+	}
+
+	const started = tryStartNavigation(from, to);
+	if (started) {
+		pendingPath = to;
+		// A direct rest-to-rest hex owns chrome now. Mid-scroll settle keeps the
+		// currently visible pair/chrome and publishes the final leave only at rest.
+		if (carousel.isHexNavigationActive()) {
+			publishSiteRouteTransition(from, to, { mode: "hex" });
+		}
 		preserveBrowserUrl = true;
 		publishRequestedUrl();
 		return true;
@@ -123,15 +135,6 @@ export function requestHexNavigation(targetPath, fromPath, options = {}) {
 		// Route still changes (e.g. same scene id) — chrome leave must not wait on React.
 		publishSiteRouteTransition(from, to, { mode: "html-fallback" });
 		return false;
-	}
-
-	const started = tryStartHex(from, to);
-	if (started) {
-		pendingPath = to;
-		publishSiteRouteTransition(from, to, { mode: "hex" });
-		preserveBrowserUrl = true;
-		publishRequestedUrl();
-		return true;
 	}
 
 	// Hex engine refused — still publish leave so HUD/arc animate out.
@@ -174,10 +177,42 @@ export function handleHexNavigationComplete(arrivedPath) {
 	// displayed. Any clicks during that handshake must remain queued as well.
 }
 
+export function handleNavigationSettleComplete({ restPath, targetPath, targetReached, hexStarted }) {
+	const rest = normalizeSitePath(restPath);
+	const target = normalizeSitePath(targetPath);
+	if (targetReached) {
+		// Same completion state as a confirmed hex route: subsequent navigation
+		// must start from the frame that is now actually visible, not the route
+		// that was visible before fast-settle began.
+		visualPath = rest;
+		pendingPath = null;
+		preserveBrowserUrl = false;
+		return;
+	}
+
+	pendingPath = target;
+	if (hexStarted) {
+		publishSiteRouteTransition(rest, target, { mode: "hex" });
+	}
+}
+
+export function handleHexNavigationCancelled(path) {
+	visualPath = normalizeSitePath(path);
+	pendingPath = null;
+	preserveBrowserUrl = false;
+}
+
 /** Запускает queued-переход только после снятия awaitingRoute предыдущего hex. */
 export function handleHexNavigationRouteConfirmed(arrivedPath) {
 	const arrived = normalizeSitePath(arrivedPath);
 	visualPath = arrived;
+	// Route confirmation is the authoritative ownership hand-off. A transient
+	// case→case rest can mount its shell while the following case→site hex is
+	// already running; normalize the case HUD/runtime only after the non-case
+	// target is actually confirmed so that late mount effects cannot re-lock it.
+	if (!isPortfolioCasePath(arrived)) {
+		releaseCasePanelHud();
+	}
 
 	// `pendingPath` is always the most recent click. Intermediate clicks are
 	// intentionally discarded; after the completed route is confirmed we either
@@ -187,7 +222,7 @@ export function handleHexNavigationRouteConfirmed(arrivedPath) {
 
 	if (needsChain) {
 		pendingPath = target;
-		if (tryStartHex(arrived, target)) {
+		if (tryStartNavigation(arrived, target)) {
 			publishSiteRouteTransition(arrived, target, { mode: "hex" });
 			return;
 		}

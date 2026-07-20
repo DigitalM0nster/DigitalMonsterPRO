@@ -29,6 +29,7 @@ import { isWebGLDisabledFromUrl } from "../utils/postProcessTestFlags.js";
 import { initPageVisibilitySound } from "../sounds/pageVisibilitySound.js";
 import { prefetchSoundDesign } from "../sounds/soundDesign.js";
 import { isDevFastPreloader } from "../utils/devFastPreloader.js";
+import { subscribeKey } from "valtio/utils";
 
 const SHOW_CUSTOM_CURSOR = true;
 const LOADER_UNMOUNT_DELAY_MS = isDevFastPreloader() ? 350 : 1100;
@@ -38,6 +39,7 @@ export default function MainContent() {
 	const [routeAssetsReady, setRouteAssetsReady] = useState(false);
 	const [startApp, setStartApp] = useState(false);
 	const [loaderMounted, setLoaderMounted] = useState(true);
+	const [navigationPhase, setNavigationPhase] = useState(store.sceneCarouselClickPhase ?? "idle");
 
 	const location = useLocation();
 	const routeTransition = useRouteTransition(location);
@@ -75,6 +77,11 @@ export default function MainContent() {
 	useEffect(() => {
 		initPageVisibilitySound();
 	}, []);
+
+	useEffect(
+		() => subscribeKey(store, "sceneCarouselClickPhase", (next) => setNavigationPhase(next ?? "idle"), true),
+		[],
+	);
 
 	useEffect(() => {
 		if (!startApp || isDemoLab) {
@@ -140,7 +147,10 @@ export default function MainContent() {
 							setRendered={setThreeReady}
 							currentPage={
 								// Deep-link /about|/contacts: don't keep Three on "/" while HTML display lags.
-								(location.pathname === "/about" || location.pathname === "/contacts")
+								// During a navigation transaction the URL is only the latest intent;
+								// Three must stay on the visual route until settle/hex confirmation.
+								(navigationPhase === "idle"
+									&& (location.pathname === "/about" || location.pathname === "/contacts"))
 									? location.pathname
 									: displayPathname
 							}

@@ -27,6 +27,11 @@ import {
 	chaseSegmentValue,
 	getAbsChaseSmoothMul,
 } from "./segmentScrollSpring.js";
+import {
+	getSiteNavigationProgressOwner,
+	needsFastNavigationSettle,
+	resolveLocalSegmentRest,
+} from "./siteNavigationProgressOwner.js";
 
 /** Бесконечное кольцо: previous ← current → next + scroll progress / progressTarget. */
 export const CAROUSEL_SCENE_IDS = ["home", "portfolioHub", "about", "contacts"];
@@ -190,7 +195,7 @@ export class SceneCarousel {
 		this._onHexLifecycleStart = null;
 		/** @type {((payload: { path: string, sceneId: string }) => void) | null} */
 		this._onHexRouteConfirmed = null;
-		/** @type {'idle' | 'settling' | 'enter' | 'awaitingRoute'} */
+		/** @type {'idle' | 'enter' | 'awaitingRoute'} */
 		this._clickPhase = "idle";
 		/** @type {string | null} */
 		this._hexTargetSceneId = null;
@@ -199,26 +204,53 @@ export class SceneCarousel {
 		/** @type {string | null} */
 		this._hexMixSourceId = null;
 		this._hexSourceSceneProgress = 0;
+		this._hexSourcePath = null;
 		this._clickEnterElapsed = 0;
-		this._settleStartProgress = 0;
-		this._settleEndProgress = 0;
-		this._settleElapsed = 0;
+		this._hexDirection = 1;
+		/** @type {null | {
+		 *   phase: 'settling' | 'awaitingRoute',
+		 *   ownerId: string,
+		 *   owner: { apply: (value: number, delta: number) => void, commit: () => void },
+		 *   start: number,
+		 *   rest: number,
+		 *   elapsed: number,
+		 *   duration: number,
+		 *   restPath: string,
+		 *   restSceneId: string,
+		 *   routeChanged: boolean,
+		 *   desiredPath: string,
+		 *   desiredSceneId: string,
+		 * }} */
+		this._navigationSettle = null;
+		this._navigationSettleCommitInProgress = false;
+		/** @type {((payload: { restPath: string, targetPath: string, targetReached: boolean, hexStarted: boolean }) => void) | null} */
+		this._onNavigationSettleComplete = null;
+		/** @type {((payload: { path: string, sceneId: string }) => void) | null} */
+		this._onHexCancelled = null;
 	}
 
 	isInteractionLocked() {
-		return this._clickPhase !== "idle";
+		return this._navigationSettle !== null || this._clickPhase !== "idle";
 	}
 
 	isHexNavigationActive() {
 		return this._clickPhase !== "idle";
 	}
 
+	isNavigationSettleActive(ownerId = null) {
+		return this._navigationSettle !== null && (!ownerId || this._navigationSettle.ownerId === ownerId);
+	}
+
+	isNavigationSettleAwaitingRoute() {
+		return this._navigationSettle?.phase === "awaitingRoute";
+	}
+
 	getHexNavigationPhase() {
-		return this._clickPhase;
+		return this._navigationSettle ? "settling" : this._clickPhase;
 	}
 
 	getHexTargetSceneId() {
-		return this._hexTargetSceneId;
+		return this._navigationSettle?.desiredSceneId ?? this._hexTargetSceneId;
 	}
 
 	/** @deprecated */
@@ -235,42 +267,177 @@ export class SceneCarousel {
 	 * @returns {boolean}
 	 */
 	startHexNavigation(fromPath, toPath, sourceSceneId, targetSceneId) {
-		if (!fromPath || !toPath || !sourceSceneId || !targetSceneId || this._clickPhase !== "idle") {
+		if (!fromPath || !toPath || !sourceSceneId || !targetSceneId || this.isInteractionLocked()) {
 			return false;
+		}
+
+		const storyOwner = getSiteNavigationProgressOwner(sourceSceneId);
+		const storySnapshot = storyOwner?.snapshot();
+		if (
+			storySnapshot
+			&& needsFastNavigationSettle(storySnapshot.current, storySnapshot.target, storySnapshot.rest)
+		) {
+			this._beginNavigationSettle(storyOwner, storySnapshot, toPath, targetSceneId);
+			return true;
+		}
+
+		if (CAROUSEL_SCENE_IDS.includes(sourceSceneId) && sourceSceneId === this.currentId) {
+			const rest = resolveLocalSegmentRest(this.progressTarget);
+			if (needsFastNavigationSettle(this.progress, this.progressTarget, rest)) {
+				const restSceneId = rest < 0 ? this.previousId : rest > 0 ? this.nextId : this.currentId;
+				const restPath = rest === 0 ? fromPath : SCENE_ID_TO_PAGE[restSceneId];
+				const direction = rest < 0 ? "backward" : rest > 0 ? "forward" : null;
+				const owner = {
+					id: "ring",
+					apply: (value) => {
+						this.progress = value;
+						this.progressTarget = value;
+						this.scrollIntent = direction;
+						this._syncSettlingSceneProgresses();
+					},
+					commit: () => {
+						if (direction === "backward") {
+							this._commitBackward();
+						} else if (direction === "forward") {
+							this._commitForward();
+						} else {
+							this.progress = 0;
+							this.progressTarget = 0;
+							this.scrollIntent = null;
+							this._syncSettlingSceneProgresses();
+						}
+					},
+				};
+				this._beginNavigationSettle(owner, {
+					current: this.progress,
+					target: this.progressTarget,
+					rest,
+					restPath,
+					restSceneId,
+					routeChanged: rest !== 0,
+				}, toPath, targetSceneId);
+				return true;
+			}
 		}
 
 		if (sourceSceneId === targetSceneId) {
 			return false;
 		}
 
-		// Click hex owns the frame — abort any in-flight case scroll mix.
 		if (this._caseBoundaryDrive) {
 			this.clearCaseBoundaryDrive();
 		}
 
 		this._hexTargetSceneId = targetSceneId;
 		this._hexTargetPath = toPath;
+		this._hexSourcePath = fromPath;
 		this.scrollIntent = null;
 
-		const sourceInCarousel = CAROUSEL_SCENE_IDS.includes(sourceSceneId);
-		const distanceFromStart = Math.abs(this.progress);
-		const distanceFromEnd = Math.abs(1 - this.progress);
-		const isBetweenEndpoints = sourceInCarousel && distanceFromStart > CAROUSEL_PROGRESS_COMMIT_EPS && distanceFromEnd > CAROUSEL_PROGRESS_COMMIT_EPS;
+		this._beginHexEnter(sourceSceneId);
+		return true;
+	}
 
-		if (isBetweenEndpoints) {
-			// Arm mix pair during settle so source/target stay held (SITE_TRANSITION.md).
-			// Previously _hexMixSourceId was null until enter → early hide / scale pops.
-			this._hexMixSourceId = sourceSceneId;
-			this._hexSourceSceneProgress = this.getSceneProgress(sourceSceneId);
-			this._clickPhase = "settling";
-			this._settleStartProgress = this.progress;
-			this._settleEndProgress = distanceFromStart <= distanceFromEnd ? 0 : 1;
-			this._settleElapsed = 0;
-			this.progressTarget = this._settleEndProgress;
+	_beginNavigationSettle(owner, snapshot, desiredPath, desiredSceneId) {
+		const distance = Math.min(1, Math.abs(snapshot.rest - snapshot.current));
+		const baseDuration = Math.max(1e-4, carouselClickTransitionConfig.resetDurationS);
+		this._navigationSettle = {
+			phase: "settling",
+			ownerId: owner.id,
+			owner,
+			start: snapshot.current,
+			rest: snapshot.rest,
+			elapsed: 0,
+			duration: Math.max(0.12, baseDuration * Math.max(0.4, distance)),
+			restPath: snapshot.restPath,
+			restSceneId: snapshot.restSceneId,
+			routeChanged: snapshot.routeChanged,
+			desiredPath,
+			desiredSceneId,
+		};
+	}
+
+	retargetNavigation(toPath, targetSceneId) {
+		if (this._navigationSettle) {
+			this._navigationSettle.desiredPath = toPath;
+			this._navigationSettle.desiredSceneId = targetSceneId;
 			return true;
 		}
 
-		this._beginHexEnter(sourceSceneId);
+		if (
+			this._clickPhase === "enter"
+			&& targetSceneId === this._hexMixSourceId
+			&& CAROUSEL_SCENE_IDS.includes(this._hexMixSourceId)
+		) {
+			this._hexDirection = -1;
+			return true;
+		}
+
+		return false;
+	}
+
+	_updateNavigationSettle(delta) {
+		const transaction = this._navigationSettle;
+		if (!transaction || transaction.phase !== "settling") {
+			return;
+		}
+
+		transaction.elapsed += delta;
+		const linear = Math.min(1, transaction.elapsed / transaction.duration);
+		const eased = 1 - Math.pow(1 - linear, 3);
+		const value = transaction.start + (transaction.rest - transaction.start) * eased;
+		transaction.owner.apply(value, delta);
+
+		if (linear < 1) {
+			return;
+		}
+
+		transaction.owner.apply(transaction.rest, delta);
+		if (transaction.routeChanged) {
+			transaction.phase = "awaitingRoute";
+			this._navigationSettleCommitInProgress = true;
+			try {
+				transaction.owner.commit();
+			} finally {
+				this._navigationSettleCommitInProgress = false;
+			}
+			return;
+		}
+
+		transaction.owner.commit();
+		this._continueAfterNavigationSettle();
+	}
+
+	_continueAfterNavigationSettle() {
+		const transaction = this._navigationSettle;
+		if (!transaction) return;
+
+		const targetReached = transaction.desiredPath === transaction.restPath;
+		const payload = {
+			restPath: transaction.restPath,
+			targetPath: transaction.desiredPath,
+			targetReached,
+			hexStarted: !targetReached,
+		};
+		this._navigationSettle = null;
+
+		if (targetReached) {
+			this._onNavigationSettleComplete?.(payload);
+			return;
+		}
+
+		this._hexTargetSceneId = transaction.desiredSceneId;
+		this._hexTargetPath = transaction.desiredPath;
+		this._hexSourcePath = transaction.restPath;
+		this._onNavigationSettleComplete?.(payload);
+		this._beginHexEnter(transaction.restSceneId);
+	}
+
+	confirmNavigationSettleRoute(sceneId) {
+		const transaction = this._navigationSettle;
+		if (!transaction || transaction.phase !== "awaitingRoute" || sceneId !== transaction.restSceneId) {
+			return false;
+		}
+		this._continueAfterNavigationSettle();
 		return true;
 	}
 
@@ -279,6 +446,7 @@ export class SceneCarousel {
 		// Freeze the source camera at the exact pose visible after scroll settling.
 		this._hexSourceSceneProgress = CAROUSEL_SCENE_IDS.includes(sourceSceneId) ? this.getSceneProgress(sourceSceneId) : 0;
 		this._clickEnterElapsed = 0;
+		this._hexDirection = 1;
 		this._clickPhase = "enter";
 		this.progress = 0;
 		this.progressTarget = 0;
@@ -309,50 +477,9 @@ export class SceneCarousel {
 		this._hexTargetPath = null;
 		this._hexMixSourceId = null;
 		this._hexSourceSceneProgress = 0;
+		this._hexSourcePath = null;
 		this._clickEnterElapsed = 0;
-		this._settleElapsed = 0;
-	}
-
-	_updateHexSettling(delta) {
-		if (this._clickPhase !== "settling") {
-			return;
-		}
-
-		const duration = Math.max(1e-4, carouselClickTransitionConfig.resetDurationS);
-		this._settleElapsed += delta;
-		const linear = Math.min(1, this._settleElapsed / duration);
-		const eased = 1 - Math.pow(1 - linear, 3);
-		this.progress = this._settleStartProgress + (this._settleEndProgress - this._settleStartProgress) * eased;
-		this.progressTarget = this.progress;
-		this._syncSettlingSceneProgresses();
-
-		if (linear < 1) {
-			return;
-		}
-
-		// The scroll is already revealing the route that was clicked. Its move to
-		// progress=1 is the required hex transition, so do not start a second wipe
-		// from the same scene to itself. Keep the completed frame until the route
-		// and its enter lifecycle are confirmed.
-		if (this._settleEndProgress === 1 && this._hexTargetSceneId === this.nextId) {
-			this.progress = 1;
-			this.progressTarget = 1;
-			this._finishHexNavigation();
-			return;
-		}
-
-		let settledSourceId = this.currentId;
-		if (this._settleEndProgress === 1) {
-			settledSourceId = this.nextId;
-			this.previousId = this.currentId;
-			this.currentId = settledSourceId;
-			this.nextId = nextInCycle(settledSourceId);
-		}
-
-		this.progress = 0;
-		this.progressTarget = 0;
-		this._initSceneProgressStates();
-		this._beginHexEnter(settledSourceId);
+		this._hexDirection = 1;
 	}
 
 	_syncSettlingSceneProgresses() {
@@ -366,24 +493,32 @@ export class SceneCarousel {
 	}
 
 	_updateHexNavigation(delta) {
-		if (this._clickPhase === "settling") {
-			this._updateHexSettling(delta);
-			return;
-		}
-
 		if (this._clickPhase !== "enter") {
 			return;
 		}
 
 		const eps = CAROUSEL_PROGRESS_COMMIT_EPS;
 		const duration = Math.max(1e-4, carouselClickTransitionConfig.enterDurationS);
-		this._clickEnterElapsed += delta;
-		const linear = Math.min(1, this._clickEnterElapsed / duration);
+		this._clickEnterElapsed = Math.max(0, Math.min(duration, this._clickEnterElapsed + delta * this._hexDirection));
+		const linear = this._clickEnterElapsed / duration;
 		const eased = easeCarouselClickProgress(linear);
 		this.progress = eased;
 		this.progressTarget = eased;
 
-		if (linear >= 1 - eps) {
+		if (this._hexDirection < 0 && linear <= eps) {
+			const sourcePath = this._hexSourcePath;
+			const sourceId = this._hexMixSourceId;
+			this._cancelHexNavigation();
+			this.progress = 0;
+			this.progressTarget = 0;
+			this._initSceneProgressStates();
+			if (sourcePath && sourceId) {
+				this._onHexCancelled?.({ path: sourcePath, sceneId: sourceId });
+			}
+			return;
+		}
+
+		if (this._hexDirection > 0 && linear >= 1 - eps) {
 			this.progress = 1;
 			this.progressTarget = 1;
 			this._finishHexNavigation();
@@ -474,6 +609,13 @@ export class SceneCarousel {
 			this.previousId = prevInCycle(targetId);
 			this.nextId = nextInCycle(targetId);
 			this._initSceneProgressStates();
+		} else if (targetId?.startsWith("case")) {
+			// Cases are portfolio children. Never leave About as the ring input owner
+			// behind an open case after history/click route confirmation.
+			this.currentId = "portfolioHub";
+			this.previousId = prevInCycle(this.currentId);
+			this.nextId = nextInCycle(this.currentId);
+			this._initSceneProgressStates();
 		}
 
 		if (targetPath && targetId) {
@@ -493,6 +635,14 @@ export class SceneCarousel {
 
 	setOnHexRouteConfirmed(callback) {
 		this._onHexRouteConfirmed = callback;
+	}
+
+	setOnNavigationSettleComplete(callback) {
+		this._onNavigationSettleComplete = callback;
+	}
+
+	setOnHexCancelled(callback) {
+		this._onHexCancelled = callback;
 	}
 
 	setOnCommit(callback) {
@@ -804,6 +954,12 @@ export class SceneCarousel {
 			return;
 		}
 
+		if (this._navigationSettle) {
+			this._updateNavigationSettle(delta);
+			this._updateSceneProgresses(delta);
+			return;
+		}
+
 		if (this._clickPhase !== "idle") {
 			this._updateHexNavigation(delta);
 			this._updateSceneProgresses(delta);
@@ -854,7 +1010,7 @@ export class SceneCarousel {
 	_updateSceneProgresses(delta) {
 		// Settling writes exact scene progress values itself so camera motion follows
 		// the pre-transition return curve without a second smoothing layer.
-		if (this._clickPhase === "settling") {
+		if (this._navigationSettle?.ownerId === "ring") {
 			return;
 		}
 
@@ -915,6 +1071,7 @@ export class SceneCarousel {
 			toId: this.currentId,
 			direction: "forward",
 			boundaryOverflowProgress,
+			navigationSettle: this._navigationSettleCommitInProgress,
 		});
 	}
 
@@ -936,6 +1093,7 @@ export class SceneCarousel {
 			toId: this.currentId,
 			direction: "backward",
 			boundaryOverflowProgress,
+			navigationSettle: this._navigationSettleCommitInProgress,
 		});
 	}
 
@@ -985,7 +1143,10 @@ export class SceneCarousel {
 		}
 
 		const force = options.force === true;
-		if (!force && this._clickPhase !== "idle") {
+		// The URL can render before the navigation transaction reaches its rest
+		// scene. Keep the canonical progress owner until settle/route confirmation
+		// finishes instead of letting that eager render replace carousel state.
+		if (!force && this.isInteractionLocked()) {
 			return;
 		}
 

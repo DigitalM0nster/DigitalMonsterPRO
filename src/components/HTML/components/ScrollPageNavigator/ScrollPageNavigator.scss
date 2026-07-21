@@ -158,6 +158,7 @@
 	-webkit-user-select: none;
 	-webkit-tap-highlight-color: transparent;
 	transform: translate3d(0, calc(-50% + var(--navigator-y)), 0);
+	will-change: transform;
 	transition:
 		opacity 220ms ease,
 		color 220ms ease,

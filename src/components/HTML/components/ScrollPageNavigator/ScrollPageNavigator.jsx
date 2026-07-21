@@ -9,7 +9,7 @@ import { isPortfolioCasePath, projectsData } from "@/three/scenes/portfolio/hub/
 import { playRightNavigatorGlitchSound } from "@/sounds/soundDesign.js";
 import LeftMenuGlitchLabel from "../leftMenu/LeftMenuGlitchLabel.jsx";
 import { MENU_LABEL_APPEAR_MS, MENU_LABEL_DISAPPEAR_MS } from "../leftMenu/leftMenuLabelTimings.js";
-import { resolveAboutNavigatorProgress } from "./aboutNavigatorPhase.js";
+import { resolveAboutNavigatorProgress, resolveAboutOwnedTrack } from "./aboutNavigatorPhase.js";
 import "./ScrollPageNavigator.scss";
 
 const MAIN_ITEMS = [
@@ -113,6 +113,36 @@ function shortestLoopDistance(index, currentIndex, total) {
 		diff += total;
 	}
 	return diff;
+}
+
+/** Shortest signed distance from a painted, possibly fractional, track point. */
+function shortestTrackDistance(index, currentTrack, total) {
+	let diff = index - currentTrack;
+	if (diff > total / 2) {
+		diff -= total;
+	} else if (diff < -total / 2) {
+		diff += total;
+	}
+	return diff;
+}
+
+/** Snake direction follows painted motion, never target/raw-wheel prediction. */
+function usePaintedTrackDirection(track, total) {
+	const previousTrackRef = useRef(track);
+	const directionRef = useRef("down");
+	let delta = track - previousTrackRef.current;
+	if (delta > total / 2) {
+		delta -= total;
+	} else if (delta < -total / 2) {
+		delta += total;
+	}
+	previousTrackRef.current = track;
+
+	if (Math.abs(delta) > 0.0001) {
+		directionRef.current = delta > 0 ? "down" : "up";
+	}
+
+	return directionRef.current;
 }
 
 function smoothstep01(value) {
@@ -336,7 +366,7 @@ function ScrollNavigatorItem({
 	}, [hideLabelAnimated, item.key]);
 
 	const handleClick = useCallback(() => {
-		const navigationStarted = onNavigate(item.path);
+		const navigationStarted = onNavigate(item.path, item.relative);
 		if (navigationStarted === false) {
 			return;
 		}
@@ -624,59 +654,37 @@ function ScrollNavigatorLine({
 function ScrollPageNavigatorContent() {
 	const proxyStore = useStore();
 	const location = useLocation();
+	const navigatorClickHintRef = useRef(null);
+	const clickTransitionSeenRef = useRef(false);
 	const [viewportHeight, setViewportHeight] = useState(() => (typeof window !== "undefined" ? window.innerHeight : 940));
 	const currentId = proxyStore.sceneCarouselCurrentId ?? "home";
 	const rawProgress = Number.isFinite(proxyStore.sceneCarouselProgress) ? proxyStore.sceneCarouselProgress : 0;
-	const rawProgressTarget = Number.isFinite(proxyStore.sceneCarouselProgressTarget) ? proxyStore.sceneCarouselProgressTarget : rawProgress;
 	const clickPhase = proxyStore.sceneCarouselClickPhase ?? "idle";
 	const clickTargetId = proxyStore.sceneCarouselClickTargetId ?? null;
 	const clickTargetIndex = MAIN_ITEMS.findIndex((item) => item.id === clickTargetId);
 	const currentIndex = MAIN_ITEMS.findIndex((item) => item.id === currentId);
 	const isDirectClickTravel = (clickPhase === "enter" || clickPhase === "awaitingRoute") && clickTargetIndex >= 0 && currentIndex >= 0;
-	const clickDistance = isDirectClickTravel ? shortestLoopDistance(clickTargetIndex, currentIndex, MAIN_ITEMS.length) : 1;
-	const progress = rawProgress * clickDistance;
-	const progressTarget = rawProgressTarget * clickDistance;
 	const aboutActive = proxyStore.aboutExperience.active === true;
 	const aboutStoryProgress = Number.isFinite(proxyStore.aboutExperience.storyProgress) ? proxyStore.aboutExperience.storyProgress : 0;
-	const aboutStoryProgressTarget = Number.isFinite(proxyStore.aboutExperience.storyProgressTarget)
-		? proxyStore.aboutExperience.storyProgressTarget
-		: aboutStoryProgress;
-
-	const isAboutClickRoutePhase = clickPhase !== "idle" && clickTargetId === "about";
-	const isDirectAboutEntry = isDirectClickTravel && clickTargetId === "about" && currentId !== "about";
-	const isEnteringAboutForward =
-		isDirectAboutEntry || (currentId === "portfolioHub" && (rawProgress > 0.001 || rawProgressTarget > 0.001) && !isDirectClickTravel);
-	const isEnteringAboutFromContacts =
-		currentId === "contacts" && (rawProgress < -0.001 || rawProgressTarget < -0.001) && !isDirectClickTravel;
-	const directAboutEntryRef = useRef(false);
-	if (isAboutClickRoutePhase) {
-		directAboutEntryRef.current = true;
-	} else if (currentId !== "about") {
-		directAboutEntryRef.current = false;
-	}
-	const preserveDirectAboutEntry = currentId === "about" && directAboutEntryRef.current;
-	const isSettlingIntoAboutForward =
-		currentId === "about" &&
-		(proxyStore.sceneCarouselLastCommitDirection === "forward" || (preserveDirectAboutEntry && !aboutActive));
-	const isSettlingIntoAboutFromContacts =
-		currentId === "about" &&
-		!preserveDirectAboutEntry &&
-		((proxyStore.sceneCarouselLastCommitFromId === "contacts" && proxyStore.sceneCarouselLastCommitDirection === "backward") ||
-			(!aboutActive && rawProgress > 0.001 && rawProgressTarget <= 0.001));
-	const forwardAboutEntryRef = useRef(false);
-	if (isEnteringAboutForward || isSettlingIntoAboutForward) {
-		forwardAboutEntryRef.current = true;
-	} else if (currentId !== "about") {
-		forwardAboutEntryRef.current = false;
-	}
-	const preserveForwardAboutEntry = currentId === "about" && forwardAboutEntryRef.current;
-	const reverseAboutEntryRef = useRef(false);
-	if (isEnteringAboutFromContacts || isSettlingIntoAboutFromContacts) {
-		reverseAboutEntryRef.current = true;
-	} else if (currentId !== "about") {
-		reverseAboutEntryRef.current = false;
-	}
-	const preserveReverseAboutEntry = currentId === "about" && reverseAboutEntryRef.current;
+	const lastCommitFromId = proxyStore.sceneCarouselLastCommitFromId;
+	const lastCommitDirection = proxyStore.sceneCarouselLastCommitDirection;
+	const aboutOwnedTrack = currentId === "about"
+		? resolveAboutOwnedTrack({
+				aboutActive,
+				storyProgress: aboutStoryProgress,
+				lastCommitFromId,
+				lastCommitDirection,
+			})
+		: 0;
+	const directTrackDistance = isDirectClickTravel
+		? navigatorClickHintRef.current?.targetId === clickTargetId
+			&& Math.abs(navigatorClickHintRef.current.sourceTrack - (currentIndex + aboutOwnedTrack)) < 0.001
+				? navigatorClickHintRef.current.distance
+				: shortestTrackDistance(clickTargetIndex, currentIndex + aboutOwnedTrack, MAIN_ITEMS.length)
+		: 0;
+	const progress = isDirectClickTravel
+		? aboutOwnedTrack + rawProgress * directTrackDistance
+		: rawProgress;
 
 	const { navigatorProgress } = resolveAboutNavigatorProgress({
 		currentId,
@@ -685,23 +693,12 @@ function ScrollPageNavigatorContent() {
 		aboutActive,
 		storyProgress: aboutStoryProgress,
 		isDirectClickTravel,
-		clickTargetId,
-		clickDistance,
-		preserveForwardEntry: preserveForwardAboutEntry,
-		preserveReverseEntry: preserveReverseAboutEntry,
+		lastCommitFromId,
+		lastCommitDirection,
 	});
 
-	const lastDirectionRef = useRef("down");
-	if (isDirectClickTravel && Math.abs(clickDistance) > 0.001) {
-		lastDirectionRef.current = clickDistance > 0 ? "down" : "up";
-	} else if (currentId === "about" && aboutActive && Math.abs(aboutStoryProgressTarget - aboutStoryProgress) > 0.001) {
-		lastDirectionRef.current = aboutStoryProgressTarget > aboutStoryProgress ? "down" : "up";
-	} else if (progressTarget > progress + 0.001) {
-		lastDirectionRef.current = "down";
-	} else if (progressTarget < progress - 0.001) {
-		lastDirectionRef.current = "up";
-	}
-	const scrollDirection = lastDirectionRef.current;
+	const paintedTrack = currentIndex + navigatorProgress;
+	const scrollDirection = usePaintedTrackDirection(paintedTrack, MAIN_ITEMS.length);
 	const directionTarget = scrollDirection === "down" ? 1 : -1;
 	const directionValue = useDampedValue(directionTarget, 0.12);
 	const siteLocale = normalizeSiteLocale(proxyStore.siteLocale);
@@ -715,6 +712,17 @@ function ScrollPageNavigatorContent() {
 		return () => window.removeEventListener("resize", onResize);
 	}, []);
 
+	useEffect(() => {
+		if (clickPhase !== "idle") {
+			clickTransitionSeenRef.current = true;
+			return;
+		}
+		if (clickTransitionSeenRef.current) {
+			clickTransitionSeenRef.current = false;
+			navigatorClickHintRef.current = null;
+		}
+	}, [clickPhase]);
+
 	useEffect(
 		() => () => {
 			clearNavigatorCursorAnchor();
@@ -723,12 +731,23 @@ function ScrollPageNavigatorContent() {
 	);
 
 	const handleNavigate = useCallback(
-		(path) => {
+		(path, clickedRelative) => {
 			const from = normalizePath(location.pathname);
+			const targetIndex = MAIN_ITEMS.findIndex((item) => normalizePath(item.path) === normalizePath(path));
+			if (targetIndex >= 0 && Number.isFinite(clickedRelative)) {
+				navigatorClickHintRef.current = {
+					targetId: MAIN_ITEMS[targetIndex].id,
+					sourceTrack: currentIndex + aboutOwnedTrack,
+					distance: clickedRelative,
+				};
+			}
 			const handled = requestHexNavigation(path, from);
-			return handled || normalizePath(path) === from;
+			if (!handled) {
+				navigatorClickHintRef.current = null;
+			}
+			return handled;
 		},
-		[location.pathname],
+		[aboutOwnedTrack, currentIndex, location.pathname],
 	);
 
 	return (

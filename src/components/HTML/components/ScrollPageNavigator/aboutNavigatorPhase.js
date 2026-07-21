@@ -35,6 +35,24 @@ export function storyToNavigatorTrack(story) {
 	return Math.min(ABOUT_NAV_STORY_END, story) / ABOUT_NAV_STORY_END;
 }
 
+/** Resolve the exact About-owned coordinate before/after its runtime mounts. */
+export function resolveAboutOwnedTrack({
+	aboutActive,
+	storyProgress,
+	lastCommitFromId,
+	lastCommitDirection,
+}) {
+	if (
+		aboutActive !== true
+		&& lastCommitFromId === "contacts"
+		&& lastCommitDirection === "backward"
+	) {
+		return storyToNavigatorTrack(ABOUT_STORY_MAX);
+	}
+
+	return storyToNavigatorTrack(storyProgress);
+}
+
 /**
  * @returns {{ navigatorProgress: number, aboutTrackActive: boolean }}
  */
@@ -45,33 +63,33 @@ export function resolveAboutNavigatorProgress({
 	aboutActive,
 	storyProgress,
 	isDirectClickTravel,
-	clickTargetId,
-	clickDistance,
-	preserveForwardEntry = false,
-	preserveReverseEntry = false,
+	lastCommitFromId,
+	lastCommitDirection,
 }) {
 	const aboutStageActive = currentId === "about" && aboutActive === true;
 	const story = Number.isFinite(storyProgress) ? storyProgress : 0;
 
-	const isDirectAboutEntry = isDirectClickTravel && clickTargetId === "about" && currentId !== "about";
 	const isEnteringAboutForward =
-		isDirectAboutEntry ||
 		(currentId === "portfolioHub" && (rawProgress > 0.001 || Math.abs(progress) > 0.001) && !isDirectClickTravel);
 	const isEnteringAboutFromContacts =
-		(currentId === "contacts" && (rawProgress < -0.001 || progress < -0.001) && !isDirectClickTravel) ||
-		(isDirectAboutEntry && clickDistance < 0);
+		currentId === "contacts" && (rawProgress < -0.001 || progress < -0.001) && !isDirectClickTravel;
 
 	const aboutTrackActive =
 		aboutStageActive ||
 		isEnteringAboutForward ||
 		isEnteringAboutFromContacts ||
-		preserveForwardEntry ||
-		preserveReverseEntry ||
+		isDirectClickTravel ||
 		(currentId === "about" && (Math.abs(story) > 0.001 || Math.abs(rawProgress) > 0.001));
 
+	if (isDirectClickTravel) {
+		return {
+			navigatorProgress: progress,
+			aboutTrackActive,
+		};
+	}
+
 	if (isEnteringAboutFromContacts) {
-		const travel = Math.max(1, Math.abs(clickDistance));
-		const blend = clamp01(-progress / travel);
+		const blend = clamp01(-progress);
 		return {
 			navigatorProgress: progress + ABOUT_NAV_LAND_FROM_CONTACTS * blend,
 			aboutTrackActive,
@@ -85,16 +103,15 @@ export function resolveAboutNavigatorProgress({
 		};
 	}
 
-	if (currentId === "about" || preserveForwardEntry || preserveReverseEntry) {
+	if (currentId === "about") {
 		/** Prefer live story (includes leave 4→5 and back-leave < 0). */
-		const trackStory =
-			preserveReverseEntry && !aboutStageActive && Math.abs(story) < 0.001
-				? ABOUT_STORY_MAX
-				: preserveForwardEntry && !aboutStageActive && Math.abs(story) < 0.001
-					? 0
-					: story;
 		return {
-			navigatorProgress: storyToNavigatorTrack(trackStory),
+			navigatorProgress: resolveAboutOwnedTrack({
+				aboutActive,
+				storyProgress: story,
+				lastCommitFromId,
+				lastCommitDirection,
+			}),
 			aboutTrackActive,
 		};
 	}

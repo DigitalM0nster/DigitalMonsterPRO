@@ -3,6 +3,9 @@
  * Цель: старые ноуты (4 ядра / 4 GB) не должны получать desktop-high настройки.
  */
 
+let calibratedGraphicsTier = null;
+let calibratedGraphicsDiagnostics = null;
+
 export function isMobileGraphicsDevice() {
 	if (typeof window === "undefined") {
 		return false;
@@ -85,6 +88,9 @@ export function getGraphicsTier() {
 	if (forced) {
 		return forced;
 	}
+	if (calibratedGraphicsTier) {
+		return calibratedGraphicsTier;
+	}
 
 	try {
 		if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
@@ -100,6 +106,18 @@ export function getGraphicsTier() {
 	return resolveTierFromScore(score, mobile);
 }
 
+/**
+ * Final tier selected by the real-GPU calibration before scenes/RT warm-up.
+ * URL `?tier=` remains authoritative for visual QA.
+ */
+export function setCalibratedGraphicsTier(tier, diagnostics = null) {
+	if (tier !== "low" && tier !== "medium" && tier !== "high") {
+		return;
+	}
+	calibratedGraphicsTier = tier;
+	calibratedGraphicsDiagnostics = diagnostics;
+}
+
 /** Для лога при старте: почему выбран tier. */
 export function getGraphicsTierDiagnostics() {
 	if (typeof window === "undefined") {
@@ -110,12 +128,13 @@ export function getGraphicsTierDiagnostics() {
 	const { score, cores, memoryGb, mobile } = computeGraphicsHardwareScore();
 
 	return {
-		tier: forced ?? resolveTierFromScore(score, mobile),
+		tier: forced ?? calibratedGraphicsTier ?? resolveTierFromScore(score, mobile),
 		score,
 		cores,
 		memoryGb,
 		mobile,
 		forced: forced ?? null,
+		calibration: calibratedGraphicsDiagnostics,
 	};
 }
 
@@ -142,7 +161,7 @@ export function getGraphicsConfig(tier) {
 			powerPreference: "low-power",
 		},
 		medium: {
-			dprCap: 1,
+			dprCap: 1.25,
 			caseCanvasDprCap: 1,
 			caseRenderFpsCap: 0,
 			staticCaseRenderFpsCap: 0,
@@ -150,10 +169,12 @@ export function getGraphicsConfig(tier) {
 			litePipeline: true,
 			reduceBackgroundBlur: true,
 			bloomMipmap: true,
-			bloomLevels: 3,
-			bloomRadius: 0.58,
-			bloomResolutionScale: 0.32,
-			bloomHdr: false,
+			bloomLevels: 4,
+			bloomRadius: 0.68,
+			bloomResolutionScale: 0.28,
+			// Keep emissive energy above 1.0 until bloom. The cheaper level count and
+			// resolution scale are the medium-tier saving; an 8-bit source RT is not.
+			bloomHdr: true,
 			antialias: false,
 			powerPreference: "default",
 		},
@@ -193,5 +214,7 @@ export function resolveRendererPixelRatio(tier, devicePixelRatio = typeof window
 		return gfx.dprCap ?? 2;
 	}
 
-	return Math.min(device, gfx.dprCap);
+	// Medium keeps UI/WebGL typography clean on 1x desktop monitors without paying
+	// high tier's fixed DPR 2 fill-rate cost.
+	return Math.min(Math.max(device, 1.25), gfx.dprCap);
 }

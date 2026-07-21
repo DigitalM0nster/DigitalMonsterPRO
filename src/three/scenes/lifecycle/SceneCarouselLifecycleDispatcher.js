@@ -22,6 +22,8 @@ export class SceneCarouselLifecycleDispatcher {
 		 * @type {Set<string>}
 		 */
 		this._pendingDormantAsNext = new Set();
+		/** A scene committed as current but may still be an intermediate queued-nav hop. */
+		this._pendingEnterAsCurrent = new Set();
 	}
 
 	/** @param {import('@/three/render/transition/SceneCarousel.js').SceneCarousel} carousel */
@@ -65,6 +67,22 @@ export class SceneCarouselLifecycleDispatcher {
 				});
 			}
 
+			// Route/React confirmation is not the owner of visual enter. The ring
+			// commit is: once a prepared next/previous scene becomes current, play
+			// its single canonical enter. Keep it pending while a queued transition
+			// still owns the carousel so an intermediate route never flashes.
+			if (role === "current" && prevRole !== "current" && prevRole !== "off") {
+				this._pendingEnterAsCurrent.add(sceneId);
+			}
+			if (
+				role === "current"
+				&& this._pendingEnterAsCurrent.has(sceneId)
+				&& !carousel.isInteractionLocked()
+			) {
+				this._pendingEnterAsCurrent.delete(sceneId);
+				this._dispatchEnter(sceneId);
+			}
+
 			this._ringRoles[sceneId] = role;
 		}
 
@@ -84,6 +102,7 @@ export class SceneCarouselLifecycleDispatcher {
 		// reset: it must stay frozen without a leave animation. Once the completed
 		// route is confirmed, the target's regular route lifecycle plays its enter.
 		if (CAROUSEL_SCENE_IDS.includes(targetId)) {
+			this._pendingEnterAsCurrent.add(targetId);
 			this._dispatchReset(targetId, {
 				reason: "hex-target-at-rest",
 				sourceId,
@@ -109,5 +128,9 @@ export class SceneCarouselLifecycleDispatcher {
 			sceneProgress: 0,
 			...ctx,
 		});
+	}
+
+	_dispatchEnter(sceneId) {
+		this.getScene(sceneId)?.playEnterAnimation?.();
 	}
 }

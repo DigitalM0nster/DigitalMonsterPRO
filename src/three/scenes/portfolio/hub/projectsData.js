@@ -256,20 +256,6 @@ export function isPortfolioCasePath(pathname) {
 }
 
 /**
- * Звук захода на роут /portfolio (hub).
- * @returns {'portfolio_enter' | null}
- */
-export function resolvePortfolioEnterSound(displayPathname, targetPathname) {
-	if (
-		!isPortfolioHubPath(displayPathname) &&
-		isPortfolioHubPath(targetPathname)
-	) {
-		return "portfolio_enter";
-	}
-	return null;
-}
-
-/**
  * Какой звук ухода играть при смене роута портфолио.
  * @returns {'portfolio_leave' | null}
  */

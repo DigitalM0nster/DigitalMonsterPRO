@@ -1,5 +1,5 @@
-import clickSound from "@/sounds/clickSound.mp3";
 import { bindMediaElementToMasterBus } from "@/sounds/masterAudioBus.js";
+import { SOUND_CATALOG } from "@/sounds/soundCatalog.js";
 import "@/css/cursor.scss";
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { subscribe } from "valtio";
@@ -56,7 +56,7 @@ export default function Cursor(props) {
 	const lastAnchorRevisionRef = useRef(menuAnchorRevision);
 
 	useEffect(() => {
-		const audio = new Audio(clickSound);
+		const audio = new Audio(SOUND_CATALOG.ui_click);
 		bindMediaElementToMasterBus(audio);
 		audioRef.current = audio;
 	}, []);

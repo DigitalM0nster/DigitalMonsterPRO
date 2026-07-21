@@ -11,7 +11,8 @@ import {
 	getMasterAudioContext,
 	resumeMasterAudioContext,
 } from "./masterAudioBus.js";
-import { SOUND_CATALOG } from "./soundDesign.js";
+import { loadAudioBuffer } from "./audioAssetCache.js";
+import { SOUND_CATALOG } from "./soundCatalog.js";
 
 /** Mild center-left — front plate sits mid-frame, not left HUD. */
 const SOUND_PAN = -0.2;
@@ -65,14 +66,13 @@ async function loadBuffers() {
 		return loadPromise;
 	}
 
-	loadPromise = fetch(SOUND_CATALOG.logo_reveal)
-		.then((response) => response.arrayBuffer())
-		.then(async (arrayBuffer) => {
+	loadPromise = Promise.resolve()
+		.then(async () => {
 			const ctx = getMasterAudioContext();
 			if (!ctx) {
 				return;
 			}
-			forwardBuffer = await ctx.decodeAudioData(arrayBuffer.slice(0));
+			forwardBuffer = await loadAudioBuffer(SOUND_CATALOG.logo_reveal, ctx);
 			reverseBuffer = ctx.createBuffer(
 				forwardBuffer.numberOfChannels,
 				forwardBuffer.length,

@@ -1,4 +1,3 @@
-import { portfolioHubPlatesConfig } from "../three/scenes/portfolio/hub/portfolioHubConfig.js";
 import { isPageSoundAllowed, registerPageVisibilitySoundHandlers } from "./pageVisibilitySound.js";
 import { isSoundAudible, registerSiteSoundMuteHandler } from "./siteSoundToggle.js";
 import {
@@ -10,39 +9,10 @@ import {
 	resumeMasterAudioContext,
 	suspendMasterAudioContext,
 } from "./masterAudioBus.js";
-import clickSoundUrl from "./clickSound.mp3";
+import { loadAudioBuffer, prefetchAudioAssets, preloadAudioBuffers } from "./audioAssetCache.js";
+import { getUniqueSoundSources, SOUND_CATALOG } from "./soundCatalog.js";
 
-/** Каталог звуков саунддизайна — пути в public/audio. */
-export const SOUND_CATALOG = {
-	/** Hub logo + About front hex dissolve scrub (`aboutFrontDissolveSound.js`). */
-	logo_reveal: "/audio/logo_reveal.mp3",
-	/** About Back plate disappear (`aboutBackDissolveSound.js`) — story 1→2. */
-	about_back_dissolve: "/audio/text2.mp3",
-	/** White PCB particle bed after appear (`aboutParticleSound.js`). */
-	about_particles: "/audio/about_particles.wav",
-	/** White PCB appear scrub (`aboutPcbAppearSound.js`) — same sample, louder. */
-	about_pcb_appear: "/audio/about_particles.wav",
-	/** Spare / alternate teleport one-shot. */
-	teleport_out: "/audio/teleportOut.mp3",
-	/** Digital-звук под глитч текста (~2s), обрезается под длительность змейки. */
-	digital_sound: "/audio/digital_sound.mp3",
-	/** Выезд/уезд карточки проекта в хабе (plateSlideDuration, 0.9 с). */
-	card_movement: "/audio/card_movement.mp3",
-	/** Уход с роута /portfolio (hub → кейс или на другую страницу). */
-	portfolio_leave: "/audio/portfolio_leave_transition.mp3",
-	/** Заход на /portfolio — под длительность gridEnter (2 с). Asset: public/audio/portfolio_enter.* */
-	portfolio_enter: "/audio/portfolio_enter.wav",
-	/** Короткий beep при hover пункта левого меню. */
-	beep: "/audio/beep.mp3",
-	/** Hex-переход карусели — scrub по progress (отдельный контроллер). */
-	hex_transition1: "/audio/hexTransition1.mp3",
-	/** Левый HUD — scrub в caseStudyTextTransitionSound.js (всегда reverse / scroll-down). */
-	panel_hud_text: "/audio/text4.mp3",
-	/** Ambient под водой на главной — loop + spatial (отдельный контроллер). */
-	underwater: "/audio/underwater.mp3",
-	/** Glitch-импульс кнопки «Подробнее» на плитке. */
-	glitch_button: "/audio/glitch_button.mp3",
-};
+export { SOUND_CATALOG } from "./soundCatalog.js";
 
 /** Громкость glitch_button при hover на активной плитке (0…1). */
 export const HUB_PLATE_HOVER_GLITCH_GAIN = 0.32;
@@ -52,9 +22,6 @@ export const LOGO_REVEAL_FADE_OUT_S = 0.05;
 
 /** Затухание digital_sound в конце глитча (с). */
 export const DIGITAL_SOUND_FADE_OUT_S = 0.1;
-
-/** Затухание portfolio_enter в конце появления сетки (с). */
-export const PORTFOLIO_ENTER_FADE_OUT_S = 0.1;
 
 /** Затухание card_movement в конце сдвига карточки (с). */
 export const CARD_MOVEMENT_FADE_OUT_S = 0.1;
@@ -107,6 +74,20 @@ export const LEFT_MENU_BEEP_COOLDOWN_MS = 10;
 
 let portfolioSpatialAudioActive = false;
 let lastLeftMenuBeepAt = 0;
+let soundControllerModulesPromise = null;
+
+function loadSoundControllerModules() {
+	if (!soundControllerModulesPromise) {
+		soundControllerModulesPromise = Promise.all([
+			import("./caseStudyTextTransitionSound.js"),
+			import("./aboutFrontDissolveSound.js"),
+			import("./aboutBackDissolveSound.js"),
+			import("./aboutParticleSound.js"),
+			import("./aboutPcbAppearSound.js"),
+		]);
+	}
+	return soundControllerModulesPromise;
+}
 
 /** Вкл/выкл панораму саунддизайна портфолио (PortfolioPage mount/unmount). */
 export function setPortfolioSpatialAudio(active) {
@@ -116,11 +97,6 @@ export function setPortfolioSpatialAudio(active) {
 /** @type {Map<string, { source: AudioBufferSourceNode, gain: GainNode, panner: StereoPannerNode | null, fadeFrameId: number | null }>} */
 const activePlayback = new Map();
 
-/** @type {Map<string, Promise<ArrayBuffer>>} */
-const audioDataPromises = new Map();
-
-/** @type {Map<string, Promise<AudioBuffer>>} */
-const bufferLoadPromises = new Map();
 /**
  * @type {Array<{
  *   id: number,
@@ -134,7 +110,6 @@ const activeGlitchSounds = [];
 let glitchSoundSlotId = 0;
 let lastHoverGlitchSoundAt = 0;
 /** @type {{ instance: object | null, cancelled: boolean } | null} */
-let portfolioEnterSoundSlot = null;
 /** @type {{ instance: object | null, cancelled: boolean } | null} */
 let cardMovementSoundSlot = null;
 
@@ -152,69 +127,37 @@ function connectWithPan(ctx, gainNode, pan) {
 	return connectGainWithPanToMasterBus(ctx, gainNode, pan);
 }
 
-function fetchAudioData(src) {
-	if (!audioDataPromises.has(src)) {
-		const promise = fetch(src)
-			.then((response) => {
-				if (!response.ok) {
-					throw new Error(`[soundDesign] Failed to load ${src}`);
-				}
-				return response.arrayBuffer();
-			})
-			.catch((error) => {
-				audioDataPromises.delete(src);
-				throw error;
-			});
-		audioDataPromises.set(src, promise);
-	}
-	return audioDataPromises.get(src);
-}
-
-function loadAudioBuffer(src) {
-	if (!bufferLoadPromises.has(src)) {
-		const promise = fetchAudioData(src)
-			.then((arrayBuffer) => {
-				const ctx = getAudioContext();
-				if (!ctx) {
-					throw new Error("[soundDesign] AudioContext unavailable");
-				}
-				return ctx.decodeAudioData(arrayBuffer.slice(0));
-			})
-			.catch((error) => {
-				bufferLoadPromises.delete(src);
-				throw error;
-			});
-		bufferLoadPromises.set(src, promise);
-	}
-	return bufferLoadPromises.get(src);
-}
-
 /** Сетевой этап до user gesture: скачивает звук, не создавая AudioContext и не запуская decode. */
 export function prefetchSoundDesign() {
 	if (typeof window === "undefined") {
 		return Promise.resolve([]);
 	}
-	return Promise.allSettled(Object.values(SOUND_CATALOG).map((src) => fetchAudioData(src)));
+	return Promise.all([
+		prefetchAudioAssets(getUniqueSoundSources()),
+		loadSoundControllerModules(),
+	]);
 }
 
-/** Предзагрузка буферов — меньше задержка на первом глитче. */
-export function preloadSoundDesign() {
+/** Gesture-gated decode + derived controller buffers, all under the loader curtain. */
+export async function preloadSoundDesign() {
 	if (typeof window === "undefined") {
-		return;
+		return [];
 	}
 	initMasterAudioBus();
 	const ctx = getAudioContext();
-	ctx?.resume?.().catch(() => {});
-	for (const src of Object.values(SOUND_CATALOG)) {
-		loadAudioBuffer(src).catch(() => {});
-	}
-	void import("./hexTransitionSound.js").then((m) => m.preloadHexTransitionSound());
-	void import("./caseStudyTextTransitionSound.js").then((m) => m.preloadCaseStudyTextTransitionSound());
-	void import("./aboutFrontDissolveSound.js").then((m) => m.preloadAboutFrontDissolveSound());
-	void import("./aboutBackDissolveSound.js").then((m) => m.preloadAboutBackDissolveSound());
-	void import("./aboutParticleSound.js").then((m) => m.preloadAboutParticleSound());
-	void import("./aboutPcbAppearSound.js").then((m) => m.preloadAboutPcbAppearSound());
-	void import("./underwaterSound.js").then((m) => m.preloadUnderwaterSound());
+	await ctx?.resume?.().catch(() => {});
+	const [decoded, modules] = await Promise.all([
+		preloadAudioBuffers(getUniqueSoundSources(), ctx),
+		loadSoundControllerModules(),
+	]);
+	const prepared = await Promise.allSettled([
+		modules[0].preloadCaseStudyTextTransitionSound(),
+		modules[1].preloadAboutFrontDissolveSound(),
+		modules[2].preloadAboutBackDissolveSound(),
+		modules[3].preloadAboutParticleSound(),
+		modules[4].preloadAboutPcbAppearSound(),
+	]);
+	return [...decoded, ...prepared];
 }
 
 function getSoundPan(soundId, panOverride) {
@@ -567,7 +510,7 @@ export function playUiClickSound() {
 		return;
 	}
 	if (!uiClickAudio) {
-		uiClickAudio = new Audio(clickSoundUrl);
+		uiClickAudio = new Audio(SOUND_CATALOG.ui_click);
 		bindMediaElementToMasterBus(uiClickAudio);
 	}
 	uiClickAudio.pause();
@@ -606,38 +549,6 @@ export function playHubCardMovementSound(durationMs) {
 	});
 }
 
-/**
- * Звук появления сетки хаба — длина = gridEnter.durationMs (см. portfolioHubConfig).
- */
-export function playPortfolioHubEnterSound() {
-	const durationMs = portfolioHubPlatesConfig.gridEnter?.durationMs ?? 2000;
-
-	if (!isPageSoundAllowed() || durationMs <= 0) {
-		return;
-	}
-
-	if (portfolioEnterSoundSlot) {
-		portfolioEnterSoundSlot.cancelled = true;
-		if (portfolioEnterSoundSlot.instance && !portfolioEnterSoundSlot.instance.disposed) {
-			fadeOutGlitchInstance(portfolioEnterSoundSlot.instance, GLITCH_SOUND_REPLACE_FADE_MS);
-		}
-		portfolioEnterSoundSlot = null;
-	}
-
-	const slot = { instance: null, cancelled: false };
-	portfolioEnterSoundSlot = slot;
-
-	playTimedSound("portfolio_enter", durationMs, slot, PORTFOLIO_ENTER_FADE_OUT_S * 1000, () => {
-		if (portfolioEnterSoundSlot === slot) {
-			portfolioEnterSoundSlot = null;
-		}
-	}).catch(() => {
-		if (portfolioEnterSoundSlot === slot) {
-			portfolioEnterSoundSlot = null;
-		}
-	});
-}
-
 /** Уход с роута /portfolio (hub). */
 export function playPortfolioLeaveSound() {
 	playSound("portfolio_leave");
@@ -650,16 +561,6 @@ export function playPortfolioLeaveSound() {
 export function playPortfolioRouteLeaveSound(soundKind) {
 	if (soundKind === "portfolio_leave") {
 		playPortfolioLeaveSound();
-	}
-}
-
-/**
- * Звук захода по типу из resolvePortfolioEnterSound.
- * @param {'portfolio_enter'} soundKind
- */
-export function playPortfolioRouteEnterSound(soundKind) {
-	if (soundKind === "portfolio_enter") {
-		playPortfolioHubEnterSound();
 	}
 }
 
@@ -709,14 +610,13 @@ function suspendSoundDesignContext() {
 	}
 	activeGlitchSounds.length = 0;
 
-	for (const slotRef of [cardMovementSoundSlot, portfolioEnterSoundSlot]) {
+	for (const slotRef of [cardMovementSoundSlot]) {
 		if (!slotRef) continue;
 		slotRef.cancelled = true;
 		disposeGlitchInstance(slotRef.instance);
 		slotRef.instance = null;
 	}
 	cardMovementSoundSlot = null;
-	portfolioEnterSoundSlot = null;
 
 	suspendMasterAudioContext();
 }
@@ -732,7 +632,7 @@ function fadeOutAllDesignSounds(durationMs) {
 		}
 	}
 
-	for (const slot of [cardMovementSoundSlot, portfolioEnterSoundSlot]) {
+	for (const slot of [cardMovementSoundSlot]) {
 		if (slot?.instance && !slot.instance.disposed) {
 			fadeOutGlitchInstance(slot.instance, durationMs);
 		}

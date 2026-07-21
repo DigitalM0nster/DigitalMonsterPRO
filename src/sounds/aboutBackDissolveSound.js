@@ -12,7 +12,8 @@ import {
 	getMasterAudioContext,
 	resumeMasterAudioContext,
 } from "./masterAudioBus.js";
-import { SOUND_CATALOG } from "./soundDesign.js";
+import { loadAudioBuffer } from "./audioAssetCache.js";
+import { SOUND_CATALOG } from "./soundCatalog.js";
 
 const SOUND_PAN = 0.1;
 const BUS_VOLUME = 0.82;
@@ -161,14 +162,13 @@ async function loadBuffers() {
 		return loadPromise;
 	}
 
-	loadPromise = fetch(SOUND_CATALOG.about_back_dissolve)
-		.then((response) => response.arrayBuffer())
-		.then(async (arrayBuffer) => {
+	loadPromise = Promise.resolve()
+		.then(async () => {
 			const ctx = getMasterAudioContext();
 			if (!ctx) {
 				return;
 			}
-			const decoded = await ctx.decodeAudioData(arrayBuffer.slice(0));
+			const decoded = await loadAudioBuffer(SOUND_CATALOG.about_back_dissolve, ctx);
 			loopBuffer = buildStitchedLoopBuffer(ctx, decoded);
 		})
 		.catch(() => {

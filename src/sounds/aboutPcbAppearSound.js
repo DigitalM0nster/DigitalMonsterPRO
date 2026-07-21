@@ -9,7 +9,8 @@
 import { isPageSoundAllowed, registerPageVisibilitySoundHandlers } from "./pageVisibilitySound.js";
 import { isSoundAudible, registerSiteSoundMuteHandler } from "./siteSoundToggle.js";
 import { connectGainWithPanToMasterBus, getMasterAudioContext, resumeMasterAudioContext } from "./masterAudioBus.js";
-import { SOUND_CATALOG } from "./soundDesign.js";
+import { loadAudioBuffer } from "./audioAssetCache.js";
+import { SOUND_CATALOG } from "./soundCatalog.js";
 
 const SOUND_PAN = 0;
 /** Louder than the quiet particle bed — appear gesture (keep under Back dissolve). */
@@ -104,14 +105,13 @@ async function loadBuffer() {
 		return loadPromise;
 	}
 
-	loadPromise = fetch(SOUND_CATALOG.about_particles)
-		.then((response) => response.arrayBuffer())
-		.then(async (arrayBuffer) => {
+	loadPromise = Promise.resolve()
+		.then(async () => {
 			const ctx = getMasterAudioContext();
 			if (!ctx) {
 				return null;
 			}
-			loopBuffer = await ctx.decodeAudioData(arrayBuffer.slice(0));
+			loopBuffer = await loadAudioBuffer(SOUND_CATALOG.about_particles, ctx);
 			return loopBuffer;
 		})
 		.catch(() => {

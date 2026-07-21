@@ -99,6 +99,10 @@ function createCaseExperienceRuntime({ project, commitStageStep, allowCaseLeave 
 	/** @type {'forward' | 'backward' | null} */
 	let scrollIntent = null;
 	let boundaryPairReady = false;
+	// At STORY_MAX the shader normally shows the terminal state as mapTo@1.
+	// Before a forward boundary owns the frame, commit it to mapFrom@0 so the
+	// exact visible terminal content is also the texture baked into hex.
+	let terminalHudCommitted = false;
 	/** Cached once per boundary pair — avoid resolveCaseProjectCanvasNavigationData every spring tick. */
 	let cachedBoundaryChrome = null;
 
@@ -110,12 +114,14 @@ function createCaseExperienceRuntime({ project, commitStageStep, allowCaseLeave 
 
 	const storyToStageIndex = (story) => {
 		const visual = clampStoryVisual(story);
+		if (terminalHudCommitted && visual >= STORY_MAX - 1e-9) return lastIndex;
 		if (visual >= STORY_MAX - 1e-9) return Math.max(0, STORY_MAX - 1);
 		return clamp(Math.floor(visual), 0, Math.max(0, STORY_MAX - 1));
 	};
 
 	const storyToStageLocal = (story) => {
 		const visual = clampStoryVisual(story);
+		if (terminalHudCommitted && visual >= STORY_MAX - 1e-9) return 0;
 		if (visual >= STORY_MAX - 1e-9) return 1;
 		const index = storyToStageIndex(visual);
 		return clamp(visual - index, 0, 1);
@@ -297,6 +303,7 @@ function createCaseExperienceRuntime({ project, commitStageStep, allowCaseLeave 
 		}
 		if (current > STORY_MAX + LEAVE_ADOPT_EPS || target > STORY_MAX + LEAVE_ADOPT_EPS) {
 			if (!ensureBoundaryPair()) return;
+			terminalHudCommitted = true;
 			syncPendingChrome();
 			carousel.adoptCaseBoundaryDrive(
 				clamp(Math.max(current - STORY_MAX, 0), 0, CAROUSEL_PROGRESS_TARGET_MAX),
@@ -304,6 +311,14 @@ function createCaseExperienceRuntime({ project, commitStageStep, allowCaseLeave 
 				"forward",
 			);
 			return;
+		}
+		if (
+			terminalHudCommitted
+			&& (current < STORY_MAX - CAROUSEL_PROGRESS_COMMIT_EPS || target < STORY_MAX - CAROUSEL_PROGRESS_COMMIT_EPS)
+		) {
+			// A reversed/cancelled boundary returns through the same ordinary stage
+			// commit path, restoring the previous→terminal map pair without a snap.
+			terminalHudCommitted = false;
 		}
 		if (carousel.isCaseBoundaryDrive() && !carousel.isCaseBoundaryAwaitingRoute()) {
 			// clearCaseBoundaryDrive zeros progress — required so HUD hex-cut / hex
@@ -474,6 +489,7 @@ function createCaseExperienceRuntime({ project, commitStageStep, allowCaseLeave 
 
 	const jumpToStory = (nextStory) => {
 		scrollIntent = null;
+		terminalHudCommitted = false;
 		getSceneCarousel().clearCaseBoundaryDrive();
 		clearBoundaryPair();
 		target = clamp(nextStory, 0, STORY_MAX);

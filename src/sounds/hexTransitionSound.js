@@ -7,6 +7,7 @@ import {
 	resumeMasterAudioContext,
 	suspendMasterAudioContext,
 } from "./masterAudioBus.js";
+import { loadAudioBuffer } from "./audioAssetCache.js";
 import {
 	CAROUSEL_PROGRESS_SEGMENT_END,
 	CAROUSEL_PROGRESS_SMOOTH,
@@ -243,14 +244,12 @@ class HexTransitionSoundController {
 		await this._resumeContext();
 
 		try {
-			const response = await fetch(HEX_TRANSITION_SOUND_SRC);
-			const arrayBuffer = await response.arrayBuffer();
 			const ctx = this._getAudioContext();
 			if (!ctx) {
 				return;
 			}
 
-			const buffer = await ctx.decodeAudioData(arrayBuffer.slice(0));
+			const buffer = await loadAudioBuffer(HEX_TRANSITION_SOUND_SRC, ctx);
 			const reversed = ctx.createBuffer(buffer.numberOfChannels, buffer.length, buffer.sampleRate);
 
 			for (let channel = 0; channel < buffer.numberOfChannels; channel += 1) {

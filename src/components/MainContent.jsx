@@ -29,7 +29,6 @@ import { isWebGLDisabledFromUrl } from "../utils/postProcessTestFlags.js";
 import { initPageVisibilitySound } from "../sounds/pageVisibilitySound.js";
 import { prefetchSoundDesign } from "../sounds/soundDesign.js";
 import { isDevFastPreloader } from "../utils/devFastPreloader.js";
-import { subscribeKey } from "valtio/utils";
 
 const SHOW_CUSTOM_CURSOR = true;
 const LOADER_UNMOUNT_DELAY_MS = isDevFastPreloader() ? 350 : 1100;
@@ -39,7 +38,6 @@ export default function MainContent() {
 	const [routeAssetsReady, setRouteAssetsReady] = useState(false);
 	const [startApp, setStartApp] = useState(false);
 	const [loaderMounted, setLoaderMounted] = useState(true);
-	const [navigationPhase, setNavigationPhase] = useState(store.sceneCarouselClickPhase ?? "idle");
 
 	const location = useLocation();
 	const routeTransition = useRouteTransition(location);
@@ -77,11 +75,6 @@ export default function MainContent() {
 	useEffect(() => {
 		initPageVisibilitySound();
 	}, []);
-
-	useEffect(
-		() => subscribeKey(store, "sceneCarouselClickPhase", (next) => setNavigationPhase(next ?? "idle"), true),
-		[],
-	);
 
 	useEffect(() => {
 		if (!startApp || isDemoLab) {
@@ -136,6 +129,10 @@ export default function MainContent() {
 	]
 		.filter(Boolean)
 		.join(" ");
+	// URL changes re-render this component. Read the transaction phase at that
+	// boundary without subscribing the entire React route tree to every navigation
+	// handshake phase; Three owns the per-frame transition state.
+	const navigationPhase = store.sceneCarouselClickPhase ?? "idle";
 
 	return (
 		<RouteTransitionProvider value={{ ...routeTransition, enterReady: routeEnterActive, scrollRestReactivate }}>

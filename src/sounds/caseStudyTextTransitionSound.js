@@ -12,7 +12,8 @@ import {
 	getMasterAudioContext,
 	resumeMasterAudioContext,
 } from "./masterAudioBus.js";
-import { SOUND_CATALOG } from "./soundDesign.js";
+import { loadAudioBuffer } from "./audioAssetCache.js";
+import { SOUND_CATALOG } from "./soundCatalog.js";
 
 /** Match CASE_STUDY_LEFT_SOUND_PAN — do not import the pan constant (cycle risk). */
 const SOUND_PAN = -0.65;
@@ -70,14 +71,13 @@ async function loadBuffer() {
 		return loadPromise;
 	}
 
-	loadPromise = fetch(SOUND_CATALOG.panel_hud_text)
-		.then((response) => response.arrayBuffer())
-		.then(async (arrayBuffer) => {
+	loadPromise = Promise.resolve()
+		.then(async () => {
 			const ctx = getMasterAudioContext();
 			if (!ctx) {
 				return null;
 			}
-			const forward = await ctx.decodeAudioData(arrayBuffer.slice(0));
+			const forward = await loadAudioBuffer(SOUND_CATALOG.panel_hud_text, ctx);
 			// Time-reversed bed = scroll-down timbre (both wheel directions use this).
 			buffer = ctx.createBuffer(forward.numberOfChannels, forward.length, forward.sampleRate);
 			for (let channel = 0; channel < forward.numberOfChannels; channel += 1) {

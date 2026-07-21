@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ROUTE_TRANSITION_ENTER_MS, ROUTE_TRANSITION_EXIT_MS } from "../config/routeTransition.js";
-import { resolvePortfolioEnterSound, resolvePortfolioLeaveSound } from "@/three/scenes/portfolio/hub/projectsData.js";
-import { playPortfolioRouteEnterSound, playPortfolioRouteLeaveSound } from "@/sounds/soundDesign.js";
+import { resolvePortfolioLeaveSound } from "@/three/scenes/portfolio/hub/projectsData.js";
+import { playPortfolioRouteLeaveSound } from "@/sounds/soundDesign.js";
 import { shouldDeferHtmlRouteTransition } from "@/utils/hexNavigation.js";
 import { store } from "@/store.jsx";
 
@@ -63,12 +63,8 @@ export function useRouteTransition(location) {
 			if (generationRef.current !== generation) {
 				return;
 			}
-			const enterSound = resolvePortfolioEnterSound(displayPathname, pathname);
 			setDisplayPathname(pathname);
 			setPhase("entering");
-			if (enterSound) {
-				playPortfolioRouteEnterSound(enterSound);
-			}
 
 			enterTimerRef.current = setTimeout(() => {
 				if (generationRef.current !== generation) {

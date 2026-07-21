@@ -408,6 +408,7 @@ export default function DigitalMonsterLoader(props) {
 			await Promise.all([
 				preloadHexTransitionSound(),
 				preloadUnderwaterSound(),
+				preloadSoundDesign(),
 			]);
 		} catch (error) {
 			console.warn("[loader] sound preload failed", error);
@@ -421,7 +422,6 @@ export default function DigitalMonsterLoader(props) {
 		store.appStarted = true;
 		store.appStartedAt = Date.now();
 		store.soundsActive = true;
-		preloadSoundDesign();
 		startButtonRef.current?.classList.add("exit");
 	};
 

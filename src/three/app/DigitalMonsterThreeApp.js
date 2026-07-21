@@ -6,12 +6,19 @@ import { case1PostProcessConfig } from "../scenes/portfolio/case1/case1PostProce
 import { HexGridOverlayPass } from "../render/overlay/HexGridOverlayPass.js";
 import { SceneManager } from "../scenes/SceneManager.js";
 import { disposeSharedDracoLoader } from "../assets/gltfLoader.js";
-import { getGraphicsConfig, getGraphicsTier, getGraphicsTierDiagnostics, resolveRendererPixelRatio } from "../../utils/getGraphicsTier.js";
+import {
+	getGraphicsConfig,
+	getGraphicsTier,
+	getGraphicsTierDiagnostics,
+	resolveRendererPixelRatio,
+	setCalibratedGraphicsTier,
+} from "../../utils/getGraphicsTier.js";
 import { applyDigitalWhaleConfigForTier } from "../scenes/home/digitalWhaleConfig.js";
 import { isPostProcessBypassedFromUrl } from "../../utils/postProcessTestFlags.js";
 import { ModelsPostProcessPipeline } from "../render/models/ModelsPostProcessPipeline.js";
 import { AdaptiveFrameSkipper } from "../render/adaptiveFrameSkip.js";
 import { createWebGLRenderer } from "../renderer/configureWebGLRenderer.js";
+import { calibrateGraphicsTier } from "../renderer/calibrateGraphicsTier.js";
 import { getHexRevealFromTop, getHexShaderProgress } from "../render/overlay/hexShaderProgress.js";
 import { hexGridOverlayDefaults } from "../render/overlay/hexGridOverlayConfig.js";
 import { getSceneCarousel, initCarouselScroll, syncCarouselFromPage, disposeCarouselScroll } from "@/three/render/transition/carouselPage.js";
@@ -72,12 +79,8 @@ export class DigitalMonsterThreeApp {
 		this.setRendered = options.setRendered ?? (() => {});
 		this.onWebGLContextLost = options.onWebGLContextLost ?? (() => {});
 
-		const tier = getGraphicsTier();
-		applyDigitalWhaleConfigForTier(tier);
-		const gfx = getGraphicsConfig(tier);
-		this.gfxTier = tier;
-		this.gfx = gfx;
-		this.noPostProcess = gfx.noPostProcess === true || isPostProcessBypassedFromUrl();
+		const hardwareTier = getGraphicsTier();
+		const provisionalGfx = getGraphicsConfig(hardwareTier);
 
 		this.canvas = document.createElement("canvas");
 		this.canvas.style.display = "block";
@@ -89,8 +92,8 @@ export class DigitalMonsterThreeApp {
 			this.renderer = createWebGLRenderer({
 				canvas: this.canvas,
 				alpha: false,
-				antialias: gfx.antialias,
-				powerPreference: gfx.powerPreference,
+				antialias: provisionalGfx.antialias,
+				powerPreference: provisionalGfx.powerPreference,
 			});
 		} catch (error) {
 			this.canvas.remove();
@@ -108,6 +111,26 @@ export class DigitalMonsterThreeApp {
 		this.canvas.addEventListener("webglcontextrestored", this._onContextRestored, false);
 		this.renderer.outputColorSpace = THREE.SRGBColorSpace;
 		this.renderer.setClearColor(0x000000, 1);
+
+		const calibration = calibrateGraphicsTier(this.renderer, hardwareTier);
+		const tier = calibration.tier;
+		setCalibratedGraphicsTier(tier, calibration);
+		applyDigitalWhaleConfigForTier(tier);
+		const gfx = getGraphicsConfig(tier);
+		this.gfxTier = tier;
+		this.gfx = gfx;
+		this.noPostProcess = gfx.noPostProcess === true || isPostProcessBypassedFromUrl();
+		this.store.graphicsTier = tier;
+		this.store.graphicsDprCap = gfx.dprCap;
+		this.store.graphicsDprFloor = gfx.dprFloor ?? null;
+		this.store.graphicsDpr = resolveRendererPixelRatio(tier, window.devicePixelRatio);
+		this.store.sparklesCount = gfx.sparkles;
+		this.store.reduceBackgroundBlur = gfx.reduceBackgroundBlur;
+		this.store.graphicsAntialias = gfx.antialias;
+		this.store.graphicsBloomMipmap = gfx.bloomMipmap;
+		this.store.graphicsBloomLevels = gfx.bloomLevels;
+		this.store.graphicsBloomRadius = gfx.bloomRadius;
+		this.store.graphicsPowerPreference = gfx.powerPreference;
 
 		this.camera = new THREE.PerspectiveCamera(40, 1, 0.1, 150);
 		this.camera.position.set(0, 0, 9);
@@ -998,6 +1021,14 @@ export class DigitalMonsterThreeApp {
 		console.info(
 			`[DigitalMonsterThree] tier detect: score=${diag.score} · ${diag.cores}c · RAM ${memLabel}${diag.mobile ? " · mobile" : " · desktop"}${diag.forced ? ` · forced=${diag.forced}` : ""}`,
 		);
+		if (diag.calibration) {
+			const probeMs = Number.isFinite(diag.calibration.perPassMs)
+				? ` · probe=${diag.calibration.perPassMs.toFixed(2)}ms/pass`
+				: "";
+			console.info(
+				`[DigitalMonsterThree] GPU: ${diag.calibration.renderer}${probeMs}${diag.calibration.cached ? " · session cache" : ""}`,
+			);
+		}
 		if (this.noPostProcess) {
 			const reason = this.gfx.noPostProcess ? "tier=low" : "?noPost";
 			console.info(`[DigitalMonsterThree] post-process OFF — liquid, bloom, grain blur skipped (${reason}) · hex mix ON`);

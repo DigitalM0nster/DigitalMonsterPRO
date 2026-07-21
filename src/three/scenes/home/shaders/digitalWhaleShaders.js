@@ -119,7 +119,7 @@ void main() {
 }
 `;
 
-/** SkinnedMesh кит на low/medium — fresnel + scanlines, без CPU-партиклов. */
+/** SkinnedMesh whale on low/medium: luminous micro-points, no CPU particles. */
 export const whaleHologramVertexShader = /* glsl */ `
 #define USE_SKINNING
 
@@ -127,23 +127,12 @@ export const whaleHologramVertexShader = /* glsl */ `
 #include <fog_pars_vertex>
 #include <skinning_pars_vertex>
 
-varying vec3 vNormalView;
-varying vec3 vViewPosition;
-
 void main() {
-	#include <beginnormal_vertex>
-	#include <morphnormal_vertex>
-	#include <skinbase_vertex>
-	#include <skinnormal_vertex>
-	#include <defaultnormal_vertex>
-
 	#include <begin_vertex>
 	#include <morphtarget_vertex>
 	#include <skinning_vertex>
 
 	vec4 mvPosition = modelViewMatrix * vec4(transformed, 1.0);
-	vNormalView = normalize(normalMatrix * objectNormal);
-	vViewPosition = -mvPosition.xyz;
 	gl_Position = projectionMatrix * mvPosition;
 
 	#include <fog_vertex>
@@ -159,24 +148,34 @@ uniform vec3 uColor;
 uniform float uOpacity;
 uniform float uGlow;
 
-varying vec3 vNormalView;
-varying vec3 vViewPosition;
+float hash21(vec2 p) {
+	return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+}
 
 void main() {
-	vec3 viewNormal = normalize(vNormalView);
-	vec3 viewDir = normalize(vViewPosition);
-	float fresnel = pow(1.0 - abs(dot(viewNormal, viewDir)), 2.1);
+	// Round, staggered cells hide FBX triangulation instead of lighting every
+	// low-poly face. The shader remains one skinned draw call.
+	const float cellPx = 5.5;
+	vec2 rowCoord = gl_FragCoord.xy / cellPx;
+	rowCoord.x += mod(floor(rowCoord.y), 2.0) * 0.5;
+	vec2 cellId = floor(rowCoord);
+	vec2 cellUv = fract(rowCoord) - 0.5;
+	float seed = hash21(cellId);
+	float radius = mix(0.105, 0.225, seed);
+	float distToCenter = length(cellUv);
+	float aa = max(fwidth(distToCenter) * 1.35, 0.012);
+	float core = 1.0 - smoothstep(radius - aa, radius + aa, distToCenter);
+	float halo = 1.0 - smoothstep(radius + aa, 0.48, distToCenter);
 
-	float scanY = sin(gl_FragCoord.y * 1.05 + uTime * 4.5) * 0.5 + 0.5;
-	float scanX = sin(dot(gl_FragCoord.xy, vec2(0.035, 0.018)) + uTime * 2.2) * 0.5 + 0.5;
-	float holo = fresnel * (0.5 + scanY * 0.32) * (0.82 + scanX * 0.18);
-
-	float alpha = holo * uOpacity;
-	if (alpha < 0.015) {
+	float travel = 0.5 + 0.5 * sin(cellId.x * 0.19 + cellId.y * 0.11 - uTime * 2.0);
+	float sweep = pow(0.5 + 0.5 * sin(gl_FragCoord.y * 0.032 - uTime * 1.55), 9.0);
+	float energy = 0.62 + travel * 0.34 + sweep * 1.7;
+	float alpha = (core * 0.92 + halo * 0.16) * energy * uOpacity;
+	if (alpha < 0.008) {
 		discard;
 	}
 
-	vec3 color = uColor * (0.85 + fresnel * uGlow + scanY * 0.12);
+	vec3 color = uColor * (0.72 + core * (1.15 + uGlow * 0.22) + halo * 0.32 + sweep * 0.85);
 
 	gl_FragColor = vec4(color, alpha);
 
@@ -348,6 +347,7 @@ export const oceanSurfaceFragmentShader = /* glsl */ `
 
 uniform vec3 uPointColor;
 uniform vec3 uGridColor;
+uniform float uTime;
 uniform float uGridCols;
 uniform float uGridRows;
 uniform float uSurfaceWidth;
@@ -363,6 +363,10 @@ varying vec2 vSurfaceLocalXZ;
 varying float vWave;
 varying float vPulse;
 
+float oceanHash(vec2 p) {
+	return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+}
+
 void main() {
 	// cols ячеек: точки в центрах, без дубля на ±width/2 между соседними периодами 120.
 	float stepX = uSurfaceWidth / max(uGridCols, 1.0);
@@ -374,37 +378,25 @@ void main() {
 	vec2 g = vec2(periodX, zFromNear);
 	vec2 cellCoord = vec2((g.x - stepX * 0.5) / stepX, (g.y - stepZ * 0.5) / stepZ);
 
+	vec2 cellId = floor(cellCoord);
 	vec2 distFromCenter = abs(fract(cellCoord) - 0.5);
 	float coordDdx = length(dFdx(cellCoord));
 	float coordDdy = length(dFdy(cellCoord));
 	float pxPerCell = 1.0 / max(max(coordDdx, coordDdy), 0.0001);
 	float distCenterPx = length(distFromCenter) * pxPerCell;
-	vec2 distEdgePx = distFromCenter * pxPerCell;
-
-	float radiusPx = uPointScale * 0.9;
-	float core = 1.0 - smoothstep(radiusPx * 0.12, radiusPx * 0.12 + 1.2, distCenterPx);
-	float glow = 1.0 - smoothstep(radiusPx * 0.2, radiusPx * 0.95 + 1.4, distCenterPx);
-
-	float waveBoost = 0.88 + smoothstep(0.0, 0.35, vWave) * 0.12;
-	vec3 pointRgb = uPointColor * waveBoost * (core * 1.6 + glow * 0.45 * uGlow);
-	float pointAlpha = (core * 0.75 + glow * 0.3 * uGlow) * uAlphaMult;
-
-	vec3 color = pointRgb;
-	float alpha = pointAlpha;
-
-	if (uGridAlpha > 0.001) {
-		float lineWidthPx = 1.15;
-		vec2 distToLine = min(fract(cellCoord), 1.0 - fract(cellCoord));
-		vec2 lineEdgePx = distToLine * pxPerCell;
-		float lineX = 1.0 - smoothstep(0.0, lineWidthPx, lineEdgePx.x);
-		float lineZ = 1.0 - smoothstep(0.0, lineWidthPx, lineEdgePx.y);
-		float lines = max(lineX, lineZ);
-		float lineWaveBoost = 0.7 + smoothstep(0.0, 0.35, vWave) * 0.3;
-		vec3 lineRgb = uGridColor * lineWaveBoost * (0.85 + vPulse * 0.15);
-		float lineAlpha = lines * 0.22 * lineWaveBoost * uGridAlpha;
-		color += lineRgb * lineAlpha;
-		alpha = clamp(alpha + lineAlpha, 0.0, 1.0);
-	}
+	float seed = oceanHash(cellId);
+	// Fade sub-pixel cells instead of allowing perspective aliasing to merge
+	// them into thick luminous bands near the horizon.
+	float resolved = smoothstep(0.8, 2.2, pxPerCell);
+	float radiusPx = mix(0.55, 1.2, seed) * clamp(uPointScale * 0.52, 0.65, 1.25);
+	float core = 1.0 - smoothstep(radiusPx * 0.35, radiusPx * 0.35 + 0.9, distCenterPx);
+	float glow = 1.0 - smoothstep(radiusPx * 0.5, radiusPx + 2.2, distCenterPx);
+	float rareNode = smoothstep(0.94, 0.995, seed);
+	float flow = pow(0.5 + 0.5 * sin(cellId.x * 0.13 + cellId.y * 0.21 - uTime * 0.85), 5.0);
+	float waveBoost = 0.72 + smoothstep(-0.1, 0.4, vWave) * 0.28;
+	float energy = (0.38 + seed * 0.34 + flow * 0.42 + rareNode * 2.4) * waveBoost;
+	vec3 color = uPointColor * (core * (1.2 + energy * 1.35) + glow * (0.12 + energy * 0.2 * uGlow));
+	float alpha = (core * 0.72 + glow * (0.08 + rareNode * 0.18)) * uAlphaMult * energy * resolved;
 
 	if (alpha < 0.0001) {
 		discard;

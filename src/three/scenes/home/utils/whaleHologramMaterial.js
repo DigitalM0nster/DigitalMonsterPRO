@@ -25,7 +25,9 @@ export function createWhaleHologramMaterial() {
 		transparent: true,
 		depthWrite: false,
 		blending: THREE.AdditiveBlending,
-		side: THREE.DoubleSide,
+		// This FBX has inward winding. Draw its single visible side instead of
+		// DoubleSide: correct silhouette with half the transparent overdraw.
+		side: THREE.BackSide,
 		fog: true,
 	});
 

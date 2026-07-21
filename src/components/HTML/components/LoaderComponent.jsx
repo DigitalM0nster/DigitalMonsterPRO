@@ -1,13 +1,13 @@
 import DigitalMonsterLoader from "./DigitalMonsterLoader";
-import startAppSound from "@/sounds/startAppSound.mp3";
 import { bindMediaElementToMasterBus } from "@/sounds/masterAudioBus.js";
+import { SOUND_CATALOG } from "@/sounds/soundCatalog.js";
 import { useEffect, useRef } from "react";
 
 export default function LoaderComponent(props) {
 	const startAppRef = useRef(null);
 
 	useEffect(() => {
-		const audio = new Audio(startAppSound);
+		const audio = new Audio(SOUND_CATALOG.start_app);
 		bindMediaElementToMasterBus(audio);
 		startAppRef.current = audio;
 	}, []);

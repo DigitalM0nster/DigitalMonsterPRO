@@ -34,7 +34,7 @@ import {
 } from "./siteNavigationProgressOwner.js";
 
 /** Бесконечное кольцо: previous ← current → next + scroll progress / progressTarget. */
-export const CAROUSEL_SCENE_IDS = ["home", "portfolioHub", "about", "contacts"];
+export const CAROUSEL_SCENE_IDS = ["home", "portfolioHub", "capabilities", "about", "contacts"];
 
 /** Скролл вперёд: target не выше 1.5 (полсегмента overshoot после 1). */
 export const CAROUSEL_PROGRESS_TARGET_MAX = 1.5;
@@ -77,6 +77,7 @@ export const CAROUSEL_PROGRESS_COMMIT_SNAP_ZONE = 0.005;
 export const SCENE_ID_TO_PAGE = {
 	home: "/",
 	portfolioHub: "/portfolio",
+	capabilities: "/capabilities",
 	about: "/about",
 	contacts: "/contacts",
 };
@@ -88,6 +89,9 @@ export function pageToCarouselSceneId(page) {
 	}
 	if (normalized === "/portfolio") {
 		return "portfolioHub";
+	}
+	if (normalized === "/capabilities" || normalized.startsWith("/capabilities/")) {
+		return "capabilities";
 	}
 	if (normalized.startsWith("/about")) {
 		return "about";

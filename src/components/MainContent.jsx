@@ -14,7 +14,7 @@ import ThreeCanvasHost from "./3D/ThreeCanvasHost.jsx";
 import WebGLCanvasErrorBoundary from "./3D/WebGLCanvasErrorBoundary.jsx";
 import LeftMenu from "./HTML/components/leftMenu/LeftMenu.jsx";
 import SiteTopHud from "./HTML/components/SiteTopHud.jsx";
-import ScrollPageNavigator from "./HTML/components/ScrollPageNavigator/ScrollPageNavigator.jsx";
+import SiteArcNavigator from "./HTML/components/SiteArcNavigator/SiteArcNavigator.jsx";
 import HtmlRoutes from "./Routes/HtmlRoutes.jsx";
 import { preloadHtmlRoutes } from "./Routes/routeModules.js";
 import LoaderComponent from "./HTML/components/LoaderComponent.jsx";
@@ -158,10 +158,14 @@ export default function MainContent() {
 							rendered={rendered}
 							setRendered={setThreeReady}
 							currentPage={
-								// Deep-link /about|/contacts: don't keep Three on "/" while HTML display lags.
+								// Deep-link ring routes: don't keep Three on "/" while HTML display lags.
 								// During a navigation transaction the URL is only the latest intent;
 								// Three must stay on the visual route until settle/hex confirmation.
-								navigationPhase === "idle" && (location.pathname === "/about" || location.pathname === "/contacts") ? location.pathname : displayPathname
+								navigationPhase === "idle" && (
+									location.pathname === "/about"
+									|| location.pathname === "/contacts"
+									|| location.pathname.startsWith("/capabilities")
+								) ? location.pathname : displayPathname
 							}
 							teleportPage={location.pathname}
 							startApp={startApp}
@@ -172,7 +176,7 @@ export default function MainContent() {
 			</div>
 			{startApp && !isDemoLab && <AboutExperienceHost />}
 			{startApp && !isDemoLab && <LeftMenu />}
-			{startApp && !isDemoLab && <ScrollPageNavigator />}
+			{startApp && !isDemoLab && <SiteArcNavigator />}
 			{startApp && !isDemoLab && <SiteTopHud startApp={startApp} />}
 			{startApp && !isDemoLab && <CaseStudyPanelHudOverlay />}
 			{startApp && !isDemoLab && <CaseStudyArcOverlay />}

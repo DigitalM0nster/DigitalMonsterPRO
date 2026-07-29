@@ -12,6 +12,11 @@ export const NAV_ITEM_COPY = {
 		en: "Portfolio",
 		zh: "作品集",
 	},
+	capabilities: {
+		ru: "Возможности",
+		en: "Capabilities",
+		zh: "能力",
+	},
 	about: {
 		ru: "О нас",
 		en: "About",
@@ -21,11 +26,6 @@ export const NAV_ITEM_COPY = {
 		ru: "Контакты",
 		en: "Contacts",
 		zh: "联系我们",
-	},
-	lab: {
-		ru: "Лаборатория",
-		en: "Lab",
-		zh: "实验室",
 	},
 };
 

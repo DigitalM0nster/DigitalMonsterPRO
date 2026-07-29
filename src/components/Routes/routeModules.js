@@ -1,6 +1,7 @@
 export const routeModuleLoaders = {
 	main: () => import("../HTML/pages/MainPage.jsx"),
 	portfolio: () => import("../HTML/pages/PortfolioPage.jsx"),
+	capabilities: () => import("../HTML/pages/CapabilitiesPage.jsx"),
 	about: () => import("../HTML/pages/AboutPage.jsx"),
 	contacts: () => import("../HTML/pages/ContactsPage.jsx"),
 	domDistortDemo: () => import("../HTML/pages/DomDistortDemoPage.jsx"),

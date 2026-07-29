@@ -10,7 +10,7 @@ import { getSceneCarousel } from "@/three/render/transition/carouselPage.js";
  */
 
 /**
- * @param {string} sceneId ring scene id (home | portfolioHub | about | contacts)
+ * @param {string} sceneId ring scene id (home | portfolioHub | capabilities | about | contacts)
  */
 export function shouldAnimateSiteLocaleForRingScene(sceneId) {
 	if (store.openedCase) {

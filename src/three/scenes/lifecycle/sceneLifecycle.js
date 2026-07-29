@@ -15,7 +15,7 @@ import { CAROUSEL_PROGRESS_COMMIT_EPS } from "@/three/render/transition/SceneCar
  */
 
 /**
- * Контракт сцены карусели (все страницы кольца: home / portfolioHub / about / contacts):
+ * Контракт сцены карусели (все страницы кольца: home / portfolioHub / capabilities / about / contacts):
  * - ring dormant — **только** next-reasons ниже (+ hex-target)
  * - страница, с которой ушли, остаётся live как `previous` (не wipe из роута)
  * - `became-previous` — не dormant; опциональный leave-pose (About → конец сюжета)

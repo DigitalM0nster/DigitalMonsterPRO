@@ -24,6 +24,12 @@ const NAV_ITEMS = [
 		icon: "portfolio",
 		match: (p) => p.startsWith("/portfolio"),
 	},
+	{
+		id: "capabilities",
+		path: "/capabilities",
+		icon: "lab_icon",
+		match: (p) => p.startsWith("/capabilities"),
+	},
 	{ id: "about", path: "/about", icon: "about", match: (p) => p.startsWith("/about") },
 	{
 		id: "contacts",
@@ -31,7 +37,6 @@ const NAV_ITEMS = [
 		icon: "contacts",
 		match: (p) => p.startsWith("/contacts"),
 	},
-	{ id: "lab", path: null, icon: "lab_icon", disabled: true },
 ];
 
 function isOverMenuButton(target) {

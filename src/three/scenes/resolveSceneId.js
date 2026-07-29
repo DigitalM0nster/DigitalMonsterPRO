@@ -12,6 +12,10 @@ export function resolveSceneId(pathname) {
 		return "portfolioHub";
 	}
 
+	if (pathname === "/capabilities" || pathname.startsWith("/capabilities/")) {
+		return "capabilities";
+	}
+
 	const caseProject = projectsData.find((p) => p.path === pathname);
 	if (caseProject) {
 		return `case${caseProject.slug}`;

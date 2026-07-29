@@ -4,6 +4,7 @@ import { getPortfolioProjectName } from "@/i18n/portfolioProjectsCopy.js";
 const PATH_TO_NAV = {
 	"/": "main",
 	"/portfolio": "portfolio",
+	"/capabilities": "capabilities",
 	"/about": "about",
 	"/contacts": "contacts",
 	"/lab": "lab",
@@ -14,6 +15,9 @@ export function resolveTopHudPageTitle(pathname, locale) {
 	const normalizedPath = String(pathname ?? "/").replace(/\/+$/, "") || "/";
 	if (normalizedPath.startsWith("/portfolio/")) {
 		return getNavItemLabel("portfolio", locale);
+	}
+	if (normalizedPath.startsWith("/capabilities/")) {
+		return getNavItemLabel("capabilities", locale);
 	}
 
 	const key = PATH_TO_NAV[normalizedPath];

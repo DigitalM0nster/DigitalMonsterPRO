@@ -7,8 +7,8 @@ import { normalizeSiteLocale } from "@/utils/siteLocale.js";
 import { requestHexNavigation, getHexPendingPath } from "@/utils/hexNavigation.js";
 import { isPortfolioCasePath, projectsData } from "@/three/scenes/portfolio/hub/projectsData.js";
 import { playRightNavigatorGlitchSound } from "@/sounds/soundDesign.js";
-import LeftMenuGlitchLabel from "../leftMenu/LeftMenuGlitchLabel.jsx";
-import { MENU_LABEL_APPEAR_MS, MENU_LABEL_DISAPPEAR_MS } from "../leftMenu/leftMenuLabelTimings.js";
+import LeftMenuGlitchLabel from "@/components/HTML/components/leftMenu/LeftMenuGlitchLabel.jsx";
+import { MENU_LABEL_APPEAR_MS, MENU_LABEL_DISAPPEAR_MS } from "@/components/HTML/components/leftMenu/leftMenuLabelTimings.js";
 import { resolveAboutNavigatorProgress, resolveAboutOwnedTrack } from "./aboutNavigatorPhase.js";
 import "./ScrollPageNavigator.scss";
 

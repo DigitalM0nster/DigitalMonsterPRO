@@ -14,6 +14,7 @@ import { Case3Scene } from "./portfolio/case3/Case3Scene.js";
 import { BelkaScene } from "./portfolio/case6/BelkaScene.js";
 import { AboutScene } from "./about/AboutScene.js";
 import { ContactsScene } from "./contacts/ContactsScene.js";
+import { EmptyScene } from "./types/EmptyScene.js";
 
 function createLayerRenderTarget(renderer, width, height, gfx) {
 	const dpr = renderer.getPixelRatio();
@@ -69,6 +70,7 @@ export class SceneManager {
 		this.scenes.set("home", new DigitalWhaleScene(this.gfx));
 		this.scenes.get("home")?.initHeroText?.(this.renderer);
 		this.scenes.set("portfolioHub", new PortfolioHubScene());
+		this.scenes.set("capabilities", new EmptyScene());
 		this.scenes.set("case01", new Case1Scene(this.renderer, this.store));
 		this.scenes.set("case04", new Case3Scene(this.renderer, this.store));
 		this.scenes.set("case06", new BelkaScene(this.renderer, this.store));
@@ -464,7 +466,7 @@ export class SceneManager {
 	 */
 	getWarmupDrawSceneIds() {
 		const ids = [...this.scenes.keys()];
-		const ringOrder = ["home", "portfolioHub", "about", "contacts"];
+		const ringOrder = ["home", "portfolioHub", "capabilities", "about", "contacts"];
 		const ring = ringOrder.filter((id) => this.scenes.has(id));
 		const cases = ids.filter((id) => id.startsWith("case"));
 		const rest = ids.filter((id) => !ring.includes(id) && !cases.includes(id));

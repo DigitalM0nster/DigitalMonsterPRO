@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useLayoutEffect, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useStore } from "@/store.jsx";
 import { useRouteTransitionContext } from "@/context/RouteTransitionContext.jsx";
@@ -7,27 +7,29 @@ import { getNavItemLabel } from "@/i18n/siteCopy.js";
 import { normalizeSiteLocale } from "@/utils/siteLocale.js";
 import { requestHexNavigation } from "@/utils/hexNavigation.js";
 import { isPortfolioCasePath } from "@/three/scenes/portfolio/hub/projectsData.js";
-import styles from "./SiteArcNavigator.module.scss";
+import { PortfolioProjectProvider } from "@/portfolio/core/PortfolioProjectContext.jsx";
+import CaseStudyArcDomNav from "@/portfolio/ui/CaseStudyCanvas/CaseStudyArcDomNav.jsx";
+import { setSiteArcNavigationSource } from "@/portfolio/ui/CaseStudyCanvas/siteArcNavigationSource.js";
 
 const SITE_ITEMS = [
-	{ id: "main", number: "01", path: "/" },
-	{ id: "portfolio", number: "02", path: "/portfolio" },
-	{ id: "capabilities", number: "03", path: "/capabilities" },
-	{ id: "about", number: "04", path: "/about" },
-	{ id: "contacts", number: "05", path: "/contacts" },
+	{ id: "main", routeNumber: "01", route: "/" },
+	{ id: "portfolio", routeNumber: "02", route: "/portfolio" },
+	{ id: "capabilities", routeNumber: "03", route: "/capabilities" },
+	{ id: "about", routeNumber: "04", route: "/about" },
+	{ id: "contacts", routeNumber: "05", route: "/contacts" },
 ];
 
 function normalizePath(path) {
 	return String(path ?? "/").replace(/\/+$/, "") || "/";
 }
 
-function resolveSiteActiveIndex(pathname) {
+function resolveSiteActiveId(pathname) {
 	const normalized = normalizePath(pathname);
-	if (normalized.startsWith("/portfolio")) return 1;
-	if (normalized.startsWith("/capabilities")) return 2;
-	if (normalized.startsWith("/about")) return 3;
-	if (normalized.startsWith("/contacts")) return 4;
-	return 0;
+	if (normalized.startsWith("/portfolio")) return "portfolio";
+	if (normalized.startsWith("/capabilities")) return "capabilities";
+	if (normalized.startsWith("/about")) return "about";
+	if (normalized.startsWith("/contacts")) return "contacts";
+	return "main";
 }
 
 export default function SiteArcNavigator() {
@@ -41,16 +43,37 @@ export default function SiteArcNavigator() {
 
 	const items = useMemo(() => {
 		if (capabilitiesMode) {
-			return CAPABILITIES.map((item) => ({ ...item, label: item.title }));
+			return CAPABILITIES.map((item) => ({
+				id: item.id,
+				route: item.path,
+				routeNumber: item.number,
+				title: item.title,
+				pathTitle: item.title,
+			}));
 		}
-		return SITE_ITEMS.map((item) => ({ ...item, label: getNavItemLabel(item.id, locale) }));
+		return SITE_ITEMS.map((item) => ({
+			...item,
+			title: getNavItemLabel(item.id, locale),
+			pathTitle: getNavItemLabel(item.id, locale),
+		}));
 	}, [capabilitiesMode, locale]);
 
-	const activeIndex = capabilitiesMode
-		? Math.max(0, items.findIndex((item) => normalizePath(item.path) === normalizePath(displayPathname)))
-		: resolveSiteActiveIndex(displayPathname);
+	const activeId = capabilitiesMode
+		? (items.find((item) => normalizePath(item.route) === normalizePath(displayPathname))?.id ?? items[0].id)
+		: resolveSiteActiveId(displayPathname);
+	const sourceKey = capabilitiesMode ? "capabilities" : "site";
 
-	const activate = useCallback((path) => {
+	useLayoutEffect(() => {
+		if (caseRouteVisible) {
+			setSiteArcNavigationSource(null);
+			return undefined;
+		}
+		setSiteArcNavigationSource({ key: sourceKey, activeId, items });
+		return () => setSiteArcNavigationSource(null);
+	}, [activeId, caseRouteVisible, items, sourceKey]);
+
+	const activate = useCallback((item) => {
+		const path = item?.route;
 		if (!path || normalizePath(path) === normalizePath(location.pathname)) return;
 		if (capabilitiesMode && isCapabilitiesPath(path)) {
 			navigate(path);
@@ -59,37 +82,35 @@ export default function SiteArcNavigator() {
 		if (!requestHexNavigation(path, location.pathname)) navigate(path);
 	}, [capabilitiesMode, location.pathname, navigate]);
 
+	const project = useMemo(() => ({
+		config: { id: activeId, slug: activeId, caseStudy: {} },
+		states: [],
+	}), [activeId]);
+	const contextValue = useMemo(() => ({
+		activeStateId: "",
+		activeStateIndex: 0,
+		activeState: null,
+		scrollProgress: 0,
+		stageProgress: 0,
+		stageProgressTarget: 0,
+		investigationHotspotId: null,
+		activeHotspot: null,
+		isInvestigating: false,
+		visibleHotspots: [],
+		goToState: () => {},
+		enterInvestigation: () => {},
+		leaveInvestigation: () => {},
+	}), []);
+
 	if (caseRouteVisible) return null;
 
 	return (
-		<nav className={styles.navigator} aria-label={capabilitiesMode ? "Навигация по возможностям" : "Навигация по страницам"}>
-			<svg className={styles.track} viewBox="0 0 320 900" preserveAspectRatio="none" aria-hidden="true">
-				<path d="M 312 -60 C 82 125, 82 775, 312 960" />
-			</svg>
-			<div className={styles.items}>
-				{items.map((item, index) => {
-					const offset = index - activeIndex;
-					const y = 50 + offset * 15.5;
-					const x = 46 + Math.min(42, Math.abs(offset) * 13);
-					const active = index === activeIndex;
-					return (
-						<button
-							key={item.id}
-							type="button"
-							className={`${styles.item} ${active ? styles.active : ""}`}
-							style={{ "--arc-x": `${x}%`, "--arc-y": `${y}%` }}
-							onClick={() => activate(item.path)}
-							aria-current={active ? "page" : undefined}
-						>
-							<span className={styles.node}><span /></span>
-							<span className={styles.copy}>
-								<span className={styles.number}>{item.number}</span>
-								<span className={styles.label}>{item.label}</span>
-							</span>
-						</button>
-					);
-				})}
-			</div>
-		</nav>
+		<PortfolioProjectProvider project={project} value={contextValue}>
+			<CaseStudyArcDomNav
+				manageLifecycle={false}
+				skipPanelIntro
+				onActivateItem={activate}
+			/>
+		</PortfolioProjectProvider>
 	);
 }

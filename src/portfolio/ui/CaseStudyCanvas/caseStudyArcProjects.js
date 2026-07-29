@@ -5,6 +5,7 @@ import { getAllPortfolioProjects } from "@/portfolio/core/projectRegistry.js";
 import { getPortfolioProjectName } from "@/i18n/portfolioProjectsCopy.js";
 import { normalizeSiteLocale } from "@/utils/siteLocale.js";
 import { caseStudyArcInternals } from "./caseStudyArcConfig.js";
+import { getSiteArcNavigationSource } from "./siteArcNavigationSource.js";
 
 /** Click preview before route commit — glow/labels move immediately. */
 let previewActiveProjectId = null;
@@ -103,6 +104,23 @@ export function resolvePortfolioRouteNumber(route, fallbackIndex = 0) {
  * }}
  */
 export function resolveCaseStudyArcProjectItems(locale, activeProjectId = null) {
+	const siteSource = getSiteArcNavigationSource();
+	if (siteSource?.items?.length) {
+		const items = siteSource.items.map((item, index) => ({
+			...item,
+			registryIndex: index,
+			routeNumber: item.routeNumber ?? String(index + 1).padStart(2, "0"),
+			scrollAnchor: siteSource.items.length <= 1 ? 0 : index / (siteSource.items.length - 1),
+		}));
+		const activeNavIndex = Math.max(0, items.findIndex((item) => item.id === siteSource.activeId));
+		const ringGapDeg = resolveCaseStudyArcRingGapDeg(items.length);
+		return {
+			items,
+			activeNavIndex,
+			ringGapDeg,
+			ringPeriodDeg: items.length * ringGapDeg,
+		};
+	}
 	const siteLocale = normalizeSiteLocale(locale);
 	const projects = getAllPortfolioProjects()
 		.map((project, registryIndex) => ({ project, registryIndex }))

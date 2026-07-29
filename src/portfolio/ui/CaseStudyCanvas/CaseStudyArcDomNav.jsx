@@ -61,6 +61,8 @@ function clearCanvas(canvas) {
 export default function CaseStudyArcDomNav({
 	skipPanelIntro = false,
 	panelIntroDelayMs = 500,
+	manageLifecycle = true,
+	onActivateItem = null,
 }) {
 	const { project } = usePortfolioProject();
 	const { pathname } = useLocation();
@@ -70,7 +72,7 @@ export default function CaseStudyArcDomNav({
 	const layoutRef = useRef(/** @type {ReturnType<typeof buildCaseStudyArcNavLayout> | null} */ (null));
 
 	useCaseStudyArcLifecycle({
-		enabled: true,
+		enabled: manageLifecycle,
 		skipPanelIntro,
 		panelIntroDelayMs,
 	});
@@ -235,6 +237,10 @@ export default function CaseStudyArcDomNav({
 		if (!item?.route) {
 			return;
 		}
+		if (onActivateItem) {
+			onActivateItem(item);
+			return;
+		}
 		if (item.id !== project.config.id) {
 			setCaseStudyArcPreviewProjectId(item.id);
 			if (Number.isFinite(item.angle)) {
@@ -246,7 +252,7 @@ export default function CaseStudyArcDomNav({
 			{ type: "projectNavigation", id: item.id, targetPath: item.route },
 			pathname,
 		);
-	}, [pathname, project.config.id]);
+	}, [onActivateItem, pathname, project.config.id]);
 
 	const onHoverSnake = useCallback((index) => {
 		const el = itemRefs.current[index];
@@ -290,4 +296,6 @@ export default function CaseStudyArcDomNav({
 CaseStudyArcDomNav.propTypes = {
 	skipPanelIntro: PropTypes.bool,
 	panelIntroDelayMs: PropTypes.number,
+	manageLifecycle: PropTypes.bool,
+	onActivateItem: PropTypes.func,
 };

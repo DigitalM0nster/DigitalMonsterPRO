@@ -32,6 +32,7 @@ import {
 	tickCaseStudyStageRailHeaderLink,
 } from "@/portfolio/ui/CaseStudyCanvas/caseStudyStageRail.js";
 import { cancelSharedAnimationFrame, requestSharedAnimationFrame } from "@/utils/sharedAnimationFrame.js";
+import { isSiteArcNavigationActive } from "@/portfolio/ui/CaseStudyCanvas/siteArcNavigationSource.js";
 
 /** @type {(() => void) | null} */
 let arcPaintCallback = null;
@@ -214,7 +215,7 @@ function hasChromeStageMotionChangedSincePaint() {
 }
 
 function isCasePageActive() {
-	return Boolean(store.openedCase);
+	return Boolean(store.openedCase || isSiteArcNavigationActive());
 }
 
 function shouldContinueAnimationFrame() {

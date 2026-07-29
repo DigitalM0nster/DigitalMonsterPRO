@@ -26,6 +26,7 @@ import { syncCaseStudyArcSelectSequence } from "@/portfolio/ui/CaseStudyCanvas/c
 import { getCaseStudyArcShift } from "@/portfolio/ui/CaseStudyCanvas/caseStudyArcPositionMotion.js";
 import { getSceneCarousel } from "@/three/render/transition/carouselPage.js";
 import { isCaseArcSessionActive } from "@/portfolio/ui/CaseStudyCanvas/caseStudyArcSession.js";
+import { isSiteArcNavigationActive } from "@/portfolio/ui/CaseStudyCanvas/siteArcNavigationSource.js";
 import { CaseStudyArcMesh } from "./CaseStudyArcMesh.js";
 import { CASE_STUDY_ARC_MAX_NODES } from "./caseStudyArcShader.js";
 
@@ -208,7 +209,8 @@ export function syncCaseStudyArcOverlay(arc, {
 	// Session chrome (like site header) — keep drawing during case→case even if
 	// openedCase flickers false while shells remount.
 	const active = Boolean(
-		showCase && (store.openedCase || isCaseArcSessionActive()),
+		isSiteArcNavigationActive()
+		|| (showCase && (store.openedCase || isCaseArcSessionActive())),
 	);
 	if (!active || viewportW < 2 || viewportH < 2) {
 		if (arc.visible) {

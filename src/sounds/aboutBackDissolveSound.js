@@ -31,7 +31,7 @@ const LOOP_CROSSFADE_S = 0.09;
 const LOOP_REPEAT_COUNT = 3;
 const MIN_PLAYBACK_RATE = 0.85;
 const MAX_PLAYBACK_RATE = 1.35;
-/** Defaults match ABOUT_MATERIALS.backRetreat / AboutScene._applyStoryProgress. */
+/** Defaults match ABOUT_MATERIALS.stage2Dissolve.backStory* / AboutScene._applyStoryProgress. */
 const BACK_STORY_START = 1;
 const BACK_STORY_END = 2;
 

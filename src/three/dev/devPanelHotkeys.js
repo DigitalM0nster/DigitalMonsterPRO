@@ -10,6 +10,10 @@ let listening = false;
 /** Порядок для подсказок в панелях. */
 export const DEV_PANEL_HOTKEY_HINTS = [
 	{ key: "1", label: "Progress" },
+	{ key: "2", label: "Epic Text" },
+	{ key: "3", label: "Contacts" },
+	{ key: "4", label: "Belka Scene" },
+	{ key: "5", label: "Hub Plate" },
 	{ key: "7", label: "Case Arc" },
 	{ key: "8", label: "Liquid BG" },
 	{ key: "9", label: "Stage Rail" },

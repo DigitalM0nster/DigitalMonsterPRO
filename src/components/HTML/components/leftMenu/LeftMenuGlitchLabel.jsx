@@ -1,5 +1,5 @@
 import { forwardRef, useImperativeHandle, useLayoutEffect, useRef } from "react";
-import { glitchLetterReplacements } from "@/components/HTML/glitchLetterReplacements.js";
+import { getGlitchReplacements } from "@/shared/glitchText/glitchLetterModel.js";
 import {
 	abortAtenCharSnake,
 	prepareAtenHidden,
@@ -13,8 +13,9 @@ function getAtenSymbols(letter) {
 	if (letter === " ") {
 		return [];
 	}
-	const replacements = glitchLetterReplacements[letter.toUpperCase()] ?? "XY";
-	const chars = replacements.split("").filter((char) => char !== " ");
+	const chars = getGlitchReplacements(letter)
+		.split("")
+		.filter((char) => char !== " ");
 	return chars.length > 0 ? chars : ["X", "Y"];
 }
 

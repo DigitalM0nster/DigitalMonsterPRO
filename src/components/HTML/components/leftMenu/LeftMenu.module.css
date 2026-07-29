@@ -8,21 +8,82 @@
   top: 0;
   width: var(--leftMenuWidth);
   height: 100vh;
+  display: flex;
   flex-direction: column;
+  justify-content: space-between;
   align-items: center;
   padding: 50px 0;
   z-index: 30;
   pointer-events: auto;
   border-right: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.87);
+}
+.leftMenu .topSection {
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 28px;
+}
+.leftMenu .logoLink {
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: auto;
+  padding: 0 10px;
+  gap: 12px;
+  text-decoration: none;
+}
+.leftMenu .logoImg {
+  width: calc(var(--leftMenuButtonWidth) * 1.35);
+  height: calc(var(--leftMenuButtonWidth) * 1.35);
+  -o-object-fit: contain;
+     object-fit: contain;
+  pointer-events: none;
+}
+.leftMenu .brandWordmark {
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: 100%;
+}
+.leftMenu .brandLine {
+  display: block;
+  width: 100%;
+  font-family: "Aquire", sans-serif;
+  font-size: 9.5px;
+  font-weight: 300;
+  line-height: 1.15;
+  letter-spacing: 0.2em;
+  text-indent: 0.2em;
+  text-align: center;
+  text-transform: uppercase;
+  white-space: nowrap;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(110, 212, 255, 0.92) 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 8px rgba(55, 175, 235, 0.22));
 }
 .leftMenu .iconRail {
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   flex-direction: column;
   justify-content: center;
   align-items: center;
   gap: 15px;
 }
+.leftMenu .bottomSection {
+  flex-shrink: 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 15px;
+  margin-top: 28px;
+}
 .leftMenu .itemButton {
+  position: relative;
   z-index: 1;
   display: flex;
   align-items: center;
@@ -173,4 +234,73 @@
 .leftMenu .itemButton .itemLabel.visible {
   opacity: 1;
   visibility: visible;
+}
+.leftMenu .itemButton.utilityButton .itemSymbol::before {
+  display: none;
+}
+.leftMenu .langLabel {
+  font-family: "Jost", sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.5);
+  transition: color var(--menuFloatDuration) var(--menuFloatEase);
+}
+.leftMenu .itemButton:hover .langLabel,
+.leftMenu .itemButton.active .langLabel {
+  color: var(--mainColor);
+}
+
+@media (max-width: 768px) {
+  .leftMenu.aboutLayout {
+    --leftMenuButtonWidth: 38px;
+    --leftMenuIconSize: 16px;
+    left: 50%;
+    top: auto;
+    bottom: max(8px, env(safe-area-inset-bottom));
+    width: min(420px, 100vw - 24px);
+    height: 58px;
+    transform: translateX(-50%);
+    flex-direction: row;
+    justify-content: center;
+    padding: 6px 8px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 18px;
+    background: rgba(0, 8, 13, 0.94);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.035);
+  }
+  .leftMenu.aboutLayout .topSection {
+    display: none;
+  }
+  .leftMenu.aboutLayout .iconRail {
+    flex: 1 1 auto;
+    min-width: 0;
+    flex-direction: row;
+    justify-content: center;
+    gap: clamp(1px, 1vw, 5px);
+  }
+  .leftMenu.aboutLayout .bottomSection {
+    flex: 0 0 auto;
+    flex-direction: row;
+    justify-content: center;
+    gap: clamp(1px, 1vw, 5px);
+    margin: 0;
+  }
+  .leftMenu.aboutLayout .itemButton {
+    flex: 0 0 var(--leftMenuButtonWidth);
+  }
+  .leftMenu.aboutLayout .itemButton .itemLabel {
+    display: none;
+  }
+}
+@media (max-width: 420px) {
+  .leftMenu.aboutLayout {
+    --leftMenuButtonWidth: 36px;
+    --leftMenuIconSize: 15px;
+    bottom: max(6px, env(safe-area-inset-bottom));
+    width: calc(100vw - 16px);
+    height: 56px;
+    padding: 5px 6px;
+    border-radius: 16px;
+  }
 }/*# sourceMappingURL=LeftMenu.module.css.map */

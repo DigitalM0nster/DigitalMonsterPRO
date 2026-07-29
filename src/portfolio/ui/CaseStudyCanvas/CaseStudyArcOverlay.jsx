@@ -41,13 +41,9 @@ export default function CaseStudyArcOverlay() {
 	const experienceSlug = experience.slug;
 	const stickyProjectRef = useRef(null);
 
-	const inCaseSpace = Boolean(
-		routeProject || openedCase || isCaseArcSessionActive(),
-	);
+	const inCaseSpace = Boolean(routeProject || openedCase || isCaseArcSessionActive());
 
-	const activeProject = inCaseSpace
-		? resolveStickyProject(routeProject, experienceSlug, stickyProjectRef)
-		: null;
+	const activeProject = inCaseSpace ? resolveStickyProject(routeProject, experienceSlug, stickyProjectRef) : null;
 
 	if (!inCaseSpace) {
 		stickyProjectRef.current = null;
@@ -61,9 +57,7 @@ export default function CaseStudyArcOverlay() {
 		}
 		const slugMatches = experienceSlug === activeProject.config.slug;
 		const rawIndex = slugMatches ? Number(experience.activeStateIndex) || 0 : 0;
-		const activeStateIndex = slugMatches
-			? Math.max(0, Math.min(activeProject.states.length - 1, rawIndex))
-			: 0;
+		const activeStateIndex = slugMatches ? Math.max(0, Math.min(activeProject.states.length - 1, rawIndex)) : 0;
 		const activeState = activeProject.states[activeStateIndex];
 		return {
 			activeStateId: (slugMatches && experience.activeStateId) || activeState?.id || "",
@@ -88,10 +82,7 @@ export default function CaseStudyArcOverlay() {
 
 	return (
 		<PortfolioProjectProvider project={activeProject} value={contextValue}>
-			<CaseStudyArcDomNav
-				skipPanelIntro={false}
-				panelIntroDelayMs={activeProject.config.caseStudy?.panelIntroDelayMs ?? 500}
-			/>
+			<CaseStudyArcDomNav skipPanelIntro={false} panelIntroDelayMs={activeProject.config.caseStudy?.panelIntroDelayMs ?? 500} />
 		</PortfolioProjectProvider>
 	);
 }

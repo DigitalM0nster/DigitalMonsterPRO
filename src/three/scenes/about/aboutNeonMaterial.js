@@ -106,10 +106,22 @@ export function isAboutHeartMetalMeshName(name) {
 	return /^Heart(Main|Center)/i.test(name);
 }
 
-/** Outer cell plating meshes (`OUTER_cell`, `OUTER_cell.001`, …). */
+/** Outer cell plating meshes (`OUTER_cell`, `OUTER_cell.001`, `OUTER_cell184_1`, …). */
 export function isAboutOuterCellMeshName(name) {
 	if (!name || typeof name !== "string") return false;
 	return /^OUTER_cell/i.test(name);
+}
+
+/** Blender material for seam microchips. */
+export function isAboutOuterCellSeamMaterialName(name) {
+	if (!name || typeof name !== "string") return false;
+	return /^OuterCellSeam$/i.test(name.trim());
+}
+
+/** Blender material for clean plate body (optional; GlassMaterial on OUTER_cell* also maps here). */
+export function isAboutOuterCellBodyMaterialName(name) {
+	if (!name || typeof name !== "string") return false;
+	return /^OuterCell$/i.test(name.trim());
 }
 
 /** Dev aid: report which Heart nodes actually have drawable geometry. */

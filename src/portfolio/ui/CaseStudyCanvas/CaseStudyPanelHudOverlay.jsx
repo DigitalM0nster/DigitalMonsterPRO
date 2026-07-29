@@ -28,17 +28,20 @@ export default function CaseStudyPanelHudOverlay() {
 	const renderTextInScene = Boolean(project?.config.caseStudy?.renderTextInScene);
 	const isMobileLayout = useCaseStudyMobileViewport(renderTextInScene);
 
-	const goToState = useCallback((stateId) => {
-		if (!project) {
-			return;
-		}
-		navigateCaseStudyToState({
-			project,
-			stateId,
-			fromIndex: store.portfolioExperience.activeStateIndex ?? 0,
-			useClickMosaic: true,
-		});
-	}, [project]);
+	const goToState = useCallback(
+		(stateId) => {
+			if (!project) {
+				return;
+			}
+			navigateCaseStudyToState({
+				project,
+				stateId,
+				fromIndex: store.portfolioExperience.activeStateIndex ?? 0,
+				useClickMosaic: true,
+			});
+		},
+		[project],
+	);
 
 	const contextValue = useMemo(() => {
 		if (!project) {
@@ -47,13 +50,9 @@ export default function CaseStudyPanelHudOverlay() {
 		const slugMatches = experienceSlug === project.config.slug;
 		const rawIndex = slugMatches ? Number(experienceStateIndex) || 0 : 0;
 		// New case / slug mismatch: always stage 1 until experience catches up.
-		const activeStateIndex = slugMatches
-			? Math.max(0, Math.min(project.states.length - 1, rawIndex))
-			: 0;
+		const activeStateIndex = slugMatches ? Math.max(0, Math.min(project.states.length - 1, rawIndex)) : 0;
 		const activeState = project.states[activeStateIndex];
-		const activeStateId = (
-			slugMatches && experienceStateId
-		) || activeState?.id || "";
+		const activeStateId = (slugMatches && experienceStateId) || activeState?.id || "";
 		return {
 			activeStateId,
 			activeStateIndex,
@@ -70,15 +69,7 @@ export default function CaseStudyPanelHudOverlay() {
 			enterInvestigation: () => {},
 			leaveInvestigation: () => {},
 		};
-	}, [
-		experienceHotspotId,
-		experienceInvestigating,
-		experienceSlug,
-		experienceStateId,
-		experienceStateIndex,
-		goToState,
-		project,
-	]);
+	}, [experienceHotspotId, experienceInvestigating, experienceSlug, experienceStateId, experienceStateIndex, goToState, project]);
 
 	if (!project || !renderTextInScene || isMobileLayout || !contextValue) {
 		return null;

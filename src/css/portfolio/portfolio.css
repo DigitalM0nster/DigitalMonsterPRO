@@ -15,14 +15,6 @@
   pointer-events: auto;
   z-index: 5;
 }
-.page.portfolio .pageContent .portfolioProjectsList.hub.hitOnly .item {
-  opacity: 1;
-  cursor: pointer;
-}
-.page.portfolio .pageContent .portfolioProjectsList.hub.hitOnly .item .itemName {
-  visibility: hidden;
-  pointer-events: none;
-}
 .page.portfolio .pageContent .portfolioProjectsList .listViewport {
   position: relative;
   width: 100%;
@@ -53,7 +45,7 @@
   padding: 4px 0;
   box-sizing: border-box;
   cursor: pointer;
-  opacity: 0.32;
+  opacity: 0.5;
   transition: opacity 0.35s ease;
 }
 .page.portfolio .pageContent .portfolioProjectsList .item.active {

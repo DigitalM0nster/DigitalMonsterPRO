@@ -1,5 +1,5 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef } from "react";
-import { glitchLetterReplacements } from "../glitchLetterReplacements.js";
+import { getGlitchReplacements } from "@/shared/glitchText/glitchLetterModel.js";
 import {
 	prepareGlitchAppear,
 	restoreGlitchLettersVisible,
@@ -7,10 +7,7 @@ import {
 } from "../glitchSnakeAnimation.js";
 
 function getReplacements(letter) {
-	if (letter === " ") {
-		return " ";
-	}
-	return glitchLetterReplacements[letter.toUpperCase()] ?? "";
+	return getGlitchReplacements(letter);
 }
 
 /**
@@ -31,8 +28,12 @@ const GlitchText = forwardRef(function GlitchText(
 	useImperativeHandle(
 		ref,
 		() => ({
-			playHover(timeBudgetMs) {
-				return runGlitchSnake(wordRef.current, "hover", { timeBudgetMs });
+			playHover(timeBudgetMsOrOptions) {
+				const options =
+					typeof timeBudgetMsOrOptions === "number"
+						? { timeBudgetMs: timeBudgetMsOrOptions }
+						: (timeBudgetMsOrOptions ?? {});
+				return runGlitchSnake(wordRef.current, "hover", options);
 			},
 			playAppear(timeBudgetMs) {
 				return runGlitchSnake(wordRef.current, "appear", { timeBudgetMs });
@@ -61,17 +62,41 @@ const GlitchText = forwardRef(function GlitchText(
 			return undefined;
 		}
 
-		const element =
-			hoverTriggerRef instanceof HTMLElement
-				? hoverTriggerRef
-				: hoverTriggerRef.current;
-		if (!element) {
-			return undefined;
-		}
+		let element = null;
+		let rafId = 0;
+		let cleaned = false;
 
-		element.addEventListener("mouseenter", triggerGlitch);
-		return () => {
+		const detach = () => {
+			if (!element) {
+				return;
+			}
 			element.removeEventListener("mouseenter", triggerGlitch);
+			element = null;
+		};
+
+		const attach = () => {
+			if (cleaned) {
+				return;
+			}
+			const next =
+				hoverTriggerRef instanceof HTMLElement
+					? hoverTriggerRef
+					: hoverTriggerRef.current;
+			if (!next) {
+				rafId = requestAnimationFrame(attach);
+				return;
+			}
+			element = next;
+			element.addEventListener("mouseenter", triggerGlitch);
+		};
+
+		attach();
+		return () => {
+			cleaned = true;
+			if (rafId) {
+				cancelAnimationFrame(rafId);
+			}
+			detach();
 		};
 	}, [hoverTriggerRef, triggerGlitch]);
 
@@ -87,8 +112,15 @@ const GlitchText = forwardRef(function GlitchText(
 				);
 			}
 
+			const hasCase = letter.toLowerCase() !== letter.toUpperCase();
+			const caseClass = !hasCase
+				? "letterUpper"
+				: letter === letter.toLowerCase()
+					? "letterLower"
+					: "letterUpper";
+
 			return (
-				<div key={index} className="letterContainer">
+				<div key={index} className={`letterContainer ${caseClass}`}>
 					<div className="mainLetter">{letter}</div>
 					{replacements.split("").map((replacement, i) =>
 						replacement === " " ? null : (

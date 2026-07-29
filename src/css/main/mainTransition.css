@@ -1,5 +1,5 @@
 @charset "UTF-8";
-/* Главная: справа (hidden) → по центру (active) → влево (leaving) */
+/* Главная: hidden → activating/active (enter) → removing/remove (scroll) → leaving (route exit) */
 .page.hidden .transitionAnimatedElement {
   opacity: 0;
   transform: translateX(5vw);
@@ -8,7 +8,7 @@
 .page.hidden .transitionAnimatedElement.mainPageLogoBlock {
   transform: none;
 }
-.page.active .transitionAnimatedElement {
+.page.active .transitionAnimatedElement, .page.activating .transitionAnimatedElement {
   opacity: 1;
   transform: translate(0, 0);
   transition-property: opacity, transform;
@@ -16,10 +16,10 @@
   transition-timing-function: ease;
   transition-delay: calc(var(--routeEnterStaggerStep) * var(--stagger-i));
 }
-.page.active .transitionAnimatedElement.mainPageLogoBlock {
+.page.active .transitionAnimatedElement.mainPageLogoBlock, .page.activating .transitionAnimatedElement.mainPageLogoBlock {
   transform: none;
 }
-.page.leaving .transitionAnimatedElement {
+.page.leaving .transitionAnimatedElement, .page.removing .transitionAnimatedElement, .page.remove .transitionAnimatedElement {
   opacity: 0;
   transform: translateX(-5vw);
   transition-property: opacity, transform;
@@ -27,6 +27,6 @@
   transition-timing-function: ease;
   transition-delay: calc(var(--routeExitStaggerStep) * var(--stagger-i));
 }
-.page.leaving .transitionAnimatedElement.mainPageLogoBlock {
+.page.leaving .transitionAnimatedElement.mainPageLogoBlock, .page.removing .transitionAnimatedElement.mainPageLogoBlock, .page.remove .transitionAnimatedElement.mainPageLogoBlock {
   transform: none;
 }/*# sourceMappingURL=mainTransition.css.map */

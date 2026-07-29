@@ -24,9 +24,16 @@ export function useProjectState(project, options = {}) {
 
 	const commitStageStep = useCallback((direction) => {
 		const delta = direction === "backward" ? -1 : 1;
-		const fromIndex = activeStateIndexRef.current;
-		const nextIndex = fromIndex + delta;
 		const lastIndex = states.length - 1;
+		// Prefer store (case runtime) over React ref — terminal bake can update store
+		// without a successful commit, and ref would then step from the wrong index.
+		const storeIndex = store.portfolioExperience.activeStateIndex;
+		const fromIndex = Number.isInteger(storeIndex)
+			&& storeIndex >= 0
+			&& storeIndex < states.length
+			? storeIndex
+			: activeStateIndexRef.current;
+		const nextIndex = fromIndex + delta;
 		// Финал кейса: 0→1 на предпоследнем уже показывает контент последнего.
 		// Commit на lastIndex с progress=0 ломает модель — туда скроллом не заходим.
 		const blockedFinalForward = direction === "forward" && nextIndex === lastIndex && lastIndex > 0;

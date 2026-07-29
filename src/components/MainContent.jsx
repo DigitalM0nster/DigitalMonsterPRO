@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import "../css/loader.css";
 import "../css/fonts.css";
 import "../css/style.scss";
@@ -28,10 +28,11 @@ import { isDomDistortDemoPath } from "../demos/domDistort/constants.js";
 import { isWebGLDisabledFromUrl } from "../utils/postProcessTestFlags.js";
 import { initPageVisibilitySound } from "../sounds/pageVisibilitySound.js";
 import { prefetchSoundDesign } from "../sounds/soundDesign.js";
-import { isDevFastPreloader } from "../utils/devFastPreloader.js";
+import { LOADER_CURTAIN_HIDE_MS } from "../config/loaderCurtain.js";
 
 const SHOW_CUSTOM_CURSOR = true;
-const LOADER_UNMOUNT_DELAY_MS = isDevFastPreloader() ? 350 : 1100;
+/** Keep loader mounted until `hidingBlock` finishes — never cut the curtain short. */
+const LOADER_UNMOUNT_DELAY_MS = LOADER_CURTAIN_HIDE_MS + 100;
 
 export default function MainContent() {
 	const [threeReady, setThreeReady] = useState(false);
@@ -43,16 +44,27 @@ export default function MainContent() {
 	const routeTransition = useRouteTransition(location);
 	useSceneCarouselNavigation();
 	useHexHistoryNavigation(location, routeTransition);
-	const { displayPathname, phase } = routeTransition;
+	const { displayPathname, phase, isTransitioning, setDisplayPathname } = routeTransition;
 	const [routeEnterActive, setRouteEnterActive] = useState(false);
 	const scrollRestReactivate = useScrollRestReactivate(displayPathname, phase);
+	// Stabilize provider value: menu hex navigates URL immediately while
+	// displayPathname stays put — a fresh `{...routeTransition}` every render
+	// would re-reconcile Contacts glitch letter trees at hex start (FPS hitch).
+	const routeTransitionValue = useMemo(
+		() => ({
+			displayPathname,
+			phase,
+			isTransitioning,
+			setDisplayPathname,
+			enterReady: routeEnterActive,
+			scrollRestReactivate,
+		}),
+		[displayPathname, phase, isTransitioning, setDisplayPathname, routeEnterActive, scrollRestReactivate],
+	);
 
 	const isDemoLab = isDomDistortDemoPath(location.pathname) || isDomDistortDemoPath(displayPathname);
 	const skipWebGL = isWebGLDisabledFromUrl();
-	const rendered = useMemo(
-		() => routeAssetsReady && (skipWebGL || threeReady || isDemoLab),
-		[isDemoLab, routeAssetsReady, skipWebGL, threeReady],
-	);
+	const rendered = useMemo(() => routeAssetsReady && (skipWebGL || threeReady || isDemoLab), [isDemoLab, routeAssetsReady, skipWebGL, threeReady]);
 
 	useEffect(() => {
 		let active = true;
@@ -96,15 +108,18 @@ export default function MainContent() {
 		return () => cancelAnimationFrame(frameId);
 	}, [displayPathname, phase, routeEnterActive, startApp]);
 
-	useEffect(() => {
+	// Layout effect: clear enterReady before paint when entering, so the new
+	// page paints once as `hidden` then activates (CSS enter transition).
+	useLayoutEffect(() => {
 		if (phase === "idle") {
 			setRouteEnterActive(true);
-			return;
+			return undefined;
 		}
 		if (phase !== "entering") {
 			setRouteEnterActive(false);
-			return;
+			return undefined;
 		}
+		setRouteEnterActive(false);
 		const frameId = requestAnimationFrame(() => {
 			requestAnimationFrame(() => setRouteEnterActive(true));
 		});
@@ -135,7 +150,7 @@ export default function MainContent() {
 	const navigationPhase = store.sceneCarouselClickPhase ?? "idle";
 
 	return (
-		<RouteTransitionProvider value={{ ...routeTransition, enterReady: routeEnterActive, scrollRestReactivate }}>
+		<RouteTransitionProvider value={routeTransitionValue}>
 			<div className={contentContainerClass} id="contentContainer">
 				{!isDemoLab && !skipWebGL && (
 					<WebGLCanvasErrorBoundary onFailure={() => setThreeReady(true)}>
@@ -146,10 +161,7 @@ export default function MainContent() {
 								// Deep-link /about|/contacts: don't keep Three on "/" while HTML display lags.
 								// During a navigation transaction the URL is only the latest intent;
 								// Three must stay on the visual route until settle/hex confirmation.
-								(navigationPhase === "idle"
-									&& (location.pathname === "/about" || location.pathname === "/contacts"))
-									? location.pathname
-									: displayPathname
+								navigationPhase === "idle" && (location.pathname === "/about" || location.pathname === "/contacts") ? location.pathname : displayPathname
 							}
 							teleportPage={location.pathname}
 							startApp={startApp}

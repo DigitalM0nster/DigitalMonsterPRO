@@ -1,5 +1,9 @@
 @charset "UTF-8";
 @media (min-width: 769px) {
+  body.caseNavPointerActive,
+  body.caseNavPointerActive * {
+    cursor: pointer !important;
+  }
   body.dotCursorActive {
     --siteCursor: url("/cursor/dotCursor.png") 16 16, auto;
     cursor: var(--siteCursor) !important;
@@ -61,12 +65,12 @@
 .cursor.hover .points {
   width: 80%;
   height: 80%;
-  transform: rotate(270deg);
+  transform: rotate(calc(270deg + var(--cursor-points-rotation, 0deg)));
 }
 .cursor.hover.click .points {
   width: 65%;
   height: 65%;
-  transform: rotate(270deg);
+  transform: rotate(calc(270deg + var(--cursor-points-rotation, 0deg)));
   transition: 0.07s ease;
 }
 .cursor.hover .points1 {
@@ -108,7 +112,7 @@
   clip-path: inset(40% 0 0 0);
 }
 .cursor {
-  /** Плитка портфолио — внешние кольца у указателя, inner (littleCircle + точки) к «Подробнее». */
+  /** Плитка портфолио — расширенный HUD без привязки к 3D-якорям. */
 }
 .cursor.caseHovered {
   width: 110px;
@@ -137,7 +141,6 @@
 .cursor.caseHovered .caseInner {
   width: 100%;
   height: 100%;
-  transform: translate(var(--caseInnerX, 0px), var(--caseInnerY, 0px));
 }
 .cursor.caseHovered .littleCircle {
   width: 40%;
@@ -158,33 +161,21 @@
 }
 .cursor.caseHovered .points {
   opacity: 1;
-  width: 100%;
-  height: 100%;
-  transform: none;
+  width: 80%;
+  height: 80%;
+  transform: rotate(calc(270deg + var(--cursor-points-rotation, 0deg)));
 }
-.cursor.caseHovered .points1,
+.cursor.caseHovered .points1 {
+  transform: rotate(-45deg);
+}
 .cursor.caseHovered .points2 {
-  transform: none;
+  transform: rotate(45deg);
 }
 .cursor.caseHovered .points1 .point1 {
-  top: 50%;
-  left: 50%;
-  transform: translate(calc(-50% + var(--casePoint1X, 0px)), calc(-50% + var(--casePoint1Y, 0px))) rotate(45deg);
+  top: 125%;
 }
 .cursor.caseHovered .points1 .point2 {
-  top: 50%;
-  left: 50%;
-  transform: translate(calc(-50% + var(--casePoint2X, 0px)), calc(-50% + var(--casePoint2Y, 0px))) rotate(45deg);
-}
-.cursor.caseHovered .points2 .point1 {
-  top: 50%;
-  left: 50%;
-  transform: translate(calc(-50% + var(--casePoint3X, 0px)), calc(-50% + var(--casePoint3Y, 0px))) rotate(45deg);
-}
-.cursor.caseHovered .points2 .point2 {
-  top: 50%;
-  left: 50%;
-  transform: translate(calc(-50% + var(--casePoint4X, 0px)), calc(-50% + var(--casePoint4Y, 0px))) rotate(45deg);
+  top: -25%;
 }
 .cursor.caseHovered.click {
   opacity: 1;
@@ -293,7 +284,7 @@
 .cursor .points {
   width: 24%;
   height: 24%;
-  transform: rotate(90deg);
+  transform: rotate(calc(90deg + var(--cursor-points-rotation, 0deg)));
   transition: transform 0.4s ease-in-out, width 0.5s ease-in-out, height 0.5s ease-in-out, opacity var(--menuFloatDuration, 1.35s) var(--menuFloatEase, cubic-bezier(0.19, 1, 0.22, 1));
 }
 .cursor .points1,
@@ -319,6 +310,22 @@
 }
 .cursor .point2 {
   top: 0%;
+}
+
+.cursor.menuOnlyCursor {
+  opacity: 0 !important;
+  transition: width var(--menuFloatDuration, 1.35s) var(--menuFloatEase, cubic-bezier(0.19, 1, 0.22, 1)), height var(--menuFloatDuration, 1.35s) var(--menuFloatEase, cubic-bezier(0.19, 1, 0.22, 1)), opacity 0.45s ease;
+}
+
+.cursor.menuOnlyCursor.menuAnchorVisible {
+  opacity: 1 !important;
+  transition: width var(--menuFloatDuration, 1.35s) var(--menuFloatEase, cubic-bezier(0.19, 1, 0.22, 1)), height var(--menuFloatDuration, 1.35s) var(--menuFloatEase, cubic-bezier(0.19, 1, 0.22, 1)), opacity 0.16s ease-out;
+}
+
+.cursor.menuOnlyCursor.stageNavigationHidden,
+.cursor.menuOnlyCursor.menuAnchorVisible.stageNavigationHidden {
+  opacity: 0 !important;
+  transition: width var(--menuFloatDuration, 1.35s) var(--menuFloatEase, cubic-bezier(0.19, 1, 0.22, 1)), height var(--menuFloatDuration, 1.35s) var(--menuFloatEase, cubic-bezier(0.19, 1, 0.22, 1)), opacity 0.08s linear;
 }
 
 @media (max-width: 768px) {

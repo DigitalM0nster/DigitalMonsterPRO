@@ -35,6 +35,20 @@
 		}
 	}
 
+	&.wrapWords {
+		max-width: 100%;
+
+		.languageGroup {
+			flex-wrap: wrap;
+			max-width: 100%;
+		}
+	}
+
+	.languageGroupWord {
+		display: inline-flex;
+		flex-wrap: nowrap;
+	}
+
 	.languageGroupRow {
 		display: inline-flex;
 		align-items: center;
@@ -45,6 +59,11 @@
 	.languageGroupLetters {
 		display: inline-flex;
 		flex-wrap: nowrap;
+	}
+
+	&.wrapWords .languageGroupLetters {
+		flex-wrap: wrap;
+		max-width: 100%;
 	}
 
 	.leadingLetter {

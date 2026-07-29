@@ -6,8 +6,6 @@ import {
 	ABOUT_LAYOUT,
 	ABOUT_LIGHTS,
 	ABOUT_MATERIALS,
-	ABOUT_MODEL_ASSET_EULER_DEG,
-	ABOUT_MODEL_PARALLAX,
 	ABOUT_MODEL_TARGET_SIZE,
 	ABOUT_MODEL_URL,
 	ABOUT_PARTICLES,
@@ -16,11 +14,6 @@ import {
 import { applyAboutModelMaterials, applyAboutMaterialsConfig } from "./aboutMaterials.js";
 import { createAboutInsideParticles } from "./aboutInsideParticles.js";
 import { createAboutEdgeParticles } from "./aboutEdgeParticles.js";
-import { createAboutOuterCellScatter } from "./aboutOuterCellScatter.js";
-import { createAboutFrontAdvance } from "./aboutFrontAdvance.js";
-import { createAboutBackRetreat } from "./aboutBackRetreat.js";
-import { createAboutHeartScale } from "./aboutHeartScale.js";
-import { blenderHorizontalFovToThreeVertical, createAboutModelPoseRig, sampleAboutStagePose } from "./aboutStagePoses.js";
 import { setAboutDissolveProgress } from "./aboutDissolveShader.js";
 import { resetAboutExperienceState } from "@/about/aboutExperienceRuntime.js";
 import { ABOUT_STAGE_COUNT } from "@/about/states.js";
@@ -31,11 +24,21 @@ import { store } from "@/store.jsx";
 import { createCaseStudyPanelHud, disposeCaseStudyPanelHud, syncAboutPanelHud } from "@/three/scenes/portfolio/caseStudyText/caseStudyPanelHudHost.js";
 import { getSceneCarousel } from "@/three/render/transition/carouselPage.js";
 import { isLeavePoseReason, isRingDormantReason } from "@/three/scenes/lifecycle/sceneLifecycle.js";
+import { computeAboutContentBox, normalizeAboutGltfScene } from "./normalizeAboutGltfScene.js";
+import {
+	blenderHorizontalFovToThreeVertical,
+	createAboutGltfStoryAnimRig,
+} from "./aboutGltfStoryAnimRig.js";
+import { AboutEpicTextController } from "./aboutEpicText/AboutEpicTextController.js";
+import { normalizeSiteLocale } from "@/utils/siteLocale.js";
 
 const ABOUT_PATH = "/about";
-/** Enter/leave page parallax (SCROLL_PARALLAX.md). Interior story owns content motion. */
-const CAMERA_SCROLL_Y = 1.9;
-const CAMERA_SCROLL_Z = 0.7;
+/**
+ * About exception (SCROLL_PARALLAX.md): no vertical page-lift on leave.
+ * About→contacts exit is epic-text mosaic dissolve, not model rising.
+ */
+const CAMERA_SCROLL_Y = 0;
+const CAMERA_SCROLL_Z = 0.35;
 
 function isAboutPath(pathname) {
 	return (String(pathname ?? "/").replace(/\/+$/, "") || "/") === ABOUT_PATH;
@@ -64,8 +67,8 @@ function disposeObject3D(root, { skipMaterials = false } = {}) {
 
 /**
  * About WebGL scene: AboutUsModel.glb.
- * Camera is sceneProgress-only (no OrbitControls).
- * Internal scroll story is owned by aboutExperienceRuntime (`store.aboutExperience`).
+ * Model / camera / lookAt motion = GLB clips only (Blender).
+ * Site owns shader dissolves + procedural particles (no mesh TRS FX).
  */
 export class AboutScene {
 	constructor(store) {
@@ -91,11 +94,8 @@ export class AboutScene {
 		this._materialsConfig = cloneAboutMaterialsConfig();
 		this._particles = null;
 		this._edgeParticles = null;
-		this._outerCellScatter = null;
-		this._frontAdvance = null;
-		this._backRetreat = null;
-		this._heartScale = null;
-		this._modelPose = createAboutModelPoseRig(this.modelRoot);
+		this._gltfStoryAnim = null;
+		this._epicText = null;
 		this._frontPlate = null;
 		this._backPlate = null;
 		this._frontBackSide = null;
@@ -107,11 +107,6 @@ export class AboutScene {
 		this._edgeRebuildRaf = 0;
 		this._viewport = { width: 1440, height: 900, mobile: false, short: false };
 		this._layout = ABOUT_LAYOUT.desktop;
-		this._smoothPointer = { x: 0, y: 0 };
-		this._parallaxYawQ = new THREE.Quaternion();
-		this._parallaxPitchQ = new THREE.Quaternion();
-		this._parallaxAxisY = new THREE.Vector3(0, 1, 0);
-		this._parallaxAxisX = new THREE.Vector3(1, 0, 0);
 
 		this._buildLights();
 		this._buildHalo();
@@ -119,7 +114,7 @@ export class AboutScene {
 		this.panelHud = createCaseStudyPanelHud(this.threeScene);
 		this.panelHud.setUseAboutBridge(true);
 
-		this.readyPromise = this._loadModel();
+		this.readyPromise = this._loadModel().then((modelOk) => modelOk !== false);
 		this._applyResponsiveTransform();
 	}
 
@@ -132,7 +127,7 @@ export class AboutScene {
 		return [cfg.rings, cfg.yLayers, cfg.spokes, cfg.innerScale, cfg.loopSegments, cfg.travelers].join("|");
 	}
 
-	/** Drive edge lattice visibility (kept fully on — spins with Heart). */
+	/** Drive edge lattice visibility (mesh orientation from GLB). */
 	_applyEdgeParticleVisibility(visibility) {
 		const next = Number(visibility);
 		const v = THREE.MathUtils.clamp(Number.isFinite(next) ? next : 0, 0, 1);
@@ -199,8 +194,6 @@ export class AboutScene {
 		Object.assign(ABOUT_MATERIALS.outerCell, this._materialsConfig.outerCell);
 		Object.assign(ABOUT_MATERIALS.neon, this._materialsConfig.neon);
 		Object.assign(ABOUT_MATERIALS.stage2Dissolve, this._materialsConfig.stage2Dissolve);
-		Object.assign(ABOUT_MATERIALS.backRetreat, this._materialsConfig.backRetreat);
-		Object.assign(ABOUT_MATERIALS.heartScale, this._materialsConfig.heartScale);
 		Object.assign(ABOUT_MATERIALS.edgeParticles, this._materialsConfig.edgeParticles);
 		if (this._materialsByKey) {
 			applyAboutMaterialsConfig(this._materialsByKey, this._materialsConfig);
@@ -235,15 +228,37 @@ export class AboutScene {
 		return this._storyProgress;
 	}
 
+	/**
+	 * About→contacts leave progress (0…1).
+	 * Only while actually leaving past story 4 / about-boundary / about→contacts hex.
+	 */
+	_readAboutForwardLeaveProgress() {
+		const raw = Number(this.store?.aboutExperience?.storyProgress);
+		if (Number.isFinite(raw) && raw > 4.001) {
+			return THREE.MathUtils.clamp(raw - 4, 0, 1);
+		}
+		const carousel = getSceneCarousel();
+		if (!carousel) return 0;
+		const progress = Number(carousel.progress) || 0;
+		if (carousel.isAboutBoundaryDrive?.() && progress > 0.001) {
+			return THREE.MathUtils.clamp(progress, 0, 1);
+		}
+		const mixIds = carousel.getMixSourceTargetIds?.() ?? {};
+		if (
+			progress > 0.001
+			&& mixIds.sourceId === "about"
+			&& mixIds.targetId === "contacts"
+		) {
+			return THREE.MathUtils.clamp(progress, 0, 1);
+		}
+		return 0;
+	}
+
 	_applyStoryProgress(story) {
 		const s = THREE.MathUtils.clamp(Number(story) || 0, 0, 4);
 		this._storyProgress = s;
 		this._scrollProgress = THREE.MathUtils.clamp(s, 0, 1);
-		this._outerCellScatter?.setStoryProgress?.(s);
-		this._frontAdvance?.setStoryProgress?.(s);
-		this._backRetreat?.setStoryProgress?.(s);
-		this._heartScale?.setStoryProgress?.(s);
-		this._modelPose?.setStoryProgress?.(s);
+		this._gltfStoryAnim?.setStoryProgress?.(s);
 		/** Dissolve on stage 1: 0…0.5 visible, 0.5…1.0 fades out; stays gone after. */
 		const stage1 = THREE.MathUtils.clamp(s, 0, 1);
 		const dissolve = THREE.MathUtils.clamp((stage1 - 0.5) / 0.5, 0, 1);
@@ -253,21 +268,24 @@ export class AboutScene {
 		const cellMode = dissolveCfg?.cellMode ?? 1;
 		/** Back = Energy vapor (anim 4 / mode 3) on stage 2→3 (story 1→2). */
 		const backMode = Number.isFinite(dissolveCfg?.backMode) ? dissolveCfg.backMode : 3;
-		const backCfg = this._materialsConfig?.backRetreat ?? ABOUT_MATERIALS.backRetreat;
-		const backStart = backCfg?.storyStart ?? 1;
-		const backEnd = Math.max(backStart + 1e-4, backCfg?.storyEnd ?? 2);
+		const backStart = Number.isFinite(dissolveCfg?.backStoryStart) ? dissolveCfg.backStoryStart : 1;
+		const backEnd = Math.max(backStart + 1e-4, Number.isFinite(dissolveCfg?.backStoryEnd) ? dissolveCfg.backStoryEnd : 2);
 		const backDissolve = THREE.MathUtils.clamp((s - backStart) / (backEnd - backStart), 0, 1);
 
 		const frontU = this._materialsByKey?.frontGlass?.userData?.uniforms;
 		const cellU = this._materialsByKey?.outerCell?.userData?.uniforms;
+		const cellSeamU = this._materialsByKey?.OuterCellSeam?.userData?.uniforms
+			?? this._materialsByKey?.outerCellSeam?.userData?.uniforms;
 		const sideU = this._materialsByKey?.sideHud?.userData?.uniforms;
 		setAboutDissolveProgress(frontU, dissolve);
 		setAboutDissolveProgress(cellU, dissolve);
+		setAboutDissolveProgress(cellSeamU, dissolve);
 		setAboutDissolveProgress(sideU, 0);
 		const frontSideU = this._frontBackSide?.material?.userData?.uniforms;
 		setAboutDissolveProgress(frontSideU, dissolve);
 		if (frontU?.uDissolveMode) frontU.uDissolveMode.value = frontMode;
 		if (cellU?.uDissolveMode) cellU.uDissolveMode.value = cellMode;
+		if (cellSeamU?.uDissolveMode) cellSeamU.uDissolveMode.value = cellMode;
 		if (frontSideU?.uDissolveMode) frontSideU.uDissolveMode.value = frontMode;
 
 		const backU = this._backPlate?.material?.userData?.uniforms ?? this._backPlate?.material?.uniforms;
@@ -277,9 +295,11 @@ export class AboutScene {
 		if (backU?.uDissolveMode) backU.uDissolveMode.value = backMode;
 		if (backSideU?.uDissolveMode) backSideU.uDissolveMode.value = backMode;
 
-		if (this._materialsByKey?.outerCell) {
-			this._materialsByKey.outerCell.depthWrite = dissolve < 0.85;
-			this._materialsByKey.outerCell.transparent = true;
+		for (const key of ["outerCell", "OuterCell", "OuterCellSeam", "outerCellSeam"]) {
+			const mat = this._materialsByKey?.[key];
+			if (!mat) continue;
+			mat.depthWrite = dissolve < 0.85;
+			mat.transparent = true;
 		}
 		/** Depth prepass / front rim must not occlude heart through dissolve holes. */
 		const frontPrepass = this._frontPlate?.getObjectByName("PlateDepthPrepass");
@@ -312,7 +332,7 @@ export class AboutScene {
 		}
 		/**
 		 * White InsideLarge PCB: appear stage 2.5→3 (story 1.5→2).
-		 * Blue Edge lattice: dissolve stage 2.0→3.0 (story 1→2), spins with Heart.
+		 * Blue Edge lattice: dissolve stage 2.0→3.0 (story 1→2).
 		 */
 		const pcbCfg = ABOUT_PARTICLES;
 		const revealStart = pcbCfg.revealStoryStart ?? 1.5;
@@ -320,6 +340,13 @@ export class AboutScene {
 		const pcbReveal = THREE.MathUtils.clamp((s - revealStart) / (revealEnd - revealStart), 0, 1);
 		const pcbAppearMode = pcbCfg.appearMode ?? 4;
 		this._particles?.setRevealProgress?.(pcbReveal, pcbAppearMode);
+
+		/** Stage 3: soft-clear PCB particles around AboutEpicTextPlane. */
+		const clearStart = pcbCfg.textZoneClearStoryStart ?? 3;
+		const clearEnd = Math.max(clearStart + 1e-4, pcbCfg.textZoneClearStoryEnd ?? 3.45);
+		const zoneClear = THREE.MathUtils.clamp((s - clearStart) / (clearEnd - clearStart), 0, 1);
+		this._particles?.setTextZoneClearProgress?.(zoneClear, this._model);
+		this._epicText?.setStoryProgress?.(s, this._readAboutForwardLeaveProgress());
 
 		const edgeCfg = this._materialsConfig?.edgeParticles ?? ABOUT_MATERIALS.edgeParticles;
 		const edgeHideStart = Number.isFinite(edgeCfg.hideStoryStart) ? edgeCfg.hideStoryStart : 1;
@@ -424,7 +451,11 @@ export class AboutScene {
 			.then((gltf) => {
 				if (this._disposed || !this.threeScene) return false;
 
-				const model = gltf.scene;
+				/** Keep AboutModel / LookAt / Camera targets — story scrubbed from GLB clips. */
+				const model = normalizeAboutGltfScene(gltf.scene);
+				this._gltfStoryAnim?.dispose?.();
+				this._gltfStoryAnim = createAboutGltfStoryAnimRig(model, gltf.animations);
+
 				model.traverse((object) => {
 					if (!object.isMesh && !object.isLine && !object.isLineSegments) return;
 					object.castShadow = false;
@@ -440,21 +471,13 @@ export class AboutScene {
 				/** Blue lattice only on authored EdgeForParticles — never fall back to InsideLarge. */
 				this._edgeForParticlesMesh = applied.edgeForParticles ?? null;
 
-				// Match Blender/glTF authoring — tune ABOUT_MODEL_ASSET_EULER_DEG if needed.
-				const assetEuler = ABOUT_MODEL_ASSET_EULER_DEG ?? { x: 0, y: 0, z: 0 };
-				model.rotation.set(THREE.MathUtils.degToRad(assetEuler.x ?? 0), THREE.MathUtils.degToRad(assetEuler.y ?? 0), THREE.MathUtils.degToRad(assetEuler.z ?? 0), "XYZ");
-
 				if (ABOUT_MODEL_TARGET_SIZE > 0) {
-					const initialBox = new THREE.Box3().setFromObject(model);
+					const initialBox = computeAboutContentBox(model);
 					const initialSize = initialBox.getSize(new THREE.Vector3());
 					const scale = ABOUT_MODEL_TARGET_SIZE / Math.max(initialSize.x, initialSize.y, initialSize.z, 0.001);
 					model.scale.setScalar(scale);
 					model.updateMatrixWorld(true);
 				}
-
-				const box = new THREE.Box3().setFromObject(model);
-				const center = box.getCenter(new THREE.Vector3());
-				model.position.set(-center.x, -center.y, -center.z);
 
 				this.modelRoot.add(model);
 				this._model = model;
@@ -463,12 +486,7 @@ export class AboutScene {
 				this._frontBackSide = model.getObjectByName("FrontBackSide") ?? null;
 				this._backBackSide = model.getObjectByName("BackBackSide") ?? null;
 
-				/**
-				 * Split FX by mesh:
-				 * - InsideLarge → microchip / PCB layer
-				 * - EdgeForParticles → classic blue neon lattice + travelers
-				 * - OUTER_cell* → scroll scatter rig
-				 */
+				/** Procedural FX only — mesh TRS comes from GLB clips. */
 				this._particles?.dispose();
 				this._particles = this._insideLarge
 					? createAboutInsideParticles(this._insideLarge, {
@@ -476,28 +494,16 @@ export class AboutScene {
 							silhouetteMesh: this._insideLarge,
 						})
 					: null;
-
 				this._edgeParticles?.dispose();
 				this._edgeParticles = this._edgeForParticlesMesh ? createAboutEdgeParticles(this._edgeForParticlesMesh, this._materialsConfig.edgeParticles) : null;
 
-				this._outerCellScatter?.dispose();
-				this._outerCellScatter = createAboutOuterCellScatter(model, this._materialsConfig.outerCellScatter);
-				this._outerCellScatter.setStoryProgress(this._readAboutStoryProgress());
-
-				this._frontAdvance?.dispose();
-				this._frontAdvance = createAboutFrontAdvance(model, this._materialsConfig.frontAdvance, { getCameraPosition: () => this._getDefaultCameraPosition() });
-				this._frontAdvance.setStoryProgress(this._readAboutStoryProgress());
-
-				this._backRetreat?.dispose();
-				this._backRetreat = createAboutBackRetreat(model, this._materialsConfig.backRetreat, { getCameraPosition: () => this._getDefaultCameraPosition() });
-				this._backRetreat.setStoryProgress(this._readAboutStoryProgress());
-
-				this._heartScale?.dispose();
-				this._heartScale = createAboutHeartScale(model, this._materialsConfig.heartScale);
-				this._heartScale.setStoryProgress(this._readAboutStoryProgress());
-				this._modelPose?.setStoryProgress?.(this._readAboutStoryProgress());
-				this._applyStoryProgress(this._readAboutStoryProgress());
-				return true;
+				this._epicText?.dispose();
+				this._epicText = new AboutEpicTextController();
+				return this._epicText.attach(model, store.siteLocale).then(() => {
+					if (this._disposed) return false;
+					this._applyStoryProgress(this._readAboutStoryProgress());
+					return true;
+				});
 			})
 			.catch((error) => {
 				console.error("[AboutScene] AboutUsModel load failed", error);
@@ -506,11 +512,12 @@ export class AboutScene {
 	}
 
 	/**
-	 * Camera from ABOUT_STAGE_POSES (Blender export) as absolute world pose.
-	 * Short/mobile only nudge FOV/distance from layout extras — position stays authored.
+	 * Camera / lookAt from GLB story clips.
+	 * Short/mobile only nudge FOV/distance from layout extras.
 	 */
 	_resolveStageCamera() {
-		const pose = sampleAboutStagePose(this._storyProgress).camera;
+		const pose = this._gltfStoryAnim?.sampleCamera?.()
+			?? { x: 0, y: 1.2, z: 8.2, lookAtX: 0, lookAtY: 0, lookAtZ: 0, fov: 34, rotX: 0, rotY: 0, rotZ: 0, useLookAt: true, fovIsVertical: false };
 		const layout = this._layout;
 		const desktop = ABOUT_LAYOUT.desktop;
 		const zScale = desktop.cameraZ > 1e-4 ? layout.cameraZ / desktop.cameraZ : 1;
@@ -522,6 +529,7 @@ export class AboutScene {
 			lookAtY: pose.lookAtY,
 			lookAtZ: pose.lookAtZ,
 			fov: pose.fov + (layout.fov - desktop.fov),
+			fovIsVertical: pose.fovIsVertical === true,
 			rotX: pose.rotX,
 			rotY: pose.rotY,
 			rotZ: pose.rotZ,
@@ -539,30 +547,14 @@ export class AboutScene {
 		return new THREE.Vector3(cam.x, cam.y, cam.z);
 	}
 
-	/**
-	 * Spin model in place (pose position fixed) — same relative view as a camera
-	 * orbiting around it. Authored camera pose stays untouched.
-	 * Call after stage pose has been written to modelRoot.
-	 */
-	_applyPointerModelParallax() {
-		const cfg = ABOUT_MODEL_PARALLAX;
-		const scale = this._viewport.mobile || this._viewport.short ? (cfg.mobileScale ?? 0.35) : 1;
-		const yaw = this._smoothPointer.x * THREE.MathUtils.degToRad((cfg.yawDeg ?? 0) * scale);
-		const pitch = this._smoothPointer.y * THREE.MathUtils.degToRad((cfg.pitchDeg ?? 0) * scale);
-		if (Math.abs(yaw) < 1e-8 && Math.abs(pitch) < 1e-8) return;
-
-		/** World yaw/pitch premultiplied onto pose — cursor right → model yaws left. */
-		this._parallaxYawQ.setFromAxisAngle(this._parallaxAxisY, -yaw);
-		this._parallaxPitchQ.setFromAxisAngle(this._parallaxAxisX, -pitch);
-		this.modelRoot.quaternion.premultiply(this._parallaxPitchQ).premultiply(this._parallaxYawQ);
-	}
-
 	applyCamera(camera, frame) {
 		const cam = this._resolveStageCamera();
 		const sceneProgress = frame?.sceneProgress ?? 0;
 		const aspect = camera.aspect > 1e-4 ? camera.aspect : 16 / 9;
-		/** Pose FOV is Blender horizontal; Three needs vertical. */
-		const verticalFov = blenderHorizontalFovToThreeVertical(cam.fov, aspect);
+		/** Fallback pose FOV is Blender horizontal; glTF PerspectiveCamera.fov is already vertical. */
+		const verticalFov = cam.fovIsVertical
+			? cam.fov
+			: blenderHorizontalFovToThreeVertical(cam.fov, aspect);
 
 		if (cam.useLookAt) {
 			applySceneProgressToCamera(
@@ -642,18 +634,6 @@ export class AboutScene {
 		const safeDelta = THREE.MathUtils.clamp(Number(delta) || 0, 0, 0.1);
 		this._elapsed += safeDelta;
 
-		/**
-		 * Parallax ignores left menu / chrome blockers and Y-band handoff zeros.
-		 * Hold last aim while blocked — do not ease back to default or snap to menu X.
-		 */
-		const pointerBlocked = frame?.pointerBlocked === true || frame?.interactionEnabled === false;
-		if (!pointerBlocked) {
-			const pointer = frame?.pointer ?? { x: 0, y: 0 };
-			const smooth = ABOUT_MODEL_PARALLAX.smooth ?? 0.08;
-			this._smoothPointer.x += ((pointer.x ?? 0) - this._smoothPointer.x) * smooth;
-			this._smoothPointer.y += ((pointer.y ?? 0) - this._smoothPointer.y) * smooth;
-		}
-
 		this._particles?.update(this._elapsed, safeDelta);
 		this._materialsByKey?.frontGlass?.userData?.setTime?.(this._elapsed);
 		this._materialsByKey?.sideHud?.userData?.setTime?.(this._elapsed);
@@ -662,15 +642,18 @@ export class AboutScene {
 		this._backBackSide?.material?.userData?.setTime?.(this._elapsed);
 		this._materialsByKey?.heartBody?.userData?.setTime?.(this._elapsed);
 		this._materialsByKey?.outerCell?.userData?.setTime?.(this._elapsed);
+		this._materialsByKey?.OuterCellSeam?.userData?.setTime?.(this._elapsed);
+		this._materialsByKey?.outerCellSeam?.userData?.setTime?.(this._elapsed);
 		this._materialsByKey?.NeonMaterial?.userData?.setTime?.(this._elapsed);
 		this._edgeParticles?.addTime?.(safeDelta);
 
 		const storyProgress = this._readAboutStoryProgress();
-		if (storyProgress !== this._storyProgress || this._outerCellScatter || this._frontAdvance || this._backRetreat || this._heartScale || this._modelPose) {
+		if (storyProgress !== this._storyProgress || this._gltfStoryAnim) {
 			this._applyStoryProgress(storyProgress);
 		}
-		/** After pose write — spin in place without moving the model center. */
-		this._applyPointerModelParallax();
+
+		const pointer = frame?.pointerBlocked ? { x: 0, y: 0 } : (frame?.pointer ?? { x: 0, y: 0 });
+		this._epicText?.update?.(this._elapsed, pointer, safeDelta, normalizeSiteLocale(store.siteLocale));
 
 		const carousel = getSceneCarousel();
 		// Ring scroll does not set case-only mixPreview. Arm while About is actually
@@ -709,16 +692,10 @@ export class AboutScene {
 		this.panelHud = null;
 		this._particles?.dispose();
 		this._particles = null;
-		this._outerCellScatter?.dispose();
-		this._outerCellScatter = null;
-		this._frontAdvance?.dispose();
-		this._frontAdvance = null;
-		this._backRetreat?.dispose();
-		this._backRetreat = null;
-		this._heartScale?.dispose();
-		this._heartScale = null;
-		this._modelPose?.dispose();
-		this._modelPose = null;
+		this._gltfStoryAnim?.dispose?.();
+		this._gltfStoryAnim = null;
+		this._epicText?.dispose();
+		this._epicText = null;
 		this._frontPlate = null;
 		this._backPlate = null;
 		this._frontBackSide = null;

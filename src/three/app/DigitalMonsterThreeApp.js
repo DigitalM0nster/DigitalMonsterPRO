@@ -6,13 +6,7 @@ import { case1PostProcessConfig } from "../scenes/portfolio/case1/case1PostProce
 import { HexGridOverlayPass } from "../render/overlay/HexGridOverlayPass.js";
 import { SceneManager } from "../scenes/SceneManager.js";
 import { disposeSharedDracoLoader } from "../assets/gltfLoader.js";
-import {
-	getGraphicsConfig,
-	getGraphicsTier,
-	getGraphicsTierDiagnostics,
-	resolveRendererPixelRatio,
-	setCalibratedGraphicsTier,
-} from "../../utils/getGraphicsTier.js";
+import { getGraphicsConfig, getGraphicsTier, getGraphicsTierDiagnostics, resolveRendererPixelRatio, setCalibratedGraphicsTier } from "../../utils/getGraphicsTier.js";
 import { applyDigitalWhaleConfigForTier } from "../scenes/home/digitalWhaleConfig.js";
 import { isPostProcessBypassedFromUrl } from "../../utils/postProcessTestFlags.js";
 import { ModelsPostProcessPipeline } from "../render/models/ModelsPostProcessPipeline.js";
@@ -34,9 +28,12 @@ import { getAboutPanelHudEnterProgress, getAboutPanelHudState } from "@/about/ab
 import { armAboutPanelHudForRoute } from "@/about/aboutPanelHudStory.js";
 import { getCasePanelHudEnterProgress } from "@/portfolio/core/casePanelHudBridge.js";
 import { createCaseStudyArcOverlay, disposeCaseStudyArcOverlay, syncCaseStudyArcOverlay } from "@/three/scenes/portfolio/caseStudyArc/caseStudyArcHost.js";
+import { AboutEpicTextDevTools } from "../dev/AboutEpicTextDevTools.js";
 import { BackgroundLiquidDevTools } from "../dev/BackgroundLiquidDevTools.js";
 import { CaseStudyArcDevTools } from "../dev/CaseStudyArcDevTools.js";
 import { CaseStudyStageRailDevTools } from "../dev/CaseStudyStageRailDevTools.js";
+import { BelkaOrbitsDevTools } from "../dev/BelkaOrbitsDevTools.js";
+import { ContactsDevTools } from "../dev/ContactsDevTools.js";
 import { ProgressDevTools } from "../dev/ProgressDevTools.js";
 import { isDevFastPreloader } from "../../utils/devFastPreloader.js";
 
@@ -151,6 +148,17 @@ export class DigitalMonsterThreeApp {
 				})
 			: null;
 		this.progressDevTools = import.meta.env.DEV ? new ProgressDevTools() : null;
+		this.aboutEpicTextDevTools = import.meta.env.DEV ? new AboutEpicTextDevTools() : null;
+		this.contactsDevTools = import.meta.env.DEV
+			? new ContactsDevTools({
+					getScene: () => this.sceneManager?.getSceneById?.("contacts") ?? null,
+				})
+			: null;
+		this.belkaOrbitsDevTools = import.meta.env.DEV
+			? new BelkaOrbitsDevTools({
+					getScene: () => this.sceneManager?.getSceneById?.("case06") ?? null,
+				})
+			: null;
 		this.caseArcDevTools = import.meta.env.DEV ? new CaseStudyArcDevTools() : null;
 		this.caseStageRailDevTools = import.meta.env.DEV ? new CaseStudyStageRailDevTools() : null;
 		this.sceneManager = new SceneManager(this.renderer, this.camera, {
@@ -228,7 +236,8 @@ export class DigitalMonsterThreeApp {
 				const criticalIds = new Set(["home", landingId]);
 				const waits = [this.backgroundPipeline.readyPromise];
 				for (const id of criticalIds) {
-					const promise = this.sceneManager.getSceneById(id)?.readyPromise;
+					const scene = this.sceneManager.getSceneById(id);
+					const promise = scene?.ensurePrepared?.() ?? scene?.readyPromise;
 					if (promise) {
 						waits.push(promise);
 					}
@@ -269,7 +278,18 @@ export class DigitalMonsterThreeApp {
 
 			this.sceneManager.warmupRenderTargets();
 
-			await this.sceneManager.warmupPrograms();
+			/**
+			 * DEV_FAST_PRELOADER (off by default): optional subset compile while iterating.
+			 * Honest warm compiles every scene with breaths between each.
+			 */
+			if (DEV_FAST_PRELOADER) {
+				const landingId = resolveSceneId(this.teleportPage || this.currentPage || "/");
+				await this.sceneManager.warmupPrograms({
+					sceneIds: [...new Set(["home", "portfolioHub", landingId].filter(Boolean))],
+				});
+			} else {
+				await this.sceneManager.warmupPrograms();
+			}
 			if (this.disposed) {
 				return false;
 			}
@@ -543,6 +563,12 @@ export class DigitalMonsterThreeApp {
 		if (this.currentPage !== "/") {
 			return false;
 		}
+		const carousel = getSceneCarousel();
+		// Click/hex lock starts before progress moves — leave direct path so the
+		// scroll-hint (models compose) and hex pipeline stay continuous.
+		if (carousel.isHexNavigationActive?.() || carousel.isCaseBoundaryDrive?.()) {
+			return false;
+		}
 
 		const hexProgress = this._getHexShaderProgress();
 		return mix.sourceId === "home" && mix.targetId === "home" && hexProgress <= IDLE_HOME_HEX_EPS;
@@ -695,6 +721,8 @@ export class DigitalMonsterThreeApp {
 		if (!hud) {
 			return null;
 		}
+		// Source case only (open / leaving). Target stays enterProgress=0 until after hex —
+		// including case→case scroll boundary (same bake path as About / click-hex leave).
 		if (hud !== this.sceneManager.getActiveCasePanelHud()) {
 			return null;
 		}
@@ -702,6 +730,10 @@ export class DigitalMonsterThreeApp {
 		const idleOrShown = enter == null || enter >= 0.999;
 		if (!idleOrShown) {
 			return null;
+		}
+		// Prefer mesh helper: mix≈1 must bake mapTo (stage 5), not mapFrom (stage 4).
+		if (typeof hud.getHexBakeTexture === "function") {
+			return hud.getHexBakeTexture();
 		}
 		hud.syncFromBridge?.();
 		const texture = hud.fromTexture;
@@ -769,8 +801,13 @@ export class DigitalMonsterThreeApp {
 		const onCarousel = this.sceneManager.isCarouselHubActive();
 		const bgOptions = noPost ? { skipLiquid: true } : undefined;
 
-		const hexActive = this._getHexShaderProgress() > 0.0001;
+		const hexProgressLive = this._getHexShaderProgress() > 0.0001;
 		const caseOpen = Boolean(this.store.openedCase);
+		const carousel = getSceneCarousel();
+		// Click lock (`_clickPhase`) arms before progress leaves 0 — treat that as hex-live
+		// so home scroll-hint moves into models RT instead of vanishing for one frame.
+		const hexNavLive = Boolean(carousel.isHexNavigationActive?.() || carousel.isCaseBoundaryDrive?.());
+		const hexActive = hexProgressLive || hexNavLive;
 		// Left HUD compose/hide is folded into _renderCasePanelHudScreenOverlays
 		// (one pass over cached HUDs). When case closed, hide all immediately.
 		if (!caseOpen) {
@@ -783,16 +820,22 @@ export class DigitalMonsterThreeApp {
 			});
 		}
 		// Home scroll-hint is page-owned chrome (SITE_TRANSITION.md).
-		// Do NOT gate on carousel.currentId — after home→case hex, currentId stays
-		// "home" (cases are not ring ids) and the hint leaked onto the case page.
+		// Do NOT gate on carousel.currentId alone — after home→case hex, currentId
+		// stays "home" and the hint leaked onto the case page.
+		// Do NOT trust currentPage==="/" alone either — ring scroll commit flips
+		// currentId to portfolioHub one frame before React displayPathname, and the
+		// hint then screen-overlays on the portfolio page.
 		{
 			const homeHero = this.sceneManager.getSceneById("home")?.heroTitle;
 			const onHomePage = !caseOpen && this.currentPage === "/";
-			const carousel = getSceneCarousel();
-			const homeInHexPair = hexActive && (carousel.getMixSourceTargetIds?.()?.sourceId === "home" || carousel.getMixSourceTargetIds?.()?.targetId === "home");
-			if (homeHero && onHomePage) {
+			const mixIds = carousel.getMixSourceTargetIds?.();
+			const homeInMixPair = mixIds?.sourceId === "home" || mixIds?.targetId === "home";
+			const homeInHexPair = hexActive && homeInMixPair;
+			const ringOnHome = carousel.currentId === "home";
+			const homeChromeLive = onHomePage && (ringOnHome || homeInHexPair);
+			if (homeHero && homeChromeLive) {
 				homeHero.setScrollHintComposeMode?.(hexActive ? "models" : "screen");
-			} else if (homeHero && !onHomePage && !homeInHexPair) {
+			} else if (homeHero) {
 				homeHero.hideScrollHint?.();
 			}
 		}
@@ -842,17 +885,21 @@ export class DigitalMonsterThreeApp {
 		const hexProgress = this._getHexShaderProgress();
 
 		if (caseOpen) {
-			// Idle: sharp screen overlay after bloom. Hex leave: left text is baked into
-			// the hex RT — do not screen-draw with per-cell cut (black fills in the
+			// Idle: sharp screen overlay after bloom.
+			// Hex leave (case→site click OR case→case scroll boundary): left text
+			// bakes into the hex RT — do not screen-draw (would sit on top of the
+			// wipe) and do not per-cell screen hex-cut (ghost black cells in the
 			// transparent band). Arc / project-nav stay live DOM either way.
+			//
+			// Screen-draw ONLY the open case HUD. Mix-preview target shares the
+			// bridge canvases — allowing it here double-blends the same glyphs for
+			// the arming frame (hexProgress≈0) → one-frame brightness flash.
 			const activeHud = this.sceneManager.getActiveCasePanelHud();
 			const caseScrollMix = carousel.isCaseBoundaryDrive();
-			const previewId = !caseScrollMix ? carousel.getHexMixTargetSceneId() : null;
-			const previewHud = this.sceneManager.getCasePanelHudBySceneId(previewId);
-			const hexLive = caseScrollMix || carousel.isHexNavigationActive();
-			const hexOwnsLeftHud = hexLive && hexProgress > 0.0001;
+			/** Hex owns the band whenever models are in a live wipe (click or scroll). */
+			const hexOwnsLeftHud = (caseScrollMix || carousel.isHexNavigationActive()) && hexProgress > 0.0001;
 			this.sceneManager.forEachCasePanelHud((hud) => {
-				const allow = hud === activeHud || hud === previewHud;
+				const allow = hud === activeHud;
 				if (!allow) {
 					if (hud.visible) {
 						hud.setComposeMode("models");
@@ -864,13 +911,12 @@ export class DigitalMonsterThreeApp {
 				hud.clearHexCut?.();
 				if (hexOwnsLeftHud) {
 					// Baked into hex layer — do not screen-overlay.
-					if (hud === activeHud) {
-						hud.syncFromBridge?.();
-					}
+					hud.syncFromBridge?.();
 					return;
 				}
 				hud.setComposeMode("screen");
 				hud.setVisible(true);
+				hud.syncFromBridge?.();
 				hud.renderScreenOverlay(this.renderer);
 			});
 		} else {
@@ -936,17 +982,19 @@ export class DigitalMonsterThreeApp {
 	}
 
 	_renderHomeScrollHintOverlay() {
-		// Visual page ownership — not carousel.currentId (stale after home→case).
+		// Visual page ownership — not carousel.currentId alone (stale after home→case).
 		if (this.store.openedCase || this.currentPage !== "/") {
 			return;
 		}
 		const carousel = getSceneCarousel();
-		if (carousel.isHexNavigationActive?.() || carousel.isCaseBoundaryDrive?.()) {
+		// Ring commit (home→portfolio) updates currentId before React currentPage —
+		// skip the lag frame so «листайте вниз» does not screen-blit on portfolio.
+		if (carousel.currentId !== "home" && this._getHexShaderProgress() <= 0.0001 && !carousel.isHexNavigationActive?.() && !carousel.isCaseBoundaryDrive?.()) {
 			return;
 		}
-		if (this._getHexShaderProgress() > 0.0001) {
-			return;
-		}
+		// When composeMode is "models", renderScreenOverlay no-ops. Do not also
+		// early-return on isHexNavigationActive alone — that flag flips at progress≈0
+		// one frame before models bake, and blanked «листайте вниз».
 		const home = this.sceneManager.getSceneById("home");
 		home?.heroTitle?.renderScrollHintOverlay?.(this.renderer);
 	}
@@ -1022,12 +1070,8 @@ export class DigitalMonsterThreeApp {
 			`[DigitalMonsterThree] tier detect: score=${diag.score} · ${diag.cores}c · RAM ${memLabel}${diag.mobile ? " · mobile" : " · desktop"}${diag.forced ? ` · forced=${diag.forced}` : ""}`,
 		);
 		if (diag.calibration) {
-			const probeMs = Number.isFinite(diag.calibration.perPassMs)
-				? ` · probe=${diag.calibration.perPassMs.toFixed(2)}ms/pass`
-				: "";
-			console.info(
-				`[DigitalMonsterThree] GPU: ${diag.calibration.renderer}${probeMs}${diag.calibration.cached ? " · session cache" : ""}`,
-			);
+			const probeMs = Number.isFinite(diag.calibration.perPassMs) ? ` · probe=${diag.calibration.perPassMs.toFixed(2)}ms/pass` : "";
+			console.info(`[DigitalMonsterThree] GPU: ${diag.calibration.renderer}${probeMs}${diag.calibration.cached ? " · session cache" : ""}`);
 		}
 		if (this.noPostProcess) {
 			const reason = this.gfx.noPostProcess ? "tier=low" : "?noPost";
@@ -1058,10 +1102,17 @@ export class DigitalMonsterThreeApp {
 		if (next.currentPage !== undefined && next.currentPage !== prevPage) {
 			syncCarouselFromPage(next.currentPage);
 			this._caseFrameDelta = 0;
-			// Page-owned home chrome: drop «листайте вниз» the instant we leave "/".
-			// Do not wait for hex end — carousel.currentId can stay "home" after home→case.
+			// Page-owned home chrome: drop «листайте вниз» when leaving "/".
+			// Keep it while home is still in the hex mix (wipe owns the leave).
 			if (next.currentPage !== "/") {
-				this.sceneManager.getSceneById("home")?.heroTitle?.hideScrollHint?.();
+				const carousel = getSceneCarousel();
+				const mixIds = carousel.getMixSourceTargetIds?.();
+				const homeInHexPair =
+					(mixIds?.sourceId === "home" || mixIds?.targetId === "home") &&
+					(carousel.isHexNavigationActive?.() || carousel.isCaseBoundaryDrive?.() || this._getHexShaderProgress() > 0.0001);
+				if (!homeInHexPair) {
+					this.sceneManager.getSceneById("home")?.heroTitle?.hideScrollHint?.();
+				}
 			}
 		}
 
@@ -1250,6 +1301,12 @@ export class DigitalMonsterThreeApp {
 		this.liquidDevTools = null;
 		this.progressDevTools?.dispose?.();
 		this.progressDevTools = null;
+		this.aboutEpicTextDevTools?.dispose?.();
+		this.aboutEpicTextDevTools = null;
+		this.contactsDevTools?.dispose?.();
+		this.contactsDevTools = null;
+		this.belkaOrbitsDevTools?.dispose?.();
+		this.belkaOrbitsDevTools = null;
 		this.caseArcDevTools?.dispose?.();
 		this.caseArcDevTools = null;
 		this.caseStageRailDevTools?.dispose?.();

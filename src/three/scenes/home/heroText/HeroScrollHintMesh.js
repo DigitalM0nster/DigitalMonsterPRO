@@ -3,15 +3,23 @@ import { subscribe } from "valtio";
 import { store } from "@/store.jsx";
 import { HERO_SCROLL_HINT_COPY } from "@/i18n/siteCopy.js";
 import { normalizeSiteLocale } from "@/utils/siteLocale.js";
+import { shouldAnimateSiteLocaleForRingScene } from "@/utils/siteLocaleSwitch.js";
 import { resolveHeroScrollHintPosition } from "./heroTextLayout.js";
 import { heroTextPositionConfig } from "./heroTextPositionConfig.js";
 import { HeroTextGlitchController } from "./HeroTextGlitchController.js";
 import { drawHeroGlitchLine } from "./drawHeroGlitchText.js";
-import { heroTextGlitchConfig, resolveHeroReplacementDisplayChar, resolveHeroReplacementMetrics } from "./heroTextGlitchConfig.js";
+import {
+	getHeroGlitchSnakeRunOptions,
+	heroTextGlitchConfig,
+	resolveHeroReplacementDisplayChar,
+	resolveHeroReplacementMetrics,
+} from "./heroTextGlitchConfig.js";
 import { getGlitchMainDrawAlpha, isGlitchMainHidden } from "@/shared/glitchText/glitchLetterModel.js";
 import { createHeroTextRevealUniforms, HeroTextRevealController } from "./heroTextReveal.js";
 import { heroTextRevealConfig } from "./heroTextRevealConfig.js";
 import { heroScrollHintConfig, rgbaFromHex } from "./heroScrollHintConfig.js";
+import { getHeroSubtitleFontFamily } from "./heroTitleConfig.js";
+import { SITE_MAIN_COLOR } from "@/constants/siteMainColor.js";
 
 const CONTENT_WIDTH = 250;
 // Horizontal glitch slices need room past the visible glyph bounds.
@@ -23,8 +31,6 @@ const ANIMATION_FPS = 60;
 const CYCLE_SECONDS = 2.05;
 /** Smooth wheel bob (independent of snake phase — no end-of-cycle snap). */
 const WHEEL_CYCLE_SECONDS = 1.35;
-const SCROLL_HINT_REPLACEMENT_SCALE = 0.72;
-
 /**
  * CanvasTexture flipY=true → canvas top is high vUv.y.
  * Split must sit between mouse right edge (~0.24) and label left (~0.26).
@@ -63,26 +69,34 @@ const SCROLL_SNAKE = {
 	trackWidth: 0.3,
 	trailLen: 100,
 };
+/**
+ * Locale snake at ~11px: hero subtitle metrics (scaleX 0.68) look tiny here.
+ * Match original glyph size like caseStudyNav — upright, scale 1 for latin/cyrillic.
+ */
 const scrollHintSnakeProfile = {
 	replacementFontFamily: heroTextGlitchConfig.replacementFontFamily,
 	replacementFontWeight: heroTextGlitchConfig.replacementFontWeight,
+	replacementFlipAxes: false,
 	get replacementColor() {
-		return heroScrollHintConfig.labelColor ?? heroScrollHintConfig.mainColor;
+		return heroScrollHintConfig.snakeLetterColor ?? SITE_MAIN_COLOR;
 	},
 	get replacementShadowColor() {
-		return heroScrollHintConfig.labelGlowColor ?? heroScrollHintConfig.labelColor;
+		return heroScrollHintConfig.snakeGlowColor ?? heroScrollHintConfig.snakeLetterColor ?? SITE_MAIN_COLOR;
 	},
 	get replacementGlowStrength() {
-		return Math.max(0, heroScrollHintConfig.labelGlowStrength ?? 0);
+		return Math.max(0, heroScrollHintConfig.snakeGlowStrength ?? 0);
 	},
 	resolveReplacementDisplayChar: resolveHeroReplacementDisplayChar,
 	resolveReplacementMetrics(sourceChar) {
 		const metrics = resolveHeroReplacementMetrics(sourceChar);
+		if (metrics.isCjk) {
+			return metrics;
+		}
 		return {
 			...metrics,
-			scaleX: metrics.scaleX * SCROLL_HINT_REPLACEMENT_SCALE,
-			scaleY: metrics.scaleY * SCROLL_HINT_REPLACEMENT_SCALE,
-			offsetYEm: metrics.offsetYEm * SCROLL_HINT_REPLACEMENT_SCALE,
+			scaleX: 1,
+			scaleY: 1,
+			offsetYEm: 0,
 		};
 	},
 };
@@ -244,6 +258,7 @@ export class HeroScrollHintMesh {
 		this.displayedLocale = normalizeSiteLocale(store.siteLocale);
 		this.desiredLocale = this.displayedLocale;
 		this.localeSwitching = false;
+		this.labelFontFamily = getHeroSubtitleFontFamily(this.displayedLocale);
 		this.dpr = resolveHintDpr(renderer);
 
 		this.canvas = document.createElement("canvas");
@@ -306,17 +321,40 @@ export class HeroScrollHintMesh {
 		this._draw();
 	}
 
-	_startLocaleAnimation() {
+	async _startLocaleAnimation() {
 		if (this.localeSwitching || this.desiredLocale === this.displayedLocale) return;
+
+		this.localeSwitching = true;
 		const targetLocale = this.desiredLocale;
 		const targetText = HERO_SCROLL_HINT_COPY[targetLocale] ?? HERO_SCROLL_HINT_COPY.ru;
+		const animate = shouldAnimateSiteLocaleForRingScene("home");
 
-		// Always instant — never race a third canvas snake against hero subtitle/stack.
-		this.glitchController.setText([targetText]);
-		this.displayedLocale = targetLocale;
-		this._draw();
-		if (this.desiredLocale !== this.displayedLocale) {
-			this._startLocaleAnimation();
+		try {
+			// Same Jura (+ CJK fallback for zh) as hero subtitle — glyphs must be present before snake.
+			this.labelFontFamily = getHeroSubtitleFontFamily(targetLocale);
+
+			if (animate) {
+				// Tiny canvas — cheap enough to snake with subtitle/stack. Sound already plays there.
+				await this.glitchController.runLanguageSwitch(
+					[targetText],
+					getHeroGlitchSnakeRunOptions({ playSound: false }),
+				);
+			} else {
+				this.glitchController.setText([targetText]);
+				this._draw();
+			}
+
+			this.displayedLocale = targetLocale;
+		} catch (error) {
+			console.error("[HeroScrollHintMesh] locale switch failed", error);
+			this.glitchController.setText([targetText]);
+			this.displayedLocale = targetLocale;
+			this._draw();
+		} finally {
+			this.localeSwitching = false;
+			if (this.desiredLocale !== this.displayedLocale) {
+				this._startLocaleAnimation();
+			}
 		}
 	}
 
@@ -371,7 +409,7 @@ export class HeroScrollHintMesh {
 		const cfg = heroScrollHintConfig;
 		const fontSize = 11;
 		const fontWeight = 400;
-		const fontFamily = "Jura, sans-serif";
+		const fontFamily = this.labelFontFamily || getHeroSubtitleFontFamily(this.displayedLocale);
 		const letterSpacing = 0.16;
 		const letterSpacingPx = fontSize * letterSpacing;
 		const mouseCenterY = mouseTop + SCROLL_SNAKE.mouseH * 0.5;
@@ -386,9 +424,15 @@ export class HeroScrollHintMesh {
 		context.textBaseline = "top";
 		context.textAlign = "left";
 
+		const labelGroups = [
+			...this.glitchController.primaryGroups,
+			...(this.glitchController.secondaryGroups ?? []),
+		];
+
 		if (glowStrength > 0.001 && glowBlur > 0.001) {
 			// Keep glow out of the mouse/cue UV band — otherwise the first glyph
 			// bleeds into bloomBoost and looks uniquely bright («Л» only).
+			// Include secondary groups so locale snake keep the same halo while animating.
 			context.save();
 			context.beginPath();
 			context.rect(labelX - 1, 0, CSS_WIDTH - labelX + 1, CSS_HEIGHT);
@@ -399,8 +443,8 @@ export class HeroScrollHintMesh {
 			context.fillStyle = labelRgba(1);
 			const passes = Math.min(5, Math.max(1, Math.ceil(glowStrength)));
 			for (let pass = 0; pass < passes; pass += 1) {
-				let cursorX = labelX;
-				for (const group of this.glitchController.primaryGroups) {
+				for (const group of labelGroups) {
+					let cursorX = labelX;
 					for (const slot of group.slots) {
 						if (slot.isSpace) {
 							cursorX += fontSize * 0.35;
@@ -427,16 +471,13 @@ export class HeroScrollHintMesh {
 			fontFamily,
 			letterSpacing,
 			color: labelRgba(0.96),
-			replacementGlowStrength: glowStrength,
+			replacementGlowStrength: Math.max(0, cfg.snakeGlowStrength ?? 0),
 			replacementShadowBlur: glowBlur,
 			replacementFullOpacity: true,
 			snakeProfile: scrollHintSnakeProfile,
 		};
 
-		for (const group of this.glitchController.primaryGroups) {
-			drawHeroGlitchLine(context, group.slots, labelX, labelTop, style);
-		}
-		for (const group of this.glitchController.secondaryGroups ?? []) {
+		for (const group of labelGroups) {
 			drawHeroGlitchLine(context, group.slots, labelX, labelTop, style);
 		}
 		context.restore();

@@ -78,7 +78,7 @@
   font-weight: 300;
   opacity: 0.62;
   margin: 0 0 24px;
-  max-width: 36ch;
+  max-width: 40vw;
 }
 .projectStatePanel .tagRow {
   display: flex;

@@ -277,7 +277,21 @@ export class SceneCarousel {
 			storySnapshot
 			&& needsFastNavigationSettle(storySnapshot.current, storySnapshot.target, storySnapshot.rest)
 		) {
-			this._beginNavigationSettle(storyOwner, storySnapshot, toPath, targetSceneId);
+			// Case/About edge overshoot snapshots a *neighbor* rest. Menu/dots to a
+			// different route (case→About, About→home, …) must not settle-commit that
+			// neighbor — one frame of the wrong page then chains hex to the real target.
+			this._beginNavigationSettle(
+				storyOwner,
+				this._resolveStorySettleSnapshot(
+					storySnapshot,
+					fromPath,
+					toPath,
+					sourceSceneId,
+					targetSceneId,
+				),
+				toPath,
+				targetSceneId,
+			);
 			return true;
 		}
 
@@ -335,6 +349,35 @@ export class SceneCarousel {
 
 		this._beginHexEnter(sourceSceneId);
 		return true;
+	}
+
+	/**
+	 * If story overshoot aims at a boundary neighbor that is not the click target,
+	 * clamp settle to the interior story edge and hex from the current page instead.
+	 */
+	_resolveStorySettleSnapshot(snapshot, fromPath, toPath, sourceSceneId, targetSceneId) {
+		if (!snapshot?.routeChanged) {
+			return snapshot;
+		}
+		const restPath = String(snapshot.restPath ?? "");
+		const desiredPath = String(toPath ?? "");
+		const restIsDesired = (
+			(restPath && desiredPath && restPath === desiredPath)
+			|| (snapshot.restSceneId && targetSceneId && snapshot.restSceneId === targetSceneId)
+		);
+		// Menu/scroll leave toward that neighbor — keep boundary commit.
+		if (restIsDesired) {
+			return snapshot;
+		}
+		const storyMax = Math.max(0, Number(snapshot.storyMax) || 0);
+		const interiorRest = snapshot.rest < 0 ? 0 : storyMax;
+		return {
+			...snapshot,
+			rest: interiorRest,
+			restPath: fromPath,
+			restSceneId: sourceSceneId,
+			routeChanged: false,
+		};
 	}
 
 	_beginNavigationSettle(owner, snapshot, desiredPath, desiredSceneId) {

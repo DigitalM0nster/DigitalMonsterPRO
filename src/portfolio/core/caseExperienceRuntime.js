@@ -26,14 +26,25 @@ import {
 } from "@/three/render/transition/segmentScrollSpring.js";
 import { resolveCaseProjectCanvasNavigationData } from "@/portfolio/ui/CaseStudyCanvas/caseProjectCanvasNavigation.js";
 import { setPendingCaseChromeNav } from "@/portfolio/core/caseChromePendingNav.js";
-import { promoteCasePanelHudCanvases } from "@/portfolio/core/casePanelHudBridge.js";
-import { setStageProgressState } from "@/portfolio/core/stageProgress.js";
+import {
+	clearCasePanelHudComplementPaint,
+	getCasePanelHudEnterProgress,
+	invalidateCasePanelHudContentPair,
+	isCasePanelHudComplementPaintPending,
+	promoteCasePanelHudCanvases,
+	setCasePanelHudEnterProgress,
+} from "@/portfolio/core/casePanelHudBridge.js";
+import { resetStageProgress, setStageProgressState } from "@/portfolio/core/stageProgress.js";
 import { isSceneDevToolsWheelTarget } from "@/three/dev/sceneDevPanelUtils.js";
 import { requestCaseStudyScrollRepaint } from "@/portfolio/core/caseStudyAnimationFrame.js";
 import { normalizeSitePath, setHexVisualPath } from "@/utils/hexNavigation.js";
 import { publishSiteRouteTransition } from "@/three/render/transition/siteTransitionIntent.js";
 import { normalizeSiteLocale } from "@/utils/siteLocale.js";
-import { commitCasePanelHudScrollLeave, isCasePanelHudRevealBusy } from "@/portfolio/core/casePanelHudReveal.js";
+import {
+	commitCasePanelHudScrollLeave,
+	isCasePanelHudRevealBusy,
+	registerCasePanelHudEnterCompleteListener,
+} from "@/portfolio/core/casePanelHudReveal.js";
 import { isCaseStageClickMosaicActive } from "@/portfolio/core/caseStageClickMosaic.js";
 import { preloadCaseStudyTextTransitionSound, resetCaseStudyTextTransitionSound, updateCaseStudyTextTransitionSound } from "@/sounds/caseStudyTextTransitionSound.js";
 import {
@@ -99,10 +110,6 @@ function createCaseExperienceRuntime({ project, commitStageStep, allowCaseLeave 
 	/** @type {'forward' | 'backward' | null} */
 	let scrollIntent = null;
 	let boundaryPairReady = false;
-	// At STORY_MAX the shader normally shows the terminal state as mapTo@1.
-	// Before a forward boundary owns the frame, commit it to mapFrom@0 so the
-	// exact visible terminal content is also the texture baked into hex.
-	let terminalHudCommitted = false;
 	/** Cached once per boundary pair — avoid resolveCaseProjectCanvasNavigationData every spring tick. */
 	let cachedBoundaryChrome = null;
 
@@ -112,16 +119,19 @@ function createCaseExperienceRuntime({ project, commitStageStep, allowCaseLeave 
 	const clampStoryTarget = (value) => clamp(value, STORY_TARGET_MIN, STORY_TARGET_MAX);
 	const clampStoryVisual = (value) => clamp(value, 0, STORY_MAX);
 
+	/**
+	 * Terminal content (last state) is always mapTo@1 on the penultimate index.
+	 * Never publish lastIndex as mapFrom — that makes next undefined and paints 5→5.
+	 * Hex leave already samples mapTo when mix≈1 (CaseStudyPanelHudMesh).
+	 */
 	const storyToStageIndex = (story) => {
 		const visual = clampStoryVisual(story);
-		if (terminalHudCommitted && visual >= STORY_MAX - 1e-9) return lastIndex;
 		if (visual >= STORY_MAX - 1e-9) return Math.max(0, STORY_MAX - 1);
 		return clamp(Math.floor(visual), 0, Math.max(0, STORY_MAX - 1));
 	};
 
 	const storyToStageLocal = (story) => {
 		const visual = clampStoryVisual(story);
-		if (terminalHudCommitted && visual >= STORY_MAX - 1e-9) return 0;
 		if (visual >= STORY_MAX - 1e-9) return 1;
 		const index = storyToStageIndex(visual);
 		return clamp(visual - index, 0, 1);
@@ -198,6 +208,28 @@ function createCaseExperienceRuntime({ project, commitStageStep, allowCaseLeave 
 		return local > eps && local < 1 - eps;
 	};
 
+	/**
+	 * Block wheel while left HUD appear runs (`enterProgress != null`).
+	 * Idle show: enterProgress === null. On enter-complete we re-pin story to 0
+	 * so leftover leave-wheels do not open the new case mid-stage (2→2).
+	 */
+	const isAppearGated = () => getCasePanelHudEnterProgress() != null;
+
+	const pinStoryToStart = () => {
+		current = 0;
+		target = 0;
+		scrollIntent = null;
+		lastPublishedStage = -1;
+		clearCasePanelHudComplementPaint();
+		publish();
+	};
+
+	/** Appear finished — reset story/HUD pair; input unlocks with enterProgress → null. */
+	const armInputAfterEnter = () => {
+		pinStoryToStart();
+		invalidateCasePanelHudContentPair();
+	};
+
 	const ownsInput = () => {
 		const carousel = getSceneCarousel();
 		return (
@@ -206,6 +238,7 @@ function createCaseExperienceRuntime({ project, commitStageStep, allowCaseLeave 
 			!carousel.isInteractionLocked() &&
 			!carousel.isCaseBoundaryAwaitingRoute() &&
 			!isCasePanelHudRevealBusy() &&
+			!isAppearGated() &&
 			!isCaseStageClickMosaicActive()
 		);
 	};
@@ -251,21 +284,8 @@ function createCaseExperienceRuntime({ project, commitStageStep, allowCaseLeave 
 					data: backwardData,
 				},
 			};
-			getSceneCarousel().setOnCaseBoundaryCommit((payload) => {
-				const from = sourcePath;
-				const to = normalizeSitePath(payload.path);
-				// One leave decision — chrome band exit + flags (SITE_TRANSITION.md).
-				publishSiteRouteTransition(from, to, { mode: "case-boundary" });
-				if (getSceneCarousel().isNavigationSettleAwaitingRoute()) {
-					store.sceneCarouselSkipHtmlExit = true;
-					store.sceneCarouselDisplayPath = to;
-					return;
-				}
-				setHexVisualPath(to);
-				// Same as ring scroll commit — skip HTML exiting wipe (kills Case1 activePage/bloom).
-				store.sceneCarouselSkipHtmlExit = true;
-				store.sceneCarouselNavigatePath = to;
-			});
+			// Boundary commit handler is registered once on runtime create — do not
+			// re-bind here (duplicate callbacks were easy to desync).
 		}
 		return boundaryPairReady;
 	};
@@ -284,8 +304,11 @@ function createCaseExperienceRuntime({ project, commitStageStep, allowCaseLeave 
 		cachedBoundaryChrome = null;
 	};
 
-	/** Ignore 1px edge peek — adopting drive starts hex; translucent HUD over
-	 *  hex-border glow reads as a brightness jump (opaque models do not). */
+	/**
+	 * Dead zone past story 0 / STORY_MAX before we hand wheel to case-boundary hex.
+	 * Story units ≈ one stage; 0.03 ≈ 3% of a stage — ignores tiny spring overshoot /
+	 * trackpad peek so hex (and HUD hex-cut) does not flash on a 1px edge nudge.
+	 */
 	const LEAVE_ADOPT_EPS = 0.03;
 
 	const syncBoundaryDrive = () => {
@@ -303,7 +326,15 @@ function createCaseExperienceRuntime({ project, commitStageStep, allowCaseLeave 
 		}
 		if (current > STORY_MAX + LEAVE_ADOPT_EPS || target > STORY_MAX + LEAVE_ADOPT_EPS) {
 			if (!ensureBoundaryPair()) return;
-			terminalHudCommitted = true;
+			// Keep HUD on penultimate@1 (terminal visible in mapTo). Do not promote to
+			// lastIndex — painter then sets to=from and the wipe reads as 5→5.
+			const penultimate = Math.max(0, STORY_MAX - 1);
+			if (lastPublishedStage !== penultimate) {
+				lastPublishedStage = penultimate;
+				store.portfolioExperience.activeStateIndex = penultimate;
+				store.portfolioExperience.activeStateId = states[penultimate]?.id ?? null;
+				invalidateCasePanelHudContentPair();
+			}
 			syncPendingChrome();
 			carousel.adoptCaseBoundaryDrive(
 				clamp(Math.max(current - STORY_MAX, 0), 0, CAROUSEL_PROGRESS_TARGET_MAX),
@@ -311,14 +342,6 @@ function createCaseExperienceRuntime({ project, commitStageStep, allowCaseLeave 
 				"forward",
 			);
 			return;
-		}
-		if (
-			terminalHudCommitted
-			&& (current < STORY_MAX - CAROUSEL_PROGRESS_COMMIT_EPS || target < STORY_MAX - CAROUSEL_PROGRESS_COMMIT_EPS)
-		) {
-			// A reversed/cancelled boundary returns through the same ordinary stage
-			// commit path, restoring the previous→terminal map pair without a snap.
-			terminalHudCommitted = false;
 		}
 		if (carousel.isCaseBoundaryDrive() && !carousel.isCaseBoundaryAwaitingRoute()) {
 			// clearCaseBoundaryDrive zeros progress — required so HUD hex-cut / hex
@@ -364,26 +387,84 @@ function createCaseExperienceRuntime({ project, commitStageStep, allowCaseLeave 
 	const publish = () => {
 		const visualCurrent = clampStoryVisual(current);
 		const visualTarget = clampStoryVisual(target);
-		const stageIndex = storyToStageIndex(visualCurrent);
-		const stageLocal = storyToStageLocal(visualCurrent);
-		const stageLocalTarget = storyToStageLocal(visualTarget);
-		const scrollNorm = visualCurrent / STORY_MAX;
-		const scrollNormTarget = visualTarget / STORY_MAX;
+		const desiredStage = storyToStageIndex(visualCurrent);
+		/**
+		 * Left HUD must step one stage at a time (1→2→3→…).
+		 * Fast wheel can jump story across multiple integers in one frame; chaining
+		 * N commit+promote calls desyncs from/to canvases (looks like 1→3).
+		 */
+		let stageIndex = desiredStage;
+		if (lastPublishedStage >= 0 && Math.abs(desiredStage - lastPublishedStage) > 1) {
+			stageIndex = lastPublishedStage + Math.sign(desiredStage - lastPublishedStage);
+		}
+
+		let stageLocal;
+		let stageLocalTarget;
+		if (stageIndex !== desiredStage) {
+			// Catch-up frame: finish the single adjacent wipe, then promote next frame.
+			stageLocal = stageIndex < desiredStage ? 1 : 0;
+			stageLocalTarget = stageLocal;
+		} else {
+			stageLocal = storyToStageLocal(visualCurrent);
+			stageLocalTarget = storyToStageLocal(visualTarget);
+		}
+
 		const stateId = states[stageIndex]?.id ?? null;
 
 		if (stageIndex !== lastPublishedStage) {
 			const direction = stageIndex > lastPublishedStage ? "forward" : "backward";
 			if (lastPublishedStage >= 0) {
-				const steps = Math.abs(stageIndex - lastPublishedStage);
-				for (let i = 0; i < steps; i += 1) {
-					commitStageStep(direction);
-					promoteCasePanelHudCanvases(direction);
+				// Wait for complement paint — stacking promotes desyncs from/to (2→2 / 1→3).
+				if (isCasePanelHudComplementPaintPending()) {
+					stageLocal = direction === "forward" ? 1 : 0;
+					stageLocalTarget = stageLocal;
+				} else {
+					const committed = commitStageStep(direction);
+					if (committed) {
+						const promoted = promoteCasePanelHudCanvases(direction);
+						if (promoted) {
+							lastPublishedStage = stageIndex;
+							store.portfolioExperience.activeStateIndex = stageIndex;
+							store.portfolioExperience.activeStateId = stateId;
+							// After promote, idle on the new from-buffer at mix 0.
+							if (stageIndex !== desiredStage) {
+								stageLocal = 0;
+								stageLocalTarget = 0;
+							}
+						} else {
+							// Swap blocked (from===to) — rebuild the pair for the new index.
+							lastPublishedStage = stageIndex;
+							store.portfolioExperience.activeStateIndex = stageIndex;
+							store.portfolioExperience.activeStateId = stateId;
+							invalidateCasePanelHudContentPair();
+							stageLocal = 0;
+							stageLocalTarget = 0;
+						}
+					} else {
+						// Blocked final forward (last state is mapTo only) — keep penultimate.
+						invalidateCasePanelHudContentPair();
+					}
 				}
+			} else {
+				lastPublishedStage = stageIndex;
+				store.portfolioExperience.activeStateIndex = stageIndex;
+				store.portfolioExperience.activeStateId = stateId;
 			}
-			lastPublishedStage = stageIndex;
-			store.portfolioExperience.activeStateIndex = stageIndex;
-			store.portfolioExperience.activeStateId = stateId;
 		}
+
+		/**
+		 * Painted story — same value for left HUD mix and 3D/arc (`store.scroll`).
+		 * Internal `current` may race ahead on fast wheel; visuals stay on the
+		 * stage the HUD can actually show (one step / frame + complement gate).
+		 */
+		const paintedCurrent = lastPublishedStage >= 0
+			? lastPublishedStage + stageLocal
+			: stageIndex + stageLocal;
+		const paintedTarget = lastPublishedStage >= 0
+			? lastPublishedStage + stageLocalTarget
+			: stageIndex + stageLocalTarget;
+		const scrollNorm = paintedCurrent / STORY_MAX;
+		const scrollNormTarget = clamp(paintedTarget, 0, STORY_MAX) / STORY_MAX;
 
 		setStageProgressState(stageLocal);
 		if (store.scroll !== scrollNorm) {
@@ -392,11 +473,12 @@ function createCaseExperienceRuntime({ project, commitStageStep, allowCaseLeave 
 		if (store.caseScrollTarget !== scrollNormTarget) {
 			store.caseScrollTarget = scrollNormTarget;
 		}
-		if (store.portfolioExperience.storyProgress !== current) {
-			store.portfolioExperience.storyProgress = current;
+		// Dev/HUD mirrors of painted story (spring `current` stays private for leave).
+		if (store.portfolioExperience.storyProgress !== paintedCurrent) {
+			store.portfolioExperience.storyProgress = paintedCurrent;
 		}
-		if (store.portfolioExperience.storyProgressTarget !== target) {
-			store.portfolioExperience.storyProgressTarget = target;
+		if (store.portfolioExperience.storyProgressTarget !== paintedTarget) {
+			store.portfolioExperience.storyProgressTarget = paintedTarget;
 		}
 		if (store.portfolioExperience.stageProgress !== stageLocal) {
 			store.portfolioExperience.stageProgress = stageLocal;
@@ -417,6 +499,16 @@ function createCaseExperienceRuntime({ project, commitStageStep, allowCaseLeave 
 	const tick = (now) => {
 		rafId = 0;
 		if (disposed) return;
+		// Appear gate: pin story at 0 so leftover leave-wheels cannot accumulate.
+		if (isAppearGated()) {
+			if (current !== 0 || target !== 0) {
+				current = 0;
+				target = 0;
+				scrollIntent = null;
+				publish();
+			}
+			return;
+		}
 		if (!ownsInput()) {
 			if (getSceneCarousel().isNavigationSettleActive("case")) {
 				return;
@@ -451,7 +543,12 @@ function createCaseExperienceRuntime({ project, commitStageStep, allowCaseLeave 
 		const stageLocal = store.portfolioExperience.stageProgress;
 		const stageLocalTarget = store.portfolioExperience.stageProgressTarget;
 		updateCaseStudyTextTransitionSound(dt, stageLocal, stageLocalTarget);
-		if (storyNeedsAnimation(current, target)) {
+		const desiredHudStage = storyToStageIndex(clampStoryVisual(current));
+		const hudCatchingUp = lastPublishedStage >= 0 && (
+			lastPublishedStage !== desiredHudStage
+			|| isCasePanelHudComplementPaintPending()
+		);
+		if (storyNeedsAnimation(current, target) || hudCatchingUp) {
 			rafId = window.requestAnimationFrame(tick);
 		}
 	};
@@ -489,13 +586,14 @@ function createCaseExperienceRuntime({ project, commitStageStep, allowCaseLeave 
 
 	const jumpToStory = (nextStory) => {
 		scrollIntent = null;
-		terminalHudCommitted = false;
 		getSceneCarousel().clearCaseBoundaryDrive();
 		clearBoundaryPair();
+		clearCasePanelHudComplementPaint();
 		target = clamp(nextStory, 0, STORY_MAX);
 		current = target;
 		lastPublishedStage = -1;
 		publish();
+		invalidateCasePanelHudContentPair();
 		startAnimation();
 	};
 
@@ -595,6 +693,11 @@ function createCaseExperienceRuntime({ project, commitStageStep, allowCaseLeave 
 		if (disposed) return;
 		jumpToStory(Number(story) || 0);
 	};
+	// Input gated by enterProgress until appear finishes; then re-pin story to 0.
+	const unregisterEnterComplete = registerCasePanelHudEnterCompleteListener(() => {
+		if (disposed) return;
+		armInputAfterEnter();
+	});
 
 	const sourcePath = normalizeSitePath(project.config.route);
 	const sourceSceneId = resolveSceneId(sourcePath);
@@ -615,6 +718,7 @@ function createCaseExperienceRuntime({ project, commitStageStep, allowCaseLeave 
 					restPath: boundary.route,
 					restSceneId: resolveSceneId(boundary.route),
 					routeChanged: true,
+					storyMax: STORY_MAX,
 				};
 			}
 			return {
@@ -624,9 +728,17 @@ function createCaseExperienceRuntime({ project, commitStageStep, allowCaseLeave 
 				restPath: sourcePath,
 				restSceneId: sourceSceneId,
 				routeChanged: false,
+				storyMax: STORY_MAX,
 			};
 		},
 		apply: (value, delta) => {
+			if (isAppearGated()) {
+				current = 0;
+				target = 0;
+				scrollIntent = null;
+				publish();
+				return;
+			}
 			current = value;
 			target = value;
 			scrollIntent = value < 0 ? "backward" : value > STORY_MAX ? "forward" : null;
@@ -675,6 +787,7 @@ function createCaseExperienceRuntime({ project, commitStageStep, allowCaseLeave 
 	return () => {
 		disposed = true;
 		unregisterNavigationOwner();
+		unregisterEnterComplete();
 		liveJumpHandler = null;
 		getSceneCarousel().clearCaseBoundaryDrive();
 		clearBoundaryPair();
@@ -695,6 +808,19 @@ export function isCaseExperienceRuntimeActive() {
 	return disposeRuntime != null;
 }
 
+function resetCaseExperienceStoreProgress() {
+	resetStageProgress();
+	clearCasePanelHudComplementPaint();
+	store.scroll = 0;
+	store.caseScrollTarget = 0;
+	store.portfolioExperience.storyProgress = 0;
+	store.portfolioExperience.storyProgressTarget = 0;
+	store.portfolioExperience.stageProgress = 0;
+	store.portfolioExperience.stageProgressTarget = 0;
+	store.portfolioExperience.activeStateIndex = 0;
+	store.portfolioExperience.activeStateId = null;
+}
+
 /**
  * @param {{
  *   project: import('./types.js').PortfolioProjectModule,
@@ -704,6 +830,15 @@ export function isCaseExperienceRuntimeActive() {
  */
 export function startCaseExperienceRuntime(args) {
 	stopCaseExperienceRuntime();
+	// Case→case / remount: never inherit terminal mix≈1 or a pending complement
+	// from the previous case (that paints as 2→2 on the first wipe).
+	resetCaseExperienceStoreProgress();
+	// Arm appear-gate immediately (before painter playEnter) so leave-wheels
+	// cannot advance the new case story during hex / intro delay.
+	setCasePanelHudEnterProgress(0);
+	if (args?.project?.states?.[0]) {
+		store.portfolioExperience.activeStateId = args.project.states[0].id ?? null;
+	}
 	disposeRuntime = createCaseExperienceRuntime(args);
 }
 
@@ -711,6 +846,8 @@ export function stopCaseExperienceRuntime() {
 	if (!disposeRuntime) return;
 	disposeRuntime();
 	disposeRuntime = null;
+	resetStageProgress();
+	clearCasePanelHudComplementPaint();
 }
 
 /** Jump interior story (0…STORY_MAX). Used by arc / goToState. */

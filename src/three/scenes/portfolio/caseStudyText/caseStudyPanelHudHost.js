@@ -1,4 +1,3 @@
-import { getSceneCarousel } from "@/three/render/transition/carouselPage.js";
 import { CaseStudyPanelHudMesh } from "./CaseStudyPanelHudMesh.js";
 
 /**
@@ -19,7 +18,10 @@ export function createCaseStudyPanelHud(threeScene) {
 
 /**
  * Per-frame bridge sync + visibility.
- * Mirrors Case1: only show while mix-previewing or while this case is open in React.
+ * Mirrors Case1: only show while this case is open in React.
+ * Mix-preview must NOT sync the shared bridge onto the target HUD — that
+ * duplicates the open band (arming-frame brightness flash on click case→case)
+ * and stomps the target's warm stage-1 textures before enter.
  *
  * @param {CaseStudyPanelHudMesh | null | undefined} panelHud
  * @param {{ showCase?: boolean, mixPreview?: boolean, store?: { openedCase?: unknown } | null }} opts
@@ -27,12 +29,8 @@ export function createCaseStudyPanelHud(threeScene) {
 export function syncCaseStudyPanelHud(panelHud, { showCase = false, mixPreview = false, store = null } = {}) {
 	if (!panelHud) return;
 
-	// Case-boundary scroll mix: only the open case's left HUD (hex-cut on screen overlay).
-	// Mix-preview target must not show a second left band from the shared bridge.
-	const caseScrollMix = getSceneCarousel().isCaseBoundaryDrive() === true;
-	const hudActive = Boolean(
-		(mixPreview && !caseScrollMix) || (showCase && store?.openedCase),
-	);
+	void mixPreview;
+	const hudActive = Boolean(showCase && store?.openedCase);
 	if (hudActive) {
 		// Content only on bridge revision; anim uniforms every active frame.
 		panelHud.syncFromBridge();

@@ -3,12 +3,14 @@
   inset: 0;
   z-index: 4;
   pointer-events: none;
+  overflow: visible;
 }
 .portfolioProjectShell .fullscreenStage {
   position: absolute;
   inset: 0;
   z-index: 2;
   pointer-events: none;
+  overflow: visible;
 }
 .portfolioProjectShell .scrollContainer {
   position: absolute;

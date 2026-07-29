@@ -6,7 +6,7 @@ export const DELAY_BETWEEN_SYMBOLS = 50;
 
 /** @typedef {'hover' | 'appear' | 'disappear'} GlitchSnakeMode */
 
-/** @typedef {{ timeBudgetMs?: number, snakeLength?: number, delayBetweenLetters?: number, delayBetweenSymbols?: number, playSound?: boolean, onBeforeAppear?: () => void, onComplete?: () => void }} GlitchSnakeOptions */
+/** @typedef {{ timeBudgetMs?: number, snakeLength?: number, delayBetweenLetters?: number, delayBetweenSymbols?: number, playSound?: boolean, soundIntent?: 'hover' | 'route' | 'menu', soundPan?: number, soundSpatialPosition?: { x?: number, y?: number, z?: number }, soundVolumeGain?: number, onBeforeAppear?: () => void, onComplete?: () => void }} GlitchSnakeOptions */
 
 /** Сколько букв глитчат одновременно: 2 + 2 за каждые 12 символов. */
 export { getSnakeLength };
@@ -279,8 +279,16 @@ export function runGlitchSnake(root, mode, options = {}) {
 	const durationMs = runGlitchSnakeInScope(root, mode, options, root);
 
 	// Звук только на hover — enter/exit один раз на весь каскад (routeGlitchRegistry).
-	if (durationMs > 0 && mode === "hover") {
-		playGlitchTextSound(durationMs, "hover");
+	if (durationMs > 0 && mode === "hover" && options.playSound !== false) {
+		playGlitchTextSound(
+			durationMs,
+			options.soundIntent ?? "hover",
+			options.soundPan,
+			options.soundSpatialPosition,
+			typeof options.soundVolumeGain === "number"
+				? { volumeGain: options.soundVolumeGain }
+				: undefined,
+		);
 	}
 
 	return durationMs;
@@ -313,7 +321,15 @@ export function runGlitchGroupSwitch(root, fromGroup, toGroup, options = {}) {
 
 	// Звук сразу вместе с disappear — как в HeroTextGlitchController и hub projects.
 	if (options.playSound !== false && totalDuration > 0) {
-		playGlitchTextSound(totalDuration, "hover");
+		playGlitchTextSound(
+			totalDuration,
+			options.soundIntent ?? "hover",
+			options.soundPan,
+			options.soundSpatialPosition,
+			typeof options.soundVolumeGain === "number"
+				? { volumeGain: options.soundVolumeGain }
+				: undefined,
+		);
 	}
 
 	scheduleSnakeTimeout(root, () => {

@@ -75,5 +75,10 @@ export const glitchLetterReplacements = {
 	"(": "COZ",
 	")": "OCX",
 	"-": "XYC",
+	"@": "EOA",
+	"/": "CYZ",
+	"+": "AEC",
+	":": "XYC",
+	"_": "ZYO",
 	" ": " ",
 };

@@ -1,7 +1,14 @@
 /**
  * About left HUD locale switch — adapter over shared panelHudLocaleMixController.
  * Same mosaic wipe as stage scroll (old locale = from, new locale = to, mix 0→1).
+ *
+ * Does **not** move About story / stage spring on locale change — wipe snapshots
+ * whatever HUD band is visible at the current story (including mid-segment).
+ *
+ * Store locale is chased for the whole session (not only while About owns input):
+ * animate wipe only when About is current; otherwise instant buffer/GPU swap.
  */
+import { subscribeKey } from "valtio/utils";
 import { getCaseChromeMosaicEnterMs } from "@/portfolio/ui/CaseStudyCanvas/caseChromeMosaicConfig.js";
 import { createPanelHudLocaleMixController } from "@/shared/panelHud/panelHudLocaleMixController.js";
 import { shouldAnimateSiteLocaleForRingScene } from "@/utils/siteLocaleSwitch.js";
@@ -29,6 +36,9 @@ let displayedLocale = normalizeSiteLocale(store.siteLocale);
 
 /** Per-play opts from `playAboutPanelHudLocaleMix`. */
 let playOpts = {};
+
+/** @type {(() => void) | null} */
+let storeLocaleUnsub = null;
 
 function cloneCanvas(source) {
 	if (!source?.width || !source?.height) {
@@ -58,59 +68,18 @@ function readStory() {
 	if (typeof playOpts.getStoryProgress === "function") {
 		return Number(playOpts.getStoryProgress()) || 0;
 	}
-	return Number(playOpts.storyProgress) || 0;
+	if (playOpts.storyProgress != null) {
+		return Number(playOpts.storyProgress) || 0;
+	}
+	return Number(store.aboutExperience?.storyProgress) || 0;
 }
 
 /**
- * @param {{
- *   isCancelled: () => boolean,
- *   animateValue: (opts: {
- *     from: number,
- *     to: number,
- *     durationMs: number,
- *     onTick: (value: number) => void,
- *   }) => Promise<void>,
- * }} helpers
+ * Shared controller always calls `settle` before wipe.
+ * About keeps story where it is — no pin to nearest stage stop.
  */
-async function settleAboutStory(helpers) {
-	let story = readStory();
-	const pair = resolveAboutPanelHudStoryPair(story);
-	if (pair.mix <= 0.02 || pair.mix >= 0.98) {
-		const pinned = pair.mix >= 0.5
-			? Math.min(3, Math.ceil(story - 1e-6))
-			: Math.floor(story + 1e-6);
-		if (Math.abs(story - pinned) > 1e-6) {
-			playOpts.settleStory?.(pinned);
-			setAboutPanelHudMixProgress(resolveAboutPanelHudStoryPair(pinned).mix);
-		}
-		return;
-	}
-
-	const endpoint = pair.mix >= 0.5
-		? Math.min(3, Math.ceil(story - 1e-6))
-		: Math.floor(story + 1e-6);
-	const start = story;
-	const distance = Math.abs(endpoint - start);
-	if (distance <= 0.001) {
-		playOpts.settleStory?.(endpoint);
-		setAboutPanelHudMixProgress(resolveAboutPanelHudStoryPair(endpoint).mix);
-		return;
-	}
-
-	await helpers.animateValue({
-		from: start,
-		to: endpoint,
-		durationMs: Math.max(1, getCaseChromeMosaicEnterMs() * distance),
-		onTick: (next) => {
-			playOpts.settleStory?.(next);
-			setAboutPanelHudMixProgress(resolveAboutPanelHudStoryPair(next).mix);
-		},
-	});
-
-	if (!helpers.isCancelled()) {
-		playOpts.settleStory?.(endpoint);
-		setAboutPanelHudMixProgress(resolveAboutPanelHudStoryPair(endpoint).mix);
-	}
+async function settleAboutStory(_helpers) {
+	/* no-op */
 }
 
 /**
@@ -204,15 +173,21 @@ const aboutLocaleMix = createPanelHudLocaleMixController({
 export { isAboutPanelHudLocaleMixBusy };
 
 /**
+ * Chase `store.siteLocale` for About HUD (animated only while About is current).
  * @param {{
  *   storyProgress?: number,
  *   getStoryProgress?: () => number,
- *   settleStory?: (endpointStory: number) => void,
- * }} opts
+ * }} [opts]
  */
 export async function playAboutPanelHudLocaleMix(opts = {}) {
+	ensureAboutPanelHudLocaleStoreSync();
 	playOpts = opts;
 	return aboutLocaleMix.playTowardStore();
+}
+
+/** Instant/animated chase from current store locale + story. */
+export function syncAboutPanelHudLocaleFromStore() {
+	return playAboutPanelHudLocaleMix({});
 }
 
 export function cancelAboutPanelHudLocaleMix() {
@@ -222,4 +197,25 @@ export function cancelAboutPanelHudLocaleMix() {
 /** Keep displayed locale in sync after curtain warm / non-animated swaps. */
 export function syncAboutPanelHudDisplayedLocale(locale) {
 	displayedLocale = normalizeSiteLocale(locale);
+}
+
+export function getAboutPanelHudDisplayedLocale() {
+	return displayedLocale;
+}
+
+/**
+ * Session-wide store chase — About runtime may be stopped while on home/hub.
+ * Without this, changing language elsewhere leaves About HUD on the old locale.
+ */
+export function ensureAboutPanelHudLocaleStoreSync() {
+	if (storeLocaleUnsub || typeof window === "undefined") {
+		return;
+	}
+	storeLocaleUnsub = subscribeKey(store, "siteLocale", () => {
+		void syncAboutPanelHudLocaleFromStore();
+	});
+}
+
+if (typeof window !== "undefined") {
+	ensureAboutPanelHudLocaleStoreSync();
 }

@@ -59,6 +59,16 @@ export const RIGHT_NAV_GLITCH_SOUND_PAN = 0.7;
 /** Верхний route HUD — немного левее центра. */
 export const TOP_HUD_GLITCH_SOUND_PAN = -0.2;
 
+/** Contacts channel snake — HRTF left-bottom (mirror of top HUD y). */
+export const CONTACTS_CHANNEL_GLITCH_SOUND_POSITION = Object.freeze({
+	x: -0.2,
+	y: -0.5,
+	z: 0,
+});
+export const CONTACTS_CHANNEL_GLITCH_SOUND_PAN = LEFT_MENU_SOUND_PAN;
+/** Hover snake on contacts channels — louder to compensate HRTF left-bottom. */
+export const CONTACTS_CHANNEL_GLITCH_SOUND_GAIN = 1.5;
+
 /** Beep при hover — тот же левый канал, что и змейка подписи. */
 export const LEFT_MENU_BEEP_SOUND_PAN = LEFT_MENU_SOUND_PAN;
 
@@ -132,10 +142,7 @@ export function prefetchSoundDesign() {
 	if (typeof window === "undefined") {
 		return Promise.resolve([]);
 	}
-	return Promise.all([
-		prefetchAudioAssets(getUniqueSoundSources()),
-		loadSoundControllerModules(),
-	]);
+	return Promise.all([prefetchAudioAssets(getUniqueSoundSources()), loadSoundControllerModules()]);
 }
 
 /** Gesture-gated decode + derived controller buffers, all under the loader curtain. */
@@ -146,10 +153,7 @@ export async function preloadSoundDesign() {
 	initMasterAudioBus();
 	const ctx = getAudioContext();
 	await ctx?.resume?.().catch(() => {});
-	const [decoded, modules] = await Promise.all([
-		preloadAudioBuffers(getUniqueSoundSources(), ctx),
-		loadSoundControllerModules(),
-	]);
+	const [decoded, modules] = await Promise.all([preloadAudioBuffers(getUniqueSoundSources(), ctx), loadSoundControllerModules()]);
 	const prepared = await Promise.allSettled([
 		modules[0].preloadCaseStudyTextTransitionSound(),
 		modules[1].preloadAboutFrontDissolveSound(),
@@ -354,7 +358,7 @@ async function playTimedSound(soundId, durationMs, slot, fadeOutMs = DIGITAL_SOU
  * @param {number} durationMs
  * @param {GlitchTextSoundIntent} [intent]
  * @param {number} [panOverride]
- * @param {{ loopToDuration?: boolean }} [options]
+ * @param {{ loopToDuration?: boolean, volumeGain?: number }} [options]
  */
 export function playGlitchTextSound(durationMs, intent = "hover", panOverride, spatialPosition, options = {}) {
 	if (!isPageSoundAllowed() || durationMs <= 0) {
@@ -398,7 +402,7 @@ export function playGlitchTextSound(durationMs, intent = "hover", panOverride, s
 	activeGlitchSounds.push(slot);
 
 	const pan = panOverride ?? (intent === "menu" ? LEFT_MENU_GLITCH_SOUND_PAN : undefined);
-	const volumeGain = intent === "menu" ? LEFT_MENU_GLITCH_SOUND_GAIN : 1;
+	const volumeGain = typeof options.volumeGain === "number" ? options.volumeGain : intent === "menu" ? LEFT_MENU_GLITCH_SOUND_GAIN : 1;
 
 	playTimedSound("digital_sound", durationMs, slot, DIGITAL_SOUND_FADE_OUT_S * 1000, undefined, pan, volumeGain, spatialPosition, options).catch(() => {
 		removeGlitchSlot(slot);
@@ -504,18 +508,62 @@ export function playSound(soundId, panOverride, volumeGain = 1) {
 
 /** Same click as custom cursor — for hit targets that stopPropagation. */
 let uiClickAudio = null;
+/** Loader Start / language CTA — HTML Audio so it stays inside the user gesture. */
+let startAppAudio = null;
+
+/**
+ * @param {HTMLAudioElement | null} audio
+ * @param {string} src
+ * @returns {HTMLAudioElement | null}
+ */
+function playHtmlOneShot(audio, src) {
+	if (typeof Audio === "undefined" || !src) {
+		return audio;
+	}
+	const next = audio ?? new Audio(src);
+	if (!audio) {
+		bindMediaElementToMasterBus(next);
+	}
+	next.pause();
+	next.currentTime = 0;
+	next.play().catch(() => {});
+	return next;
+}
 
 export function playUiClickSound() {
 	if (!isPageSoundAllowed() || typeof Audio === "undefined") {
 		return;
 	}
-	if (!uiClickAudio) {
-		uiClickAudio = new Audio(SOUND_CATALOG.ui_click);
-		bindMediaElementToMasterBus(uiClickAudio);
+	uiClickAudio = playHtmlOneShot(uiClickAudio, SOUND_CATALOG.ui_click);
+}
+
+/**
+ * Preloader language / Start button — must run inside the click gesture
+ * (before any await). Does not require `soundsActive` yet.
+ */
+export function playLoaderStartClickSound() {
+	if (typeof document !== "undefined" && document.hidden) {
+		return;
 	}
-	uiClickAudio.pause();
-	uiClickAudio.currentTime = 0;
-	uiClickAudio.play().catch(() => {});
+	if (typeof Audio === "undefined") {
+		return;
+	}
+	initMasterAudioBus();
+	resumeMasterAudioContext().catch(() => {});
+	uiClickAudio = playHtmlOneShot(uiClickAudio, SOUND_CATALOG.ui_click);
+}
+
+/** Start-app sting — same gesture rule as {@link playLoaderStartClickSound}. */
+export function playStartAppSound() {
+	if (typeof document !== "undefined" && document.hidden) {
+		return;
+	}
+	if (typeof Audio === "undefined") {
+		return;
+	}
+	initMasterAudioBus();
+	resumeMasterAudioContext().catch(() => {});
+	startAppAudio = playHtmlOneShot(startAppAudio, SOUND_CATALOG.start_app);
 }
 
 /**

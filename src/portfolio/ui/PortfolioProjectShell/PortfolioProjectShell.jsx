@@ -10,14 +10,9 @@ import { useProjectLifecycle } from "@/portfolio/core/useProjectLifecycle.js";
 import { useCaseStudyMobileViewport } from "@/portfolio/core/useCaseStudyMobileViewport.js";
 import { useSmoothCaseScroll } from "@/components/HTML/components/portfolio/useSmoothCaseScroll.js";
 import { buildCaseScrollSnapAnchors } from "@/portfolio/core/caseScrollSnap.js";
-import {
-	jumpCaseExperienceToStateIndex,
-	startCaseExperienceRuntime,
-	stopCaseExperienceRuntime,
-} from "@/portfolio/core/caseExperienceRuntime.js";
-import {
-	isCasePanelHudRevealBusy,
-} from "@/portfolio/core/casePanelHudReveal.js";
+import { jumpCaseExperienceToStateIndex, startCaseExperienceRuntime, stopCaseExperienceRuntime } from "@/portfolio/core/caseExperienceRuntime.js";
+import { resetStageProgress } from "@/portfolio/core/stageProgress.js";
+import { isCasePanelHudRevealBusy } from "@/portfolio/core/casePanelHudReveal.js";
 import {
 	cancelCaseStageClickMosaic,
 	isCaseStageClickMosaicActive,
@@ -39,25 +34,12 @@ import styles from "./PortfolioProjectShell.module.scss";
  *   skipPanelIntro?: boolean,
  * }} props
  */
-export default function PortfolioProjectShell({
-	slug,
-	project: providedProject,
-	hideArcNavigation = false,
-	hideProjectNavigation = false,
-	skipPanelIntro = false,
-}) {
+export default function PortfolioProjectShell({ slug, project: providedProject, hideArcNavigation = false, hideProjectNavigation = false, skipPanelIntro = false }) {
 	const project = providedProject ?? getProjectBySlug(slug);
 	if (!project) {
 		return null;
 	}
-	return (
-		<PortfolioProjectShellInner
-			project={project}
-			hideArcNavigation={hideArcNavigation}
-			hideProjectNavigation={hideProjectNavigation}
-			skipPanelIntro={skipPanelIntro}
-		/>
-	);
+	return <PortfolioProjectShellInner project={project} hideArcNavigation={hideArcNavigation} hideProjectNavigation={hideProjectNavigation} skipPanelIntro={skipPanelIntro} />;
 }
 
 PortfolioProjectShell.propTypes = {
@@ -75,12 +57,7 @@ function PortfolioProjectShellInner({ project, hideArcNavigation, hideProjectNav
 		initialScrollProgress: 0,
 		initialStageProgress: 0,
 	});
-	const stageApi = useStageProgress(
-		project,
-		stateApi.activeStateIndex,
-		stateApi.commitStageStep,
-		0,
-	);
+	const stageApi = useStageProgress(project, stateApi.activeStateIndex, stateApi.commitStageStep, 0);
 	const investigationApi = useInvestigationMode(project, stateApi.activeStateId);
 	const lifecycle = useProjectLifecycle(project);
 	const onScrollProgressRef = useRef(stateApi.onScrollProgress);
@@ -100,60 +77,51 @@ function PortfolioProjectShellInner({ project, hideArcNavigation, hideProjectNav
 	usePortfolioStoreBridge(project, stateApi, stageApi, investigationApi);
 	const stateGoToState = stateApi.goToState;
 
-	const goToState = useCallback((stateId) => {
-		const index = project.states.findIndex((state) => state.id === stateId);
-		if (index < 0) {
-			return;
-		}
-		const fromIndex = store.portfolioExperience.activeStateIndex ?? stateApi.activeStateIndex;
-		const applyState = (mosaicToIndex) => {
-			const state = project.states[mosaicToIndex];
-			if (!state) {
+	const goToState = useCallback(
+		(stateId) => {
+			const index = project.states.findIndex((state) => state.id === stateId);
+			if (index < 0) {
 				return;
 			}
-			const lastIndex = project.states.length - 1;
-			if (!isMobileLayout) {
-				jumpCaseExperienceToStateIndex(mosaicToIndex, project.states.length);
+			const fromIndex = store.portfolioExperience.activeStateIndex ?? stateApi.activeStateIndex;
+			const applyState = (mosaicToIndex) => {
+				const state = project.states[mosaicToIndex];
+				if (!state) {
+					return;
+				}
+				const lastIndex = project.states.length - 1;
+				if (!isMobileLayout) {
+					jumpCaseExperienceToStateIndex(mosaicToIndex, project.states.length);
+					stateGoToState(state.id);
+					return;
+				}
+				if (lastIndex > 0 && mosaicToIndex === lastIndex) {
+					stopCaseScrollAtProgress(project.states[lastIndex].scrollAnchor ?? 1);
+					stateGoToState(state.id);
+					return;
+				}
+				const anchor = state.scrollAnchor ?? mosaicToIndex / Math.max(project.states.length - 1, 1);
+				stopCaseScrollAtProgress(anchor);
 				stateGoToState(state.id);
+			};
+
+			if (renderTextInScene && !isMobileLayout && Number.isInteger(fromIndex) && !isCasePanelHudRevealBusy()) {
+				requestCaseStageClickMosaic({
+					fromIndex,
+					toIndex: index,
+					statesCount: project.states.length,
+					applyState,
+				});
 				return;
 			}
-			if (lastIndex > 0 && mosaicToIndex === lastIndex) {
-				stopCaseScrollAtProgress(project.states[lastIndex].scrollAnchor ?? 1);
-				stateGoToState(state.id);
-				return;
+
+			if (isCaseStageClickMosaicActive()) {
+				cancelCaseStageClickMosaic();
 			}
-			const anchor = state.scrollAnchor ?? mosaicToIndex / Math.max(project.states.length - 1, 1);
-			stopCaseScrollAtProgress(anchor);
-			stateGoToState(state.id);
-		};
-
-		if (
-			renderTextInScene
-			&& !isMobileLayout
-			&& Number.isInteger(fromIndex)
-			&& !isCasePanelHudRevealBusy()
-		) {
-			requestCaseStageClickMosaic({
-				fromIndex,
-				toIndex: index,
-				statesCount: project.states.length,
-				applyState,
-			});
-			return;
-		}
-
-		if (isCaseStageClickMosaicActive()) {
-			cancelCaseStageClickMosaic();
-		}
-		applyState(index);
-	}, [
-		isMobileLayout,
-		project.states,
-		renderTextInScene,
-		stateApi.activeStateIndex,
-		stateGoToState,
-		stopCaseScrollAtProgress,
-	]);
+			applyState(index);
+		},
+		[isMobileLayout, project.states, renderTextInScene, stateApi.activeStateIndex, stateGoToState, stopCaseScrollAtProgress],
+	);
 
 	useEffect(() => {
 		if (!isCaseStageClickMosaicActive()) {
@@ -184,12 +152,15 @@ function PortfolioProjectShellInner({ project, hideArcNavigation, hideProjectNav
 
 	useEffect(() => {
 		store.openedCase = true;
+		resetStageProgress();
 		store.scroll = 0;
 		store.caseScrollTarget = 0;
 		store.portfolioExperience.activeStateIndex = 0;
 		store.portfolioExperience.activeStateId = project.states[0]?.id ?? null;
 		store.portfolioExperience.stageProgress = 0;
 		store.portfolioExperience.stageProgressTarget = 0;
+		store.portfolioExperience.storyProgress = 0;
+		store.portfolioExperience.storyProgressTarget = 0;
 
 		if (!isMobileLayout) {
 			startCaseExperienceRuntime({
@@ -209,16 +180,11 @@ function PortfolioProjectShellInner({ project, hideArcNavigation, hideProjectNav
 		return () => {
 			stopCaseExperienceRuntime();
 			cancelCaseStageClickMosaic();
+			resetStageProgress();
 			store.scroll = 0;
 			store.caseScrollTarget = 0;
 		};
-	}, [
-		hideProjectNavigation,
-		isMobileLayout,
-		project,
-		stateApi.commitStageStep,
-		stopCaseScrollAtProgress,
-	]);
+	}, [hideProjectNavigation, isMobileLayout, project, stateApi.commitStageStep, stopCaseScrollAtProgress]);
 
 	const contextValue = useMemo(
 		() => ({

@@ -3,10 +3,7 @@ import { ABOUT_MATERIALS, cloneAboutMaterialsConfig } from "./aboutSceneConfig.j
 import { createAboutFrontGlassMaterial } from "./aboutFrontGlassMaterial.js";
 import { createAboutSideHudMaterial } from "./aboutSideHudMaterial.js";
 import { createAboutHeartBodyMaterial } from "./aboutHeartBodyMaterial.js";
-import {
-	bakeOuterCellRibAttribute,
-	createAboutOuterCellMaterial,
-} from "./aboutOuterCellMaterial.js";
+import { createAboutOuterCellMaterial } from "./aboutOuterCellMaterial.js";
 import { ABOUT_DISSOLVE_GLSL } from "./aboutDissolveShader.js";
 import {
 	createAboutNeonLineMaterial,
@@ -14,7 +11,9 @@ import {
 	isAboutHeartMetalMeshName,
 	isAboutHeartNeonMeshName,
 	isAboutNeonMaterialName,
+	isAboutOuterCellBodyMaterialName,
 	isAboutOuterCellMeshName,
+	isAboutOuterCellSeamMaterialName,
 	logAboutHeartGeometryReport,
 } from "./aboutNeonMaterial.js";
 
@@ -104,9 +103,17 @@ export function createAboutModelMaterials(config = ABOUT_MATERIALS) {
 	const neon = createAboutNeonMaterial(neonCfg);
 	const neonLine = createAboutNeonLineMaterial(neonCfg);
 	const heartBody = createAboutHeartBodyMaterial(cfg.heartBody);
+	const cellDissolve = cellDissolveConfig(cfg.stage2Dissolve);
 	const outerCell = createAboutOuterCellMaterial({
 		...cfg.outerCell,
-		dissolve: cellDissolveConfig(cfg.stage2Dissolve),
+		fibersMode: "never",
+		dissolve: cellDissolve,
+	});
+	/** Blender material name `OuterCellSeam` — microchips on authored seam meshes. */
+	const outerCellSeam = createAboutOuterCellMaterial({
+		...cfg.outerCell,
+		fibersMode: "always",
+		dissolve: cellDissolve,
 	});
 	return {
 		frontGlass: plateGlass,
@@ -117,6 +124,10 @@ export function createAboutModelMaterials(config = ABOUT_MATERIALS) {
 		BaseMaterial: createAboutDarkMaterial(cfg.dark),
 		heartBody,
 		outerCell,
+		/** Clean plate body if authored as material OuterCell. */
+		OuterCell: outerCell,
+		OuterCellSeam: outerCellSeam,
+		outerCellSeam,
 		/** GLTF material name from Heart collection. */
 		NeonMaterial: neon,
 		neon,
@@ -272,11 +283,21 @@ export function applyAboutMaterialsConfig(materialsByKey, config) {
 		heartBody.userData.applyConfig(cfg.heartBody);
 	}
 
-	const outerCell = materialsByKey.outerCell;
+	const cellDissolve = cellDissolveConfig(cfg.stage2Dissolve);
+	const outerCell = materialsByKey.outerCell ?? materialsByKey.OuterCell;
 	if (outerCell?.userData?.isAboutOuterCell) {
 		outerCell.userData.applyConfig({
 			...cfg.outerCell,
-			dissolve: cellDissolveConfig(cfg.stage2Dissolve),
+			fibersMode: "never",
+			dissolve: cellDissolve,
+		});
+	}
+	const outerCellSeam = materialsByKey.OuterCellSeam ?? materialsByKey.outerCellSeam;
+	if (outerCellSeam?.userData?.isAboutOuterCell) {
+		outerCellSeam.userData.applyConfig({
+			...cfg.outerCell,
+			fibersMode: "always",
+			dissolve: cellDissolve,
 		});
 	}
 
@@ -308,6 +329,7 @@ export function applyAboutModelMaterials(root, config = ABOUT_MATERIALS) {
 		byName.BaseMaterial,
 		byName.heartBody,
 		byName.outerCell,
+		byName.OuterCellSeam,
 		byName.NeonMaterial,
 		byName.NeonLineMaterial,
 	].filter(Boolean);
@@ -327,6 +349,19 @@ export function applyAboutModelMaterials(root, config = ABOUT_MATERIALS) {
 			object.isMesh || object.isLine || object.isLineSegments;
 		if (!isDrawable) return;
 		if (object.name === "PlateDepthPrepass" || object.name === "FrontDepthPrepass") return;
+		/**
+		 * Blender authored epic title mesh — keep GLTF material (do not remap to heart metal).
+		 */
+		if (
+			object.userData?.aboutEpicTextPlane
+			|| /^(About)?EpicTextPlane([._-]?RU|[._-]?EN|[._-]?ZH)?$/i.test(object.name)
+		) {
+			object.visible = false;
+			object.frustumCulled = false;
+			object.renderOrder = 8;
+			object.userData.aboutEpicTextPlane = true;
+			return;
+		}
 
 		const isFrontPlate = object.name === "Front" || object.name === "Back";
 		const isSideHud =
@@ -350,13 +385,12 @@ export function applyAboutModelMaterials(root, config = ABOUT_MATERIALS) {
 			target = byName.GlassMaterial;
 		} else if (object.name === "InsideSmall") {
 			target = byName.BaseMaterial;
-		} else if (isOuterCell) {
-			target = byName.outerCell;
 		} else if (isHeartMetal) {
 			target = byName.heartBody;
 		} else if (isHeartNeon) {
 			target = isLineObj ? byName.NeonLineMaterial : byName.NeonMaterial;
 		}
+		/** OUTER_cell*: resolve per material slot (OuterCellSeam vs body) — no blanket target. */
 
 		if (isSideHud || isEdgeGuide) {
 			object.userData.sharesGeometry = true;
@@ -365,11 +399,22 @@ export function applyAboutModelMaterials(root, config = ABOUT_MATERIALS) {
 		const slots = Array.isArray(object.material) ? object.material : [object.material];
 		const next = slots.map((material) => {
 			if (!material) return material;
-			let replacement = target;
-			if (!replacement && isAboutNeonMaterialName(material.name)) {
+			let replacement = null;
+			const matName = material.name || "";
+			if (isAboutOuterCellSeamMaterialName(matName)) {
+				replacement = byName.OuterCellSeam;
+			} else if (isAboutOuterCellBodyMaterialName(matName)) {
+				replacement = byName.OuterCell;
+			} else if (isOuterCell && (matName === "GlassMaterial" || !matName)) {
+				/** Body plates often ship as GlassMaterial in the GLB — map to clean OuterCell. */
+				replacement = byName.outerCell;
+			} else if (target) {
+				replacement = target;
+			} else if (isAboutNeonMaterialName(matName)) {
 				replacement = isLineObj ? byName.NeonLineMaterial : byName.NeonMaterial;
+			} else {
+				replacement = byName[matName];
 			}
-			if (!replacement) replacement = byName[material.name];
 			if (!replacement) return material;
 			if (!replaced.has(material)) {
 				replaced.add(material);
@@ -485,9 +530,11 @@ export function applyAboutModelMaterials(root, config = ABOUT_MATERIALS) {
 			object.renderOrder = 1;
 		} else if (isInsideHost) {
 			object.renderOrder = 2;
-		} else if (isOuterCell && primary === byName.outerCell) {
-			bakeOuterCellRibAttribute(object, root);
-			object.renderOrder = 3;
+		} else if (
+			isOuterCell
+			&& (primary === byName.outerCell || primary === byName.OuterCell || primary === byName.OuterCellSeam)
+		) {
+			object.renderOrder = primary === byName.OuterCellSeam ? 4 : 3;
 		} else if (isHeartMetal && primary === byName.heartBody) {
 			object.renderOrder = 3;
 		} else if (

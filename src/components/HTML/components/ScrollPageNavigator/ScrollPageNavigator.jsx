@@ -261,6 +261,8 @@ function ScrollNavigatorItem({
 	const activeRef = useRef(false);
 	const clickPinnedRef = useRef(false);
 	const clickTransitionSeenRef = useRef(false);
+	/** Click-hex left this route before `currentId` commit — skip duplicate disappear. */
+	const clickLeaveStartedRef = useRef(false);
 	const mountedRef = useRef(false);
 	const renderedLabelRef = useRef(null);
 	const disappearTimerRef = useRef(0);
@@ -272,6 +274,8 @@ function ScrollNavigatorItem({
 	const showPortfolioMarker = isPortfolio && !item.isClipped;
 	const isActive = item.isRouteLabelActive === true;
 	const isItemClickTarget = clickPhase !== "idle" && clickTargetId === item.id;
+	const isClickLeaving =
+		isActive && clickPhase !== "idle" && clickTargetId != null && clickTargetId !== item.id;
 	const circleGlow = resolveCircleGlow(item.relative);
 	const circleOpacity = resolveNavigatorCircleOpacity(item.relative);
 
@@ -339,16 +343,48 @@ function ScrollNavigatorItem({
 			if (!hoveredRef.current) {
 				playLabelSnake("appear");
 			}
-		} else if (!isActive && wasActive && !hoveredRef.current) {
-			hideLabelAnimated();
+		} else if (!isActive && wasActive) {
+			if (clickLeaveStartedRef.current) {
+				clickLeaveStartedRef.current = false;
+			} else if (!hoveredRef.current) {
+				hideLabelAnimated();
+			}
 		}
 	}, [hideLabelAnimated, isActive, label, playLabelSnake, showLabel]);
+
+	/**
+	 * Click navigation: snake the current label away as soon as hex arms —
+	 * do not wait for `currentId` commit (when the target label appears).
+	 * Wheel scroll still swaps labels at commit via the isActive effect above.
+	 */
+	useEffect(() => {
+		if (isClickLeaving) {
+			if (!clickLeaveStartedRef.current) {
+				clickLeaveStartedRef.current = true;
+				hideLabelAnimated();
+			}
+			return;
+		}
+
+		// Hex cancelled / reversed — restore the still-current route label.
+		if (clickLeaveStartedRef.current && clickPhase === "idle" && isActive) {
+			clickLeaveStartedRef.current = false;
+			showLabel();
+			if (!hoveredRef.current) {
+				playLabelSnake("appear");
+			}
+		}
+	}, [clickPhase, hideLabelAnimated, isActive, isClickLeaving, playLabelSnake, showLabel]);
 
 	useEffect(() => () => clearDisappearTimer(), [clearDisappearTimer]);
 
 	const handlePointerEnter = useCallback(() => {
 		hoveredRef.current = true;
 		setIsHovered(true);
+		// Leaving via click-hex: do not resurrect the old route label on stray hover.
+		if (clickLeaveStartedRef.current) {
+			return;
+		}
 		showLabel();
 		setNavigatorCursorAnchor(item.key, circleRef.current);
 		playLabelSnake(activeRef.current ? "hover" : "appear");
@@ -360,7 +396,7 @@ function ScrollNavigatorItem({
 		if (!clickPinnedRef.current) {
 			clearNavigatorCursorAnchor(item.key);
 		}
-		if (!activeRef.current) {
+		if (!activeRef.current && !clickLeaveStartedRef.current) {
 			hideLabelAnimated();
 		}
 	}, [hideLabelAnimated, item.key]);

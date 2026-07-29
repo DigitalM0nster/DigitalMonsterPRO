@@ -11,13 +11,6 @@ export const ABOUT_MODEL_URL = "/models/aboutModel/AboutUsModel.glb";
  */
 export const ABOUT_MODEL_TARGET_SIZE = 0;
 
-/**
- * Extra Euler (degrees, Three.js XYZ) applied to the loaded GLB before centering.
- * Was historically +90° X (flat XZ asset → face camera). Current Blender authoring
- * is already upright after glTF — keep 0 so site matches Blender.
- */
-export const ABOUT_MODEL_ASSET_EULER_DEG = { x: 0, y: 0, z: 0 };
-
 export const ABOUT_COLORS = {
 	halo: 0x061428,
 	dark: 0x050a14,
@@ -38,14 +31,21 @@ export const ABOUT_PARTICLES = {
 	opacity: 1,
 	color: ABOUT_COLORS.particle,
 	/**
-	 * White PCB appears on stage 2.5→3 (story 1.5→2), fixed yaw −45°.
+	 * White PCB appears on stage 2.5→3 (story 1.5→2).
+	 * Orientation follows InsideLarge / Blender (no site yaw).
 	 * appearMode: 0 soft · 1 seed · 2 scan · 3 spark · 4 center→out · 5 glitch.
 	 */
 	revealStoryStart: 1.5,
 	revealStoryEnd: 2,
-	yawDeg: -45,
-	yawAxis: [0, 1, 0],
 	appearMode: 4,
+	/**
+	 * Soft-clear PCB particles on the epic-text side during stage 3 (story 3→…).
+	 * Center tracks AboutEpicTextPlane; falls back to local +X wedge.
+	 */
+	textZoneClearStoryStart: 3,
+	textZoneClearStoryEnd: 3.45,
+	textZoneRadius: 0.85,
+	textZoneSoft: 0.35,
 	/**
 	 * Inner rim = outer silhouette × innerScale.
 	 * (InsideLarge / EdgeForParticles are often outer-rim shells without hole verts.)
@@ -132,7 +132,7 @@ export const ABOUT_MATERIALS = {
 		energySpeed: 0.3,
 	},
 	/**
-	 * OUTER_cell* — clean faces; sharp angular fibers on baked thickness ribs only.
+	 * OUTER_cell* body plate (clean). Seams use Blender material `OuterCellSeam`.
 	 */
 	outerCell: {
 		color: "#070c14",
@@ -162,48 +162,7 @@ export const ABOUT_MATERIALS = {
 		opacity: 1,
 	},
 	/**
-	 * Scroll scatter for `OUTER_cell*` (driven by aboutExperience.progress).
-	 * Detach during stage 1 (story 0→1).
-	 */
-	outerCellScatter: {
-		start: 0,
-		end: 1,
-		distance: 0.45,
-		lift: 0.14,
-		scaleOut: 0.85,
-		/** Extra push during stage 2→3 (story 1→2). */
-		stage2Distance: 0.55,
-		stage2Lift: 0.12,
-	},
-	/**
-	 * Front plate advance toward camera (stage 1 + further on stage 2).
-	 */
-	frontAdvance: {
-		start: 0,
-		end: 1,
-		distance: 0.55,
-		stage2Distance: 0.7,
-	},
-	/**
-	 * Back plate retreat away from camera on stage 2→3 (story 1→2).
-	 */
-	backRetreat: {
-		storyStart: 1,
-		storyEnd: 2,
-		distance: 0.65,
-	},
-	/**
-	 * Processor (Heart*) rotates on stage 2→3 (story 1→2).
-	 * Blue EdgeForParticles do not spin — dissolve in place.
-	 */
-	heartScale: {
-		storyStart: 1,
-		storyEnd: 2,
-		angleDeg: -225,
-		axis: [0, 1, 0],
-	},
-	/**
-	 * Disappear shader during stage 1 (local 0.5→1.0).
+	 * Disappear shaders (mesh TRS lives in Blender GLB clips).
 	 * mode: Front + FrontBackSide (0 = hexTransition)
 	 * cellMode: OUTER_cell (1 = scan wipe)
 	 * backMode: Back + BackBackSide on stage 2→3 (3 = Energy vapor = anim 4)
@@ -213,6 +172,9 @@ export const ABOUT_MATERIALS = {
 		mode: 0,
 		cellMode: 1,
 		backMode: 3,
+		/** Back dissolve window (story) — matches aboutBackDissolveSound. */
+		backStoryStart: 1,
+		backStoryEnd: 2,
 		edge: 0.08,
 		glow: 1.45,
 	},
@@ -255,35 +217,15 @@ export function cloneAboutMaterialsConfig(source = ABOUT_MATERIALS) {
 		heartBody: { ...source.heartBody },
 		outerCell: { ...(source.outerCell ?? ABOUT_MATERIALS.outerCell) },
 		neon: { ...source.neon },
-		outerCellScatter: { ...source.outerCellScatter },
-		frontAdvance: { ...(source.frontAdvance ?? ABOUT_MATERIALS.frontAdvance) },
-		backRetreat: { ...(source.backRetreat ?? ABOUT_MATERIALS.backRetreat) },
-		heartScale: { ...(source.heartScale ?? ABOUT_MATERIALS.heartScale) },
 		stage2Dissolve: { ...(source.stage2Dissolve ?? ABOUT_MATERIALS.stage2Dissolve) },
 		edgeParticles: { ...source.edgeParticles },
 	};
 }
 
-/**
- * Pointer parallax on the About model (NDC pointer −1…1).
- * Camera stays on the authored pose; the model rotates around lookAt
- * as if the camera had orbited around it.
- */
-export const ABOUT_MODEL_PARALLAX = {
-	/** Horizontal orbit degrees at |pointer.x| = 1. */
-	yawDeg: 3.2,
-	/** Vertical orbit degrees at |pointer.y| = 1. */
-	pitchDeg: 2.2,
-	/** Exponential smooth toward pointer per frame. */
-	smooth: 0.08,
-	/** Mobile / short: damp (touch has no stable hover). */
-	mobileScale: 0.35,
-};
-
 export const ABOUT_LAYOUT = {
 	/**
 	 * Framing baseline. Desktop root at 0 — matches Blender-authored stage poses
-	 * (camera/model centered on origin). Stage poses still offset via ABOUT_STAGE_POSES.
+	 * (camera/model centered on origin). Story motion comes from GLB animation clips.
 	 */
 	desktop: {
 		rootX: 0,

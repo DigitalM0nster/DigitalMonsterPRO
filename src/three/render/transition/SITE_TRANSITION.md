@@ -60,8 +60,9 @@ publishSiteRouteTransition(fromPath, toPath, { mode })
 
 | From → to | Chrome action |
 |-----------|----------------|
-| Case → non-case | Full HUD mosaic exit + **arc orbit exit** (same path as appear) |
-| Case → case | Band HUD mosaic only; **arc stays** (session alive) |
+| Case → non-case (hex) | **Arc orbit exit**; left HUD stays for hex bake, **snap-release** on route confirm (no pre-hex mosaic exit) |
+| Case → non-case (html-fallback) | Full HUD mosaic exit + arc orbit exit |
+| Case → case | Hold left HUD for hex bake (no mosaic mid-wipe); **arc stays** (session alive) |
 | Non-case → anywhere | No case chrome exit |
 
 Idempotent: second publish while already exiting does not restart mid-animation.
@@ -82,10 +83,10 @@ Idempotent: second publish while already exiting does not restart mid-animation.
 | Element | Enter | Leave |
 |---------|-------|-------|
 | Right case arc | Orbit park → rest + opacity | Orbit → park + opacity (module session) |
-| Left case HUD | Mosaic enter after `hudReady`, `enterProgress=0` first | Mosaic exit (full or band) |
+| Left case HUD | Mosaic enter after `hudReady`, `enterProgress=0` first | Hex leave (site or case→case scroll): hold + bake into hex RT, release after confirm; html-fallback: full mosaic exit |
 | Ring pages | Dormant → `playEnterAnimation` after next-only reset | Live as `previous` for reverse; next-only dormant |
 | Global chrome (left menu, dots, locale) | Always mounted | Not page-leave mosaic; not Y-gated |
-| Home «листайте вниз» | Home visual page only | Hide when `currentPage !== "/"` or `openedCase` — never gate on `carousel.currentId` (stale after home→case) |
+| Home «листайте вниз» | Home visual page only | Hide when `currentPage !== "/"` or `openedCase`, **or** ring `currentId !== "home"` at rest (commit updates id before React `displayPathname` — otherwise one frame of screen overlay on portfolio). Never gate on `currentId` *alone* (stale after home→case) |
 | Case stage rail | Opacity follows full HUD `enterProgress` | Outside mosaic bounds — must fade via `stageRailOpacity`, not pop at 1 |
 
 Unmount / `opacity=0` / `visible=false` is allowed only **after** the leave animation finishes (or for elements that were never shown).

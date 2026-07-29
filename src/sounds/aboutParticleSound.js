@@ -31,7 +31,7 @@ const LOOP_REPEAT_COUNT = 2;
 /** Match ABOUT_PARTICLES.revealStoryStart / revealStoryEnd (white PCB only). */
 const PCB_REVEAL_START = 1.5;
 const PCB_REVEAL_END = 2;
-/** Model approaches camera mainly on story 2→4 (see ABOUT_STAGE_POSES model.z). */
+/** Model approaches camera mainly on story 2→4 (AboutModelAction in GLB). */
 const PROXIMITY_START = 2;
 const PROXIMITY_END = 4;
 

@@ -7,70 +7,46 @@ import {
 
 const _box = new THREE.Box3();
 const _size = new THREE.Vector3();
-const _localCenter = new THREE.Vector3();
-const _worldCenter = new THREE.Vector3();
-const _heartCenter = new THREE.Vector3();
-const _outwardWorld = new THREE.Vector3();
-const _outwardLocal = new THREE.Vector3();
-const _thickLocal = new THREE.Vector3();
-const _invWorld = new THREE.Matrix4();
+const _seamLocal = new THREE.Vector3();
 const _normal = new THREE.Vector3();
 
 /**
- * Bake per-vertex `aRib`: 1 on thickness edges, 0 on outer/inner faces.
- * Face = normal aligned with heart-outward and/or plate thickness (AABB).
+ * Bake per-vertex `aRib` as seam mask:
+ *   1 = end-cap between adjacent OUTER_cell plates (where microchips draw)
+ *   0 = top/bottom plate + long inner/outer walls (clean)
+ *
+ * Seam ≈ normal along the longest local AABB axis (narrow cross-section
+ * faces that point into the gaps between plates).
  */
-export function bakeOuterCellRibAttribute(mesh, modelRoot = null) {
+export function bakeOuterCellRibAttribute(mesh, _modelRoot = null) {
 	const geom = mesh?.geometry;
 	if (!geom?.attributes?.normal) return;
 
 	mesh.updateWorldMatrix(true, false);
 	if (!geom.boundingBox) geom.computeBoundingBox();
 	_box.copy(geom.boundingBox);
-	_box.getCenter(_localCenter);
 	_box.getSize(_size);
-	_worldCenter.copy(_localCenter).applyMatrix4(mesh.matrixWorld);
 
-	if (modelRoot) {
-		modelRoot.getWorldPosition(_heartCenter);
-	} else {
-		_heartCenter.set(0, 0, 0);
-	}
-
-	_outwardWorld.copy(_worldCenter).sub(_heartCenter);
-	if (_outwardWorld.lengthSq() < 1e-8) {
-		_outwardWorld.set(0, 0, 1);
-	} else {
-		_outwardWorld.normalize();
-	}
-
-	_invWorld.copy(mesh.matrixWorld).invert();
-	_outwardLocal.copy(_outwardWorld).transformDirection(_invWorld).normalize();
-
-	/** Thinnest local AABB axis ≈ plate thickness. */
-	if (_size.x <= _size.y && _size.x <= _size.z) _thickLocal.set(1, 0, 0);
-	else if (_size.y <= _size.x && _size.y <= _size.z) _thickLocal.set(0, 1, 0);
-	else _thickLocal.set(0, 0, 1);
+	/** Longest AABB axis → end-cap / seam normal. */
+	if (_size.x >= _size.y && _size.x >= _size.z) _seamLocal.set(1, 0, 0);
+	else if (_size.y >= _size.x && _size.y >= _size.z) _seamLocal.set(0, 1, 0);
+	else _seamLocal.set(0, 0, 1);
 
 	const normals = geom.getAttribute("normal");
 	const rib = new Float32Array(normals.count);
-	let ribCount = 0;
+	let seamCount = 0;
 	for (let i = 0; i < normals.count; i += 1) {
 		_normal.set(normals.getX(i), normals.getY(i), normals.getZ(i)).normalize();
-		const faceAlign = Math.max(
-			Math.abs(_normal.dot(_outwardLocal)),
-			Math.abs(_normal.dot(_thickLocal)),
-		);
-		/** Hard cut: faces clean; only near-perpendicular normals = ribs. */
-		const isRib = faceAlign < 0.62;
-		rib[i] = isRib ? 1 : 0;
-		if (isRib) ribCount += 1;
+		const seamAlign = Math.abs(_normal.dot(_seamLocal));
+		const isSeam = seamAlign >= 0.55;
+		rib[i] = isSeam ? 1 : 0;
+		if (isSeam) seamCount += 1;
 	}
 
 	/**
-	 * If almost everything classified as rib, normals/axes are inverted — flip.
+	 * Degenerate meshes: if almost nothing (or everything) marked seam, flip.
 	 */
-	if (ribCount > normals.count * 0.78) {
+	if (seamCount < normals.count * 0.02 || seamCount > normals.count * 0.78) {
 		for (let i = 0; i < rib.length; i += 1) rib[i] = 1 - rib[i];
 	}
 
@@ -79,9 +55,14 @@ export function bakeOuterCellRibAttribute(mesh, modelRoot = null) {
 }
 
 /**
- * OUTER_cell* — clean face plates; sharp angular fibers only on baked ribs.
+ * OUTER_cell body / OuterCellSeam materials.
+ * @param {{ fibersMode?: "always" | "never" | "attrib" }} [cfg]
+ *   - always → Blender material OuterCellSeam (whole mesh is seam)
+ *   - never  → clean plate body (OuterCell / OUTER_cell*)
+ *   - attrib → legacy aRib mask (unused when seams are separate meshes)
  */
 export function createAboutOuterCellMaterial(cfg = {}) {
+	const fibersMode = cfg.fibersMode === "always" || cfg.fibersMode === "attrib" ? cfg.fibersMode : "never";
 	const uniforms = {
 		uColor: { value: new THREE.Color(cfg.color ?? "#070c14") },
 		uSheenColor: { value: new THREE.Color(cfg.sheenColor ?? "#1a3348") },
@@ -94,6 +75,8 @@ export function createAboutOuterCellMaterial(cfg = {}) {
 		uFiberScale: { value: cfg.fiberScale ?? 56 },
 		uFiberDensity: { value: cfg.fiberDensity ?? 0.55 },
 		uFiberIntensity: { value: cfg.fiberIntensity ?? 4.2 },
+		/** 0 = never, 1 = always, 2 = aRib attribute */
+		uFibersMode: { value: fibersMode === "always" ? 1 : fibersMode === "attrib" ? 2 : 0 },
 		uTime: { value: 0 },
 		...createAboutDissolveUniforms(cfg.dissolve ?? {}),
 	};
@@ -106,7 +89,7 @@ export function createAboutOuterCellMaterial(cfg = {}) {
 		side: THREE.DoubleSide,
 		toneMapped: false,
 		blending: THREE.NormalBlending,
-		/** Missing aRib → treat as face (no fibers). */
+		/** Missing aRib → no seam → no fibers. */
 		defaultAttributeValues: {
 			aRib: [0],
 		},
@@ -140,6 +123,7 @@ export function createAboutOuterCellMaterial(cfg = {}) {
 			uniform float uFiberScale;
 			uniform float uFiberDensity;
 			uniform float uFiberIntensity;
+			uniform float uFibersMode;
 			uniform float uTime;
 
 			varying vec3 vWorldNormal;
@@ -208,8 +192,10 @@ export function createAboutOuterCellMaterial(cfg = {}) {
 				float ndotv = clamp(abs(dot(N, V)), 0.0, 1.0);
 				float fresnel = pow(1.0 - ndotv, uRimPower);
 
-				/** Baked rib weight only — faces get zero fibers. */
-				float ribMask = step(0.5, vRib);
+				/** 0 never · 1 always (OuterCellSeam mesh) · 2 aRib attrib */
+				float seamMask = uFibersMode > 1.5
+					? step(0.5, vRib)
+					: (uFibersMode > 0.5 ? 1.0 : 0.0);
 
 				vec3 L = normalize(vec3(0.35, 0.85, 0.4));
 				float ndotl = clamp(dot(N, L), 0.0, 1.0);
@@ -218,17 +204,11 @@ export function createAboutOuterCellMaterial(cfg = {}) {
 				vec3 col = uColor;
 				col = mix(col, uSheenColor, 0.08 + ndotl * 0.12);
 				col += uSheenColor * sheen * 0.55;
-				col += uRimColor * fresnel * uRimIntensity * 0.28 * (1.0 - ribMask);
+				/** Subtle rim on clean plate body. */
+				col += uRimColor * fresnel * uRimIntensity * 0.22 * (1.0 - seamMask);
 
-				vec2 plateUv = vec2(
-					atan(vLocalPos.z, vLocalPos.x) * 0.3183 + 0.5,
-					vLocalPos.y * 0.55 + length(vLocalPos.xz) * 0.25 + 0.5
-				);
-
-				if (ribMask > 0.5) {
-					/**
-					 * Triplanar-ish local UV — avoid atan/Y columns on vertical ribs.
-					 */
+				/** Microchips on OuterCellSeam (authored) / aRib seams. */
+				if (seamMask > 0.5) {
 					vec3 Lp = vLocalPos;
 					vec3 an = abs(normalize(vLocalNormal));
 					vec2 uvA = Lp.zy;
@@ -240,16 +220,15 @@ export function createAboutOuterCellMaterial(cfg = {}) {
 					float wSum = max(1e-4, wA + wB + wC);
 					vec2 fiberUv = (uvA * wA + uvB * wB + uvC * wC) / wSum;
 					fiberUv += hash21(floor(Lp.xy * 3.0 + Lp.z * 2.0)) * 0.15;
-					plateUv = fiberUv;
 
 					float f1 = irregularFibers(fiberUv, uFiberScale, uFiberDensity);
 					float f2 = irregularFibers(fiberUv.yx * 1.13 + 0.37, uFiberScale * 1.35, uFiberDensity * 0.8);
-					float fibers = max(f1, f2 * 0.75);
+					float fibers = max(f1, f2 * 0.75) * seamMask;
 					col += uFiberColor * fibers * uFiberIntensity;
 					col += vec3(0.85, 0.97, 1.0) * fibers * uFiberIntensity * 0.55;
 				}
 
-				/** Stable surface UV — fiber mapping must not scramble hexTransition tiling. */
+				/** Stable surface UV — must not scramble hexTransition tiling. */
 				vec2 dissolveUv = vec2(
 					atan(vLocalPos.z, vLocalPos.x) * 0.3183 + 0.5,
 					vLocalPos.y * 0.55 + length(vLocalPos.xz) * 0.25 + 0.5
@@ -265,6 +244,7 @@ export function createAboutOuterCellMaterial(cfg = {}) {
 	});
 
 	material.userData.isAboutOuterCell = true;
+	material.userData.isAboutOuterCellSeam = fibersMode === "always";
 	material.userData.uniforms = uniforms;
 
 	material.userData.applyConfig = (next) => {
@@ -279,6 +259,9 @@ export function createAboutOuterCellMaterial(cfg = {}) {
 		if (next.fiberScale != null) uniforms.uFiberScale.value = next.fiberScale;
 		if (next.fiberDensity != null) uniforms.uFiberDensity.value = next.fiberDensity;
 		if (next.fiberIntensity != null) uniforms.uFiberIntensity.value = next.fiberIntensity;
+		if (next.fibersMode === "always") uniforms.uFibersMode.value = 1;
+		else if (next.fibersMode === "attrib") uniforms.uFibersMode.value = 2;
+		else if (next.fibersMode === "never") uniforms.uFibersMode.value = 0;
 		if (next.dissolve) applyAboutDissolveConfig(uniforms, next.dissolve);
 	};
 

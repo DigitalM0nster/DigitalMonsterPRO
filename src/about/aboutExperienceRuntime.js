@@ -1,4 +1,3 @@
-import { subscribeKey } from "valtio/utils";
 import { store } from "@/store.jsx";
 import { CAROUSEL_WHEEL_PROGRESS_FACTOR } from "@/three/render/transition/carouselScroll.js";
 import { getSceneCarousel } from "@/three/render/transition/carouselPage.js";
@@ -31,7 +30,7 @@ import {
 import { reuploadAboutPanelHudWarmPool } from "@/about/warmAboutPanelHudUnderCurtain.js";
 import {
 	cancelAboutPanelHudLocaleMix,
-	playAboutPanelHudLocaleMix,
+	syncAboutPanelHudLocaleFromStore,
 } from "@/about/aboutPanelHudLocaleMix.js";
 import { SCENE_ID_TO_PAGE } from "@/three/render/transition/SceneCarousel.js";
 import { publishSiteRouteTransition } from "@/three/render/transition/siteTransitionIntent.js";
@@ -747,26 +746,7 @@ function createAboutExperienceRuntime() {
 		syncAboutPanelHudFromStory(story);
 	};
 
-	const unsubscribeLocale = subscribeKey(store, "siteLocale", () => {
-		if (disposed || !ownsInput()) {
-			return;
-		}
-		void playAboutPanelHudLocaleMix({
-			getStoryProgress: () => clampStoryVisual(current),
-			settleStory: (storyValue) => {
-				// Smooth pre-settle may pass in-between values; pin spring to them.
-				const next = clamp(Number(storyValue) || 0, 0, STORY_MAX);
-				current = next;
-				target = next;
-				scrollIntent = null;
-				publish();
-			},
-		}).then(() => {
-			if (!disposed) {
-				publish();
-			}
-		});
-	});
+	/** Locale chase is session-wide in aboutPanelHudLocaleMix (instant off-About). */
 
 	const onViewportResize = () => {
 		if (disposed || !ownsInput()) {
@@ -807,6 +787,7 @@ function createAboutExperienceRuntime() {
 					restPath: SCENE_ID_TO_PAGE[carousel.previousId] ?? "/portfolio",
 					restSceneId: carousel.previousId,
 					routeChanged: true,
+					storyMax: STORY_MAX,
 				};
 			}
 			if (rest > STORY_MAX) {
@@ -817,6 +798,7 @@ function createAboutExperienceRuntime() {
 					restPath: SCENE_ID_TO_PAGE[carousel.nextId] ?? "/contacts",
 					restSceneId: carousel.nextId,
 					routeChanged: true,
+					storyMax: STORY_MAX,
 				};
 			}
 			return {
@@ -826,6 +808,7 @@ function createAboutExperienceRuntime() {
 				restPath: "/about",
 				restSceneId: "about",
 				routeChanged: false,
+				storyMax: STORY_MAX,
 			};
 		},
 		apply: (value, delta) => {
@@ -878,8 +861,9 @@ function createAboutExperienceRuntime() {
 		liveResetHandler = null;
 		experience.active = false;
 		getSceneCarousel().clearAboutBoundaryDrive();
-		unsubscribeLocale();
 		cancelAboutPanelHudLocaleMix();
+		/** Snap HUD to store after cancelling an in-flight About wipe. */
+		void syncAboutPanelHudLocaleFromStore();
 		resetAboutPanelHudStorySession();
 		resetCaseStudyTextTransitionSound();
 		resetAboutFrontDissolveSound();

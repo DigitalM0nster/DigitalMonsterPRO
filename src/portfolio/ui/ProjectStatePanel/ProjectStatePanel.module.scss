@@ -94,7 +94,7 @@ $hudLine: rgba(0, 217, 214, 0.14);
 		font-weight: 300;
 		opacity: 0.62;
 		margin: 0 0 24px;
-		max-width: 36ch;
+		max-width: 40vw;
 	}
 
 	.tagRow {
@@ -115,7 +115,9 @@ $hudLine: rgba(0, 217, 214, 0.14);
 		letter-spacing: 0.14em;
 		text-transform: uppercase;
 		opacity: 0.55;
-		transition: border-color 0.2s ease, opacity 0.2s ease;
+		transition:
+			border-color 0.2s ease,
+			opacity 0.2s ease;
 
 		&:hover {
 			border-color: $hudLine;

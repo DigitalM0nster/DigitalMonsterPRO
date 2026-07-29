@@ -4,17 +4,16 @@ import { resolveSceneId } from "./resolveSceneId.js";
 import { getSceneCarousel } from "@/three/render/transition/carouselPage.js";
 import { isCarouselRoutePage } from "../render/transition/SceneCarousel.js";
 import { getHexRevealFromTop, getHexShaderProgress } from "../render/overlay/hexShaderProgress.js";
-import {
-	resolveHexHitOwnerSceneId,
-	yNormFromTopFromNdcY,
-} from "../render/overlay/hexHitOwnership.js";
+import { resolveHexHitOwnerSceneId, yNormFromTopFromNdcY } from "../render/overlay/hexHitOwnership.js";
 import { SceneCarouselLifecycleDispatcher } from "./lifecycle/SceneCarouselLifecycleDispatcher.js";
 import { DigitalWhaleScene } from "./home/DigitalWhaleScene.js";
 import { PlaceholderScene } from "./types/PlaceholderScene.js";
 import { PortfolioHubScene } from "./portfolio/PortfolioHubScene.js";
 import { Case1Scene } from "./portfolio/case1/Case1Scene.js";
 import { Case3Scene } from "./portfolio/case3/Case3Scene.js";
+import { BelkaScene } from "./portfolio/case6/BelkaScene.js";
 import { AboutScene } from "./about/AboutScene.js";
+import { ContactsScene } from "./contacts/ContactsScene.js";
 
 function createLayerRenderTarget(renderer, width, height, gfx) {
 	const dpr = renderer.getPixelRatio();
@@ -72,17 +71,17 @@ export class SceneManager {
 		this.scenes.set("portfolioHub", new PortfolioHubScene());
 		this.scenes.set("case01", new Case1Scene(this.renderer, this.store));
 		this.scenes.set("case04", new Case3Scene(this.renderer, this.store));
+		this.scenes.set("case06", new BelkaScene(this.renderer, this.store));
 		this.scenes.set("about", new AboutScene(this.store));
+		this.scenes.set("contacts", new ContactsScene(this.store));
 
 		for (const def of PLACEHOLDER_SCENE_DEFINITIONS) {
-			if (def.id === "case04" || def.id === "about") continue;
+			if (def.id === "case04" || def.id === "case06" || def.id === "about" || def.id === "contacts") continue;
 			this.scenes.set(def.id, new PlaceholderScene(def, this.store));
 		}
 
 		this.ready = false;
-		const sceneReadyPromises = [...this.scenes.values()]
-			.map((scene) => scene.readyPromise)
-			.filter((promise) => promise && typeof promise.then === "function");
+		const sceneReadyPromises = [...this.scenes.values()].map((scene) => scene.readyPromise).filter((promise) => promise && typeof promise.then === "function");
 		this.readyPromise = Promise.allSettled(sceneReadyPromises).then((results) => {
 			this.ready = true;
 			return results;
@@ -92,12 +91,7 @@ export class SceneManager {
 
 	isCarouselHubActive() {
 		const carousel = getSceneCarousel();
-		return (
-			isCarouselRoutePage(this.routeState.currentPage)
-			|| carousel.isHexNavigationActive()
-			|| carousel.isNavigationSettleActive()
-			|| carousel.isCaseBoundaryDrive()
-		);
+		return isCarouselRoutePage(this.routeState.currentPage) || carousel.isHexNavigationActive() || carousel.isNavigationSettleActive() || carousel.isCaseBoundaryDrive();
 	}
 
 	_getCarouselActiveIdSet() {
@@ -174,8 +168,7 @@ export class SceneManager {
 		// The confirmation callback can immediately start a queued transition.
 		// In that case this route is only an intermediate frame and must not play
 		// its normal scene-enter animation.
-		this.routeState.suppressSceneEnter =
-			(routeWasConfirmed || settleWasConfirmed) && carousel.isInteractionLocked();
+		this.routeState.suppressSceneEnter = (routeWasConfirmed || settleWasConfirmed) && carousel.isInteractionLocked();
 
 		for (const scene of this.scenes.values()) {
 			scene.setRouteState?.(this.routeState);
@@ -204,10 +197,12 @@ export class SceneManager {
 
 	getSceneOverlayState(sceneId) {
 		const scene = this.scenes.get(sceneId);
-		return scene?.getScreenOverlayState?.() ?? {
-			canvas: scene?.getScreenOverlayCanvas?.() ?? null,
-			revision: 0,
-		};
+		return (
+			scene?.getScreenOverlayState?.() ?? {
+				canvas: scene?.getScreenOverlayCanvas?.() ?? null,
+				revision: 0,
+			}
+		);
 	}
 
 	setSceneOverlayDomPresentation(sceneId, active, container) {
@@ -255,8 +250,18 @@ export class SceneManager {
 		return this.scenes.get(previewSceneId)?.panelHud ?? null;
 	}
 
-	/** Компилирует материалы всех сцен под прелоадером, отдавая браузеру кадр между сценами. */
-	async warmupPrograms() {
+	/** Two rAFs between compiles so preloader chrome can paint after a shader spike. */
+	_yieldWarmupBreath() {
+		return new Promise((resolve) => {
+			requestAnimationFrame(() => {
+				requestAnimationFrame(() => resolve());
+			});
+		});
+	}
+
+	/** Компилирует материалы сцен под прелоадером, отдавая браузеру кадр между сценами. */
+	async warmupPrograms(options = {}) {
+		const onlyIds = Array.isArray(options.sceneIds) && options.sceneIds.length ? new Set(options.sceneIds) : null;
 		const cameraState = {
 			position: this.camera.position.clone(),
 			quaternion: this.camera.quaternion.clone(),
@@ -272,12 +277,15 @@ export class SceneManager {
 				if (this.disposed) {
 					return;
 				}
+				if (onlyIds && !onlyIds.has(id)) {
+					continue;
+				}
 				const scene = sceneObj.getScene?.();
 				if (!scene) {
 					continue;
 				}
 
-				await new Promise((resolve) => requestAnimationFrame(() => resolve()));
+				await this._yieldWarmupBreath();
 
 				// Force-visible so prepare-hidden overlays (hero, case HUD, dormant hub)
 				// still compile under the preloader curtain.
@@ -483,10 +491,7 @@ export class SceneManager {
 
 			if (carouselHub) {
 				if (inCarousel) {
-					const sceneFrame = this._withInteractionFrame(
-						this._withSceneProgressFrame(frame, id, carousel),
-						acceptsPointer,
-					);
+					const sceneFrame = this._withInteractionFrame(this._withSceneProgressFrame(frame, id, carousel), acceptsPointer);
 					scene.setPointerState?.(pointerState);
 					scene.update?.(delta, sceneFrame);
 				} else if (scene.shouldKeepUpdating?.()) {
@@ -529,7 +534,7 @@ export class SceneManager {
 		}
 	}
 
-	/** Старт hex-перехода — reset target, подготовка source. */
+	/** Старт hex — reset target, mix-target warm, source leave prepare. */
 	onHexNavigationStart(carousel, payload) {
 		this._carouselLifecycle.onHexNavigationStart(carousel, payload);
 	}
@@ -570,9 +575,7 @@ export class SceneManager {
 		const skipIdleTarget = hexProgress <= 0.0001 || options.skipIdleTargetLayer === true;
 
 		const sourceModels = this._renderSceneLayer(sourceId, this._getMixLayerRenderTarget(sourceId, "a"));
-		const targetModels = sourceId === targetId || skipIdleTarget
-			? sourceModels
-			: this._renderSceneLayer(targetId, this._getMixLayerRenderTarget(targetId, "b"));
+		const targetModels = sourceId === targetId || skipIdleTarget ? sourceModels : this._renderSceneLayer(targetId, this._getMixLayerRenderTarget(targetId, "b"));
 
 		return {
 			sourceId,

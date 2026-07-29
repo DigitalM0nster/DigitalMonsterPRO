@@ -1,6 +1,12 @@
 import * as THREE from "three";
 import { ABOUT_COLORS, ABOUT_PARTICLES } from "./aboutSceneConfig.js";
 import { ABOUT_EDGE_DISSOLVE_GLSL } from "./aboutEdgeParticleDissolve.js";
+import { store } from "@/store.jsx";
+import { normalizeSiteLocale } from "@/utils/siteLocale.js";
+import { findAboutEpicTextPlane } from "./normalizeAboutGltfScene.js";
+
+const _zoneWorld = new THREE.Vector3();
+const _zoneLocal = new THREE.Vector3();
 
 function hash01(seed) {
 	const x = Math.sin(seed * 127.1 + 311.7) * 43758.5453;
@@ -597,6 +603,8 @@ export function createAboutInsideParticles(anchor, { mobile = false, silhouetteM
 
 	const color = new THREE.Color(cfg.color ?? ABOUT_COLORS.particle);
 	const appearMode = Number(cfg.appearMode ?? 4);
+	const zoneRadius = cfg.textZoneRadius ?? 0.85;
+	const zoneSoft = cfg.textZoneSoft ?? 0.35;
 	const lineUniforms = {
 		uColor: { value: color.clone() },
 		uTime: { value: 0 },
@@ -607,6 +615,11 @@ export function createAboutInsideParticles(anchor, { mobile = false, silhouetteM
 		/** 1 = hidden, 0 = fully assembled (inverted dissolve for appear). */
 		uDissolve: { value: 1 },
 		uDissolveMode: { value: appearMode },
+		/** Stage-3 soft clear around epic text (local space). */
+		uZoneClear: { value: 0 },
+		uZoneCenter: { value: new THREE.Vector3(cx + maxR * 0.35, (y0 + y1) * 0.5, cz) },
+		uZoneRadius: { value: zoneRadius },
+		uZoneSoft: { value: zoneSoft },
 	};
 
 	const lineMat = new THREE.ShaderMaterial({
@@ -625,11 +638,13 @@ export function createAboutInsideParticles(anchor, { mobile = false, silhouetteM
 			varying float vRadial;
 			varying float vSeed;
 			varying float vWeight;
+			varying vec3 vLocalPos;
 			void main() {
 				vAlong = aAlong;
 				vRadial = aRadial;
 				vSeed = aSeed;
 				vWeight = aWeight;
+				vLocalPos = position;
 				gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
 			}
 		`,
@@ -640,10 +655,15 @@ export function createAboutInsideParticles(anchor, { mobile = false, silhouetteM
 			uniform float uPulseIntensity;
 			uniform float uTravelSpeed;
 			uniform float uOpacity;
+			uniform float uZoneClear;
+			uniform vec3 uZoneCenter;
+			uniform float uZoneRadius;
+			uniform float uZoneSoft;
 			varying float vAlong;
 			varying float vRadial;
 			varying float vSeed;
 			varying float vWeight;
+			varying vec3 vLocalPos;
 
 			${ABOUT_EDGE_DISSOLVE_GLSL}
 
@@ -654,6 +674,9 @@ export function createAboutInsideParticles(anchor, { mobile = false, silhouetteM
 				float runner = pow(1.0 - smoothstep(0.0, 0.1, abs(pulse - 0.5) * 2.0), 1.6);
 				float base = 0.55 * uIntensity * vWeight;
 				float alpha = (base + runner * uPulseIntensity * 0.85) * uOpacity * 0.55 * appear.x;
+				float dist = length(vLocalPos - uZoneCenter);
+				float inZone = 1.0 - smoothstep(uZoneRadius - uZoneSoft, uZoneRadius + uZoneSoft, dist);
+				alpha *= 1.0 - inZone * clamp(uZoneClear, 0.0, 1.0);
 				if (alpha < 0.02) discard;
 				vec3 col = uColor * (base * 0.85 + runner * 1.8);
 				col += uColor * appear.y * 1.15;
@@ -662,24 +685,12 @@ export function createAboutInsideParticles(anchor, { mobile = false, silhouetteM
 		`,
 	});
 
-	/**
-	 * White PCB at fixed -45° yaw — does not spin with Heart / blue lattice.
-	 */
-	const spin = new THREE.Group();
-	spin.name = "AboutInsideParticleSpin";
-	const yawDeg = cfg.yawDeg ?? -45;
-	const yawAxis = Array.isArray(cfg.yawAxis) ? cfg.yawAxis : [0, 1, 0];
-	const yaw = new THREE.Vector3(yawAxis[0], yawAxis[1], yawAxis[2]);
-	if (yaw.lengthSq() < 1e-8) yaw.set(0, 1, 0);
-	yaw.normalize();
-	spin.quaternion.setFromAxisAngle(yaw, THREE.MathUtils.degToRad(yawDeg));
-	anchor.add(spin);
-
+	/** Follows InsideLarge / Blender orientation — no site-side yaw. */
 	const lines = new THREE.LineSegments(lineGeo, lineMat);
 	lines.name = "AboutMicrochipTraces";
 	lines.frustumCulled = false;
 	lines.renderOrder = 4;
-	spin.add(lines);
+	anchor.add(lines);
 
 	const pointGeo = new THREE.BufferGeometry();
 	pointGeo.setAttribute("position", new THREE.BufferAttribute(pointPos, 3));
@@ -700,6 +711,10 @@ export function createAboutInsideParticles(anchor, { mobile = false, silhouetteM
 		uMaxPointSize: { value: cfg.maxPointSizePx ?? 14 },
 		uDissolve: { value: 1 },
 		uDissolveMode: { value: appearMode },
+		uZoneClear: { value: 0 },
+		uZoneCenter: { value: lineUniforms.uZoneCenter.value.clone() },
+		uZoneRadius: { value: zoneRadius },
+		uZoneSoft: { value: zoneSoft },
 	};
 
 	const pointMat = new THREE.ShaderMaterial({
@@ -723,9 +738,11 @@ export function createAboutInsideParticles(anchor, { mobile = false, silhouetteM
 			varying float vGlow;
 			varying float vSeed;
 			varying float vRadial;
+			varying vec3 vLocalPos;
 			void main() {
 				vSeed = aSeed;
 				vRadial = aRadial;
+				vLocalPos = position;
 				float flicker = 0.78 + 0.22 * sin(uTime * uPulseSpeed + aSeed * 6.2831);
 				vGlow = aWeight * flicker * uNodeIntensity;
 
@@ -751,9 +768,14 @@ export function createAboutInsideParticles(anchor, { mobile = false, silhouetteM
 			uniform float uOpacity;
 			uniform float uTime;
 			uniform sampler2D uMap;
+			uniform float uZoneClear;
+			uniform vec3 uZoneCenter;
+			uniform float uZoneRadius;
+			uniform float uZoneSoft;
 			varying float vGlow;
 			varying float vSeed;
 			varying float vRadial;
+			varying vec3 vLocalPos;
 
 			${ABOUT_EDGE_DISSOLVE_GLSL}
 
@@ -762,6 +784,9 @@ export function createAboutInsideParticles(anchor, { mobile = false, silhouetteM
 				if (appear.x < 0.02) discard;
 				vec4 tex = texture2D(uMap, gl_PointCoord);
 				float alpha = tex.a * vGlow * uOpacity * 0.85 * appear.x;
+				float dist = length(vLocalPos - uZoneCenter);
+				float inZone = 1.0 - smoothstep(uZoneRadius - uZoneSoft, uZoneRadius + uZoneSoft, dist);
+				alpha *= 1.0 - inZone * clamp(uZoneClear, 0.0, 1.0);
 				if (alpha < 0.02) discard;
 				vec3 col = uColor * (0.65 + tex.r * 1.45);
 				col += uColor * appear.y * 1.2;
@@ -774,7 +799,7 @@ export function createAboutInsideParticles(anchor, { mobile = false, silhouetteM
 	points.name = "AboutMicrochipVias";
 	points.frustumCulled = false;
 	points.renderOrder = 5;
-	spin.add(points);
+	anchor.add(points);
 
 	const positionAttr = pointGeo.getAttribute("position");
 	const alongAttr = pointGeo.getAttribute("aAlong");
@@ -803,6 +828,23 @@ export function createAboutInsideParticles(anchor, { mobile = false, silhouetteM
 	};
 	applyReveal(0);
 
+	const syncZoneCenter = (modelRoot = null) => {
+		const locale = normalizeSiteLocale(store.siteLocale);
+		const epic =
+			findAboutEpicTextPlane(modelRoot, locale)
+			?? findAboutEpicTextPlane(anchor, locale)
+			?? findAboutEpicTextPlane(modelRoot, "ru")
+			?? findAboutEpicTextPlane(anchor, "ru");
+		if (!epic) return;
+		anchor.updateWorldMatrix(true, false);
+		epic.updateWorldMatrix(true, false);
+		epic.getWorldPosition(_zoneWorld);
+		_zoneLocal.copy(_zoneWorld);
+		anchor.worldToLocal(_zoneLocal);
+		lineUniforms.uZoneCenter.value.copy(_zoneLocal);
+		pointUniforms.uZoneCenter.value.copy(_zoneLocal);
+	};
+
 	return {
 		points,
 		lines,
@@ -812,6 +854,15 @@ export function createAboutInsideParticles(anchor, { mobile = false, silhouetteM
 		 */
 		setRevealProgress(progress, mode) {
 			applyReveal(progress, mode);
+		},
+		/**
+		 * Soft-clear particles near epic text. `progress` 0…1, optional model root for plane lookup.
+		 */
+		setTextZoneClearProgress(progress, modelRoot = null) {
+			const t = THREE.MathUtils.clamp(Number(progress) || 0, 0, 1);
+			lineUniforms.uZoneClear.value = t;
+			pointUniforms.uZoneClear.value = t;
+			if (t > 0.001) syncZoneCenter(modelRoot);
 		},
 		update(elapsed, delta = 1 / 60) {
 			if (reveal <= 0.004) return;
@@ -851,9 +902,8 @@ export function createAboutInsideParticles(anchor, { mobile = false, silhouetteM
 			radialAttr.needsUpdate = true;
 		},
 		dispose() {
-			spin.remove(lines);
-			spin.remove(points);
-			anchor.remove(spin);
+			anchor.remove(lines);
+			anchor.remove(points);
 			lineGeo.dispose();
 			pointGeo.dispose();
 			lineMat.dispose();

@@ -5,13 +5,9 @@
  * Call publishSiteRouteTransition whenever the visual route is about to change.
  * React / routePhase must not start chrome exits — only this module does.
  */
-import { getCasePanelHudState } from "@/portfolio/core/casePanelHudBridge.js";
+import { getCasePanelHudState, setCasePanelHudEnterProgress } from "@/portfolio/core/casePanelHudBridge.js";
 import { stopCaseStudyAnimationFrame } from "@/portfolio/core/caseStudyAnimationFrame.js";
-import {
-	isCasePanelHudRevealExiting,
-	playCasePanelHudExit,
-	releaseCasePanelHud,
-} from "@/portfolio/core/casePanelHudReveal.js";
+import { cancelCasePanelHudReveal, isCasePanelHudRevealExiting, playCasePanelHudExit, releaseCasePanelHud } from "@/portfolio/core/casePanelHudReveal.js";
 import { playCaseArcOrbitExit } from "@/portfolio/ui/CaseStudyCanvas/caseStudyArcSession.js";
 import { store } from "@/store.jsx";
 
@@ -110,12 +106,36 @@ export function resolveSiteChromeLeave(fromPath, toPath) {
 }
 
 /**
+ * Hex case→site / case→case boundary: keep left band fully shown for hex RT
+ * bake (`_getCasePanelHudHexOverlayTexture`); snap-release on route confirm.
+ * Mosaic exit drops enterProgress and blanks the bake mid-wipe — do not run it
+ * while the wipe still needs glyphs (same as About left HUD).
+ * @param {SiteTransitionMode} mode
+ * @param {SiteChromeLeave} chrome
+ */
+function holdCasePanelHudForHexLeave(mode, chrome = "case-full") {
+	if (mode !== "hex" && mode !== "case-boundary") {
+		return false;
+	}
+	if (mode === "case-boundary" && chrome !== "case-band") {
+		return false;
+	}
+	if (isCasePanelHudRevealExiting()) {
+		cancelCasePanelHudReveal();
+	}
+	// Idle full show (null). enterProgress=0 blanks bake / hides the band.
+	setCasePanelHudEnterProgress(null);
+	return true;
+}
+
+/**
  * Start case chrome leave once for this from→to decision.
  * @param {SiteChromeLeave} chrome
  * @param {string} from
  * @param {string} to
+ * @param {SiteTransitionMode} mode
  */
-function startCaseChromeLeave(chrome, from, to) {
+function startCaseChromeLeave(chrome, from, to, mode = "hex") {
 	if (chrome === "none") {
 		return;
 	}
@@ -146,11 +166,12 @@ function startCaseChromeLeave(chrome, from, to) {
 
 	if (isCasePanelHudRevealExiting()) {
 		// A chained boundary settle can begin as case→case (band hold) and then
-		// immediately become case→site. Upgrade that same in-flight animation to a
-		// full release from its current progress; otherwise openedCase/HUD ownership
-		// remains stuck after the final hex.
+		// immediately become case→site. Upgrade that same in-flight animation.
 		if (chrome === "case-full") {
 			playCaseArcOrbitExit();
+			if (holdCasePanelHudForHexLeave(mode, chrome)) {
+				return;
+			}
 			playCasePanelHudExit({ mosaicScope: "full", release: true, force: true });
 		}
 		return;
@@ -158,10 +179,17 @@ function startCaseChromeLeave(chrome, from, to) {
 
 	if (chrome === "case-full") {
 		playCaseArcOrbitExit();
+		if (holdCasePanelHudForHexLeave(mode, chrome)) {
+			return;
+		}
 		playCasePanelHudExit({ mosaicScope: "full", release: true });
 		return;
 	}
 
+	// case→case: hold full band for hex RT bake (no mosaic fade mid-wipe).
+	if (holdCasePanelHudForHexLeave(mode, chrome)) {
+		return;
+	}
 	playCasePanelHudExit({ mosaicScope: "band", release: false });
 }
 
@@ -193,7 +221,7 @@ export function publishSiteRouteTransition(fromPath, toPath, options = {}) {
 	noteCaseLeaveDestination(from, to);
 
 	const chrome = resolveSiteChromeLeave(from, to);
-	startCaseChromeLeave(chrome, from, to);
+	startCaseChromeLeave(chrome, from, to, mode);
 
 	return {
 		from,

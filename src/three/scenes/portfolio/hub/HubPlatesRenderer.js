@@ -28,8 +28,7 @@ export class HubPlatesRenderer {
 		const instanceEntries = [];
 
 		for (const layout of layouts) {
-			const projectIndex =
-				projectLookup.get(`${layout.rowIndex},${layout.plateIndex}`) ?? -1;
+			const projectIndex = projectLookup.get(`${layout.rowIndex},${layout.plateIndex}`) ?? -1;
 
 			const plate = {
 				rowIndex: layout.rowIndex,
@@ -42,11 +41,7 @@ export class HubPlatesRenderer {
 
 			if (projectIndex >= 0) {
 				const mesh = new THREE.Mesh(this.sharedGeometry, this.projectMaterial);
-				mesh.position.set(
-					layout.position[0],
-					layout.position[1],
-					layout.position[2],
-				);
+				mesh.position.set(layout.position[0], layout.position[1], layout.position[2]);
 				this.platesGroup.add(mesh);
 				plate.mesh = mesh;
 			} else {
@@ -57,21 +52,13 @@ export class HubPlatesRenderer {
 		}
 
 		if (instanceEntries.length > 0) {
-			this.instancedMesh = new THREE.InstancedMesh(
-				this.sharedGeometry,
-				this.decorMaterial,
-				instanceEntries.length,
-			);
+			this.instancedMesh = new THREE.InstancedMesh(this.sharedGeometry, this.decorMaterial, instanceEntries.length);
 			this.instancedMesh.frustumCulled = true;
 
 			for (let index = 0; index < instanceEntries.length; index += 1) {
 				const { plate, layout } = instanceEntries[index];
 				plate.instanceId = index;
-				_dummy.position.set(
-					layout.position[0],
-					layout.position[1],
-					layout.position[2],
-				);
+				_dummy.position.set(layout.position[0], layout.position[1], layout.position[2]);
 				_dummy.rotation.set(0, 0, 0);
 				_dummy.scale.set(1, 1, 1);
 				_dummy.updateMatrix();
@@ -118,20 +105,12 @@ export class HubPlatesRenderer {
 			plate.basePosition = [...layout.position];
 
 			if (plate.projectIndex >= 0 && plate.mesh) {
-				plate.mesh.position.set(
-					layout.position[0],
-					layout.position[1],
-					layout.position[2],
-				);
+				plate.mesh.position.set(layout.position[0], layout.position[1], layout.position[2]);
 				continue;
 			}
 
 			if (plate.instanceId >= 0 && this.instancedMesh) {
-				_dummy.position.set(
-					layout.position[0],
-					layout.position[1],
-					layout.position[2],
-				);
+				_dummy.position.set(layout.position[0], layout.position[1], layout.position[2]);
 				_dummy.rotation.set(0, 0, 0);
 				_dummy.scale.set(1, 1, 1);
 				_dummy.updateMatrix();
@@ -201,12 +180,7 @@ export class HubPlatesRenderer {
 		if (prevProject && prevProject !== projectMaterial && prevProject !== decorMaterial) {
 			prevProject.dispose();
 		}
-		if (
-			prevDecor
-			&& prevDecor !== prevProject
-			&& prevDecor !== projectMaterial
-			&& prevDecor !== decorMaterial
-		) {
+		if (prevDecor && prevDecor !== prevProject && prevDecor !== projectMaterial && prevDecor !== decorMaterial) {
 			prevDecor.dispose();
 		}
 	}

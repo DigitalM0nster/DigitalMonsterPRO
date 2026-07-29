@@ -1,0 +1,606 @@
+:global(.page.contacts).contactsPage {
+	display: block;
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	padding: 0;
+	overflow: hidden;
+	touch-action: pan-y;
+	overscroll-behavior: none;
+	pointer-events: none;
+	background: transparent;
+	contain: layout paint style;
+
+	/*
+	 * Clip inners slide inside overflow:hidden (not the whole panel).
+	 * Beats `.page.active .transitionAnimatedElement { opacity: 1 }` when scrolling away.
+	 */
+	&:global(.active) .panel:global(.inactive) .textClipInner,
+	&:global(.activating) .panel:global(.inactive) .textClipInner {
+		opacity: 0;
+		pointer-events: none;
+		transform: translateY(-115%);
+		transition-property: opacity, transform;
+		transition-duration: var(--routeExitElementDuration, 225ms);
+		transition-timing-function: ease;
+		transition-delay: calc(var(--routeExitStaggerStep, 28ms) * var(--stagger-i, 0));
+	}
+
+	&:global(.active) .panel:global(.inactive.top) .textClipInner,
+	&:global(.activating) .panel:global(.inactive.top) .textClipInner {
+		transform: translateY(-115%);
+	}
+
+	&:global(.active) .panel:global(.inactive.bottom) .textClipInner,
+	&:global(.activating) .panel:global(.inactive.bottom) .textClipInner {
+		transform: translateY(115%);
+	}
+
+	/* Route enter/leave: vertical clip exit (beats default translateX). */
+	&:global(.hidden) .textClipInner:global(.transitionAnimatedElement) {
+		opacity: 0;
+		transform: translateY(115%);
+		transition: 0s;
+	}
+
+	&:global(.leaving) .textClipInner:global(.transitionAnimatedElement),
+	&:global(.removing) .textClipInner:global(.transitionAnimatedElement),
+	&:global(.remove) .textClipInner:global(.transitionAnimatedElement) {
+		opacity: 0;
+		transform: translateY(-115%);
+	}
+
+	/*
+	 * Hex/menu leave: drop the whole panel from the compositor once clips start
+	 * exiting. Keeps dual-scene hex from fighting a dense glitch/form layer.
+	 */
+	&:global(.leaving) .panel {
+		pointer-events: none;
+		opacity: 0;
+		transition: opacity var(--routeExitElementDuration, 225ms) ease;
+	}
+}
+
+/** Slot owns layout — panel keeps transform free for route stagger enter/leave. */
+.panelSlot {
+	pointer-events: none;
+	position: absolute;
+	left: calc(var(--paddingX) + var(--leftMenuWidth) + 28px);
+	top: 96px;
+	bottom: 48px;
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	width: min(48vw, 600px);
+}
+
+.panel {
+	pointer-events: auto;
+	display: flex;
+	flex-direction: column;
+	gap: clamp(18px, 2.2vh, 30px);
+	width: 100%;
+	max-width: 100%;
+	max-height: 100%;
+	overflow-x: clip;
+	overflow-y: auto;
+	padding: 4px 14px 8px 0;
+	box-sizing: border-box;
+	color: #f4f8fb;
+	scrollbar-width: thin;
+	scrollbar-gutter: stable;
+	scrollbar-color: color-mix(in srgb, var(--mainColor) 35%, transparent) transparent;
+}
+
+/** Line / block mask — text slides out of this box on enter/leave. */
+.textClip {
+	display: block;
+	width: fit-content;
+	max-width: 100%;
+	overflow: hidden;
+	/* Room for glitch flip glyphs; negative margin keeps layout tight. */
+	padding-block: 0.12em;
+	margin-block: -0.12em;
+}
+
+.textClipInner {
+	display: block;
+	width: fit-content;
+	max-width: 100%;
+	/* No permanent will-change — dozens of clip layers compete with WebGL hex. */
+}
+
+.titleClip {
+	width: fit-content;
+	max-width: 100%;
+}
+
+.subtitleClip {
+	width: 100%;
+	max-width: 100%;
+
+	.textClipInner {
+		width: 100%;
+		max-width: 100%;
+	}
+}
+
+.fieldClip {
+	width: 100%;
+	max-width: 100%;
+	padding-block: 0;
+	margin-block: 0;
+
+	.textClipInner {
+		width: 100%;
+		max-width: 100%;
+	}
+}
+
+.iconClip {
+	display: inline-block;
+	width: fit-content;
+	flex: 0 0 auto;
+	padding-block: 0;
+	margin-block: 0;
+	vertical-align: middle;
+
+	.textClipInner {
+		display: flex;
+		align-items: center;
+		width: fit-content;
+	}
+}
+
+.channelsRuleClip {
+	width: 100%;
+	max-width: 100%;
+	padding-block: 0;
+	margin-block: 0;
+
+	.textClipInner {
+		width: 100%;
+	}
+}
+
+.channelsRule {
+	width: 100%;
+	height: 1px;
+	background: rgba(255, 255, 255, 0.08);
+}
+
+.intro {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+.eyebrow {
+	margin: 0;
+	color: var(--mainColor, #00a9ff);
+	font-family: "MazzardM", sans-serif;
+	font-size: clamp(11px, 0.85vw, 13px);
+	font-weight: 400;
+	letter-spacing: 0.18em;
+	text-transform: uppercase;
+}
+
+.title {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 0.04em;
+	margin: 0;
+	width: 100%;
+	max-width: 100%;
+	color: #ffffff;
+	font-family: "ManifoldExtended", "Aquire", sans-serif;
+	font-size: clamp(24px, 2.2vw, 36px);
+	font-weight: 300;
+	line-height: 1.14;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+	overflow: visible;
+}
+
+/* Title lines are authored breaks only — never soft-wrap mid glyph/word. */
+.title .contactsGlitch {
+	width: fit-content;
+	max-width: 100%;
+	white-space: nowrap;
+
+	:global(.languageGroup) {
+		flex-wrap: nowrap;
+		max-width: none;
+	}
+
+	:global(.languageGroupWord) {
+		flex-wrap: nowrap;
+	}
+}
+
+.subtitle {
+	margin: 0;
+	max-width: 40vw;
+	color: rgba(210, 224, 236, 0.78);
+	font-family: "MazzardM", sans-serif;
+	font-size: clamp(13px, 0.95vw, 15px);
+	font-weight: 300;
+	line-height: 1.45;
+}
+
+.form {
+	display: flex;
+	flex-direction: column;
+	gap: 22px;
+	width: 100%;
+	max-width: 100%;
+	min-width: 0;
+}
+
+.row {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 22px;
+}
+
+.field {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	min-width: 0;
+}
+
+.label {
+	color: rgba(170, 200, 220, 0.7);
+	font-family: "MazzardM", sans-serif;
+	font-size: 11px;
+	font-weight: 400;
+	letter-spacing: 0.16em;
+	text-transform: uppercase;
+}
+
+.input,
+.textarea {
+	display: block;
+	width: 100%;
+	max-width: 100%;
+	min-width: 0;
+	margin: 0;
+	padding: 6px 0 10px;
+	border: 0;
+	border-bottom: 1px solid color-mix(in srgb, var(--mainColor) 45%, transparent);
+	border-radius: 0;
+	outline: none;
+	background: transparent;
+	box-sizing: border-box;
+	color: #f5faff;
+	font-family: "MazzardM", sans-serif;
+	font-size: 15px;
+	font-weight: 300;
+	line-height: 1.35;
+	caret-color: var(--mainColor);
+	transition: border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.input:focus,
+.textarea:focus {
+	border-bottom-color: var(--mainColor);
+	box-shadow: 0 1px 0 0 color-mix(in srgb, var(--mainColor) 85%, transparent);
+}
+
+.input::placeholder,
+.textarea::placeholder {
+	color: rgba(160, 190, 210, 0.35);
+}
+
+.textarea {
+	min-height: 88px;
+	resize: vertical;
+	field-sizing: content;
+}
+
+.actions {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 16px;
+	margin-top: 4px;
+}
+
+.attach {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	color: rgba(190, 220, 235, 0.78);
+	font-family: "MazzardM", sans-serif;
+	font-size: 12px;
+	font-weight: 400;
+	letter-spacing: 0.14em;
+	text-transform: uppercase;
+	cursor: pointer;
+	transition: color 160ms ease;
+}
+
+.attach:hover {
+	color: var(--mainColor);
+}
+
+.attachIcon {
+	display: block;
+	width: 14px;
+	height: 14px;
+	opacity: 0.85;
+}
+
+.fileInput {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	white-space: nowrap;
+	border: 0;
+}
+
+.submit {
+	display: inline-flex;
+	align-items: center;
+	gap: 10px;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	color: var(--mainColor);
+	font-family: "ManifoldExtended", "MazzardM", sans-serif;
+	font-size: 15px;
+	font-weight: 400;
+	letter-spacing: 0.16em;
+	text-transform: uppercase;
+	cursor: pointer;
+	text-shadow: 0 0 18px color-mix(in srgb, var(--mainColor) 45%, transparent);
+	transition: color 160ms ease, text-shadow 160ms ease, transform 160ms ease;
+}
+
+.submit:hover {
+	color: color-mix(in srgb, var(--mainColor) 55%, white);
+	text-shadow: 0 0 22px color-mix(in srgb, var(--mainColor) 70%, transparent);
+	transform: translateX(2px);
+}
+
+.submitArrow {
+	display: block;
+	width: 18px;
+	height: 10px;
+}
+
+.channels {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	margin-top: clamp(20px, 3.5vh, 40px);
+	padding-top: clamp(10px, 1.5vh, 16px);
+}
+
+.channelsTitle {
+	margin: 0;
+	color: rgba(170, 200, 220, 0.65);
+	font-family: "MazzardM", sans-serif;
+	font-size: 11px;
+	font-weight: 400;
+	letter-spacing: 0.18em;
+	text-transform: uppercase;
+}
+
+.channelGrid {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 8px 22px;
+}
+
+.channel {
+	display: block;
+	min-width: 0;
+	padding: 4px 0;
+	color: inherit;
+}
+
+.channelLabel {
+	display: block;
+	width: fit-content;
+	max-width: 100%;
+	color: rgba(160, 190, 210, 0.55);
+	font-family: "MazzardM", sans-serif;
+	font-size: 12px;
+	letter-spacing: 0.14em;
+	text-transform: uppercase;
+	text-decoration: none;
+}
+
+.channelValueRow {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	max-width: 100%;
+	min-width: 0;
+	width: fit-content;
+}
+
+.channelValue {
+	display: block;
+	min-width: 0;
+	color: rgba(235, 245, 255, 0.9);
+	font-family: "MazzardM", sans-serif;
+	font-size: 16px;
+	font-weight: 300;
+	letter-spacing: 0.02em;
+	text-decoration: none;
+}
+
+.contactsGlitch,
+.channelGlitchValue {
+	display: flex;
+	width: fit-content;
+	max-width: 100%;
+	color: inherit;
+	font: inherit;
+	letter-spacing: inherit;
+	line-height: inherit;
+	text-transform: inherit;
+	white-space: nowrap;
+}
+
+/* Beat glitchBilingualText.scss defaults (Manifold + cyan). */
+.contactsGlitch:global(.glitchBilingualText),
+.channelGlitchValue {
+	:global {
+		.languageGroup {
+			display: flex;
+			flex-wrap: nowrap;
+			pointer-events: none;
+		}
+
+		.letterContainer {
+			position: relative;
+			display: inline-flex;
+			justify-content: center;
+			align-items: center;
+		}
+
+		.letterContainer.space {
+			width: 0.28em;
+		}
+
+		.mainLetter {
+			position: relative;
+			z-index: 2;
+			opacity: 1;
+			color: inherit;
+			transition: opacity 0.1s;
+		}
+
+		.mainLetter.hidden {
+			opacity: 0;
+		}
+
+		.letterContainer .additionalLetter {
+			position: absolute;
+			font: inherit;
+			font-size: 1em;
+			font-weight: inherit;
+			letter-spacing: inherit;
+			line-height: inherit;
+			color: var(--mainColor, #00a9ff);
+			text-shadow: 0 0 5px rgba(0, 169, 255, 0.7);
+			opacity: 0;
+			transform: scaleX(-1) scaleY(-1) translateY(0%);
+			transition: opacity 0.015s;
+			pointer-events: none;
+		}
+
+		.letterContainer.letterLower .additionalLetter {
+			transform: scaleX(-1) scaleY(-1) translateY(-20%);
+		}
+
+		.letterContainer.letterUpper .additionalLetter {
+			transform: scaleX(-1) scaleY(-1) translateY(0%);
+		}
+
+		.letterContainer .additionalLetter.visible {
+			opacity: 1;
+		}
+	}
+}
+
+.subtitle .contactsGlitch {
+	white-space: normal;
+	width: 100%;
+	max-width: 100%;
+}
+
+.copyButton {
+	flex: 0 0 auto;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: auto;
+	height: auto;
+	margin: 0;
+	padding: 0;
+	border: 0;
+	border-radius: 0;
+	background: transparent;
+	box-shadow: none;
+	appearance: none;
+	-webkit-appearance: none;
+	color: rgba(180, 210, 230, 0.55);
+	cursor: pointer;
+	transition: color 160ms ease;
+}
+
+.copyButton:hover,
+.copyButton:focus-visible {
+	color: var(--mainColor);
+	outline: none;
+	border: 0;
+	background: transparent;
+	box-shadow: none;
+}
+
+.copyButtonDone {
+	color: color-mix(in srgb, var(--mainColor) 55%, white);
+}
+
+.copyIcon {
+	display: block;
+	width: 13px;
+	height: 13px;
+}
+
+@media (max-width: 1100px) {
+	.panelSlot {
+		left: calc(var(--paddingX) + 72px);
+		width: min(52vw, 520px);
+	}
+
+	.title {
+		font-size: clamp(24px, 3.2vw, 34px);
+	}
+}
+
+@media (max-width: 768px) {
+	:global(.page.contacts).contactsPage {
+		overflow-y: auto;
+		touch-action: pan-y;
+	}
+
+	.panelSlot {
+		left: 20px;
+		right: 20px;
+		top: 88px;
+		bottom: 24px;
+		width: auto;
+		justify-content: flex-start;
+	}
+
+	.panel {
+		max-height: none;
+		padding-bottom: 80px;
+	}
+
+	.row,
+	.channelGrid {
+		grid-template-columns: 1fr;
+	}
+
+	.actions {
+		flex-direction: column;
+		align-items: flex-start;
+	}
+}

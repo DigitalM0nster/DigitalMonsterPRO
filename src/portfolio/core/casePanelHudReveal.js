@@ -2,9 +2,10 @@
  * Case HUD enter/exit reveal (GPU enterProgress) + logo_reveal scroll sound.
  * Keeps from/to canvases idle-safe; only drives the enterProgress uniform.
  *
- * Case→case leave is NOT scroll-mosaic: hex overlay mask cuts the live HUD.
- * Stage/enter mosaic stays on the shader (mixProgress / enterProgress). Do not
- * reintroduce a per-frame Canvas leave driver (former syncCasePanelHudScrollLeave).
+ * Case→case leave is NOT scroll-mosaic: left band bakes into the hex RT wipe
+ * (same as About / case→site). Stage/enter mosaic stays on the shader
+ * (mixProgress / enterProgress). Do not reintroduce a per-frame Canvas leave
+ * driver (former syncCasePanelHudScrollLeave).
  */
 import {
 	clearCasePanelHudCanvas,
@@ -42,6 +43,8 @@ let mosaicScope = "full";
 let rafId = 0;
 let delayId = 0;
 let lastFrameTs = 0;
+/** @type {null | (() => void)} */
+let enterCompleteListener = null;
 
 function clamp01(value) {
 	return Math.max(0, Math.min(1, value));
@@ -98,6 +101,16 @@ export function isCasePanelHudRevealExiting() {
 	return phase === "exiting";
 }
 
+/** Case runtime arms wheel input after appear — same module graph as reveal. */
+export function registerCasePanelHudEnterCompleteListener(listener) {
+	enterCompleteListener = listener;
+	return () => {
+		if (enterCompleteListener === listener) {
+			enterCompleteListener = null;
+		}
+	};
+}
+
 /** Cancel in-flight enter (Strict Mode / effect remount). Leaves HUD hidden at 0. */
 export function cancelCasePanelHudEnter() {
 	if (phase !== "entering") {
@@ -125,7 +138,7 @@ export function cancelCasePanelHudReveal() {
 
 /**
  * After hex leave commits to next/prev case: hold band at 0 for the next enter.
- * Product leave visual is hex-cut on the live overlay — not scroll-band mosaic.
+ * Product leave visual is hex RT bake of the left band — not scroll-band mosaic.
  */
 export function commitCasePanelHudScrollLeave() {
 	phase = "idle";
@@ -212,6 +225,7 @@ export function playCasePanelHudEnter(options = {}) {
 		}
 		setCasePanelHudEnterProgress(null);
 		onComplete?.();
+		enterCompleteListener?.();
 	};
 
 	const startAnim = () => {

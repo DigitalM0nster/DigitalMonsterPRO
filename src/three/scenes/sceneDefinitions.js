@@ -54,11 +54,4 @@ export const PLACEHOLDER_SCENE_DEFINITIONS = [
 		color: 0x000000,
 		spinSpeed: { x: 0.2, y: 0.9 },
 	},
-	{
-		id: "contacts",
-		label: "Контакты",
-		createGeometry: () => new THREE.TorusKnotGeometry(0.75, 0.22, 128, 16),
-		color: 0x76ff03,
-		spinSpeed: { x: 0.35, y: 0.7 },
-	},
 ];

@@ -28,6 +28,7 @@ import {
 import { getGraphicsTier } from "@/utils/getGraphicsTier.js";
 import { createHeroTitleText } from "./heroText/createHeroTitleText.js";
 import { isRingDormantReason } from "@/three/scenes/lifecycle/sceneLifecycle.js";
+import { getSceneCarousel } from "@/three/render/transition/carouselPage.js";
 
 /**
  * Hero-сцена: цифровой океан + FBX кит.
@@ -196,8 +197,16 @@ export class DigitalWhaleScene {
 		}
 
 		if (!this._isHomePath(currentPage)) {
-			// Page-owned: «листайте вниз» must not linger on hub/case/about.
-			this.heroTitle?.hideScrollHint?.();
+			// Page-owned chrome — hide only when home is not still in a live hex mix
+			// (otherwise a premature route update blanks the hint for a frame).
+			const carousel = getSceneCarousel();
+			const mixIds = carousel?.getMixSourceTargetIds?.();
+			const homeInHexPair = (mixIds?.sourceId === "home" || mixIds?.targetId === "home")
+				&& (carousel?.isHexNavigationActive?.()
+					|| carousel?.isCaseBoundaryDrive?.());
+			if (!homeInHexPair) {
+				this.heroTitle?.hideScrollHint?.();
+			}
 			return;
 		}
 
@@ -206,7 +215,9 @@ export class DigitalWhaleScene {
 				// Off the carousel-commit frame — reveal must not stack with hub dormant work.
 				this._scheduleHeroTitleShow();
 			} else {
+				// Scroll reverse keeps hero live as `previous`; only the hint was hidden on leave.
 				this.heroTitle.applyPosition?.();
+				this.heroTitle.ensureScrollHintVisible?.();
 			}
 			return;
 		}

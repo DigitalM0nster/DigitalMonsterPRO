@@ -3,7 +3,13 @@ import { portfolioHubPlatesConfig } from "./portfolioHubConfig.js";
 import { getPortfolioLocale, getPortfolioViewCaseButtonLabel } from "@/i18n/portfolioProjectsCopy.js";
 import { normalizeSiteLocale, SITE_LOCALES } from "@/utils/siteLocale.js";
 import { playSound, HUB_PLATE_HOVER_GLITCH_GAIN } from "../../../../sounds/soundDesign.js";
-import { applyHubPlateLabelBlurUniforms, applyHubPlateLabelGlitchUniforms, applyHubPlateLabelRevealUniforms, createHubPlateDetailsTextMaterial, applyHubPlateDetailsBloomUniforms } from "./hubPlateDetailsTextMaterial.js";
+import {
+	applyHubPlateLabelBlurUniforms,
+	applyHubPlateLabelGlitchUniforms,
+	applyHubPlateLabelRevealUniforms,
+	createHubPlateDetailsTextMaterial,
+	applyHubPlateDetailsBloomUniforms,
+} from "./hubPlateDetailsTextMaterial.js";
 import { createHubScreenSnakeTextMaterial, applyHubScreenSnakeUniforms, applyHubScreenSnakeOpacity } from "./screenTitle/hubScreenSnakeTextMaterial.js";
 import { createGlitchTextSlots } from "@/shared/glitchText/glitchLetterModel.js";
 import { GlitchSnakeEngine } from "@/shared/glitchText/glitchSnakeEngine.js";
@@ -781,9 +787,7 @@ function applyDetailsEntry(entry, cfg, stableSize = null) {
 	entry.canvasWidth = canvasWidth;
 	entry.canvasHeight = canvasHeight;
 
-	const geometryMismatch =
-		Math.abs(entry.geometry.parameters.width - layout.labelWidth) > 0.0001 ||
-		Math.abs(entry.geometry.parameters.height - layout.labelHeight) > 0.0001;
+	const geometryMismatch = Math.abs(entry.geometry.parameters.width - layout.labelWidth) > 0.0001 || Math.abs(entry.geometry.parameters.height - layout.labelHeight) > 0.0001;
 
 	if (canvasSizeChanged || geometryMismatch) {
 		entry.geometry.dispose();
@@ -928,14 +932,7 @@ export class HubPlateDetailsButtons {
 
 		const stableSize = this._stableCanvasSize;
 		const onRedraw = () => {
-			paintDetailsLocaleSwitchFrame(
-				entry.texture,
-				entry.snakeTexture,
-				buttonCfg,
-				stableSize,
-				{ arrowOffsetPx: entry.lastArrowOffsetPx },
-				entry.localeSwitchController,
-			);
+			paintDetailsLocaleSwitchFrame(entry.texture, entry.snakeTexture, buttonCfg, stableSize, { arrowOffsetPx: entry.lastArrowOffsetPx }, entry.localeSwitchController);
 		};
 
 		// Первый switch: engine создан с пустым onChange — без этого змейка не рисуется.
@@ -1183,9 +1180,14 @@ export class HubPlateDetailsButtons {
 		attachment.entry.arrowHover += (this._detailsHoverTarget - attachment.entry.arrowHover) * arrowT;
 		const arrowOffsetPx = getArrowHoverOffset(resolvedCfg.plateDetailsButton ?? {}) * attachment.entry.arrowHover;
 		if (!attachment.entry.localeSwitchController && Math.abs(arrowOffsetPx - attachment.entry.lastArrowOffsetPx) > 0.1) {
-			const size = updateDetailsTexture(attachment.entry.texture, resolvedCfg.plateDetailsButton ?? {}, {
-				arrowOffsetPx,
-			}, this._stableCanvasSize);
+			const size = updateDetailsTexture(
+				attachment.entry.texture,
+				resolvedCfg.plateDetailsButton ?? {},
+				{
+					arrowOffsetPx,
+				},
+				this._stableCanvasSize,
+			);
 			if (size) {
 				attachment.entry.canvasWidth = size.canvasWidth;
 				attachment.entry.canvasHeight = size.canvasHeight;

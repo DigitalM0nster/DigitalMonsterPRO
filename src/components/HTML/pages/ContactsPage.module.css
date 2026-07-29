@@ -1,0 +1,441 @@
+@charset "UTF-8";
+:global(.page.contacts).contactsPage {
+  display: block;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  overflow: hidden;
+  touch-action: pan-y;
+  overscroll-behavior: none;
+  pointer-events: none;
+  background: transparent;
+  contain: layout paint style;
+}
+
+/** Slot owns layout — panel keeps transform free for route stagger enter/leave. */
+.panelSlot {
+  pointer-events: none;
+  position: absolute;
+  left: calc(var(--paddingX) + var(--leftMenuWidth) + 28px);
+  top: 96px;
+  bottom: 48px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  width: min(42vw, 520px);
+}
+
+.panel {
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(18px, 2.2vh, 30px);
+  width: 100%;
+  max-height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 4px 8px 8px 0;
+  color: #f4f8fb;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(90, 212, 255, 0.35) transparent;
+}
+
+.intro {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.eyebrow {
+  margin: 0;
+  color: rgba(180, 210, 230, 0.72);
+  font-family: "MazzardM", sans-serif;
+  font-size: clamp(11px, 0.85vw, 13px);
+  font-weight: 400;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.title {
+  margin: 0;
+  color: #ffffff;
+  font-family: "ManifoldExtended", "Aquire", sans-serif;
+  font-size: clamp(28px, 2.6vw, 40px);
+  font-weight: 300;
+  line-height: 1.08;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: pre-line;
+}
+
+.subtitle {
+  margin: 0;
+  max-width: 40vw;
+  color: rgba(210, 224, 236, 0.78);
+  font-family: "MazzardM", sans-serif;
+  font-size: clamp(13px, 0.95vw, 15px);
+  font-weight: 300;
+  line-height: 1.45;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 22px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.label {
+  color: rgba(170, 200, 220, 0.7);
+  font-family: "MazzardM", sans-serif;
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.input,
+.textarea {
+  width: 100%;
+  margin: 0;
+  padding: 6px 0 10px;
+  border: 0;
+  border-bottom: 1px solid rgba(90, 212, 255, 0.45);
+  border-radius: 0;
+  outline: none;
+  background: transparent;
+  color: #f5faff;
+  font-family: "MazzardM", sans-serif;
+  font-size: 15px;
+  font-weight: 300;
+  line-height: 1.35;
+  caret-color: #5ad4ff;
+  transition: border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.input:focus,
+.textarea:focus {
+  border-bottom-color: #5ad4ff;
+  box-shadow: 0 1px 0 0 rgba(90, 212, 255, 0.85);
+}
+
+.input::-moz-placeholder, .textarea::-moz-placeholder {
+  color: rgba(160, 190, 210, 0.35);
+}
+
+.input::placeholder,
+.textarea::placeholder {
+  color: rgba(160, 190, 210, 0.35);
+}
+
+.textarea {
+  min-height: 88px;
+  resize: vertical;
+  field-sizing: content;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 4px;
+}
+
+.attach {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: rgba(190, 220, 235, 0.78);
+  font-family: "MazzardM", sans-serif;
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color 160ms ease;
+}
+
+.attach:hover {
+  color: #5ad4ff;
+}
+
+.attachIcon {
+  display: block;
+  width: 14px;
+  height: 14px;
+  opacity: 0.85;
+}
+
+.fileInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.submit {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #5ad4ff;
+  font-family: "ManifoldExtended", "MazzardM", sans-serif;
+  font-size: 15px;
+  font-weight: 400;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  cursor: pointer;
+  text-shadow: 0 0 18px rgba(90, 212, 255, 0.45);
+  transition: color 160ms ease, text-shadow 160ms ease, transform 160ms ease;
+}
+
+.submit:hover {
+  color: #c8f0ff;
+  text-shadow: 0 0 22px rgba(90, 212, 255, 0.7);
+  transform: translateX(2px);
+}
+
+.submitArrow {
+  display: block;
+  width: 18px;
+  height: 10px;
+}
+
+.channels {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: clamp(20px, 3.5vh, 40px);
+  padding-top: clamp(22px, 3vh, 32px);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.channelsTitle {
+  margin: 0;
+  color: rgba(170, 200, 220, 0.65);
+  font-family: "MazzardM", sans-serif;
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.channelGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 22px;
+}
+
+.channel {
+  display: block;
+  min-width: 0;
+  padding: 4px 0;
+  color: inherit;
+}
+
+.channel:hover,
+.channel:focus-within {
+  color: #5ad4ff;
+}
+
+.channelLabel {
+  display: block;
+  width: -moz-fit-content;
+  width: fit-content;
+  max-width: 100%;
+  color: rgba(160, 190, 210, 0.55);
+  font-family: "MazzardM", sans-serif;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  text-decoration: none;
+}
+
+.channelValueRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.channelValue {
+  display: block;
+  min-width: 0;
+  color: rgba(235, 245, 255, 0.9);
+  font-family: "MazzardM", sans-serif;
+  font-size: 13px;
+  font-weight: 300;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+}
+
+.channel:hover .channelValue,
+.channel:focus-within .channelValue {
+  color: #5ad4ff;
+}
+
+.channelGlitchLabel,
+.channelGlitchValue {
+  display: flex;
+  width: -moz-fit-content;
+  width: fit-content;
+  max-width: 100%;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  /* Keep .hidden / .visible global — CSS Modules must not hash them. */
+}
+.channelGlitchLabel :global .languageGroup,
+.channelGlitchValue :global .languageGroup {
+  display: flex;
+  flex-wrap: nowrap;
+  position: relative;
+  pointer-events: none;
+}
+.channelGlitchLabel :global .letterContainer,
+.channelGlitchValue :global .letterContainer {
+  position: relative;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+}
+.channelGlitchLabel :global .letterContainer.space,
+.channelGlitchValue :global .letterContainer.space {
+  width: 0.28em;
+}
+.channelGlitchLabel :global .mainLetter,
+.channelGlitchValue :global .mainLetter {
+  position: relative;
+  z-index: 2;
+  opacity: 1;
+  color: inherit;
+  transition: opacity 0.1s;
+}
+.channelGlitchLabel :global .mainLetter.hidden,
+.channelGlitchValue :global .mainLetter.hidden {
+  opacity: 0;
+}
+.channelGlitchLabel :global .additionalLetter,
+.channelGlitchValue :global .additionalLetter {
+  position: absolute;
+  font-family: "ManifoldExtended", "MazzardM", sans-serif;
+  font-weight: 600;
+  color: rgb(0, 204, 255);
+  text-shadow: 0 0 5px rgb(0, 204, 255);
+  opacity: 0;
+  transform: scaleX(-1) scaleY(-1) translateY(-5%);
+  transition: opacity 0.015s;
+  pointer-events: none;
+}
+.channelGlitchLabel :global .additionalLetter.visible,
+.channelGlitchValue :global .additionalLetter.visible {
+  opacity: 1;
+}
+
+.channelGlitchValue {
+  white-space: nowrap;
+}
+
+.copyButton {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  height: auto;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  -moz-appearance: none;
+       appearance: none;
+  -webkit-appearance: none;
+  color: rgba(180, 210, 230, 0.55);
+  cursor: pointer;
+  transition: color 160ms ease;
+}
+
+.copyButton:hover,
+.copyButton:focus-visible {
+  color: #5ad4ff;
+  outline: none;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.copyButtonDone {
+  color: #c8f0ff;
+}
+
+.copyIcon {
+  display: block;
+  width: 13px;
+  height: 13px;
+}
+
+@media (max-width: 1100px) {
+  .panelSlot {
+    left: calc(var(--paddingX) + 72px);
+    width: min(48vw, 460px);
+  }
+  .title {
+    font-size: clamp(24px, 3.2vw, 34px);
+  }
+}
+@media (max-width: 768px) {
+  :global(.page.contacts).contactsPage {
+    overflow-y: auto;
+    touch-action: pan-y;
+  }
+  .panelSlot {
+    left: 20px;
+    right: 20px;
+    top: 88px;
+    bottom: 24px;
+    width: auto;
+    justify-content: flex-start;
+  }
+  .panel {
+    max-height: none;
+    padding-bottom: 80px;
+  }
+  .row,
+  .channelGrid {
+    grid-template-columns: 1fr;
+  }
+  .actions {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}/*# sourceMappingURL=ContactsPage.module.css.map */

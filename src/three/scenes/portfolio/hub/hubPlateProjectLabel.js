@@ -755,10 +755,7 @@ function measureWidestHubPlateLabelCanvas(project, labelCfg = {}) {
 
 function syncLabelGlitchState(entry, segments, labelCfg) {
 	const lineTexts = getLabelLineTexts(segments, labelCfg);
-	const needsReinit =
-		!entry.glitchGroups?.length ||
-		entry.glitchGroups.length !== lineTexts.length ||
-		entry.glitchLineTexts?.join("\0") !== lineTexts.join("\0");
+	const needsReinit = !entry.glitchGroups?.length || entry.glitchGroups.length !== lineTexts.length || entry.glitchLineTexts?.join("\0") !== lineTexts.join("\0");
 
 	if (needsReinit) {
 		initLabelGlitchState(entry, segments, labelCfg);
@@ -1151,13 +1148,7 @@ export class HubPlateProjectLabels {
 				return;
 			}
 
-			paintLabelLocaleSwitchFrame(
-				entry,
-				entry.segments,
-				labelCfg,
-				entry.localeSwitchController,
-				nextSegments,
-			);
+			paintLabelLocaleSwitchFrame(entry, entry.segments, labelCfg, entry.localeSwitchController, nextSegments);
 		};
 
 		const onRedraw = () => {
@@ -1220,9 +1211,7 @@ export class HubPlateProjectLabels {
 
 	/** Обновить подписи на плитах при смене языка (змейка на активной плите). */
 	updateLocale(locale, cfg = portfolioHubPlatesConfig, { animate = true } = {}) {
-		this._localeUpdateChain = this._localeUpdateChain.then(() =>
-			this._updateLocaleImpl(locale, cfg, { animate }),
-		);
+		this._localeUpdateChain = this._localeUpdateChain.then(() => this._updateLocaleImpl(locale, cfg, { animate }));
 		return this._localeUpdateChain;
 	}
 
@@ -1316,9 +1305,7 @@ export class HubPlateProjectLabels {
 			attachment.entry.group.visible = isFocused;
 
 			if (!isFocused) {
-				const hadLocaleSwitch = Boolean(
-					attachment.entry.localeSwitchController || attachment.entry.localeSwitchStableSize,
-				);
+				const hadLocaleSwitch = Boolean(attachment.entry.localeSwitchController || attachment.entry.localeSwitchStableSize);
 				abortLabelLocaleSwitch(attachment.entry);
 				if (hadLocaleSwitch) {
 					applyLabelEntry(attachment.entry, cfg);

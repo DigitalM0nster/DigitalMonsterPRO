@@ -98,9 +98,10 @@ export class SceneCarouselLifecycleDispatcher {
 	 * @param {{ sourceId: string, targetId: string }} payload
 	 */
 	onHexNavigationStart(carousel, { sourceId, targetId }) {
-		// Put a hidden target into its normal dormant/start pose. The source is not
-		// reset: it must stay frozen without a leave animation. Once the completed
-		// route is confirmed, the target's regular route lifecycle plays its enter.
+		// Target: dormant/start pose, then optional mix-target warm (e.g. hub plates
+		// opacity 1 so hex wipe + first land do not cold-start InstancedMesh).
+		// Source: leave pose only via prepareCarouselMixSource — never a full reset
+		// (chained hex must keep the exact prior frame, including dormant hops).
 		if (CAROUSEL_SCENE_IDS.includes(targetId)) {
 			this._pendingEnterAsCurrent.add(targetId);
 			this._dispatchReset(targetId, {
@@ -110,11 +111,12 @@ export class SceneCarouselLifecycleDispatcher {
 				prevRole: this._ringRoles[targetId] ?? "off",
 				carouselProgress: 0,
 			});
+			this.getScene(targetId)?.prepareCarouselMixTarget?.();
 		}
 
-		// Never prepare/mutate the source here. A chained transition must start
-		// from the exact frame left by the preceding hex, including a dormant
-		// intermediate scene that must not suddenly reveal its content.
+		if (CAROUSEL_SCENE_IDS.includes(sourceId)) {
+			this.getScene(sourceId)?.prepareCarouselMixSource?.();
+		}
 	}
 
 	/**

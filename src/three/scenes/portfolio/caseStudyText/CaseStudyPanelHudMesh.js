@@ -834,6 +834,26 @@ export class CaseStudyPanelHudMesh {
 		this.syncAnimUniforms();
 	}
 
+	/**
+	 * Texture for hex layer blit (no fragment shader). Must match sampleIdleHudAt:
+	 * mix≥0.5 → mapTo (terminal stage 5 lives here as penultimate@1).
+	 * Using fromTexture alone baked stage 4 into case→case leave.
+	 * @returns {THREE.Texture | null}
+	 */
+	getHexBakeTexture() {
+		this.syncFromBridge();
+		const mix = this._bridgeGetMixProgress();
+		const useTo = Number(mix) >= 0.5 && this.toTexture;
+		const texture = useTo ? this.toTexture : this.fromTexture;
+		if (!texture?.image?.width) {
+			return null;
+		}
+		if (texture.colorSpace !== THREE.NoColorSpace) {
+			texture.colorSpace = THREE.NoColorSpace;
+		}
+		return texture;
+	}
+
 	dispose() {
 		this.contentMesh.removeFromParent();
 		for (const texture of this._texturePool.values()) {

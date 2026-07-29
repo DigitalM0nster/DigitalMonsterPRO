@@ -24,6 +24,14 @@ function getCjkGlitchReplacements(char) {
 	return glitchLetterReplacements[latinKey] ?? "EOA";
 }
 
+/** Match snake glyph case to the source letter (digits/symbols keep table case). */
+function matchSourceCase(letter, replacements) {
+	if (!replacements || letter.toLowerCase() === letter.toUpperCase()) {
+		return replacements;
+	}
+	return letter === letter.toLowerCase() ? replacements.toLowerCase() : replacements.toUpperCase();
+}
+
 export function getGlitchReplacements(letter) {
 	if (letter === " ") {
 		return " ";
@@ -34,7 +42,9 @@ export function getGlitchReplacements(letter) {
 	}
 
 	const latinKey = letter.toUpperCase();
-	return glitchLetterReplacements[latinKey] ?? glitchLetterReplacements[letter] ?? "XY";
+	const replacements =
+		glitchLetterReplacements[latinKey] ?? glitchLetterReplacements[letter] ?? "XY";
+	return matchSourceCase(letter, replacements);
 }
 
 /**

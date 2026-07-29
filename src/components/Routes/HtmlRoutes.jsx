@@ -22,7 +22,7 @@ export default function HtmlRoutes() {
 				<Route index element={<MainPage />} />
 				<Route path="/portfolio/*" element={<PortfolioPage />} />
 				<Route path="/about/*" element={<AboutPage />} />
-				<Route path="/contacts/" element={<ContactsPage />} />
+				<Route path="/contacts/*" element={<ContactsPage />} />
 				<Route path="/demo/distort" element={<DomDistortDemoPage />} />
 			</Routes>
 		</Suspense>

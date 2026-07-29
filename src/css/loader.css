@@ -8,7 +8,8 @@
 	overflow: hidden;
 	pointer-events: auto;
 	cursor: default;
-	z-index: 0;
+	/* Above WebGL / route chrome for the whole curtain lifetime. */
+	z-index: 100;
 }
 .loadingScreen.startApp {
 	pointer-events: none;
@@ -21,6 +22,7 @@
 	top: 0;
 	width: 100%;
 	height: 100%;
+	z-index: 1;
 }
 .blockMainL {
 	transform: translate(0, 0);
@@ -927,19 +929,30 @@
 	--loader-blue: #087dff;
 	position: fixed;
 	inset: 0;
-	z-index: 4;
+	z-index: 2;
 	display: grid;
 	place-items: center;
 	overflow: hidden;
 	color: #f6fbff;
 	background: #000204;
 	opacity: 1;
-	transition: opacity 250ms linear;
 }
 
+/*
+ * Curtain leave is `.startApp .block*` (hidingBlock ~1s).
+ * Do not fade this full-screen black layer — that punched through to the site in ~250ms.
+ * Clear the solid fill so the block wipe is visible; fade only chrome (orb / CTA / logo).
+ */
 .digitalMonsterLoader.removed {
+	background: transparent;
+	pointer-events: none;
+}
+
+/* Orb wraps brand / progress / language — fade chrome only; blocks do the wipe. */
+.digitalMonsterLoader.removed .digitalMonsterLoaderOrb {
 	opacity: 0;
 	pointer-events: none;
+	transition: opacity 280ms linear;
 }
 
 .digitalMonsterLoaderOrb {

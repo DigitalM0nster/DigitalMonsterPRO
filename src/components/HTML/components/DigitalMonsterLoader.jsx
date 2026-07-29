@@ -1,7 +1,7 @@
 /* eslint-disable react/prop-types */
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { DefaultLoadingManager } from "three";
-import { preloadSoundDesign } from "../../../sounds/soundDesign.js";
+import { preloadSoundDesign, playLoaderStartClickSound, playStartAppSound } from "../../../sounds/soundDesign.js";
 import { preloadHexTransitionSound } from "../../../sounds/hexTransitionSound.js";
 import { preloadUnderwaterSound } from "../../../sounds/underwaterSound.js";
 import { rewarmCasePanelHudGpuForLocale } from "@/portfolio/ui/CaseStudyCanvas/warmCasePanelHudUnderCurtain.js";
@@ -402,6 +402,12 @@ export default function DigitalMonsterLoader(props) {
 		}
 		startingRef.current = true;
 		stopLoadingProgress();
+		// Legacy Start path (or any entry without selectLocale): still unlock inside gesture.
+		if (!store.soundsActive) {
+			store.soundsActive = true;
+			playLoaderStartClickSound();
+			playStartAppSound();
+		}
 		// Gesture-gated decode under the curtain — do not leave reverse-hex / underwater
 		// sync work for the first navigation click.
 		try {
@@ -431,6 +437,10 @@ export default function DigitalMonsterLoader(props) {
 		}
 		startingRef.current = true;
 		store.siteLocale = locale;
+		// Inside the user gesture — before any await (autoplay + unlock site audio).
+		store.soundsActive = true;
+		playLoaderStartClickSound();
+		playStartAppSound();
 		if (DEV_FAST_PRELOADER) {
 			// Curtain HUD warm was skipped — don't block Start on locale rewarm.
 			startingRef.current = false;

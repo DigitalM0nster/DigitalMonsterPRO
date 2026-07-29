@@ -6,16 +6,25 @@ export const HERO_TITLE_LINES = ["DIGITAL", "MONSTER"];
 
 export const HERO_COPY = {
 	ru: {
-		tagline: ["Создаём сайты и цифровые миры, которые оживают"],
-		stack: ["3D / AR / VR / WebGPU"],
+		tagline: [
+			"Создаём интерактивные сайты и digital-продукты.",
+			"Расширяем границы возможного.",
+		],
+		stack: ["ИНТЕРАКТИВНЫЕ САЙТЫ / ВЕБ-ПРИЛОЖЕНИЯ / DIGITAL-ПРЕЗЕНТАЦИИ"],
 	},
 	en: {
-		tagline: ["We build websites and digital worlds that come alive"],
-		stack: ["3D / AR / VR / WebGPU"],
+		tagline: [
+			"We create interactive websites and digital products.",
+			"Expanding the boundaries of what's possible.",
+		],
+		stack: ["INTERACTIVE WEBSITES / WEB APPLICATIONS / DIGITAL PRESENTATIONS"],
 	},
 	zh: {
-		tagline: ["我们打造栩栩如生的网站与数字世界"],
-		stack: ["3D / AR / VR / WebGPU"],
+		tagline: [
+			"我们打造互动网站与数字产品。",
+			"拓展可能的边界。",
+		],
+		stack: ["互动网站 / 网页应用 / 数字演示"],
 	},
 };
 

@@ -15,8 +15,12 @@ const SECTION_MATCHERS = {
  * - hidden — не текущий displayPathname
  * - leaving — уход по смене роута (phase exiting)
  * - activating + active — старт enter-анимации или возврат progress → 0
+ *   (phase entering + enterReady; first paint(s) stay `hidden` until enterReady)
  * - active — страница на экране, progress ≈ 0
- * - removing + remove — начался скролл карусели (progress > 0)
+ * - removing + remove — начался скролл карусели (progress > 0); contacts keeps `active`
+ *   and leaves via left-panel `active`/`inactive` (±0.1) instead
+ * - hex click: most pages stay `active` until displayPathname swaps; contacts → `leaving`
+ *   immediately so the heavy left panel exits during the wipe (not over it)
  *
  * @param {string} section — main | portfolio | about | contacts
  * @param {{
@@ -49,9 +53,22 @@ export function getPageVisibilityClasses(
 		return ["hidden"];
 	}
 
-	// A menu click is only a full-screen hex wipe. Keep the displayed page in
-	// its exact active state until displayPathname swaps on the final frame.
+	// First paint(s) of enter must stay `hidden` so CSS can transition into activating.
+	// (Carousel skipHtmlExit jumps idle→entering while enterReady is still true from idle —
+	// MainContent forces enterReady false, then double-rAF true.)
+	if (isRouteEntering && !enterReady) {
+		return ["hidden"];
+	}
+
+	// Menu click = full-screen hex wipe. Light pages stay `active` until the
+	// final displayPathname swap. Contacts is different: its left panel is a
+	// dense glitch/form DOM tree. Keeping it `active` composites that tree over
+	// dual-scene hex for the whole wipe (click FPS hitch). Scroll already exits
+	// via panel inactive at ±0.1 — start the same clip leave at hex lock.
 	if (hexNavigationActive) {
+		if (section === "contacts") {
+			return ["leaving"];
+		}
 		return ["active"];
 	}
 
@@ -59,6 +76,11 @@ export function getPageVisibilityClasses(
 	const atRest = carouselProgress <= CAROUSEL_PROGRESS_COMMIT_EPS;
 
 	if (useScrollState && !atRest) {
+		// Contacts left panel owns scroll leave via panel active/inactive (±0.1).
+		// Do not flip the page to removing here — that would hide the panel at eps.
+		if (section === "contacts") {
+			return ["active"];
+		}
 		return ["removing", "remove"];
 	}
 

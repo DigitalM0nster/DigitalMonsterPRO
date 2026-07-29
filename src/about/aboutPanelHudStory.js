@@ -13,7 +13,7 @@ import { paintCaseStudyPanelHudFrame } from "@/portfolio/ui/CaseStudyCanvas/pain
 import { resolveLeftPanelDrawConfig } from "@/portfolio/ui/CaseStudyCanvas/caseStudyLeftPanelConfig.js";
 import { resolveCaseProjectCanvasNavigationLayout } from "@/portfolio/ui/CaseStudyCanvas/caseProjectCanvasNavigation.js";
 import { readIsMobileViewport } from "@/portfolio/core/useCaseStudyMobileViewport.js";
-import { getAboutPanelCopy } from "./aboutPanelCopy.js";
+import { getAboutPanelCopy, normalizeAboutPanelListItem } from "./aboutPanelCopy.js";
 import {
 	getAboutPanelHudState,
 	setAboutPanelHudEnterProgress,
@@ -84,7 +84,7 @@ function buildFrame(blockId, locale, index) {
 	const copy = getAboutPanelCopy(blockId, locale);
 	const chapterNum = String(index + 1).padStart(2, "0");
 	const pathTitle = (copy.pathTitle ?? "").toUpperCase();
-	const features = (copy.listItems ?? []).map((title) => ({ title }));
+	const features = (copy.listItems ?? []).map(normalizeAboutPanelListItem);
 
 	return {
 		categoryLabel: "",

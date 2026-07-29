@@ -8,7 +8,7 @@ Floating tune panels were removed after tuning settled. This note keeps the patt
 
 Use a panel only while a surface is actively tuned (materials, camera, spring, hex, stage rail). Prefer config files + HMR for values that rarely change. Delete or hide the panel once values land in config.
 
-Active panels (hotkeys): `1` Progress (`?progressDev=1`) · `7` Case Arc · `8` Liquid BG · `9` Stage Rail (`?railDev=1`).
+Active panels (hotkeys): `1` Progress (`?progressDev=1`) · `2` Epic Text (`?epicTextDev=1`) · `3` Contacts (`?contactsDev=1`) · `4` Belka Rings (`?belkaDev=1`) · `7` Case Arc · `8` Liquid BG · `9` Stage Rail (`?railDev=1`).
 
 ---
 

@@ -209,7 +209,7 @@ Desktop cases use [`caseExperienceRuntime.js`](../../../portfolio/core/caseExper
 |------|--------|
 | Interior stages | `store.scroll` + `stageProgress` → right arc, left HUD stage, case 3D |
 | Content-edge leave | `adoptCaseBoundaryDrive` → scroll-driven hex between adjacent **cases** (not ring) |
-| Leave HUD | hex wipe cuts the screen overlay via `hexGridCutGlsl` (no mosaic exit on scroll; no Canvas snapshot) |
+| Leave HUD | bake left band into hex layer RT with models (same as About; no screen hex-cut, no mosaic exit on scroll) |
 
 Cancel leave by scrolling back through 0 (wipe reverses). Commit at rendered `±1` navigates to next/prev case — **not** timed `startHexNavigation`. Click next/prev stays timed click hex + timed band exit.
 

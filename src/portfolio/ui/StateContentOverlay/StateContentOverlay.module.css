@@ -15,6 +15,7 @@
   bottom: clamp(24px, 5vh, 48px);
 }
 .stateContentOverlay.investigation {
+  left: clamp(16px, 3vw, 28px);
   top: clamp(24px, 5vh, 48px);
   bottom: auto;
 }

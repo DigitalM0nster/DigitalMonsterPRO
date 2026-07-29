@@ -1,0 +1,79 @@
+.glitchBilingualText {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  width: -moz-fit-content;
+  width: fit-content;
+  position: relative;
+}
+.glitchBilingualText.relative {
+  position: relative;
+}
+.glitchBilingualText.alignEnd .languageGroup:not(.relative) {
+  left: auto;
+  right: 0;
+}
+.glitchBilingualText .languageGroup {
+  display: flex;
+  flex-wrap: nowrap;
+  position: absolute;
+  top: 0;
+  left: 0;
+  opacity: 1;
+  pointer-events: none;
+}
+.glitchBilingualText .languageGroup.relative {
+  position: relative;
+}
+.glitchBilingualText .languageGroup.active {
+  pointer-events: auto;
+}
+.glitchBilingualText .languageGroupRow {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 0.45em;
+}
+.glitchBilingualText .languageGroupLetters {
+  display: inline-flex;
+  flex-wrap: nowrap;
+}
+.glitchBilingualText .leadingLetter .mainLetter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+}
+.glitchBilingualText .letterContainer {
+  position: relative;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+}
+.glitchBilingualText .letterContainer.space {
+  width: 0.35em;
+}
+.glitchBilingualText .letterContainer .mainLetter {
+  position: relative;
+  z-index: 2;
+  opacity: 1;
+  color: inherit;
+  transition: opacity 0.1s;
+}
+.glitchBilingualText .letterContainer .mainLetter.hidden {
+  opacity: 0;
+}
+.glitchBilingualText .letterContainer .additionalLetter {
+  position: absolute;
+  font-family: "ManifoldExtended", sans-serif;
+  font-weight: 700;
+  color: rgb(0, 204, 255);
+  text-shadow: 0 0 5px rgb(0, 204, 255);
+  opacity: 0;
+  transform: scaleX(-1) scaleY(-1) translateY(-5%);
+  transition: opacity 0.015s;
+  pointer-events: none;
+}
+.glitchBilingualText .letterContainer .additionalLetter.visible {
+  opacity: 1;
+}/*# sourceMappingURL=glitchBilingualText.css.map */

@@ -29,6 +29,11 @@ export function addCarouselWheelDelta(deltaPixels) {
 	return true;
 }
 
+/** Не перехватывать wheel над полями формы (контакты и т.п.). */
+function isEditableTarget(target) {
+	return target instanceof Element && Boolean(target.closest("input, textarea, select, [contenteditable='true']"));
+}
+
 /** Не перехватывать wheel над прокручиваемым HTML-блоком (список портфолио и т.п.). */
 function isOverScrollableElement(target) {
 	let el = target;
@@ -48,6 +53,9 @@ function isOverScrollableElement(target) {
  */
 export function shouldCarouselScrollWheel(ctx, event) {
 	if (isSceneDevToolsWheelTarget(event)) {
+		return false;
+	}
+	if (isEditableTarget(event.target)) {
 		return false;
 	}
 	if (isOverScrollableElement(event.target)) {

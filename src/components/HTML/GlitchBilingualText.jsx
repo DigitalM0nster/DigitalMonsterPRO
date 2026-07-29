@@ -9,6 +9,13 @@ import {
 import { getLanguageGroupLocale, normalizeSiteLocale, SITE_LOCALES } from "@/utils/siteLocale.js";
 import "./glitchBilingualText.scss";
 
+function getLetterCaseClass(letter) {
+	if (letter.toLowerCase() === letter.toUpperCase()) {
+		return "letterUpper";
+	}
+	return letter === letter.toLowerCase() ? "letterLower" : "letterUpper";
+}
+
 function renderLetters(text, renderMainLettersHidden = false) {
 	return text.split("").map((letter, index) => {
 		const replacements = getGlitchReplacements(letter);
@@ -22,7 +29,7 @@ function renderLetters(text, renderMainLettersHidden = false) {
 		}
 
 		return (
-			<div key={index} className="letterContainer">
+			<div key={index} className={`letterContainer ${getLetterCaseClass(letter)}`}>
 				<div className={`mainLetter ${renderMainLettersHidden ? "hidden" : ""}`}>{letter}</div>
 				{replacements.split("").map((replacement, i) =>
 					replacement === " " ? null : (
@@ -33,7 +40,51 @@ function renderLetters(text, renderMainLettersHidden = false) {
 				)}
 			</div>
 		);
-	}	);
+	});
+}
+
+/** Split for wrapWords: space-separated tokens, or short CJK chunks (no mid-word Latin). */
+function getWrapParts(text) {
+	const value = String(text);
+	if (/\s/.test(value)) {
+		return value.match(/\S+|\s+/g) ?? [value];
+	}
+
+	// No spaces (typical CJK): allow breaks every 2 characters, never 1-glyph lines from flex.
+	const chars = [...value];
+	const parts = [];
+	for (let index = 0; index < chars.length; index += 2) {
+		parts.push(chars.slice(index, index + 2).join(""));
+	}
+	return parts.length > 0 ? parts : [value];
+}
+
+/** Keep words/chunks intact so flex-wrap does not break one glyph per line. */
+function renderTextContent(text, renderMainLettersHidden = false, wrapWords = false) {
+	if (!wrapWords) {
+		return renderLetters(text, renderMainLettersHidden);
+	}
+
+	const parts = getWrapParts(text);
+	return parts.map((part, index) => {
+		if (/^\s+$/.test(part)) {
+			return (
+				<div
+					key={`space-${index}`}
+					className="letterContainer space"
+					style={{ width: `${0.35 * part.length}em` }}
+				>
+					<div className={`mainLetter ${renderMainLettersHidden ? "hidden" : ""}`}>&nbsp;</div>
+				</div>
+			);
+		}
+
+		return (
+			<span key={`word-${index}`} className="languageGroupWord">
+				{renderLetters(part, renderMainLettersHidden)}
+			</span>
+		);
+	});
 }
 
 function renderLeadingSlot(leadingSlot, leadingGlitch) {
@@ -74,14 +125,18 @@ function syncLocaleVisibility(root, activeLocale) {
 
 /**
  * Glitch-текст с несколькими языками: при смене locale — змейка disappear → appear.
- * @param {{ texts: Partial<Record<import('@/utils/siteLocale.js').SiteLocale, string>>, locale: string, className?: string, playSound?: boolean, alignEnd?: boolean, leadingSlot?: import('react').ReactNode, leadingGlitch?: boolean, hideActiveLettersOnTextMount?: boolean, renderActiveLettersHidden?: boolean, sizeToActiveLocale?: boolean, managedLocaleTransition?: boolean, prepareManagedLocaleAppear?: boolean }} props
  */
 export default function GlitchBilingualText({
 	texts,
 	locale,
 	className = "",
 	playSound = true,
+	soundIntent,
+	soundPan,
+	soundSpatialPosition,
+	soundVolumeGain,
 	alignEnd = false,
+	wrapWords = false,
 	leadingSlot = null,
 	leadingGlitch = false,
 	hideActiveLettersOnTextMount = false,
@@ -89,6 +144,8 @@ export default function GlitchBilingualText({
 	sizeToActiveLocale = false,
 	managedLocaleTransition = false,
 	prepareManagedLocaleAppear = false,
+	localeSwitchDelayMs = 0,
+	timeBudgetMs,
 }) {
 	const normalizedLocale = normalizeSiteLocale(locale);
 	const rootRef = useRef(null);
@@ -98,8 +155,11 @@ export default function GlitchBilingualText({
 	const [displayedLocale, setDisplayedLocale] = useState(normalizedLocale);
 	const isAnimatingRef = useRef(false);
 	const hasMountedRef = useRef(false);
+	const switchDelayTimerRef = useRef(0);
 	const hideActiveLettersOnTextMountRef = useRef(hideActiveLettersOnTextMount);
 	hideActiveLettersOnTextMountRef.current = hideActiveLettersOnTextMount;
+	const textsRef = useRef(texts);
+	textsRef.current = texts;
 	const [groupWidths, setGroupWidths] = useState({});
 
 	const textSignature = useMemo(() => SITE_LOCALES.map((loc) => texts[loc] ?? "").join("\x00"), [texts]);
@@ -113,11 +173,24 @@ export default function GlitchBilingualText({
 	const relativeLocale = sizeToActiveLocale ? displayedLocale : widestLocale;
 
 	const measureWidths = () => {
+		if (isAnimatingRef.current) {
+			return;
+		}
 		const nextWidths = {};
 		for (const loc of SITE_LOCALES) {
 			nextWidths[loc] = groupRefs.current[loc]?.offsetWidth ?? 0;
 		}
 		setGroupWidths(nextWidths);
+	};
+
+	const applyLocaleInstant = (toLocale) => {
+		const root = rootRef.current;
+		abortGlitchSnake(root);
+		displayedLocaleRef.current = toLocale;
+		setDisplayedLocale(toLocale);
+		syncLocaleVisibility(root, toLocale);
+		isAnimatingRef.current = false;
+		measureWidths();
 	};
 
 	const tryStartLanguageSwitch = () => {
@@ -133,9 +206,22 @@ export default function GlitchBilingualText({
 			return;
 		}
 
+		const fromText = textsRef.current?.[fromLocale] ?? "";
+		const toText = textsRef.current?.[toLocale] ?? "";
+		// Identical copy — no DOM snake / timer storm.
+		if (fromText === toText) {
+			applyLocaleInstant(toLocale);
+			return;
+		}
+
 		isAnimatingRef.current = true;
 		runGlitchLanguageSwitch(root, fromLocale, toLocale, {
 			playSound,
+			soundIntent,
+			soundPan,
+			soundSpatialPosition,
+			soundVolumeGain,
+			timeBudgetMs,
 			onBeforeAppear: () => {
 				if (sizeToActiveLocale) {
 					setDisplayedLocale(toLocale);
@@ -145,6 +231,7 @@ export default function GlitchBilingualText({
 				displayedLocaleRef.current = toLocale;
 				setDisplayedLocale(toLocale);
 				isAnimatingRef.current = false;
+				measureWidths();
 
 				if (desiredLocaleRef.current !== toLocale) {
 					tryStartLanguageSwitch();
@@ -159,15 +246,12 @@ export default function GlitchBilingualText({
 			return;
 		}
 
+		window.clearTimeout(switchDelayTimerRef.current);
 		abortGlitchSnake(root);
 		desiredLocaleRef.current = normalizedLocale;
 		displayedLocaleRef.current = normalizedLocale;
 		setDisplayedLocale(normalizedLocale);
 		syncLocaleVisibility(root, normalizedLocale);
-		// Route crumbs are animated by their parent immediately after this text is
-		// mounted. Keep the active letters hidden here as part of the child's own
-		// layout lifecycle, so effect ordering can never expose the complete word
-		// for one paint before the snake starts.
 		if (hideActiveLettersOnTextMountRef.current) {
 			prepareGlitchAppearInScope(groupRefs.current[normalizedLocale]);
 		}
@@ -178,30 +262,44 @@ export default function GlitchBilingualText({
 
 	useLayoutEffect(() => {
 		if (!hasMountedRef.current) {
-			return;
+			return undefined;
 		}
 
 		desiredLocaleRef.current = normalizedLocale;
+		window.clearTimeout(switchDelayTimerRef.current);
+
 		if (managedLocaleTransition) {
-			const root = rootRef.current;
-			abortGlitchSnake(root);
-			displayedLocaleRef.current = normalizedLocale;
-			setDisplayedLocale(normalizedLocale);
-			syncLocaleVisibility(root, normalizedLocale);
+			applyLocaleInstant(normalizedLocale);
 			if (prepareManagedLocaleAppear) {
 				prepareGlitchAppearInScope(groupRefs.current[normalizedLocale]);
 			}
-			return;
+			return undefined;
 		}
 
 		if (isAnimatingRef.current) {
-			return;
+			return undefined;
 		}
 
-		if (normalizedLocale !== displayedLocaleRef.current) {
-			tryStartLanguageSwitch();
+		if (normalizedLocale === displayedLocaleRef.current) {
+			return undefined;
 		}
-	}, [managedLocaleTransition, normalizedLocale, prepareManagedLocaleAppear]);
+
+		const delay = Math.max(0, Number(localeSwitchDelayMs) || 0);
+		if (delay <= 0) {
+			tryStartLanguageSwitch();
+			return undefined;
+		}
+
+		switchDelayTimerRef.current = window.setTimeout(() => {
+			if (desiredLocaleRef.current !== displayedLocaleRef.current && !isAnimatingRef.current) {
+				tryStartLanguageSwitch();
+			}
+		}, delay);
+
+		return () => {
+			window.clearTimeout(switchDelayTimerRef.current);
+		};
+	}, [managedLocaleTransition, normalizedLocale, prepareManagedLocaleAppear, localeSwitchDelayMs]);
 
 	useEffect(() => {
 		const root = rootRef.current;
@@ -225,6 +323,7 @@ export default function GlitchBilingualText({
 
 	useEffect(() => {
 		return () => {
+			window.clearTimeout(switchDelayTimerRef.current);
 			abortGlitchSnake(rootRef.current);
 		};
 	}, []);
@@ -232,7 +331,14 @@ export default function GlitchBilingualText({
 	return (
 		<div
 			ref={rootRef}
-			className={["glitchBilingualText", "wordContainer", "relative", alignEnd && "alignEnd", className]
+			className={[
+				"glitchBilingualText",
+				"wordContainer",
+				"relative",
+				alignEnd && "alignEnd",
+				wrapWords && "wrapWords",
+				className,
+			]
 				.filter(Boolean)
 				.join(" ")}
 		>
@@ -241,6 +347,18 @@ export default function GlitchBilingualText({
 				if (!text) {
 					return null;
 				}
+
+				const hideActive = renderActiveLettersHidden && displayedLocale === loc;
+				const content = leadingSlot ? (
+					<div className="languageGroupRow">
+						{renderLeadingSlot(leadingSlot, leadingGlitch)}
+						<span className="languageGroupLetters">
+							{renderTextContent(text, hideActive, wrapWords)}
+						</span>
+					</div>
+				) : (
+					renderTextContent(text, hideActive, wrapWords)
+				);
 
 				return (
 					<div
@@ -257,14 +375,7 @@ export default function GlitchBilingualText({
 							.filter(Boolean)
 							.join(" ")}
 					>
-						{leadingSlot ? (
-							<div className="languageGroupRow">
-								{renderLeadingSlot(leadingSlot, leadingGlitch)}
-								<span className="languageGroupLetters">{renderLetters(text, renderActiveLettersHidden && displayedLocale === loc)}</span>
-							</div>
-						) : (
-							renderLetters(text, renderActiveLettersHidden && displayedLocale === loc)
-						)}
+						{content}
 					</div>
 				);
 			})}

@@ -116,6 +116,11 @@ export function promoteCasePanelHudCanvases(direction) {
 	if (!fromCanvas || !toCanvas || fromCanvas === toCanvas) {
 		return false;
 	}
+	// Painter fills the free buffer on rAF. A second swap before that paint leaves
+	// from/to on the wrong stages (1→3, 2→2, etc.).
+	if (needsComplementPaint) {
+		return false;
+	}
 	const tmp = fromCanvas;
 	fromCanvas = toCanvas;
 	toCanvas = tmp;
@@ -128,6 +133,32 @@ export function promoteCasePanelHudCanvases(direction) {
 		listener();
 	}
 	return true;
+}
+
+export function isCasePanelHudComplementPaintPending() {
+	return needsComplementPaint;
+}
+
+/** Drop a stale complement flag without swapping or painting (case enter/leave). */
+export function clearCasePanelHudComplementPaint() {
+	needsComplementPaint = false;
+	complementDirection = null;
+}
+
+/**
+ * Force both content buffers to repaint for the current store stage pair.
+ * Used when story catches up more than one stage — N promotes desync from/to.
+ */
+export function invalidateCasePanelHudContentPair() {
+	needsComplementPaint = false;
+	complementDirection = null;
+	dirtyCanvases = null;
+	revision += 1;
+	// Not a real promote — painter must full-paint both buffers (force).
+	promoteListener?.("invalidate");
+	for (const listener of syncListeners) {
+		listener();
+	}
 }
 
 /**

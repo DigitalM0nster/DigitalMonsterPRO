@@ -25,6 +25,7 @@ import {
 	getStageProgress,
 } from "./stageProgress.js";
 import { isCaseStageClickMosaicActive } from "./caseStageClickMosaic.js";
+import { isCaseExperienceRuntimeActive } from "./caseExperienceRuntime.js";
 import {
 	getCaseStudyStageRailMotionToken,
 	isCaseStudyStageRailHeaderLinkAnimating,
@@ -319,8 +320,14 @@ function frame(now) {
 	const dt = Math.min(0.05, (now - lastTickTime) / 1000);
 	lastTickTime = now;
 
+	// Desktop case runtime owns stage/promote via publish(). Old stageProgress
+	// spring+promote stays for click-mosaic / non-runtime paths only.
 	const stageAnimating = isStageProgressAnimating();
-	if (stageAnimating && tickStageProgress(dt)) {
+	if (
+		stageAnimating
+		&& !isCaseExperienceRuntimeActive()
+		&& tickStageProgress(dt)
+	) {
 		stageProgressCallback?.(dt);
 	}
 

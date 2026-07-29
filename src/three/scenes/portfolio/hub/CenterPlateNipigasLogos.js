@@ -1,16 +1,8 @@
 import * as THREE from "three";
 import { projectsData, getLogoAccent } from "./projectsData.js";
 import { portfolioHubPlatesConfig } from "./portfolioHubConfig.js";
-import {
-	portfolioHubLogoConfig,
-	getLogoLayerConfig,
-} from "./portfolioHubLogoConfig.js";
-import {
-	createPortfolioLogoMaterial,
-	applyLogoRevealConfig,
-	applyLogoAccent,
-	getLogoPlaneSizeForAspect,
-} from "./portfolioLogoMaterial.js";
+import { portfolioHubLogoConfig, getLogoLayerConfig } from "./portfolioHubLogoConfig.js";
+import { createPortfolioLogoMaterial, applyLogoRevealConfig, applyLogoAccent, getLogoPlaneSizeForAspect } from "./portfolioLogoMaterial.js";
 import { getRevealSeedForProject } from "./logoBrickReveal.js";
 
 const LOGO_SLOT_DEFS = [
@@ -88,11 +80,7 @@ export class CenterPlateNipigasLogos {
 
 	async _loadAll() {
 		const loader = new THREE.TextureLoader();
-		const results = await Promise.allSettled(
-			projectsData.map((project, index) =>
-				loader.loadAsync(project.hubLogo).then((texture) => ({ index, texture })),
-			),
-		);
+		const results = await Promise.allSettled(projectsData.map((project, index) => loader.loadAsync(project.hubLogo).then((texture) => ({ index, texture }))));
 
 		for (const result of results) {
 			if (result.status !== "fulfilled") {
@@ -136,15 +124,10 @@ export class CenterPlateNipigasLogos {
 			}
 			const layer = getLogoLayerConfig(slotId);
 			const uniforms = mesh.material.uniforms;
-			uniforms.bloomBoost.value =
-				portfolioHubLogoConfig.logoEmissiveBoost[slotId] ?? 1;
+			uniforms.bloomBoost.value = portfolioHubLogoConfig.logoEmissiveBoost[slotId] ?? 1;
 			uniforms.blur.value = layer.blur ?? 0;
 			mesh.material.userData.baseOpacity = layer.opacity ?? 1;
-			applyLogoRevealConfig(
-				uniforms,
-				this._getLogoPlaneSize(),
-				this._getRevealSeed(this.currentProjectIndex),
-			);
+			applyLogoRevealConfig(uniforms, this._getLogoPlaneSize(), this._getRevealSeed(this.currentProjectIndex));
 		}
 
 		this._applyRevealUniforms();
@@ -161,13 +144,8 @@ export class CenterPlateNipigasLogos {
 				continue;
 			}
 			const uniforms = mesh.material.uniforms;
-			uniforms.bloomBoost.value =
-				portfolioHubLogoConfig.logoEmissiveBoost[slotId] ?? 1;
-			applyLogoRevealConfig(
-				uniforms,
-				this._getLogoPlaneSize(),
-				this._getRevealSeed(this.currentProjectIndex),
-			);
+			uniforms.bloomBoost.value = portfolioHubLogoConfig.logoEmissiveBoost[slotId] ?? 1;
+			applyLogoRevealConfig(uniforms, this._getLogoPlaneSize(), this._getRevealSeed(this.currentProjectIndex));
 		}
 	}
 
@@ -224,10 +202,7 @@ export class CenterPlateNipigasLogos {
 	_createLogoHitGeometry() {
 		const planeSize = this._getLogoPlaneSize();
 		const hitCfg = portfolioHubPlatesConfig.interaction?.hoverMotion?.hitAreas?.logo ?? {};
-		return new THREE.PlaneGeometry(
-			planeSize.x * (hitCfg.scaleX ?? 1),
-			planeSize.y * (hitCfg.scaleY ?? 1),
-		);
+		return new THREE.PlaneGeometry(planeSize.x * (hitCfg.scaleX ?? 1), planeSize.y * (hitCfg.scaleY ?? 1));
 	}
 
 	_rebuildLogoGeometry() {
@@ -288,8 +263,7 @@ export class CenterPlateNipigasLogos {
 	_applySlotTransforms(reveal = this._revealProgress) {
 		const depth = portfolioHubPlatesConfig.depth;
 		const frontZ = depth * 0.5;
-		const logoZPull =
-			portfolioHubPlatesConfig.interaction?.hoverMotion?.logoZPull ?? 0.004;
+		const logoZPull = portfolioHubPlatesConfig.interaction?.hoverMotion?.logoZPull ?? 0.004;
 
 		for (const mesh of this.instances) {
 			const slot = mesh.userData.logoSlot;
@@ -318,9 +292,7 @@ export class CenterPlateNipigasLogos {
 	}
 
 	getFrontFloatMesh() {
-		return (
-			this.instances.find((mesh) => mesh.userData.logoSlot?.floatFromFront) ?? null
-		);
+		return this.instances.find((mesh) => mesh.userData.logoSlot?.floatFromFront) ?? null;
 	}
 
 	getHitArea() {
@@ -335,8 +307,7 @@ export class CenterPlateNipigasLogos {
 	}
 
 	updateHover(delta) {
-		const duration =
-			portfolioHubPlatesConfig.interaction?.hoverMotion?.smoothDuration ?? 0.22;
+		const duration = portfolioHubPlatesConfig.interaction?.hoverMotion?.smoothDuration ?? 0.22;
 		const t = 1 - Math.exp(-delta / Math.max(duration, 0.001));
 		this._logoHover += (this._logoHoverTarget - this._logoHover) * t;
 
@@ -358,8 +329,7 @@ export class CenterPlateNipigasLogos {
 		}
 
 		this._applySlotTransforms(this._revealProgress);
-		this.anchor.visible =
-			this._revealProgress > 0.001 && this.currentPlateMesh != null;
+		this.anchor.visible = this._revealProgress > 0.001 && this.currentPlateMesh != null;
 	}
 
 	/** @param {number} alpha 0…1 — fade + выезд frontFloat (Z) */
@@ -371,10 +341,7 @@ export class CenterPlateNipigasLogos {
 		this.refreshLogoConfig();
 		this._revealProgress = Math.max(0, Math.min(1, alpha));
 		// revealLinear — raw progress сборки кубиков (0…1); при exit заморожен.
-		this._revealLinear = Math.max(
-			0,
-			Math.min(1, options.partLinear ?? options.linear ?? this._revealProgress),
-		);
+		this._revealLinear = Math.max(0, Math.min(1, options.partLinear ?? options.linear ?? this._revealProgress));
 		this._revealEnter = options.entering ? 1 : 0;
 		this._applyRevealUniforms();
 	}
@@ -404,10 +371,7 @@ export class CenterPlateNipigasLogos {
 			return;
 		}
 
-		if (
-			this.currentPlateMesh === plate.mesh &&
-			this.anchor.parent === plate.mesh
-		) {
+		if (this.currentPlateMesh === plate.mesh && this.anchor.parent === plate.mesh) {
 			this.currentFlatIndex = plate.flatIndex;
 			return;
 		}

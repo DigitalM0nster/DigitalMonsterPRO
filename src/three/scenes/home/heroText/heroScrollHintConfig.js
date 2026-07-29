@@ -1,6 +1,5 @@
 /**
  * Цвета scroll-hint под Digital Monster (мышь + змейка на home).
- * Live-tune: dev-панель 6 или ?scrollHintDev=1
  */
 export const heroScrollHintConfig = {
 	/** Базовый цвет трека и хвоста. */
@@ -9,12 +8,18 @@ export const heroScrollHintConfig = {
 	brightColor: "#2ea4ff",
 	/** Цвет текста «листайте вниз». */
 	labelColor: "#ffffff",
-	/** Цвет свечения текста. */
+	/** Цвет свечения основного текста. */
 	labelGlowColor: "#39b3fe",
 	/** Сила canvas-свечения текста (0 = выкл). */
 	labelGlowStrength: 4,
 	/** Радиус blur свечения текста, px. */
 	labelGlowBlur: 7.5,
+	/** Цвет букв змейки при смене языка. */
+	snakeLetterColor: "#e0f9ff",
+	/** Цвет свечения букв змейки. */
+	snakeGlowColor: "#0091ff",
+	/** Сила свечения букв змейки (0 = выкл). */
+	snakeGlowStrength: 8,
 	/** HDR lift змейки/мыши в шейдере (site bloom threshold ≈ 1). */
 	bloomBoost: 8,
 	/** Прозрачность линии трека. */
@@ -22,16 +27,7 @@ export const heroScrollHintConfig = {
 };
 
 export function cloneHeroScrollHintConfig(source = heroScrollHintConfig) {
-	return {
-		mainColor: source.mainColor,
-		brightColor: source.brightColor,
-		labelColor: source.labelColor,
-		labelGlowColor: source.labelGlowColor,
-		labelGlowStrength: source.labelGlowStrength,
-		labelGlowBlur: source.labelGlowBlur,
-		bloomBoost: source.bloomBoost,
-		trackAlpha: source.trackAlpha,
-	};
+	return { ...source };
 }
 
 /** @param {string} hex */

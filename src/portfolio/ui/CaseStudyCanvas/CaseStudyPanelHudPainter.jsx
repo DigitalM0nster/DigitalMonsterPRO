@@ -26,12 +26,14 @@ import {
 	registerCasePanelHudPromoteListener,
 	registerCasePanelHudSyncListener,
 	consumeCasePanelHudComplementPaint,
+	clearCasePanelHudComplementPaint,
 	getCasePanelHudState,
 	getCasePanelHudEnterProgress,
 	getCasePanelHudEnterTravelSign,
 	setCasePanelHudEnterProgress,
 	setCasePanelHudChromeState,
 } from "@/portfolio/core/casePanelHudBridge.js";
+import { resetStageProgress } from "@/portfolio/core/stageProgress.js";
 import { adoptWarmCasePanelHud } from "./warmCasePanelHudUnderCurtain.js";
 import { caseChromeOwnsHexHitAtClientY } from "@/three/render/overlay/hexHitOwnership.js";
 import {
@@ -604,6 +606,8 @@ export default function CaseStudyPanelHudPainter({
 		const mustFullContentPaint = !hudReady || !introFinishedRef.current || force;
 		let complement = false;
 		if (mustFullContentPaint || isCaseStageClickMosaicActive()) {
+			// Full rebuild owns both buffers — drop stale complement so the next
+			// promote is not blocked forever.
 			if (getCasePanelHudState().needsComplementPaint) {
 				consumeCasePanelHudComplementPaint();
 			}
@@ -1059,10 +1063,9 @@ export default function CaseStudyPanelHudPainter({
 		if (prevId === nextId) {
 			return;
 		}
-		// Discard stage-promote leftover from the previous case before the first paint.
-		if (getCasePanelHudState().needsComplementPaint) {
-			consumeCasePanelHudComplementPaint();
-		}
+		// Discard stage-promote leftover + terminal mix from the previous case.
+		clearCasePanelHudComplementPaint();
+		resetStageProgress();
 		if (isCasePanelHudRevealBusy()) {
 			cancelCasePanelHudReveal();
 		}
@@ -1135,6 +1138,7 @@ export default function CaseStudyPanelHudPainter({
 					setCasePanelHudEnterProgress(null);
 				}
 				// Chrome only — do not invalidate content textures (re-upload flash/jump).
+				// Wheel arm after appear is owned by caseExperienceRuntime (enter-complete).
 				chromeMosaicFrozenKeyRef.current = "";
 				lastChromeKeyRef.current = "";
 				requestPaintRef.current(true);
@@ -1319,6 +1323,11 @@ export default function CaseStudyPanelHudPainter({
 				return;
 			}
 			lastContentKeyRef.current = "";
+			// Full pair rebuild (no buffer swap) — must force, not complement/recycle.
+			if (direction === "invalidate") {
+				paintNowRef.current(true);
+				return;
+			}
 			// Backward must fill `from` in the same frame; forward can coalesce.
 			if (direction === "backward") {
 				paintNowRef.current(false);

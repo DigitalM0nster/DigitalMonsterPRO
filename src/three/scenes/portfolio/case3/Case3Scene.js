@@ -4,6 +4,9 @@ import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js
 import { createGLTFLoader } from "@/three/assets/gltfLoader.js";
 import { restoreRootForShow } from "@/three/scenes/utils/sceneRoot.js";
 import { createCase3FakeLitMaterial } from "./case3FakeLitMaterial.js";
+import { createCase3PointerInteract } from "./createCase3PointerInteract.js";
+import { CASE3_RADAR, createCase3GridRadar } from "./createCase3GridRadar.js";
+import { CASE3_BLOCK_HOVER } from "./case3InteractConfig.js";
 import { createCaseStudyPanelHud, disposeCaseStudyPanelHud, syncCaseStudyPanelHud } from "@/three/scenes/portfolio/caseStudyText/caseStudyPanelHudHost.js";
 import { createCaseSceneLifecycle } from "@/three/scenes/portfolio/caseLifecycle/caseSceneLifecycle.js";
 
@@ -48,37 +51,6 @@ function createRoundGlowTexture(disposables) {
 	texture.needsUpdate = true;
 	disposables.push(texture);
 	return texture;
-}
-
-function createGrid(disposables) {
-	const group = new THREE.Group();
-	const size = GRID_SIZE;
-	const divisions = GRID_DIVISIONS;
-	const half = size / 2;
-	const positions = [];
-
-	for (let index = 0; index <= divisions; index += 1) {
-		const coordinate = -half + (index / divisions) * size;
-		positions.push(-half, 0, coordinate, half, 0, coordinate);
-		positions.push(coordinate, 0, -half, coordinate, 0, half);
-	}
-
-	const geometry = new THREE.BufferGeometry();
-	geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
-	const material = new THREE.LineBasicMaterial({
-		color: 0x008fd4,
-		transparent: true,
-		opacity: 0.58,
-		depthWrite: false,
-		blending: THREE.AdditiveBlending,
-		fog: true,
-		toneMapped: false,
-	});
-	const lines = new THREE.LineSegments(geometry, material);
-	group.add(lines);
-	group.userData.material = material;
-	disposables.push(geometry, material);
-	return group;
 }
 
 function createFogCityBuildings() {
@@ -553,17 +525,17 @@ function createNeonConstructionBlocks(disposables) {
 	const strips = [
 		// 01. Far-left low block: line sits on the front lower edge.
 		{ blockIndex: 3, x: 0.409, y: 0.01, z: 0, length: 0.48, axis: "z" },
-		// 02-04. Left hero block: actual front/right corner, not a floating face stroke.
-		{ blockIndex: 4, x: 0.598, y: 0.32, z: 0.37, length: 0.93, axis: "x" },
+		// 02. Left platform — stage neon (front top).
+		{ blockIndex: 4, x: 0.598, y: 0.32, z: 0.37, length: 0.93, axis: "x", stageLine: true },
 		{ blockIndex: 4, x: 1.071, y: 0.32, z: 0.118, length: 0.515, axis: "z" },
 		{ blockIndex: 4, x: 2.394, y: 0.1, z: -0.283, length: 0.689, axis: "x" },
 		// 05. Low slab: front lower edge between the left cluster and crane pedestal.
 		{ blockIndex: 5, x: 2.362, y: 0.0075, z: -0.402, length: 1.374, axis: "z" },
-		// 06-07. Main pedestal: two visible lower front/corner edges.
-		{ blockIndex: 0, x: 0.378, y: 0.01, z: 1.276, length: 1.13, axis: "x" },
-		{ blockIndex: 0, x: 0.693, y: 0.1, z: 0.567, length: 0.863, axis: "z" },
-		// 08-09. Right large block: top front/right corner.
-		{ blockIndex: 6, x: -0.42, y: 0.425, z: 1.335, length: 0.933, axis: "x" },
+		// 06-07. Center pedestal — two stage neon lines.
+		{ blockIndex: 0, x: 0.378, y: 0.01, z: 1.276, length: 1.13, axis: "x", stageLine: true },
+		{ blockIndex: 0, x: 0.693, y: 0.1, z: 0.567, length: 0.863, axis: "z", stageLine: true },
+		// 08. Right platform — stage neon (front top).
+		{ blockIndex: 6, x: -0.42, y: 0.425, z: 1.335, length: 0.933, axis: "x", stageLine: true },
 		{ blockIndex: 6, x: -0.91, y: 0.425, z: 0.63, length: 1.42, axis: "z" },
 		// 10-11. Right outer block: low front/right corner.
 		{ blockIndex: 7, x: 0, y: 0.305, z: 0.585, length: 0.86, axis: "x" },
@@ -578,11 +550,18 @@ function createNeonConstructionBlocks(disposables) {
 	}
 	const stripMeshes = [];
 	for (const strip of strips) {
-		const core = new THREE.Mesh(stripGeometry, coreMaterial);
+		const stripMat = coreMaterial.clone();
+		disposables.push(stripMat);
+		const core = new THREE.Mesh(stripGeometry, stripMat);
 		core.scale.set(strip.length, lineGlow.coreHeight, lineGlow.coreDepth);
 		group.add(core);
 		stripMeshes.push({ strip, core });
 	}
+	group.userData.stripMeshes = stripMeshes;
+	group.userData.stageStripIndices = strips
+		.map((strip, index) => (strip.stageLine ? index : -1))
+		.filter((index) => index >= 0);
+	group.userData.stageBlockIndices = CASE3_BLOCK_HOVER.stageBlockIndices;
 	const updateComposition = () => {
 		group.userData.updateInstances?.();
 		for (const { strip, core } of stripMeshes) {
@@ -608,7 +587,9 @@ function createNeonConstructionBlocks(disposables) {
 		lineGlow.coreOpacity = config.coreOpacity;
 		lineGlow.coreHeight = config.coreHeight;
 		lineGlow.coreDepth = config.coreDepth;
-		coreMaterial.opacity = lineGlow.coreOpacity;
+		for (const { core } of stripMeshes) {
+			core.material.opacity = lineGlow.coreOpacity;
+		}
 	};
 	group.userData.updateComposition = updateComposition;
 	updateComposition();
@@ -659,14 +640,30 @@ export class Case3Scene {
 		this._allowExitOverlay = true;
 		this.elapsed = 0;
 		this.cameraParallax = new THREE.Vector2();
+		this.pointerDown = false;
+		this.pointerBlocked = true;
+		this.craneMesh = null;
+		this.pointerInteract = null;
+		this.gridRadar = null;
+		this._radarStateIndex = -1;
+		this._cityBaseOpacity = 0.8;
 
-		this.grid = createGrid(this.disposables);
+		this.gridRadar = createCase3GridRadar(GRID_SIZE, GRID_DIVISIONS, this.disposables);
+		this.gridRadar.setCenter(CONSTRUCTION_GROUP_OFFSET.x, CONSTRUCTION_GROUP_OFFSET.z);
+		this.grid = this.gridRadar.group;
 		const cityBuildings = createFogCityBuildings();
 		const constructionBlocks = createConstructionBlockDefinitions();
 		this.city = createCityEdgeLines(cityBuildings, this.disposables);
+		this._cityBaseOpacity = this.city.userData.material?.opacity ?? 0.8;
 		this.constructionBlocks = createNeonConstructionBlocks(this.disposables);
 		this.digital = createDigitalNodes(this.disposables, cityBuildings, constructionBlocks);
 		this.root.add(this.city, this.grid, this.constructionBlocks, this.digital.group);
+
+		this.pointerInteract = createCase3PointerInteract({
+			constructionBlocks: this.constructionBlocks,
+			store: this.store,
+			disposables: this.disposables,
+		});
 
 		/** Left panel HUD — same WebGL path as Nipigas (Case1). */
 		this.panelHud = createCaseStudyPanelHud(this.threeScene);
@@ -685,6 +682,8 @@ export class Case3Scene {
 					this.lifecycle.setActivePage(true);
 					const mobile = (typeof window !== "undefined" ? window.innerWidth : 1280) <= 768;
 					this.root.scale.setScalar(mobile ? 0.72 : 1);
+					this._radarStateIndex = this.store?.portfolioExperience?.activeStateIndex ?? 0;
+					this.gridRadar?.trigger();
 				},
 				onMixPreviewShow: () => {
 					this.root.scale.setScalar(1);
@@ -697,6 +696,7 @@ export class Case3Scene {
 				},
 				onReset: () => {
 					this.elapsed = 0;
+					this._radarStateIndex = -1;
 				},
 			},
 		});
@@ -730,6 +730,8 @@ export class Case3Scene {
 				// The tower (not the full boom bounding-box center) belongs over the HUD rings.
 				crane.position.set(-center.x - 0.38, -box.min.y, -center.z);
 				this.modelRoot.add(crane);
+				this.craneMesh = crane;
+
 				this.loaded = true;
 				if (this._mixPreview) {
 					this.lifecycle.setMixPreviewActive(true);
@@ -755,6 +757,12 @@ export class Case3Scene {
 
 	setRouteState(routeState) {
 		this.lifecycle.setRouteState(routeState);
+	}
+
+	setPointerState({ pointerDown, pointerBlocked = false }) {
+		this.pointerDown = pointerBlocked ? false : pointerDown;
+		this.pointerBlocked = pointerBlocked;
+		this.pointerInteract?.setPointerState({ pointerDown: this.pointerDown, pointerBlocked });
 	}
 
 	beginWarmupDraw() {
@@ -814,6 +822,7 @@ export class Case3Scene {
 
 		const phase = this.lifecycle.updateExit(frame);
 		if (phase === "hidden") {
+			this.pointerInteract?.clearHover();
 			return;
 		}
 
@@ -833,13 +842,38 @@ export class Case3Scene {
 			easing.damp3(this.root.scale, mobile ? [0.72, 0.72, 0.72] : [1, 1, 1], 0.65, delta);
 		}
 
-		this.digital.pointsMaterial.opacity = 0.72 + Math.sin(this.elapsed * 1.8) * 0.2;
+		this.pointerInteract?.update(delta, {
+			camera: frame?.camera ?? null,
+			pointer,
+			pointerBlocked: frame?.pointerBlocked || this.pointerBlocked,
+			interactionEnabled: frame?.interactionEnabled !== false,
+			activePage: Boolean(this.activePage && phase === "active"),
+		});
+
+		if (this.activePage && phase === "active") {
+			const stateIndex = this.store?.portfolioExperience?.activeStateIndex ?? 0;
+			if (stateIndex !== this._radarStateIndex) {
+				this._radarStateIndex = stateIndex;
+				this.gridRadar?.trigger();
+			}
+		}
+
+		const radar = this.gridRadar?.update(delta) ?? { intensity: 0 };
+		const radarIntensity = radar.intensity;
+		this.digital.pointsMaterial.opacity =
+			0.72 + Math.sin(this.elapsed * 1.8) * 0.2 + radarIntensity * CASE3_RADAR.pointsBoost;
+		const cityMat = this.city.userData.material;
+		if (cityMat) {
+			cityMat.opacity = this._cityBaseOpacity + radarIntensity * CASE3_RADAR.cityBoost;
+		}
+
 		const beaconPositions = this.digital.beacons.geometry.attributes.position;
 		const beaconFade = this.digital.beacons.geometry.attributes.aFade;
 		const trailPositions = this.digital.trails.geometry.attributes.position;
 		const trailPathFade = this.digital.trails.geometry.attributes.aPathFade;
 		this.digital.verticalDefinitions.forEach((definition, index) => {
-			const travel = (this.elapsed * 0.32 + definition.phase) % 1;
+			definition.travel = ((definition.travel ?? definition.phase) + delta * 0.32) % 1;
+			const travel = definition.travel;
 			const pathFade = 1 - THREE.MathUtils.smoothstep(travel, 0.9, 1);
 			const headY = BEACON_BASE_Y + travel * definition.height;
 			const trailLen = definition.height * BEACON_TRAIL_FRAC;
@@ -862,6 +896,8 @@ export class Case3Scene {
 
 	dispose() {
 		this._disposed = true;
+		this.pointerInteract?.clearHover();
+		this.pointerInteract = null;
 		disposeCaseStudyPanelHud(this.panelHud);
 		this.panelHud = null;
 		this.threeScene = null;

@@ -115,6 +115,13 @@ export class PortfolioHubScene {
 		this._hubEnterDelayTimer = 0;
 		/** Список проектов стартует после начала grid enter (плиты первыми). */
 		this._projectsIntroDelayTimer = 0;
+		/** double-rAF: logos/locale after plate wake (spread enter CPU/GPU). */
+		this._enterChromeRaf = 0;
+		/**
+		 * Hex target prepared with plates at rest opacity 1 (HUD still stashed).
+		 * Enter skips `_wakeHub` grid ramp — only logos + list chrome.
+		 */
+		this._mixTargetPrepared = false;
 		this._appStarted = false;
 		this._lastAppStarted = false;
 		this._lastHudTitleVisibility = -1;
@@ -577,13 +584,14 @@ export class PortfolioHubScene {
 	 * position loops / texture uploads here.
 	 */
 	_ensureDormantState() {
-		if (this._hubLifecycle === "dormant" && this._gridEnterProgress <= 0 && this._carouselEnterPending) {
+		if (this._hubLifecycle === "dormant" && this._gridEnterProgress <= 0 && this._carouselEnterPending && !this._mixTargetPrepared) {
 			return;
 		}
 
 		resetPortfolioHubBackgroundFocus(appStore);
 		this.screenTitle?.stashProjectsHiddenForDormant?.();
 		this._clearHubEnterDelayTimer();
+		this._mixTargetPrepared = false;
 		this._gridExitActive = false;
 		this._gridExitProgress = 0;
 		this._hubLifecycle = "dormant";
@@ -607,6 +615,7 @@ export class PortfolioHubScene {
 
 	/** Хаб как source в mix (уход с /portfolio): плиты и курсор активны, список проектов — нет. */
 	_restoreActiveHubForMixOut() {
+		this._mixTargetPrepared = false;
 		this._gridExitActive = false;
 		this._gridExitProgress = 0;
 		this._hubLifecycle = "active";
@@ -617,6 +626,39 @@ export class PortfolioHubScene {
 		this._applyGridTransformAtProgress(1);
 		this._applyPlateOpacity(1);
 		this._syncScreenTitleVisibility();
+	}
+
+	/**
+	 * Hex target: plates at rest opacity 1 (GPU warm + visible wipe), HUD list stashed.
+	 * Logos/focus wait for enter chrome — not on the hex-start frame.
+	 */
+	_prepareHubForMixTarget() {
+		this.screenTitle?.stashProjectsHiddenForDormant?.();
+		this._lastHudTitleVisibility = 0;
+		this.screenTitle?.setVisibility(0);
+
+		this._gridExitActive = false;
+		this._gridExitProgress = 0;
+		this._hubLifecycle = "active";
+		this.showHub = true;
+		this.enterActive = true;
+		this.root.visible = true;
+		this.root.scale.set(1, 1, 1);
+		this._logoRevealAlpha = 0;
+		this._cursorTiltRotX = 0;
+		this._cursorTiltRotY = 0;
+		this._resetPlateElementHover();
+		this._hubAnim = createHubAnimState();
+		this._gridEnterProgress = 1;
+		this._applyGridTransformAtProgress(1);
+		this.platesRenderer.resetProjectPlatePositions();
+		this._applyPlateOpacity(1);
+		this.centerPlateLogos?.updatePlate?.(null);
+		this.centerPlateLogos?.setRevealAlpha?.(0, { entering: false });
+		this.plateProjectLabels?.setFocusReveal?.(-1, 0, { entering: false });
+		this.plateDetailsButtons?.setFocusReveal?.(-1, 0, { entering: false });
+		this._mixTargetPrepared = true;
+		this._carouselEnterPending = true;
 	}
 
 	/**
@@ -652,6 +694,14 @@ export class PortfolioHubScene {
 		if (this._hubLifecycle === "dormant") {
 			this._restoreActiveHubForMixOut();
 		}
+	}
+
+	/**
+	 * Incoming hub in hex-mix: plates visible at rest (not opacity-0 dormant).
+	 * Called after hex-target dormant reset on the same frame.
+	 */
+	prepareCarouselMixTarget() {
+		this._prepareHubForMixTarget();
 	}
 
 	/** Анимация появления — после carousel dormant, или list-only при reverse как previous. */
@@ -702,10 +752,7 @@ export class PortfolioHubScene {
 		this.screenTitle?.stashProjectsHiddenForDormant?.();
 		this._lastHudTitleVisibility = 0;
 		this.screenTitle?.setVisibility(0);
-		// Locale may have changed on About/home while hub stayed previous — snake it now.
-		void this.plateProjectLabels?.playPendingLocaleReveal?.(portfolioHubPlatesConfig);
-		void this.plateDetailsButtons?.playPendingLocaleReveal?.(portfolioHubPlatesConfig);
-		this._scheduleProjectsIntro();
+		this._scheduleEnterChromeSpread();
 	}
 
 	_scheduleProjectsIntro() {
@@ -721,7 +768,37 @@ export class PortfolioHubScene {
 		this.screenTitle?.requestProjectsIntro?.();
 	}
 
-	/** Сетка: opacity 0→1 + transform enter; фокус сразу; список — чуть позже. */
+	_clearEnterChromeRaf() {
+		if (this._enterChromeRaf) {
+			cancelAnimationFrame(this._enterChromeRaf);
+			this._enterChromeRaf = 0;
+		}
+	}
+
+	/**
+	 * Spread enter chrome off the wake/commit frame:
+	 * plates (already waking) → double-rAF → focus logos + locale → list intro delay.
+	 */
+	_scheduleEnterChromeSpread() {
+		this._clearEnterChromeRaf();
+		this._enterChromeRaf = requestAnimationFrame(() => {
+			this._enterChromeRaf = requestAnimationFrame(() => {
+				this._enterChromeRaf = 0;
+				if (this._hubLifecycle === "dormant") {
+					return;
+				}
+				commitPortfolioHubFocusIndex(appStore, 0);
+				void this.plateProjectLabels?.playPendingLocaleReveal?.(portfolioHubPlatesConfig);
+				void this.plateDetailsButtons?.playPendingLocaleReveal?.(portfolioHubPlatesConfig);
+				this._scheduleProjectsIntro();
+			});
+		});
+	}
+
+	/**
+	 * Plate wake on this frame (or skip if hex already warmed plates);
+	 * logos / locale / list intro on later frames.
+	 */
 	_playEnterAnimationImmediate() {
 		if (!this._carouselEnterPending) {
 			return;
@@ -732,15 +809,22 @@ export class PortfolioHubScene {
 		this.screenTitle?.stashProjectsHiddenForDormant?.();
 		this._lastHudTitleVisibility = 0;
 		this.screenTitle?.setVisibility(0);
-		this._hubLifecycle = "entering";
-		this._wakeHub();
-		// Plate slide + logo/label reveal — сразу, не ждать змейку списка.
-		commitPortfolioHubFocusIndex(appStore, 0);
-		// Locale may have changed while hub was previous/next — snake after focus is set.
-		void this.plateProjectLabels?.playPendingLocaleReveal?.(portfolioHubPlatesConfig);
-		void this.plateDetailsButtons?.playPendingLocaleReveal?.(portfolioHubPlatesConfig);
 
-		this._scheduleProjectsIntro();
+		const platesAlreadyWarm = this._mixTargetPrepared && this._gridEnterProgress >= 1;
+		this._mixTargetPrepared = false;
+
+		if (platesAlreadyWarm) {
+			// Hex wipe already drew opaque InstancedMesh — no second opacity/transform ramp.
+			this._hubLifecycle = "active";
+			this.enterActive = true;
+			this.root.visible = true;
+			this.root.scale.set(1, 1, 1);
+		} else {
+			this._hubLifecycle = "entering";
+			this._wakeHub();
+		}
+
+		this._scheduleEnterChromeSpread();
 	}
 
 	_clearHubEnterDelayTimer() {
@@ -748,6 +832,7 @@ export class PortfolioHubScene {
 			clearTimeout(this._hubEnterDelayTimer);
 			this._hubEnterDelayTimer = 0;
 		}
+		this._clearEnterChromeRaf();
 		this._clearProjectsIntroDelayTimer();
 	}
 
@@ -1265,7 +1350,7 @@ export class PortfolioHubScene {
 	/** pointer.y → rotX, pointer.x → rotY; сглаживание поверх gridRotation. @returns {boolean} changed */
 	_updateCursorGridTilt(delta, pointer, frame = null) {
 		const cfg = portfolioHubPlatesConfig.interaction?.cursorGridTilt;
-		const canTilt = cfg && this._canAcceptHubInteraction(frame) && this._gridEnterProgress >= 1 && !this._gridExitActive;
+		const canTilt = cfg && this._canAcceptHubInteraction(frame) && this._gridEnterProgress >= 1 && !this._gridExitActive && !this._carouselEnterPending;
 
 		// Left menu / chrome sets pointerBlocked → target 0, but still ease back.
 		// Hard-zero on !canTilt snapped the hub when hovering the menu.
@@ -1493,7 +1578,7 @@ export class PortfolioHubScene {
 		if (mixProgress > 0.0001) {
 			const { targetId } = getSceneCarousel().getMixSourceTargetIds();
 			if (targetId === "portfolioHub" && this._hubLifecycle === "dormant") {
-				// Dormant plates are opacity 0 — bloom follows the wipe / enter.
+				// Fallback if mix-target prepare did not run — dormant plates are opacity 0.
 				return clamp01(mixProgress);
 			}
 		}
@@ -1536,7 +1621,8 @@ export class PortfolioHubScene {
 	update(_delta, frame) {
 		this._syncHubBloomReveal(_delta);
 
-		// Dormant (hex-in): плиты невидимы — не крутим tilt/hover/enter-анимации.
+		// Dormant: plates opacity 0 — skip tilt/hover/enter. Mix-target prepare
+		// leaves lifecycle active so InstancedMesh stays warm during hex wipe.
 		if (this._hubLifecycle === "dormant") {
 			return;
 		}
@@ -1586,6 +1672,7 @@ export class PortfolioHubScene {
 
 	dispose() {
 		this._clearHubEnterDelayTimer();
+		this._mixTargetPrepared = false;
 		this._portfolioLocaleSwitch?.dispose();
 		this._portfolioLocaleSwitch = null;
 		this.centerPlateLogos.dispose();

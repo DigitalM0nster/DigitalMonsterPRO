@@ -297,6 +297,16 @@ export function createHeroTitleText(renderer, scene) {
 		hideScrollHint() {
 			scrollHint.reset();
 		},
+		/**
+		 * Restore scroll hint when returning to home while title stayed live
+		 * (scroll reverse: home was `previous`, not ring-dormant — `show()` is not re-run).
+		 */
+		ensureScrollHintVisible() {
+			if (scrollHint.mesh?.visible) {
+				return;
+			}
+			scrollHint.playRevealEnter(heroTextRevealConfig.enterDurationMs);
+		},
 		/** Dev: змейка смены языка без клика по меню. */
 		previewGlitchLocaleSwitch(locale) {
 			return localeSwitch.previewSwitchTo(locale);

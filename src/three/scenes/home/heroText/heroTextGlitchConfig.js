@@ -2,7 +2,7 @@
  * Змейка смены языка hero canvas-текстов (subtitle + stack).
  * Live-tune: dev-панель 6 → «Змейка смены языка».
  */
-import { isCjkChar } from "@/shared/glitchText/glitchLetterModel.js";
+import { isCjkChar } from "@/components/GlitchText/glitchLetterModel.js";
 
 export const heroTextGlitchConfig = {
 	/** >1 — медленнее (4 = в 4 раза дольше). */

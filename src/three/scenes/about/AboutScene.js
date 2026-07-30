@@ -15,12 +15,12 @@ import { applyAboutModelMaterials, applyAboutMaterialsConfig } from "./aboutMate
 import { createAboutInsideParticles } from "./aboutInsideParticles.js";
 import { createAboutEdgeParticles } from "./aboutEdgeParticles.js";
 import { setAboutDissolveProgress } from "./aboutDissolveShader.js";
-import { resetAboutExperienceState } from "@/about/aboutExperienceRuntime.js";
-import { ABOUT_STAGE_COUNT } from "@/about/states.js";
-import { isAboutPanelHudRevealExiting } from "@/about/aboutPanelHudReveal.js";
-import { armAboutPanelHudForRoute, isAboutPanelHudVisitArmed, syncAboutPanelHudFromStory } from "@/about/aboutPanelHudStory.js";
-import { isAboutExperienceRuntimeActive } from "@/about/aboutExperienceRuntime.js";
-import { store } from "@/store.jsx";
+import { resetAboutExperienceState } from "@/pages/about/aboutExperienceRuntime.js";
+import { ABOUT_STAGE_COUNT } from "@/pages/about/states.js";
+import { isAboutPanelHudRevealExiting } from "@/pages/about/aboutPanelHudReveal.js";
+import { armAboutPanelHudForRoute, isAboutPanelHudVisitArmed, syncAboutPanelHudFromStory } from "@/pages/about/aboutPanelHudStory.js";
+import { isAboutExperienceRuntimeActive } from "@/pages/about/aboutExperienceRuntime.js";
+import { store } from "@/app/store.jsx";
 import { createCaseStudyPanelHud, disposeCaseStudyPanelHud, syncAboutPanelHud } from "@/three/scenes/portfolio/caseStudyText/caseStudyPanelHudHost.js";
 import { getSceneCarousel } from "@/three/render/transition/carouselPage.js";
 import { isLeavePoseReason, isRingDormantReason } from "@/three/scenes/lifecycle/sceneLifecycle.js";
@@ -30,7 +30,7 @@ import {
 	createAboutGltfStoryAnimRig,
 } from "./aboutGltfStoryAnimRig.js";
 import { AboutEpicTextController } from "./aboutEpicText/AboutEpicTextController.js";
-import { normalizeSiteLocale } from "@/utils/siteLocale.js";
+import { normalizeSiteLocale } from "@/functions/siteLocale.js";
 
 const ABOUT_PATH = "/about";
 /**

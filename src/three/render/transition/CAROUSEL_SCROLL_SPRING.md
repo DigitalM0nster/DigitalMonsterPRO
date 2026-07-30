@@ -10,7 +10,7 @@ Canonical implementation:
 | Shared rest + chase formula | [`segmentScrollSpring.js`](./segmentScrollSpring.js) |
 | Ring owner (pages) | [`SceneCarousel.js`](./SceneCarousel.js) |
 | Wheel → target | [`carouselScroll.js`](./carouselScroll.js) |
-| About stages (softer rates) | [`src/about/aboutExperienceRuntime.js`](../../../about/aboutExperienceRuntime.js) |
+| About stages (softer rates) | [`src/pages/about/aboutExperienceRuntime.js`](../../../pages/about/aboutExperienceRuntime.js) |
 | Site leave/enter ownership (all routes) | [`SITE_TRANSITION.md`](./SITE_TRANSITION.md) + `siteTransitionIntent.js` |
 | Camera continuity (no jumps) | [`CAMERA_CONTINUITY.md`](./CAMERA_CONTINUITY.md) |
 | Scroll parallax direction (down → content up) | [`SCROLL_PARALLAX.md`](./SCROLL_PARALLAX.md) |

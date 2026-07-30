@@ -237,7 +237,7 @@
 2. **Hotspots:** в legacy-коде явных hotspot-ов нет; есть hover (Troof roof) и pointer interactions.
 3. **Scroll → 3D:** Case1/2/3 связывают `store.scroll` с camera Y; Case4/5 — нет.
 4. **Dual stack:** R3F models активны; native THREE — только Case1Scene.
-5. **Миграция:** configs в `src/portfolio/projects/*` уже содержат извлечённый контент; 3D-positions и investigation copy — **TBD**.
+5. **Миграция:** configs в `src/pages/portfolio/projects/*` уже содержат извлечённый контент; 3D-positions и investigation copy — **TBD**.
 
 ---
 

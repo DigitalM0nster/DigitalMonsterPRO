@@ -1,9 +1,9 @@
 import { drawScreenTextLayerCanvas } from "./hubScreenTextCanvas.js";
-import { GlitchCanvasTextLayer } from "@/shared/canvasText/GlitchCanvasTextLayer.js";
+import { GlitchCanvasTextLayer } from "@/components/GlitchText/GlitchCanvasTextLayer.js";
 import {
 	GLITCH_REPLACEMENT_SHADOW_BLUR,
 	resolveReplacementGlowMetrics,
-} from "@/shared/glitchText/drawGlitchText.js";
+} from "@/components/GlitchText/drawGlitchText.js";
 
 /**
  * Portfolio HUD текстовый слой.

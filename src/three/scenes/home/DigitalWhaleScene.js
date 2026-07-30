@@ -3,8 +3,8 @@ import * as THREE from "three";
 import { digitalWhaleConfig } from "./digitalWhaleConfig.js";
 import { easeLinearBlendOut, getHeroCameraForSceneProgress, heroCamera, HERO_LOOK_AT, smoothSinePhase } from "./heroCamera.js";
 import { getHeroSceneProgressDrift } from "./heroSceneProgressDrift.js";
-import { shouldActivateRoutePage } from "@/utils/shouldActivateRoutePage.js";
-import { store as appStore } from "@/store.jsx";
+import { shouldActivateRoutePage } from "@/functions/shouldActivateRoutePage.js";
+import { store as appStore } from "@/app/store.jsx";
 import { createAmbientEffects } from "./utils/createAmbientEffects.js";
 import {
 	createOceanGridLines,
@@ -25,7 +25,7 @@ import {
 	shouldUseShaderOceanSurface,
 	shouldUseWhaleHologram,
 } from "./utils/heroSceneTierScale.js";
-import { getGraphicsTier } from "@/utils/getGraphicsTier.js";
+import { getGraphicsTier } from "@/functions/getGraphicsTier.js";
 import { createHeroTitleText } from "./heroText/createHeroTitleText.js";
 import { isRingDormantReason } from "@/three/scenes/lifecycle/sceneLifecycle.js";
 import { getSceneCarousel } from "@/three/render/transition/carouselPage.js";

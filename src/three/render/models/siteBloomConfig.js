@@ -20,7 +20,7 @@ export const siteBloomArtDirection = {
 export const siteBloomDevOverrides = import.meta.env.DEV ? {} : null;
 
 /**
- * @param {ReturnType<import("../../../utils/getGraphicsTier.js").getGraphicsConfig>} gfx
+ * @param {ReturnType<import("@/functions/getGraphicsTier.js").getGraphicsConfig>} gfx
  */
 export function getSiteBloomConfig(gfx) {
 	const dev = siteBloomDevOverrides ?? {};

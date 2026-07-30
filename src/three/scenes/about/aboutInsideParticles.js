@@ -1,8 +1,8 @@
 import * as THREE from "three";
 import { ABOUT_COLORS, ABOUT_PARTICLES } from "./aboutSceneConfig.js";
 import { ABOUT_EDGE_DISSOLVE_GLSL } from "./aboutEdgeParticleDissolve.js";
-import { store } from "@/store.jsx";
-import { normalizeSiteLocale } from "@/utils/siteLocale.js";
+import { store } from "@/app/store.jsx";
+import { normalizeSiteLocale } from "@/functions/siteLocale.js";
 import { findAboutEpicTextPlane } from "./normalizeAboutGltfScene.js";
 
 const _zoneWorld = new THREE.Vector3();

@@ -2,7 +2,7 @@ import * as THREE from "three";
 
 import { whaleWakeFragmentShader, whaleWakeVertexShader } from "../shaders/digitalWhaleShaders.js";
 import { digitalWhaleConfig } from "../digitalWhaleConfig.js";
-import { getGraphicsTier } from "@/utils/getGraphicsTier.js";
+import { getGraphicsTier } from "@/functions/getGraphicsTier.js";
 
 const WAKE_TIER_MUL = {
 	// C2: −25% шлейфа на high (count в конфиге — эталон для dev).

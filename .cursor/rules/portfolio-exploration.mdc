@@ -1,7 +1,7 @@
 ---
 description: Правила Portfolio Exploration Engine — 3D-поведение, видео, investigation
 globs:
-  - "src/portfolio/**"
+  - "src/pages/portfolio/**"
   - "docs/PORTFOLIO*.md"
 alwaysApply: false
 ---

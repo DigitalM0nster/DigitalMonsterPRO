@@ -1,7 +1,7 @@
 import { subscribe } from "valtio/vanilla";
-import { store } from "@/store.jsx";
-import { getPortfolioLocale } from "@/i18n/portfolioProjectsCopy.js";
-import { normalizeSiteLocale } from "@/utils/siteLocale.js";
+import { store } from "@/app/store.jsx";
+import { getPortfolioLocale } from "@/pages/portfolio/data/portfolioProjectsCopy.js";
+import { normalizeSiteLocale } from "@/functions/siteLocale.js";
 import { portfolioHubPlatesConfig } from "./portfolioHubConfig.js";
 
 /**

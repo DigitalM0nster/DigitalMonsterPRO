@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { normalizeSiteLocale } from "@/utils/siteLocale.js";
+import { normalizeSiteLocale } from "@/functions/siteLocale.js";
 
 /** Blender: AboutEpicTextPlane (ru) / AboutEpicTextPlaneEN / AboutEpicTextPlaneZH */
 export const ABOUT_EPIC_TEXT_PLANE_NAMES_BY_LOCALE = {

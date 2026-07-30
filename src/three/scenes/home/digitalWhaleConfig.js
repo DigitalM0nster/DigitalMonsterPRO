@@ -1,4 +1,4 @@
-import { getGraphicsTier } from "@/utils/getGraphicsTier.js";
+import { getGraphicsTier } from "@/functions/getGraphicsTier.js";
 
 /**
  * Пресеты hero-сцены (цифровой океан + FBX кит). Камера — heroCamera.js.

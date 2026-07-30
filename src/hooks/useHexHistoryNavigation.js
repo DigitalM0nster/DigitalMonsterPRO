@@ -1,8 +1,8 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { useNavigationType } from "react-router-dom";
 import { subscribeKey } from "valtio/utils";
-import { normalizeSitePath, requestHexNavigation, setHexVisualPath } from "@/utils/hexNavigation.js";
-import { store } from "@/store.jsx";
+import { normalizeSitePath, requestHexNavigation, setHexVisualPath } from "@/functions/hexNavigation.js";
+import { store } from "@/app/store.jsx";
 
 /**
  * Back/forward: hex-transition с очередью pending-цели.

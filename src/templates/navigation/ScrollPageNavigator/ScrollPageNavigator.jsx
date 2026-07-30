@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
-import { store, useStore } from "@/store.jsx";
-import { useRouteTransitionContext } from "@/context/RouteTransitionContext.jsx";
-import { getNavItemLabel, getNavPortfolioCasesMarker } from "@/i18n/siteCopy.js";
-import { normalizeSiteLocale } from "@/utils/siteLocale.js";
-import { requestHexNavigation, getHexPendingPath } from "@/utils/hexNavigation.js";
+import { store, useStore } from "@/app/store.jsx";
+import { useRouteTransitionContext } from "@/app/context/RouteTransitionContext.jsx";
+import { getNavItemLabel, getNavPortfolioCasesMarker } from "@/app/i18n/siteCopy.js";
+import { normalizeSiteLocale } from "@/functions/siteLocale.js";
+import { requestHexNavigation, getHexPendingPath } from "@/functions/hexNavigation.js";
 import { isPortfolioCasePath, projectsData } from "@/three/scenes/portfolio/hub/projectsData.js";
 import { playRightNavigatorGlitchSound } from "@/sounds/soundDesign.js";
-import LeftMenuGlitchLabel from "@/components/HTML/components/leftMenu/LeftMenuGlitchLabel.jsx";
-import { MENU_LABEL_APPEAR_MS, MENU_LABEL_DISAPPEAR_MS } from "@/components/HTML/components/leftMenu/leftMenuLabelTimings.js";
+import LeftMenuGlitchLabel from "@/components/LeftMenu/LeftMenuGlitchLabel.jsx";
+import { MENU_LABEL_APPEAR_MS, MENU_LABEL_DISAPPEAR_MS } from "@/components/LeftMenu/leftMenuLabelTimings.js";
 import { resolveAboutNavigatorProgress, resolveAboutOwnedTrack } from "./aboutNavigatorPhase.js";
 import "./ScrollPageNavigator.scss";
 

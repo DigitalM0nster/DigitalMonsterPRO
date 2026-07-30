@@ -3,7 +3,7 @@ import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeom
 import { RectAreaLightUniformsLib } from "three/examples/jsm/lights/RectAreaLightUniformsLib.js";
 import { RectAreaLightHelper } from "three/examples/jsm/helpers/RectAreaLightHelper.js";
 import { isPortfolioHubPath, isPortfolioCasePath, projectsData } from "./hub/projectsData.js";
-import { shouldActivateRoutePage } from "../../../utils/shouldActivateRoutePage.js";
+import { shouldActivateRoutePage } from "@/functions/shouldActivateRoutePage.js";
 import {
 	buildPlateGridLayouts,
 	portfolioHubPlatesConfig,
@@ -12,26 +12,33 @@ import {
 	getProjectPlateFlatIndex,
 	getGridFocusSlide,
 } from "./hub/portfolioHubConfig.js";
-import { store as appStore } from "../../../store.jsx";
+import { store as appStore } from "@/app/store.jsx";
 import { CenterPlateNipigasLogos } from "./hub/CenterPlateNipigasLogos.js";
 import { HubPlatesRenderer } from "./hub/HubPlatesRenderer.js";
+import { splitPlateMaterialGroups } from "./hub/splitPlateMaterialGroups.js";
 import { HubPlateProjectLabels } from "./hub/hubPlateProjectLabel.js";
 import { HubPlateDetailsButtons } from "./hub/hubPlateDetailsButton.js";
 import { HubScreenTitle } from "./hub/hubScreenTitle.js";
 import { createPortfolioHubLocaleSwitchController } from "./hub/portfolioHubLocaleSwitch.js";
 import { advanceHubMenuAnim, createHubAnimState, getPlateProgressForProject } from "./hub/hubMenuAnimation.js";
+import {
+	advanceHubCaseSelection,
+	beginHubCaseSelection,
+	createHubCaseSelectionState,
+	resetHubCaseSelection,
+} from "./hub/hubCaseSelectionMotion.js";
 import { lerpGridTransform } from "./hub/gridEnterAnimation.js";
 import { clamp01, easeInOutCubic } from "./hub/hubMenuAnimation.js";
 import { easing } from "maath";
 import { fadeOutSound, playHubCardMovementSound, playSound } from "../../../sounds/soundDesign.js";
-import { requestPortfolioCaseNavigation } from "../../../utils/portfolioHubNavigate.js";
-import { resetPortfolioHubBackgroundFocus, commitPortfolioHubFocusIndex } from "../../../utils/portfolioHubBackground.js";
+import { resetPortfolioHubBackgroundFocus, commitPortfolioHubFocusIndex } from "@/functions/portfolioHubBackground.js";
 import { getSceneCarousel } from "@/three/render/transition/carouselPage.js";
 import { getHexShaderProgress } from "../../render/overlay/hexShaderProgress.js";
-import { shouldAnimateSiteLocaleForRingScene } from "@/utils/siteLocaleSwitch.js";
+import { shouldAnimateSiteLocaleForRingScene } from "@/functions/siteLocaleSwitch.js";
 import { isCarouselProgressAtSegmentStart, isRingDormantReason } from "@/three/scenes/lifecycle/sceneLifecycle.js";
 import { applySceneProgressToCamera } from "../utils/applySceneProgressToCamera.js";
-import { getLoaderCurtainRemainingMs } from "../../../config/loaderCurtain.js";
+import { getLoaderCurtainRemainingMs } from "@/app/config/loaderCurtain.js";
+import { PortfolioFreeCameraController } from "./hub/PortfolioFreeCameraController.js";
 
 function gridSlideForTarget(targetIndex) {
 	return targetIndex >= 0 ? getGridFocusSlide(targetIndex) : { y: 0, z: 0 };
@@ -39,29 +46,48 @@ function gridSlideForTarget(targetIndex) {
 
 /** В r155 DirectionalLightHelper убрали из examples — стрелка к target. */
 function createDirectionalDevHelper(light) {
-	const origin = light.position.clone();
-	const target = light.target.position.clone();
-	const direction = target.sub(origin);
+	const direction = new THREE.Vector3().subVectors(light.target.position, light.position);
 	const length = Math.max(direction.length(), 2);
 	direction.normalize();
 
-	const arrow = new THREE.ArrowHelper(direction, origin, length, light.color.getHex(), length * 0.12, length * 0.06);
-	arrow.userData.devLight = light;
-	arrow.userData.devLightKind = "directional";
-	return arrow;
+	const helper = new THREE.Group();
+	const sourceMarker = new THREE.Mesh(
+		new THREE.SphereGeometry(0.18, 12, 8),
+		new THREE.MeshBasicMaterial({ color: light.color, depthTest: false }),
+	);
+	sourceMarker.renderOrder = 1000;
+	const arrow = new THREE.ArrowHelper(direction, new THREE.Vector3(), length, light.color.getHex(), length * 0.12, length * 0.06);
+	arrow.traverse((node) => {
+		if (node.material) {
+			node.material.depthTest = false;
+			node.material.depthWrite = false;
+		}
+	});
+	sourceMarker.material.depthWrite = false;
+	helper.position.copy(light.position);
+	helper.add(sourceMarker, arrow);
+	helper.userData.devLight = light;
+	helper.userData.devLightKind = "directional";
+	helper.userData.devLightArrow = arrow;
+	helper.userData.devLightMarker = sourceMarker;
+	return helper;
 }
 
-function updateDirectionalDevHelper(arrow, light) {
+function updateDirectionalDevHelper(helper, light) {
 	const origin = light.position;
 	const target = light.target.position;
 	const direction = new THREE.Vector3().subVectors(target, origin);
 	const length = Math.max(direction.length(), 2);
 	direction.normalize();
+	const arrow = helper.userData.devLightArrow;
+	const marker = helper.userData.devLightMarker;
 
-	arrow.position.copy(origin);
+	helper.position.copy(origin);
+	arrow.position.set(0, 0, 0);
 	arrow.setDirection(direction);
 	arrow.setColor(light.color);
 	arrow.setLength(length, length * 0.12, length * 0.06);
+	marker?.material?.color?.copy(light.color);
 }
 
 function disposeObject3D(root) {
@@ -92,7 +118,7 @@ function ensureHubRectAreaUniforms() {
  * Сцена хаба портфолио (/portfolio): 5×60 плит (InstancedMesh + 7 project mesh).
  */
 export class PortfolioHubScene {
-	constructor() {
+	constructor(options = {}) {
 		this.threeScene = new THREE.Scene();
 		this.root = new THREE.Group();
 		/** Сдвиг всех плит по локальной Z при фокусе на проекте. */
@@ -152,6 +178,18 @@ export class PortfolioHubScene {
 		this._lookAtTarget = new THREE.Vector3(portfolioHubPlatesConfig.camera.lookAt[0], portfolioHubPlatesConfig.camera.lookAt[1], portfolioHubPlatesConfig.camera.lookAt[2]);
 		/** Сетка → карточка (30%) → логотип (30%); per-project прерывания. */
 		this._hubAnim = createHubAnimState();
+		this._caseSelection = createHubCaseSelectionState();
+		this._caseSelectionTargetLocal = new THREE.Vector3();
+		this._caseSelectionCameraFromPosition = new THREE.Vector3();
+		this._caseSelectionCameraTargetPosition = new THREE.Vector3();
+		this._caseSelectionCameraFromQuaternion = new THREE.Quaternion();
+		this._caseSelectionCameraTargetQuaternion = new THREE.Quaternion();
+		this._caseSelectionCameraFromFov = portfolioHubPlatesConfig.camera.fov;
+		this._caseSelectionRect2FromPosition = new THREE.Vector3();
+		this._caseSelectionRect2TargetPosition = new THREE.Vector3();
+		this._caseSelectionContentProjectIndex = -1;
+		this._caseSelectionContentFromAlpha = 0;
+		this._caseSelectionContentPartLinear = 0;
 		this._plateByProjectIndex = new Map();
 		this.platesRenderer = new HubPlatesRenderer(this.platesGroup);
 		this.plates = this.platesRenderer.plates;
@@ -178,6 +216,17 @@ export class PortfolioHubScene {
 		/** Доп. поворот сетки от курсора (градусы), поверх gridRotation. */
 		this._cursorTiltRotX = 0;
 		this._cursorTiltRotY = 0;
+		this._cursorParallaxYaw = 0;
+		this._cursorParallaxPitch = 0;
+		this._parallaxPivot = new THREE.Vector3();
+		this._parallaxOrbitOffset = new THREE.Vector3();
+		this._parallaxCameraRight = new THREE.Vector3();
+		this._parallaxCameraUp = new THREE.Vector3();
+		this._parallaxBaseForward = new THREE.Vector3();
+		this._parallaxNewForward = new THREE.Vector3();
+		this._parallaxYawRotation = new THREE.Quaternion();
+		this._parallaxPitchRotation = new THREE.Quaternion();
+		this._parallaxLookRotation = new THREE.Quaternion();
 		this._plateHoverRaycaster = new THREE.Raycaster();
 		this._plateHoverPointer = new THREE.Vector2();
 		this._plateHovered = false;
@@ -190,6 +239,9 @@ export class PortfolioHubScene {
 		this._pointerClickPending = false;
 		/** Dev: override Z камеры (null = из конфига). */
 		this._devCameraZ = null;
+		this._freeCamera = import.meta.env.DEV && options.inputElement
+			? new PortfolioFreeCameraController(options.inputElement)
+			: null;
 
 		this.lightHelpersGroup = new THREE.Group();
 		this.threeScene.add(this.lightHelpersGroup);
@@ -226,14 +278,21 @@ export class PortfolioHubScene {
 		}
 
 		const light = new THREE.DirectionalLight(def.color, def.intensity);
-		light.position.set(def.position[0], def.position[1], def.position[2]);
-		light.target.position.set(0, 0, 0);
+		this._applyDirectionalLightDef(light, def);
 		this.threeScene.add(light);
 		this.threeScene.add(light.target);
 		this.directionalLightsById.set(def.id, light);
 		this.lights.push(light);
 
 		return light;
+	}
+
+	_applyDirectionalLightDef(light, def) {
+		light.color.set(def.color);
+		light.intensity = def.intensity;
+		light.position.fromArray(def.position);
+		light.target.position.fromArray(def.target ?? [0, 0, 0]);
+		light.target.updateMatrixWorld();
 	}
 
 	_addRectAreaLight(def) {
@@ -273,9 +332,7 @@ export class PortfolioHubScene {
 				light = this._addDirectionalLight(def);
 			}
 
-			light.color.set(def.color);
-			light.intensity = def.intensity;
-			light.position.set(def.position[0], def.position[1], def.position[2]);
+			this._applyDirectionalLightDef(light, def);
 		}
 
 		for (const def of rectAreas) {
@@ -288,13 +345,17 @@ export class PortfolioHubScene {
 		}
 
 		if (this._lightHelpersVisible) {
-			this._syncLightHelpers();
+			this._updateDevLightHelpers();
 		}
 	}
 
 	setDevLightHelpersVisible(visible) {
 		this._lightHelpersVisible = visible === true;
 		this._syncLightHelpers();
+	}
+
+	areDevLightHelpersVisible() {
+		return this._lightHelpersVisible;
 	}
 
 	_syncLightHelpers() {
@@ -356,7 +417,8 @@ export class PortfolioHubScene {
 	}
 
 	_buildPlateGeometry(cfg) {
-		return new RoundedBoxGeometry(cfg.plateSize, cfg.plateSize, cfg.depth, cfg.cornerSegments, cfg.cornerRadius);
+		const geometry = new RoundedBoxGeometry(cfg.plateSize, cfg.plateSize, cfg.depth, cfg.cornerSegments, cfg.cornerRadius);
+		return splitPlateMaterialGroups(geometry);
 	}
 
 	_buildProjectIndexLookup() {
@@ -378,8 +440,8 @@ export class PortfolioHubScene {
 			layouts,
 			projectLookup,
 			buildGeometry: (c) => this._buildPlateGeometry(c),
-			createProjectMaterial: () => this._createPlateMaterial(),
-			createDecorMaterial: () => this._createDecorPlateMaterial(),
+			createProjectMaterial: () => this._createPlateMaterials(),
+			createDecorMaterial: () => this._createDecorPlateMaterials(),
 		});
 
 		this.plates = this.platesRenderer.plates;
@@ -468,6 +530,8 @@ export class PortfolioHubScene {
 		this._logoRevealAlpha = 0;
 		this._cursorTiltRotX = 0;
 		this._cursorTiltRotY = 0;
+		this._cursorParallaxYaw = 0;
+		this._cursorParallaxPitch = 0;
 		this._resetPlateElementHover();
 		this._startGridEnterAnimation();
 		this.centerPlateLogos?.updatePlate?.(null);
@@ -513,6 +577,8 @@ export class PortfolioHubScene {
 		if (!this._gridExitActive && this._hubLifecycle !== "exiting") {
 			return;
 		}
+
+		this._resetCaseSelection({ restorePlates: true });
 
 		// Сначала спрятать canvas и HUD — иначе кадр с буквами при opacity > 0.
 		this.screenTitle?.stashProjectsHiddenForDormant?.();
@@ -571,11 +637,32 @@ export class PortfolioHubScene {
 	}
 
 	_startGridEnterAnimation() {
+		this._resetCaseSelection({ restorePlates: true });
 		this._gridEnterProgress = 0;
 		this._gridEnterStartedAt = performance.now() / 1000;
 		this._applyGridTransformAtProgress(0);
 		this.platesRenderer.resetProjectPlatePositions();
 		this._applyPlateOpacity(0);
+	}
+
+	_resetCaseSelection({ restorePlates = false } = {}) {
+		resetHubCaseSelection(this._caseSelection);
+		this._caseSelectionContentProjectIndex = -1;
+		this._caseSelectionContentFromAlpha = 0;
+		this._caseSelectionContentPartLinear = 0;
+		const rect2 = this.rectAreaLightsById?.get("rect2");
+		const rect2Def = portfolioHubLights.rectAreas?.find((entry) => entry.id === "rect2");
+		if (rect2 && rect2Def?.position) {
+			rect2.position.fromArray(rect2Def.position);
+		}
+		this.platesRenderer.resetDecorMosaic();
+		if (!restorePlates) {
+			return;
+		}
+
+		this.platesRenderer.resetProjectPlatePositions();
+		const visibility = Math.max(0, this._lastPlateVisibilityMul);
+		this.platesRenderer.setDecorMaterialOpacity(portfolioHubPlatesConfig.material.opacity * visibility);
 	}
 
 	/**
@@ -592,6 +679,7 @@ export class PortfolioHubScene {
 		this.screenTitle?.stashProjectsHiddenForDormant?.();
 		this._clearHubEnterDelayTimer();
 		this._mixTargetPrepared = false;
+		this._resetCaseSelection();
 		this._gridExitActive = false;
 		this._gridExitProgress = 0;
 		this._hubLifecycle = "dormant";
@@ -601,6 +689,8 @@ export class PortfolioHubScene {
 		this._logoRevealAlpha = 0;
 		this._cursorTiltRotX = 0;
 		this._cursorTiltRotY = 0;
+		this._cursorParallaxYaw = 0;
+		this._cursorParallaxPitch = 0;
 		this._resetPlateElementHover();
 		this._gridEnterProgress = 0;
 		this._applyGridTransformAtProgress(0);
@@ -615,6 +705,7 @@ export class PortfolioHubScene {
 
 	/** Хаб как source в mix (уход с /portfolio): плиты и курсор активны, список проектов — нет. */
 	_restoreActiveHubForMixOut() {
+		this._resetCaseSelection({ restorePlates: true });
 		this._mixTargetPrepared = false;
 		this._gridExitActive = false;
 		this._gridExitProgress = 0;
@@ -633,6 +724,7 @@ export class PortfolioHubScene {
 	 * Logos/focus wait for enter chrome — not on the hex-start frame.
 	 */
 	_prepareHubForMixTarget() {
+		this._resetCaseSelection({ restorePlates: true });
 		this.screenTitle?.stashProjectsHiddenForDormant?.();
 		this._lastHudTitleVisibility = 0;
 		this.screenTitle?.setVisibility(0);
@@ -647,6 +739,8 @@ export class PortfolioHubScene {
 		this._logoRevealAlpha = 0;
 		this._cursorTiltRotX = 0;
 		this._cursorTiltRotY = 0;
+		this._cursorParallaxYaw = 0;
+		this._cursorParallaxPitch = 0;
 		this._resetPlateElementHover();
 		this._hubAnim = createHubAnimState();
 		this._gridEnterProgress = 1;
@@ -708,6 +802,11 @@ export class PortfolioHubScene {
 	playEnterAnimation() {
 		if (this._gridExitActive || this._hubLifecycle === "exiting") {
 			this._cancelGridExitForReenter();
+		}
+
+		if (this._caseSelection.active) {
+			this._syncScreenTitleVisibility();
+			return;
 		}
 
 		const gridEnterInProgress = this._hubLifecycle === "entering" && this._gridEnterProgress < 1;
@@ -877,6 +976,9 @@ export class PortfolioHubScene {
 		this._routeDisplayedPage = currentPage ?? "/";
 		this._routeTeleportPage = teleportPage ?? "/";
 		this._routePhase = routePhase ?? "idle";
+		if (!isPortfolioHubPath(this._routeDisplayedPage) && this._freeCamera?.enabled) {
+			this._freeCamera.setEnabled(false);
+		}
 		const routeKey = `${currentPage}|${teleportPage}|${routePhase}`;
 		const appStartedChanged = appStarted !== this._lastAppStarted;
 		if (routeKey === this.lastRouteKey && !appStartedChanged) {
@@ -1027,6 +1129,11 @@ export class PortfolioHubScene {
 
 	/** Анимация скролла — камера при role current|next (sceneProgress). */
 	applyScrollCamera(camera, frame) {
+		if (this._freeCamera?.apply(camera)) {
+			this.screenTitle?.syncRootToCamera?.(camera);
+			return;
+		}
+
 		const cam = portfolioHubPlatesConfig.camera;
 		const sceneProgress = frame?.sceneProgress ?? 0;
 		const baseZ = this._devCameraZ ?? cam.position[2];
@@ -1036,6 +1143,7 @@ export class PortfolioHubScene {
 			{
 				position: [cam.position[0], cam.position[1], baseZ],
 				lookAt: cam.lookAt,
+				quaternion: cam.quaternion,
 				fov: cam.fov,
 				/** +sceneProgress → content rises (scroll down). */
 				scrollY: 2.1,
@@ -1045,7 +1153,80 @@ export class PortfolioHubScene {
 		);
 
 		// Камера общая у всех сцен карусели — HUD синхронизируем здесь, перед render слоя hub.
+		if (this._caseSelection.active) {
+			this._applyCaseSelectionCamera(camera);
+		} else {
+			this._applyCursorCameraParallax(camera);
+		}
 		this.screenTitle?.syncRootToCamera?.(camera);
+	}
+
+	_captureCaseSelectionCamera(camera) {
+		const baseCamera = portfolioHubPlatesConfig.camera;
+		const targetCamera = portfolioHubPlatesConfig.caseSelection?.camera;
+		if (!targetCamera) {
+			return;
+		}
+
+		if (camera) {
+			this._caseSelectionCameraFromPosition.copy(camera.position);
+			this._caseSelectionCameraFromQuaternion.copy(camera.quaternion).normalize();
+			this._caseSelectionCameraFromFov = camera.fov;
+		} else {
+			this._caseSelectionCameraFromPosition.fromArray(baseCamera.position);
+			this._caseSelectionCameraFromQuaternion.fromArray(baseCamera.quaternion).normalize();
+			this._caseSelectionCameraFromFov = baseCamera.fov;
+		}
+
+		this._caseSelectionCameraTargetPosition.fromArray(targetCamera.position);
+		this._caseSelectionCameraTargetQuaternion.fromArray(targetCamera.quaternion).normalize();
+	}
+
+	_applyCaseSelectionCamera(camera) {
+		const targetCamera = portfolioHubPlatesConfig.caseSelection?.camera;
+		if (!targetCamera) {
+			return;
+		}
+
+		const progress = easeInOutCubic(this._caseSelection.progress);
+		camera.position.lerpVectors(
+			this._caseSelectionCameraFromPosition,
+			this._caseSelectionCameraTargetPosition,
+			progress,
+		);
+		camera.quaternion.slerpQuaternions(
+			this._caseSelectionCameraFromQuaternion,
+			this._caseSelectionCameraTargetQuaternion,
+			progress,
+		);
+		camera.fov = this._caseSelectionCameraFromFov + (targetCamera.fov - this._caseSelectionCameraFromFov) * progress;
+		camera.updateProjectionMatrix();
+		camera.updateMatrixWorld();
+	}
+
+	_captureCaseSelectionLights() {
+		const rect2 = this.rectAreaLightsById.get("rect2");
+		const targetPosition = portfolioHubPlatesConfig.caseSelection?.lights?.rect2?.position;
+		if (!rect2 || !targetPosition) {
+			return;
+		}
+
+		this._caseSelectionRect2FromPosition.copy(rect2.position);
+		this._caseSelectionRect2TargetPosition.fromArray(targetPosition);
+	}
+
+	_applyCaseSelectionLights(linearProgress) {
+		const rect2 = this.rectAreaLightsById.get("rect2");
+		const targetPosition = portfolioHubPlatesConfig.caseSelection?.lights?.rect2?.position;
+		if (!rect2 || !targetPosition) {
+			return;
+		}
+
+		rect2.position.lerpVectors(
+			this._caseSelectionRect2FromPosition,
+			this._caseSelectionRect2TargetPosition,
+			easeInOutCubic(clamp01(linearProgress)),
+		);
 	}
 
 	getDevCameraZ() {
@@ -1058,6 +1239,37 @@ export class PortfolioHubScene {
 
 	resetDevCamera() {
 		this._devCameraZ = null;
+	}
+
+	isFreeCameraEnabled() {
+		return this._freeCamera?.enabled === true;
+	}
+
+	setFreeCameraEnabled(enabled, camera) {
+		if (!this._freeCamera) {
+			return false;
+		}
+		if (enabled && !isPortfolioHubPath(this._routeDisplayedPage)) {
+			return false;
+		}
+		this._freeCamera.setEnabled(enabled, camera);
+		return this._freeCamera.enabled;
+	}
+
+	resetFreeCamera(camera) {
+		this._freeCamera?.reset(camera, portfolioHubPlatesConfig.camera);
+	}
+
+	getFreeCameraSnapshot(camera) {
+		return this._freeCamera?.getSnapshot(camera) ?? null;
+	}
+
+	getFreeCameraSnapshotText(camera) {
+		return this._freeCamera?.getSnapshotText(camera) ?? "";
+	}
+
+	copyFreeCameraSnapshot(camera) {
+		return this._freeCamera?.copySnapshot(camera) ?? Promise.resolve(false);
 	}
 
 	/** Dev / конфиг: HUD-подпись на проектных плитах. */
@@ -1117,6 +1329,17 @@ export class PortfolioHubScene {
 		this._syncScreenTitleVisibility();
 	}
 
+	applyPlateSpacingFromDev() {
+		this._resetCaseSelection({ restorePlates: true });
+		const layouts = buildPlateGridLayouts();
+		const layoutByKey = new Map(layouts.map((layout) => [`${layout.rowIndex},${layout.plateIndex}`, layout]));
+		this.platesRenderer.updateLayoutPositions(layoutByKey);
+		this._plateHoverNeedsRaycast = true;
+		if (this._hubLifecycle !== "dormant") {
+			this._updateMenuInteraction();
+		}
+	}
+
 	_createPlateMaterial(m = portfolioHubPlatesConfig.material, role = "project") {
 		const typeKey = role === "decor" ? (m.decorType ?? m.type) : m.type;
 		const type = typeKey === "basic" || typeKey === "standard" || typeKey === "physical" ? typeKey : "standard";
@@ -1160,15 +1383,42 @@ export class PortfolioHubScene {
 			thickness: m.thickness ?? 0,
 			clearcoat: m.clearcoat ?? 0,
 			clearcoatRoughness: m.clearcoatRoughness ?? 0.15,
-			ior: 1.45,
+			ior: m.ior ?? 1.45,
 			fog: true,
 			depthWrite,
 		});
 	}
 
+	_createPlateMaterials(m = portfolioHubPlatesConfig.material, role = "project") {
+		const sideConfig = {
+			...m,
+			...(m.sides ?? {}),
+		};
+
+		return [this._createPlateMaterial(m, role), this._createPlateMaterial(sideConfig, role)];
+	}
+
+	/** DEV material tuner: transform uniforms live; recreate only when material class changes. */
+	applyPlateMaterialFromDev({ recreate = false } = {}) {
+		const materialConfig = portfolioHubPlatesConfig.material;
+		if (recreate) {
+			this.platesRenderer.replaceMaterials(
+				this._createPlateMaterials(materialConfig, "project"),
+				this._createDecorPlateMaterials(materialConfig),
+			);
+		}
+
+		const visibility = Math.max(0, this._lastPlateVisibilityMul);
+		this.platesRenderer.applyMaterialConfig({
+			...materialConfig,
+			opacity: materialConfig.opacity * visibility,
+		});
+		this.sharedPlateMaterial = this.platesRenderer.getMaterial();
+	}
+
 	/** Декоративные плиты (InstancedMesh) — могут быть lighter (decorType). */
-	_createDecorPlateMaterial(m = portfolioHubPlatesConfig.material) {
-		return this._createPlateMaterial(m, "decor");
+	_createDecorPlateMaterials(m = portfolioHubPlatesConfig.material) {
+		return this._createPlateMaterials(m, "decor");
 	}
 
 	/** Единый материал всех плит × множитель appear/exit (0…1). */
@@ -1259,7 +1509,7 @@ export class PortfolioHubScene {
 		if (frame?.pointerBlocked || frame?.interactionEnabled === false) {
 			return false;
 		}
-		return Boolean(this.showHub && this.root.visible);
+		return Boolean(this.showHub && this.root.visible && !this._caseSelection.active && !this._freeCamera?.enabled);
 	}
 
 	/** Hit-test активной плитки: один Raycaster по одному mesh, recursive=false. */
@@ -1317,40 +1567,129 @@ export class PortfolioHubScene {
 		this._pointerDown = pointerDown;
 	}
 
-	/** Клик по активной плитке → страница кейса. */
-	_tryOpenFocusedPlateOnClick(frame) {
-		if (!this._canAcceptHubInteraction(frame) || !frame?.camera || !frame?.pointer) {
+	/** Clicking a project keeps the route on /portfolio and starts the in-hub selection. */
+	_createCaseSelectionTargetResolver(projectIndex) {
+		const activePlate = this._getPlateByProjectIndex(projectIndex);
+		if (!activePlate?.mesh) {
+			return null;
+		}
+
+		const anchor = activePlate.mesh.position;
+		const spacing = portfolioHubPlatesConfig.caseSelection?.plateSpacing ?? 2.25;
+		return (_plate, offset) => {
+			return this._caseSelectionTargetLocal.set(
+				anchor.x + offset * spacing,
+				anchor.y,
+				anchor.z,
+			);
+		};
+	}
+
+	_beginCaseSelection(projectIndex, camera = null) {
+		if (this._caseSelection.active || projectIndex < 0 || !projectsData[projectIndex]) {
+			return false;
+		}
+
+		const visibleLogo = this._lastVisibleLogo;
+		this._caseSelectionContentProjectIndex = visibleLogo?.projectIndex >= 0
+			? visibleLogo.projectIndex
+			: projectIndex;
+		this._caseSelectionContentFromAlpha = clamp01(
+			Math.max(this._logoRevealAlpha, visibleLogo?.alpha ?? 0),
+		);
+		this._caseSelectionContentPartLinear = clamp01(
+			visibleLogo?.partLinear ?? this._caseSelectionContentFromAlpha,
+		);
+
+		commitPortfolioHubFocusIndex(appStore, projectIndex);
+		const started = beginHubCaseSelection(
+			this._caseSelection,
+			this.plates,
+			projectIndex,
+			performance.now() / 1000,
+			portfolioHubPlatesConfig.caseSelection,
+			this._createCaseSelectionTargetResolver(projectIndex),
+		);
+		if (!started) {
+			return false;
+		}
+		this._captureCaseSelectionCamera(camera);
+		this._captureCaseSelectionLights();
+
+		this._pointerClickPending = false;
+		this._resetPlateElementHover();
+		this.platesRenderer.setDecorMosaicProgress(0, portfolioHubPlatesConfig.caseSelection?.decorMosaic);
+		this.screenTitle?.playProjectsExitGlitch?.({ preserveFocus: true });
+		playHubCardMovementSound(portfolioHubPlatesConfig.caseSelection?.durationMs ?? 1350);
+		return true;
+	}
+
+	_updateCaseSelection(nowSeconds) {
+		if (!this._caseSelection.active) {
 			return;
+		}
+
+		const motion = advanceHubCaseSelection(
+			this._caseSelection,
+			nowSeconds,
+			portfolioHubPlatesConfig.caseSelection,
+		);
+		this._applyCaseSelectionLights(motion.linearProgress);
+		const exitFraction = Math.max(
+			portfolioHubPlatesConfig.caseSelection?.contentExitFraction ?? 0.32,
+			0.001,
+		);
+		const contentExitProgress = easeInOutCubic(clamp01(motion.linearProgress / exitFraction));
+		const contentAlpha = this._caseSelectionContentFromAlpha * (1 - contentExitProgress);
+		if (this._caseSelectionContentProjectIndex >= 0 && contentAlpha > 0.001) {
+			this._syncFocusPlateLogos(
+				this._caseSelectionContentProjectIndex,
+				contentAlpha,
+				{
+					partLinear: this._caseSelectionContentPartLinear,
+					entering: false,
+				},
+			);
+		} else {
+			this._syncFocusPlateLogos(-1, 0, { entering: false });
+		}
+		this._logoRevealAlpha = contentAlpha;
+		this.platesRenderer.setDecorMosaicProgress(motion.progress, portfolioHubPlatesConfig.caseSelection?.decorMosaic);
+	}
+
+	_trySelectFocusedPlateOnClick(frame) {
+		if (!this._canAcceptHubInteraction(frame) || !frame?.camera || !frame?.pointer) {
+			return false;
 		}
 
 		const focusIndex = appStore.portfolioHubFocusIndex ?? -1;
 		if (focusIndex < 0) {
-			return;
+			return false;
 		}
 
 		const hoverCfg = portfolioHubPlatesConfig.interaction?.hoverMotion;
 		const minReveal = hoverCfg?.minRevealAlpha ?? 0.55;
 		if (this._logoRevealAlpha < minReveal || this._gridEnterProgress < 1 || this._gridExitActive) {
-			return;
+			return false;
 		}
 
 		this._raycastPlateHover(frame, focusIndex);
 		if (!this._plateHovered) {
-			return;
+			return false;
 		}
 
 		const project = projectsData[focusIndex];
 		if (!project?.path) {
-			return;
+			return false;
 		}
 
-		requestPortfolioCaseNavigation(project.path);
+		return this._beginCaseSelection(focusIndex, frame.camera);
 	}
 
 	/** pointer.y → rotX, pointer.x → rotY; сглаживание поверх gridRotation. @returns {boolean} changed */
 	_updateCursorGridTilt(delta, pointer, frame = null) {
 		const cfg = portfolioHubPlatesConfig.interaction?.cursorGridTilt;
-		const canTilt = cfg && this._canAcceptHubInteraction(frame) && this._gridEnterProgress >= 1 && !this._gridExitActive && !this._carouselEnterPending;
+		const canTilt = cfg?.enabled !== false && cfg && this._canAcceptHubInteraction(frame) && this._gridEnterProgress >= 1 && !this._gridExitActive && !this._carouselEnterPending;
 
 		// Left menu / chrome sets pointerBlocked → target 0, but still ease back.
 		// Hard-zero on !canTilt snapped the hub when hovering the menu.
@@ -1370,6 +1709,81 @@ export class PortfolioHubScene {
 		}
 
 		return Math.abs(this._cursorTiltRotX - prevX) > 0.00005 || Math.abs(this._cursorTiltRotY - prevY) > 0.00005;
+	}
+
+	_updateCursorParallax(delta, pointer, frame = null) {
+		if (this._caseSelection.active) {
+			return false;
+		}
+
+		const cfg = portfolioHubPlatesConfig.interaction?.cursorParallax;
+		const canMove =
+			cfg?.enabled !== false &&
+			cfg &&
+			!this._freeCamera?.enabled &&
+			this._canAcceptHubInteraction(frame) &&
+			this._gridEnterProgress >= 1 &&
+			!this._gridExitActive &&
+			!this._carouselEnterPending;
+		const pointerX = THREE.MathUtils.clamp(pointer.x, -1, 1);
+		const pointerY = THREE.MathUtils.clamp(pointer.y, -1, 1);
+		const targetYaw = canMove ? pointerX * (cfg.orbitYawDeg ?? 0) : 0;
+		const targetPitch = canMove ? -pointerY * (cfg.orbitPitchDeg ?? 0) : 0;
+		const smooth = Math.max(cfg?.smoothDuration ?? 0.4, 0.001);
+		const t = 1 - Math.exp(-delta / smooth);
+		const prevYaw = this._cursorParallaxYaw;
+		const prevPitch = this._cursorParallaxPitch;
+
+		this._cursorParallaxYaw += (targetYaw - this._cursorParallaxYaw) * t;
+		this._cursorParallaxPitch += (targetPitch - this._cursorParallaxPitch) * t;
+
+		if (
+			Math.abs(this._cursorParallaxYaw) < 0.0001 &&
+			Math.abs(this._cursorParallaxPitch) < 0.0001 &&
+			Math.abs(targetYaw) < 0.0001 &&
+			Math.abs(targetPitch) < 0.0001
+		) {
+			this._cursorParallaxYaw = 0;
+			this._cursorParallaxPitch = 0;
+		}
+
+		return (
+			Math.abs(this._cursorParallaxYaw - prevYaw) > 0.00005 ||
+			Math.abs(this._cursorParallaxPitch - prevPitch) > 0.00005
+		);
+	}
+
+	_applyCursorCameraParallax(camera) {
+		if (!camera || this._freeCamera?.enabled) {
+			return;
+		}
+
+		const cfg = portfolioHubPlatesConfig.interaction?.cursorParallax;
+		const yaw = THREE.MathUtils.degToRad(this._cursorParallaxYaw);
+		const pitch = THREE.MathUtils.degToRad(this._cursorParallaxPitch);
+		if (Math.abs(yaw) < 0.000001 && Math.abs(pitch) < 0.000001) {
+			return;
+		}
+
+		const pivotDistance = Math.max(cfg?.pivotDistance ?? 5.5, 0.001);
+		this._parallaxBaseForward.set(0, 0, -1).applyQuaternion(camera.quaternion).normalize();
+		this._parallaxCameraRight.set(1, 0, 0).applyQuaternion(camera.quaternion).normalize();
+		this._parallaxCameraUp.set(0, 1, 0);
+		this._parallaxPivot.copy(camera.position).addScaledVector(this._parallaxBaseForward, pivotDistance);
+		this._parallaxOrbitOffset.copy(camera.position).sub(this._parallaxPivot);
+
+		this._parallaxYawRotation.setFromAxisAngle(this._parallaxCameraUp, yaw);
+		this._parallaxOrbitOffset.applyQuaternion(this._parallaxYawRotation);
+		this._parallaxCameraRight.applyQuaternion(this._parallaxYawRotation).normalize();
+
+		this._parallaxPitchRotation.setFromAxisAngle(this._parallaxCameraRight, pitch);
+		this._parallaxOrbitOffset.applyQuaternion(this._parallaxPitchRotation);
+		camera.position.copy(this._parallaxPivot).add(this._parallaxOrbitOffset);
+
+		this._parallaxNewForward.copy(this._parallaxPivot).sub(camera.position).normalize();
+		this._parallaxLookRotation.setFromUnitVectors(this._parallaxBaseForward, this._parallaxNewForward);
+		camera.quaternion.premultiply(this._parallaxLookRotation).normalize();
+		camera.updateMatrixWorld();
 	}
 
 	_setRootTransform(offset, rotationDeg, applyCursorTilt = false) {
@@ -1518,6 +1932,10 @@ export class PortfolioHubScene {
 	}
 
 	_updateMenuInteraction() {
+		if (this._caseSelection.active) {
+			return;
+		}
+
 		const timing = portfolioHubPlatesConfig.interaction;
 		const slideX = timing.plateSlideX;
 		const now = performance.now() / 1000;
@@ -1628,16 +2046,20 @@ export class PortfolioHubScene {
 		}
 
 		if (this.showHub && this.root.visible) {
+			const nowSeconds = performance.now() / 1000;
+			const pointer = frame?.pointer ?? { x: 0, y: 0 };
+			const tiltChanged = this._updateCursorGridTilt(_delta, pointer, frame);
+			this._updateCursorParallax(_delta, pointer, frame);
+
+			if (isPortfolioHubPath(this._routeDisplayedPage) && frame?.camera) {
+				this._freeCamera?.update(_delta, frame.camera);
+			}
+
 			if (frame?.camera) {
 				this.applyCamera(frame.camera);
 			}
 
 			this._updateDevLightHelpers();
-
-			const nowSeconds = performance.now() / 1000;
-			const pointer = frame?.pointer ?? { x: 0, y: 0 };
-
-			const tiltChanged = this._updateCursorGridTilt(_delta, pointer, frame);
 			this._updatePlateElementHover(_delta, frame);
 
 			if (this._pointerClickPending) {
@@ -1645,8 +2067,13 @@ export class PortfolioHubScene {
 				const canPickProjectsList = this._canAcceptHubInteraction(frame) && isPortfolioHubPath(this._routeDisplayedPage) && (this._lastHudTitleVisibility ?? 0) > 0.001;
 				if (!canPickProjectsList) {
 					this.screenTitle.clearProjectsPointerHit?.();
-				} else if (!this.screenTitle.tryOpenProjectOnClick()) {
-					this._tryOpenFocusedPlateOnClick(frame);
+				} else {
+					const projectIndex = this.screenTitle.takeProjectSelectionOnClick?.() ?? -1;
+					if (projectIndex >= 0) {
+						this._beginCaseSelection(projectIndex, frame?.camera);
+					} else {
+						this._trySelectFocusedPlateOnClick(frame);
+					}
 				}
 			}
 
@@ -1663,6 +2090,8 @@ export class PortfolioHubScene {
 				}
 			}
 
+			this._updateCaseSelection(nowSeconds);
+
 			if (frame?.camera) {
 				this.screenTitle.update(frame);
 			}
@@ -1673,8 +2102,12 @@ export class PortfolioHubScene {
 	dispose() {
 		this._clearHubEnterDelayTimer();
 		this._mixTargetPrepared = false;
+		this._lightHelpersVisible = false;
+		this._syncLightHelpers();
 		this._portfolioLocaleSwitch?.dispose();
 		this._portfolioLocaleSwitch = null;
+		this._freeCamera?.dispose();
+		this._freeCamera = null;
 		this.centerPlateLogos.dispose();
 		this.plateProjectLabels.dispose();
 		this.plateDetailsButtons.dispose();

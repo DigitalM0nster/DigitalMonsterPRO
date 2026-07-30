@@ -1,9 +1,9 @@
 import * as THREE from "three";
 import { subscribe } from "valtio";
-import { store } from "@/store.jsx";
-import { HERO_SCROLL_HINT_COPY } from "@/i18n/siteCopy.js";
-import { normalizeSiteLocale } from "@/utils/siteLocale.js";
-import { shouldAnimateSiteLocaleForRingScene } from "@/utils/siteLocaleSwitch.js";
+import { store } from "@/app/store.jsx";
+import { HERO_SCROLL_HINT_COPY } from "@/app/i18n/siteCopy.js";
+import { normalizeSiteLocale } from "@/functions/siteLocale.js";
+import { shouldAnimateSiteLocaleForRingScene } from "@/functions/siteLocaleSwitch.js";
 import { resolveHeroScrollHintPosition } from "./heroTextLayout.js";
 import { heroTextPositionConfig } from "./heroTextPositionConfig.js";
 import { HeroTextGlitchController } from "./HeroTextGlitchController.js";
@@ -14,12 +14,12 @@ import {
 	resolveHeroReplacementDisplayChar,
 	resolveHeroReplacementMetrics,
 } from "./heroTextGlitchConfig.js";
-import { getGlitchMainDrawAlpha, isGlitchMainHidden } from "@/shared/glitchText/glitchLetterModel.js";
+import { getGlitchMainDrawAlpha, isGlitchMainHidden } from "@/components/GlitchText/glitchLetterModel.js";
 import { createHeroTextRevealUniforms, HeroTextRevealController } from "./heroTextReveal.js";
 import { heroTextRevealConfig } from "./heroTextRevealConfig.js";
 import { heroScrollHintConfig, rgbaFromHex } from "./heroScrollHintConfig.js";
 import { getHeroSubtitleFontFamily } from "./heroTitleConfig.js";
-import { SITE_MAIN_COLOR } from "@/constants/siteMainColor.js";
+import { SITE_MAIN_COLOR } from "@/app/config/siteMainColor.js";
 
 const CONTENT_WIDTH = 250;
 // Horizontal glitch slices need room past the visible glyph bounds.

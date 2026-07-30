@@ -11,6 +11,7 @@
  * @param {{
  *   position: number[],
  *   lookAt: number[],
+ *   quaternion?: number[],
  *   fov?: number,
  *   scrollZ?: number,
  *   scrollY?: number,
@@ -27,9 +28,13 @@ export function applySceneProgressToCamera(camera, base, sceneProgress) {
 
 	camera.position.set(base.position[0], y, z);
 
-	const lookAtFollowY = base.lookAtFollowY !== false;
-	const lookY = lookAtFollowY ? base.lookAt[1] - p * scrollY : base.lookAt[1];
-	camera.lookAt(base.lookAt[0], lookY, base.lookAt[2]);
+	if (Array.isArray(base.quaternion) && base.quaternion.length === 4) {
+		camera.quaternion.fromArray(base.quaternion).normalize();
+	} else {
+		const lookAtFollowY = base.lookAtFollowY !== false;
+		const lookY = lookAtFollowY ? base.lookAt[1] - p * scrollY : base.lookAt[1];
+		camera.lookAt(base.lookAt[0], lookY, base.lookAt[2]);
+	}
 
 	if (base.fov != null) {
 		camera.fov = base.fov;

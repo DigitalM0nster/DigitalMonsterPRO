@@ -1,12 +1,12 @@
 ---
 description: About left HUD — story mosaic only, no enter appear
-globs: src/about/**/*,src/three/scenes/about/**/*,src/three/app/DigitalMonsterThreeApp.js
+globs: src/pages/about/**/*,src/three/scenes/about/**/*,src/three/app/DigitalMonsterThreeApp.js
 alwaysApply: false
 ---
 
 # About left-panel HUD (binding)
 
-**Source of truth:** [`src/about/ABOUT_PANEL_HUD.md`](src/about/ABOUT_PANEL_HUD.md) + `resolveAboutPanelHudStoryPair` in `aboutPanelHudStory.js`.
+**Source of truth:** [`src/pages/about/ABOUT_PANEL_HUD.md`](src/pages/about/ABOUT_PANEL_HUD.md) + `resolveAboutPanelHudStoryPair` in `aboutPanelHudStory.js`.
 
 ## Law
 

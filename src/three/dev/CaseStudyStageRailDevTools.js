@@ -5,11 +5,11 @@ import {
 	caseStudyStageRailConfig,
 	resetCaseStudyStageRailConfig,
 	shouldOpenStageRailDevFromUrl,
-} from "@/portfolio/ui/CaseStudyCanvas/caseStudyStageRailConfig.js";
+} from "@/pages/portfolio/ui/CaseStudyCanvas/caseStudyStageRailConfig.js";
 import {
 	markCaseStudyChromeStageDirty,
 	wakeCaseStudyAnimationFrame,
-} from "@/portfolio/core/caseStudyAnimationFrame.js";
+} from "@/pages/portfolio/core/caseStudyAnimationFrame.js";
 
 const HOTKEY = "9";
 

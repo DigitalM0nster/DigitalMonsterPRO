@@ -1,6 +1,6 @@
 # НИПИГАЗ — поведение единой 3D-модели (orbital module)
 
-> Спецификация для реализации в `src/portfolio/projects/nipigas/scene.js` и Three.js-слое.  
+> Спецификация для реализации в `src/pages/portfolio/projects/nipigas/scene.js` и Three.js-слое.
 > UI и контент уже реализованы; 3D-модель — следующий этап (см. phase в `states.js`).
 
 ---

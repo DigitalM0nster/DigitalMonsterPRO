@@ -1,5 +1,5 @@
 import { projectsData } from "../projectsData.js";
-import { registerRouteGlitchScope, runRouteGlitchStagger, unregisterRouteGlitchScope } from "@/utils/routeGlitchRegistry.js";
+import { registerRouteGlitchScope, runRouteGlitchStagger, unregisterRouteGlitchScope } from "@/functions/routeGlitchRegistry.js";
 
 /** Refs для canvas GlitchText — тот же stagger, что у HTML-списка. */
 const canvasGlitchRefs = { current: [] };

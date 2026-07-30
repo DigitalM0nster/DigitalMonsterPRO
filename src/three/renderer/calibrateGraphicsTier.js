@@ -1,6 +1,6 @@
 import * as THREE from "three";
 
-import { getForcedGraphicsTierFromUrl } from "@/utils/getGraphicsTier.js";
+import { getForcedGraphicsTierFromUrl } from "@/functions/getGraphicsTier.js";
 
 const TIER_RANK = { low: 0, medium: 1, high: 2 };
 const CACHE_PREFIX = "digitalmonster_gpu_tier_v2";

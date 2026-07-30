@@ -1,18 +1,18 @@
 import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
-import { getRouteGlitchCascadeFinishMs } from "@/utils/routeGlitchConfig.js";
+import { getRouteGlitchCascadeFinishMs } from "@/functions/routeGlitchConfig.js";
 import {
 	isRouteGlitchScopeActive,
 	registerRouteGlitchScope,
 	runRouteGlitchStagger,
 	unregisterRouteGlitchScope,
-} from "@/utils/routeGlitchRegistry.js";
+} from "@/functions/routeGlitchRegistry.js";
 
 /**
  * Подключает группу GlitchText к enter/exit по URL в строке браузера.
  *
  * @param {{
- *   scope: keyof typeof import('@/utils/routeGlitchConfig.js').ROUTE_GLITCH_SCOPES,
+ *   scope: keyof typeof import('@/functions/routeGlitchConfig.js').ROUTE_GLITCH_SCOPES,
  *   itemCount: number,
  *   itemGlitchRefs: { current: Array<{ playAppear?: (ms?: number) => void, playDisappear?: (ms?: number) => void } | null> },
  *   onEnterComplete?: () => void,

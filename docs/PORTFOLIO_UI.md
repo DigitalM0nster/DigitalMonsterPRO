@@ -70,7 +70,7 @@
 ## Файлы
 
 ```
-src/portfolio/ui/
+src/pages/portfolio/ui/
 ├── ExplorationSidebar/      # замена LeftMenu + ExplorationPath
 ├── StateContentOverlay/     # текст по demand
 ├── PortfolioProjectShell/   # fullscreen layout

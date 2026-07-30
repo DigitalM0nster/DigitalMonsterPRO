@@ -1,2 +1,2 @@
-/** @deprecated Импортируйте drawHeroGlitchLine из @/shared/glitchText/drawGlitchText.js */
-export { drawHeroGlitchLine } from "@/shared/glitchText/drawGlitchText.js";
+/** @deprecated Импортируйте drawHeroGlitchLine из @/components/GlitchText/drawGlitchText.js */
+export { drawHeroGlitchLine } from "@/components/GlitchText/drawGlitchText.js";

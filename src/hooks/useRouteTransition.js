@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ROUTE_TRANSITION_ENTER_MS, ROUTE_TRANSITION_EXIT_MS } from "../config/routeTransition.js";
+import { ROUTE_TRANSITION_ENTER_MS, ROUTE_TRANSITION_EXIT_MS } from "@/app/config/routeTransition.js";
 import { resolvePortfolioLeaveSound } from "@/three/scenes/portfolio/hub/projectsData.js";
 import { playPortfolioRouteLeaveSound } from "@/sounds/soundDesign.js";
-import { shouldDeferHtmlRouteTransition } from "@/utils/hexNavigation.js";
-import { store } from "@/store.jsx";
+import { shouldDeferHtmlRouteTransition } from "@/functions/hexNavigation.js";
+import { store } from "@/app/store.jsx";
 
 /** @typedef {'idle' | 'exiting' | 'entering'} RouteTransitionPhase */
 

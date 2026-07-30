@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { subscribeKey } from "valtio/utils";
-import { store } from "@/store.jsx";
+import { store } from "@/app/store.jsx";
 
 function normalizePath(path) {
 	return String(path ?? "/").replace(/\/+$/, "") || "/";

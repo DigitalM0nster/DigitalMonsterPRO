@@ -1,4 +1,4 @@
-import { store } from "@/store.jsx";
+import { store } from "@/app/store.jsx";
 import { attachCarouselScroll } from "./carouselScroll.js";
 import {
 	isCarouselRoutePage,
@@ -12,9 +12,9 @@ import {
 	handleHexNavigationComplete,
 	handleHexNavigationRouteConfirmed,
 	handleNavigationSettleComplete,
-} from "@/utils/hexNavigation.js";
-import { armAboutPanelHudForRoute } from "@/about/aboutPanelHudStory.js";
-import { startAboutExperienceRuntime } from "@/about/aboutExperienceRuntime.js";
+} from "@/functions/hexNavigation.js";
+import { armAboutPanelHudForRoute } from "@/pages/about/aboutPanelHudStory.js";
+import { startAboutExperienceRuntime } from "@/pages/about/aboutExperienceRuntime.js";
 
 const carousel = new SceneCarousel();
 

@@ -1,6 +1,6 @@
 import * as THREE from "three";
-import { store } from "@/store.jsx";
-import { getStageProgress } from "@/portfolio/core/stageProgress.js";
+import { store } from "@/app/store.jsx";
+import { getStageProgress } from "@/pages/portfolio/core/stageProgress.js";
 import {
 	createCaseStudyPanelHud,
 	disposeCaseStudyPanelHud,

@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { easing } from "maath";
 import { createGLTFLoader, enrichGLTFResult } from "@/three/assets/gltfLoader.js";
-import { ROUTE_TRANSITION_ENTER_MS } from "@/config/routeTransition.js";
+import { ROUTE_TRANSITION_ENTER_MS } from "@/app/config/routeTransition.js";
 import { restoreRootForShow } from "@/three/scenes/utils/sceneRoot.js";
 import {
 	createCaseStudyPanelHud,

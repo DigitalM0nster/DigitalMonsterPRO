@@ -1,5 +1,4 @@
 import { projectsData } from "./projectsData.js";
-import { portfolioHubLogoConfig } from "./portfolioHubLogoConfig.js";
 import { siteBloomArtDirection } from "../../../render/models/siteBloomConfig.js";
 
 /** Сетка плит хаба: 5 рядов × (reference + extra) в глубину. */
@@ -20,17 +19,18 @@ export const portfolioHubPlatesConfig = {
 	/** Зазор между вертикальными рядами (ось Y). */
 	rowGap: 0.55,
 	/** Зазор между плитами в глубину (ось Z), не counting толщину depth. */
-	depthGap: 3.5,
+	depthGap: 3.7,
 	cornerRadius: 0.06,
 	cornerSegments: 2,
 	gridOffset: [-2.2, 3, 2.4],
-	gridRotation: [-19, 44, 13],
+	/** Сетка стоит без поворота; координаты самих плит остаются исходными. */
+	gridRotation: [0, 0, 0],
 	/** Сдвиг сетки по глубине в шагах плиты (−1 = на 1 плиту назад от камеры). */
 	gridDepthShiftPlates: -1,
 	/** Появление сетки: dormant opacity 0 → 1; listIntroDelayMs — HUD after enter chrome (post double-rAF). */
 	gridEnter: {
 		fromOffset: [5, 0, -2.1],
-		fromRotation: [-20, 50, 0],
+		fromRotation: [0, 0, 0],
 		durationMs: 900,
 		fromOpacity: 0,
 		listIntroDelayMs: 120,
@@ -38,9 +38,40 @@ export const portfolioHubPlatesConfig = {
 	/** Исчезновение сетки: gridOffset / gridRotation → to + fade-out плит. */
 	gridExit: {
 		toOffset: [-2.3, 6.3, 6.6],
-		toRotation: [-20, 45, 8],
+		toRotation: [0, 0, 0],
 		durationMs: 500,
 		toOpacity: 0,
+	},
+	/** Click on a project keeps us inside the hub and gathers the warm project plates into one row. */
+	caseSelection: {
+		durationMs: 1350,
+		staggerMs: 45,
+		plateSpacing: 3.85,
+		siblingScale: 0.74,
+		activeScale: 0.74,
+		/** Project plates smoothly widen from square to 16:9 while gathering. */
+		aspectRatio: 16 / 9,
+		/** Keep child logo/text proportional until their reverse reveal is fully hidden. */
+		contentExitFraction: 0.32,
+		/** Final camera pose after a project is selected. */
+		camera: {
+			position: [-4.4817, -0.2194, 7.8192],
+			lookAt: [-4.164, -0.221, 6.8711],
+			quaternion: [-0.000777, -0.160968, -0.000029, 0.986959],
+			fov: 40,
+		},
+		lights: {
+			rect2: {
+				position: [-0.5, 15.4, 19.1],
+			},
+		},
+		decorMosaic: {
+			delaySpread: 0.58,
+			randomness: 0.72,
+			scatter: [0.45, 0.7, -1.1],
+			rotationDeg: [14, 20, 9],
+			minScale: 0.001,
+		},
 	},
 	fog: {
 		enabled: true,
@@ -63,6 +94,14 @@ export const portfolioHubPlatesConfig = {
 		thickness: 0,
 		clearcoat: 0,
 		clearcoatRoughness: 0.15,
+		ior: 1.45,
+		/** Four narrow X/Y sides only. Front and back keep the material above. */
+		sides: {
+			roughness: 0.33,
+			metalness: 0,
+			clearcoat: 0,
+			clearcoatRoughness: 1,
+		},
 	},
 	/** Blur заднего HUD-текста: верхняя подпись + «Подробнее». */
 	hudBackTextBlur: 0.5,
@@ -255,8 +294,10 @@ export const portfolioHubPlatesConfig = {
 		},
 	},
 	camera: {
-		position: [0, 0.5, 10],
-		lookAt: [0, 0, 0],
+		position: [-5.7037, 0.1321, 8.5556],
+		lookAt: [-5.0279, 0.048, 7.8232],
+		/** Default portfolio camera before project selection. */
+		quaternion: [-0.029917, -0.364595, -0.038978, 0.929869],
 		fov: 40,
 	},
 	interaction: {
@@ -276,11 +317,22 @@ export const portfolioHubPlatesConfig = {
 		gridEnterStartPlateFraction: 0,
 		/** Логотип стартует после этой доли выезда плиты. */
 		plateStartLogoFraction: 0.4,
-		/** Курсор: вертикаль → поворот X (±7°), горизонталь → поворот Y (±~3.3°). */
+		/** Ровная сетка не меняет свой наклон вслед за курсором. */
 		cursorGridTilt: {
-			rotXRange: 7,
-			rotYRange: 10 / 3,
+			enabled: false,
+			rotXRange: 0,
+			rotYRange: 0,
 			smoothDuration: 0.66,
+		},
+		/** Camera parallax: nearby and distant plates move by different screen amounts. */
+		cursorParallax: {
+			enabled: true,
+			/** Virtual orbit centre lies this far along the saved look direction. */
+			pivotDistance: 5.5,
+			/** Horizontal and vertical orbit angles at the viewport edge. */
+			orbitYawDeg: 3.2,
+			orbitPitchDeg: 2,
+			smoothDuration: 0.4,
 		},
 		/** Hover на логотипе / «Подробнее» на активной плите. */
 		hoverMotion: {
@@ -334,14 +386,16 @@ export const portfolioHubLights = {
 		{
 			id: "light1",
 			color: "#0091eb",
-			intensity: 5,
-			position: [-20, -2.2, -18.5],
+			intensity: 4.5,
+			position: [-20, -3.7, -18.5],
+			target: [0, 0, 0],
 		},
 		{
 			id: "light2",
 			color: "#5381ac",
 			intensity: 5,
 			position: [-1.8, 9.1, 20],
+			target: [0, 0, 0],
 		},
 	],
 	rectAreas: [
@@ -360,7 +414,7 @@ export const portfolioHubLights = {
 			intensity: 17.5,
 			width: 5,
 			height: 10,
-			position: [1, 8.5, 13.2],
+			position: [1, 1.6, 36.2],
 			rotation: [0, -42, 0],
 		},
 		{

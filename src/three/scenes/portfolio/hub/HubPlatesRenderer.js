@@ -2,6 +2,28 @@ import * as THREE from "three";
 
 const _dummy = new THREE.Object3D();
 
+function clamp01(value) {
+	return Math.max(0, Math.min(1, value));
+}
+
+function smootherStep(value) {
+	const t = clamp01(value);
+	return t * t * t * (t * (t * 6 - 15) + 10);
+}
+
+function hashGridCell(rowIndex, plateIndex, salt = 0) {
+	const value = Math.sin((rowIndex + 1) * 12.9898 + (plateIndex + 1) * 78.233 + salt * 37.719) * 43758.5453;
+	return value - Math.floor(value);
+}
+
+function getMaterials(materialOrArray) {
+	return Array.isArray(materialOrArray) ? materialOrArray : materialOrArray ? [materialOrArray] : [];
+}
+
+function getFaceMaterial(materialOrArray) {
+	return getMaterials(materialOrArray)[0] ?? null;
+}
+
 /**
  * Плиты хаба: InstancedMesh для декора (1 draw call) + отдельные mesh только на проектах (логотипы, slide).
  */
@@ -15,6 +37,7 @@ export class HubPlatesRenderer {
 		this.projectMaterial = null;
 		this.instancedMesh = null;
 		this._geometryKey = "";
+		this._decorMosaicProgress = -1;
 	}
 
 	build({ cfg, layouts, projectLookup, buildGeometry, createProjectMaterial, createDecorMaterial }) {
@@ -68,6 +91,7 @@ export class HubPlatesRenderer {
 			this.instancedMesh.instanceMatrix.needsUpdate = true;
 			this.platesGroup.add(this.instancedMesh);
 		}
+		this._decorMosaicProgress = 0;
 	}
 
 	rebuildGeometry(buildGeometry, cfg) {
@@ -122,6 +146,71 @@ export class HubPlatesRenderer {
 		if (instancesDirty && this.instancedMesh) {
 			this.instancedMesh.instanceMatrix.needsUpdate = true;
 		}
+		this._decorMosaicProgress = 0;
+	}
+
+	setDecorMosaicProgress(progress, config = {}) {
+		if (!this.instancedMesh) {
+			return false;
+		}
+
+		const nextProgress = clamp01(progress);
+		if (Math.abs(nextProgress - this._decorMosaicProgress) < 0.00005) {
+			return false;
+		}
+
+		const delaySpread = Math.min(0.9, Math.max(0, config.delaySpread ?? 0.58));
+		const randomness = clamp01(config.randomness ?? 0.72);
+		const scatter = config.scatter ?? [0.45, 0.7, -1.1];
+		const rotationDeg = config.rotationDeg ?? [14, 20, 9];
+		const minScale = Math.max(0.0001, config.minScale ?? 0.001);
+		let instancesDirty = false;
+
+		for (const plate of this.plates) {
+			if (plate.instanceId < 0) {
+				continue;
+			}
+
+			const randomDelay = hashGridCell(plate.rowIndex, plate.plateIndex, 1);
+			const checkerDelay = ((plate.rowIndex * 3 + plate.plateIndex) % 9) / 8;
+			const delay = (randomDelay * randomness + checkerDelay * (1 - randomness)) * delaySpread;
+			const localProgress = smootherStep((nextProgress - delay) / Math.max(1 - delaySpread, 0.001));
+			const seedX = hashGridCell(plate.rowIndex, plate.plateIndex, 2) * 2 - 1;
+			const seedY = hashGridCell(plate.rowIndex, plate.plateIndex, 3) * 2 - 1;
+			const seedZ = hashGridCell(plate.rowIndex, plate.plateIndex, 4) * 2 - 1;
+			const [baseX, baseY, baseZ] = plate.basePosition;
+			const scale = Math.max(minScale, 1 - localProgress);
+			const verticalProgress = Math.pow(
+				localProgress,
+				0.82 + Math.abs(seedY) * 0.28,
+			);
+
+			_dummy.position.set(
+				baseX + seedX * scatter[0] * localProgress,
+				baseY + seedY * scatter[1] * localProgress,
+				baseZ + (scatter[2] + seedZ * Math.abs(scatter[2]) * 0.22) * localProgress,
+			);
+			_dummy.rotation.set(
+				THREE.MathUtils.degToRad(seedY * rotationDeg[0] * localProgress),
+				THREE.MathUtils.degToRad(seedX * rotationDeg[1] * localProgress),
+				THREE.MathUtils.degToRad(seedZ * rotationDeg[2] * localProgress),
+			);
+			_dummy.scale.set(scale, Math.max(minScale, 1 - verticalProgress), scale);
+			_dummy.updateMatrix();
+			this.instancedMesh.setMatrixAt(plate.instanceId, _dummy.matrix);
+			instancesDirty = true;
+		}
+
+		if (instancesDirty) {
+			this.instancedMesh.instanceMatrix.needsUpdate = true;
+		}
+		this._decorMosaicProgress = nextProgress;
+		return instancesDirty;
+	}
+
+	resetDecorMosaic() {
+		this._decorMosaicProgress = -1;
+		this.setDecorMosaicProgress(0);
 	}
 
 	setProjectPlatePositions(getSlideProgress, slideX) {
@@ -144,22 +233,40 @@ export class HubPlatesRenderer {
 
 			const [baseX, baseY, baseZ] = plate.basePosition;
 			plate.mesh.position.set(baseX, baseY, baseZ);
+			plate.mesh.rotation.set(0, 0, 0);
+			plate.mesh.scale.set(1, 1, 1);
+		}
+	}
+
+	resetProjectPlateScales() {
+		for (const plate of this.plates) {
+			if (plate.projectIndex >= 0 && plate.mesh) {
+				plate.mesh.scale.set(1, 1, 1);
+			}
 		}
 	}
 
 	setMaterialOpacity(opacity) {
-		if (this.projectMaterial) {
-			this.projectMaterial.opacity = opacity;
+		for (const material of getMaterials(this.projectMaterial)) {
+			material.opacity = opacity;
 		}
 		if (this.decorMaterial && this.decorMaterial !== this.projectMaterial) {
-			this.decorMaterial.opacity = opacity;
+			for (const material of getMaterials(this.decorMaterial)) {
+				material.opacity = opacity;
+			}
+		}
+	}
+
+	setDecorMaterialOpacity(opacity) {
+		for (const material of getMaterials(this.decorMaterial)) {
+			material.opacity = opacity;
 		}
 	}
 
 	/**
 	 * Заменить материалы без пересборки геометрии (dev / perf).
-	 * @param {THREE.Material} projectMaterial
-	 * @param {THREE.Material} [decorMaterial]
+	 * @param {THREE.Material | THREE.Material[]} projectMaterial
+	 * @param {THREE.Material | THREE.Material[]} [decorMaterial]
 	 */
 	replaceMaterials(projectMaterial, decorMaterial = projectMaterial) {
 		const prevProject = this.projectMaterial;
@@ -177,58 +284,81 @@ export class HubPlatesRenderer {
 			this.instancedMesh.material = decorMaterial;
 		}
 
-		if (prevProject && prevProject !== projectMaterial && prevProject !== decorMaterial) {
-			prevProject.dispose();
-		}
-		if (prevDecor && prevDecor !== prevProject && prevDecor !== projectMaterial && prevDecor !== decorMaterial) {
-			prevDecor.dispose();
+		const nextMaterials = new Set([...getMaterials(projectMaterial), ...getMaterials(decorMaterial)]);
+		const previousMaterials = new Set([...getMaterials(prevProject), ...getMaterials(prevDecor)]);
+		for (const material of previousMaterials) {
+			if (!nextMaterials.has(material)) {
+				material.dispose();
+			}
 		}
 	}
 
 	/** Dev-панель: цвет и физические параметры без пересборки геометрии. */
 	applyMaterialConfig(m) {
-		const applyTo = (material) => {
+		const applyTo = (material, config) => {
 			if (!material) {
 				return;
 			}
-			if (material.color && m.color != null) {
-				material.color.set(m.color);
+			if (material.color && config.color != null) {
+				material.color.set(config.color);
 			}
-			if (material.roughness != null && m.roughness != null) {
-				material.roughness = m.roughness;
+			if (material.roughness != null && config.roughness != null) {
+				material.roughness = config.roughness;
 			}
-			if (material.metalness != null && m.metalness != null) {
-				material.metalness = m.metalness;
+			if (material.metalness != null && config.metalness != null) {
+				material.metalness = config.metalness;
 			}
-			if (material.transmission != null && m.transmission != null) {
-				material.transmission = m.transmission;
+			const transmissionModeChanged =
+				material.transmission != null && config.transmission != null && (material.transmission > 0) !== (config.transmission > 0);
+			const clearcoatModeChanged =
+				material.clearcoat != null && config.clearcoat != null && (material.clearcoat > 0) !== (config.clearcoat > 0);
+			if (material.transmission != null && config.transmission != null) {
+				material.transmission = config.transmission;
 			}
 			// Keep depthWrite off for transparent plates (logos/labels on surface).
 			if (material.depthWrite != null) {
 				material.depthWrite = false;
 			}
-			if (material.thickness != null && m.thickness != null) {
-				material.thickness = m.thickness;
+			if (material.thickness != null && config.thickness != null) {
+				material.thickness = config.thickness;
 			}
-			if (material.clearcoat != null && m.clearcoat != null) {
-				material.clearcoat = m.clearcoat;
+			if (material.clearcoat != null && config.clearcoat != null) {
+				material.clearcoat = config.clearcoat;
 			}
-			if (material.clearcoatRoughness != null && m.clearcoatRoughness != null) {
-				material.clearcoatRoughness = m.clearcoatRoughness;
+			if (material.clearcoatRoughness != null && config.clearcoatRoughness != null) {
+				material.clearcoatRoughness = config.clearcoatRoughness;
 			}
-			if (material.opacity != null && m.opacity != null) {
-				material.opacity = m.opacity;
+			if (material.ior != null && config.ior != null) {
+				material.ior = config.ior;
+			}
+			if (material.opacity != null && config.opacity != null) {
+				material.opacity = config.opacity;
+			}
+			if (transmissionModeChanged || clearcoatModeChanged) {
+				material.needsUpdate = true;
 			}
 		};
 
-		applyTo(this.projectMaterial);
+		const applyToSet = (materialOrArray) => {
+			const materials = getMaterials(materialOrArray);
+			applyTo(materials[0], m);
+			const sideConfig = {
+				...m,
+				...(m.sides ?? {}),
+			};
+			for (let index = 1; index < materials.length; index += 1) {
+				applyTo(materials[index], sideConfig);
+			}
+		};
+
+		applyToSet(this.projectMaterial);
 		if (this.decorMaterial !== this.projectMaterial) {
-			applyTo(this.decorMaterial);
+			applyToSet(this.decorMaterial);
 		}
 	}
 
 	getMaterial() {
-		return this.projectMaterial;
+		return getFaceMaterial(this.projectMaterial);
 	}
 
 	getDecorInstanceCount() {
@@ -236,6 +366,8 @@ export class HubPlatesRenderer {
 	}
 
 	dispose() {
+		const materials = new Set([...getMaterials(this.projectMaterial), ...getMaterials(this.decorMaterial)]);
+
 		if (this.instancedMesh) {
 			this.platesGroup.remove(this.instancedMesh);
 			this.instancedMesh.geometry = null;
@@ -257,12 +389,12 @@ export class HubPlatesRenderer {
 		this.sharedGeometry?.dispose();
 		this.sharedGeometry = null;
 
-		if (this.decorMaterial && this.decorMaterial !== this.projectMaterial) {
-			this.decorMaterial.dispose();
+		for (const material of materials) {
+			material.dispose();
 		}
 		this.decorMaterial = null;
 
-		this.projectMaterial?.dispose();
 		this.projectMaterial = null;
+		this._decorMosaicProgress = -1;
 	}
 }

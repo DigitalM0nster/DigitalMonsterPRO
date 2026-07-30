@@ -1,6 +1,6 @@
 import * as THREE from "three";
-import { resolveCaseStudyArcGeometry } from "@/portfolio/ui/CaseStudyCanvas/caseStudyArcGeometry.js";
-import { caseStudyArcInternals } from "@/portfolio/ui/CaseStudyCanvas/caseStudyArcConfig.js";
+import { resolveSiteArcGeometry } from "@/components/SiteArc/siteArcGeometry.js";
+import { siteArcInternals } from "@/components/SiteArc/siteArcConfig.js";
 import { caseStudyEdgeShadeConfig } from "./caseStudyEdgeShadeConfig.js";
 
 /**
@@ -151,10 +151,10 @@ export function applyCaseStudyEdgeShadeUniforms(material, opts) {
 		return;
 	}
 
-	const geo = resolveCaseStudyArcGeometry(
+	const geo = resolveSiteArcGeometry(
 		viewportW,
 		viewportH,
-		caseStudyArcInternals.maxNavItems,
+		siteArcInternals.maxNavItems,
 		false,
 		resolveArcVerticalBounds(viewportH),
 	);

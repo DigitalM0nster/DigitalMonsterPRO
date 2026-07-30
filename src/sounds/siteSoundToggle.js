@@ -1,4 +1,4 @@
-import { store } from "../store.jsx";
+import { store } from "@/app/store.jsx";
 
 /** Плавное затухание всех звуков сразу после нажатия «выкл» (мс). */
 export const SITE_SOUND_MUTE_FADE_MS = 1000;

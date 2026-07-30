@@ -141,6 +141,21 @@ export function injectSceneDevToolsStyles() {
 			font: inherit;
 		}
 
+		.sceneDevTools .field select {
+			flex: 1 1 auto;
+			min-width: 0;
+			padding: 5px 8px;
+			border: 1px solid rgba(255, 255, 255, 0.18);
+			border-radius: 6px;
+			background: #111922;
+			color: inherit;
+			font: inherit;
+		}
+
+		.sceneDevTools [hidden] {
+			display: none !important;
+		}
+
 		.sceneDevTools .fieldToggle {
 			display: flex !important;
 			flex-direction: row;

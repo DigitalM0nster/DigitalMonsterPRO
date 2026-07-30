@@ -3,7 +3,7 @@ import {
 	getPortfolioLocale,
 	getPortfolioProjectName,
 	getPortfolioProjectPlateSecondary,
-} from "@/i18n/portfolioProjectsCopy.js";
+} from "@/pages/portfolio/data/portfolioProjectsCopy.js";
 /** Видимых пунктов в меню без колёсика (все текущие проекты). */
 export const PORTFOLIO_MENU_VISIBLE_COUNT = 7;
 
@@ -122,7 +122,7 @@ export const projectsData = [
 /**
  * Сегменты подписи плиты: secondary — белый тонкий, primary — голубой со свечением.
  * @param {typeof projectsData[number]} project
- * @param {import('@/utils/siteLocale.js').SiteLocale} [locale]
+ * @param {import('@/functions/siteLocale.js').SiteLocale} [locale]
  * @returns {Array<{ text: string, role: 'secondary' | 'primary' }>}
  */
 export function getHubPlateLabelSegments(project, locale = getPortfolioLocale()) {

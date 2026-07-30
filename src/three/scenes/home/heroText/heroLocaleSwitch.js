@@ -1,5 +1,5 @@
 import { subscribe } from "valtio/vanilla";
-import { store } from "@/store.jsx";
+import { store } from "@/app/store.jsx";
 import { heroTextPositionConfig } from "./heroTextPositionConfig.js";
 import { resolveHeroTextPosition } from "./heroTextLayout.js";
 import {
@@ -9,8 +9,8 @@ import {
 	getHeroSubtitleFontFamily,
 	getHeroTaglineLines,
 } from "./heroTitleConfig.js";
-import { getNextSiteLocale, normalizeSiteLocale } from "@/utils/siteLocale.js";
-import { shouldAnimateSiteLocaleForRingScene } from "@/utils/siteLocaleSwitch.js";
+import { getNextSiteLocale, normalizeSiteLocale } from "@/functions/siteLocale.js";
+import { shouldAnimateSiteLocaleForRingScene } from "@/functions/siteLocaleSwitch.js";
 
 /**
  * Очередь смены языка для canvas hero-текстов (subtitle + stack).

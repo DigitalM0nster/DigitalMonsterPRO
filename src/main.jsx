@@ -1,7 +1,7 @@
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 
-import MainContent from "./components/MainContent.jsx";
+import MainContent from "./app/MainContent.jsx";
 
 if (window.__loaderBootstrapTimer) {
 	clearInterval(window.__loaderBootstrapTimer);

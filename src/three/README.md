@@ -69,4 +69,4 @@ LavawebThreeApp
 
 ## Старый R3F
 
-`components/3D/models/**` — legacy, переносим в `scenes/` по одному кейсу.
+`three/legacy/r3f/models/**` — legacy, переносим в `scenes/` по одному кейсу.

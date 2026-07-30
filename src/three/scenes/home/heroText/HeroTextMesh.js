@@ -7,7 +7,7 @@ import { createHeroTextRevealUniforms, HeroTextRevealController } from "./heroTe
 import { getHeroGlitchSnakeRunOptions, heroTextGlitchConfig, applyHeroGlitchShaderUniforms } from "./heroTextGlitchConfig.js";
 import { HeroTextGlitchController } from "./HeroTextGlitchController.js";
 import { drawHeroGlitchLine } from "./drawHeroGlitchText.js";
-import { resolveReplacementGlowMetrics } from "@/shared/glitchText/drawGlitchText.js";
+import { resolveReplacementGlowMetrics } from "@/components/GlitchText/drawGlitchText.js";
 import { sceneOwnsHexHitAtClientY } from "../../../render/overlay/hexHitOwnership.js";
 
 const HERO_CLICK_WAVE_COUNT = 8;

@@ -1,4 +1,4 @@
-import { store } from "../store.jsx";
+import { store } from "@/app/store.jsx";
 import { isSoundAudible } from "./siteSoundToggle.js";
 import { initMasterAudioBus } from "./masterAudioBus.js";
 

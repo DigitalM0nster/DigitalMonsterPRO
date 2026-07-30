@@ -1,10 +1,10 @@
 import * as THREE from "three";
 import { easing } from "maath";
-import { ROUTE_TRANSITION_ENTER_MS } from "../../../config/routeTransition.js";
+import { ROUTE_TRANSITION_ENTER_MS } from "@/app/config/routeTransition.js";
 import { isPortfolioHubPath, isPortfolioCasePath } from "../../scenes/portfolio/hub/projectsData.js";
 import { getHubBackgroundTargetScale, portfolioHubPlatesConfig } from "../../scenes/portfolio/hub/portfolioHubConfig.js";
 import { case1PostProcessConfig } from "../../scenes/portfolio/case1/case1PostProcessConfig.js";
-import { getBackgroundBrightnessTarget, getCarouselBackgroundTargets } from "../../../utils/backgroundBrightness.js";
+import { getBackgroundBrightnessTarget, getCarouselBackgroundTargets } from "@/functions/backgroundBrightness.js";
 import { isCarouselRoutePage } from "../transition/SceneCarousel.js";
 import {
 	LIQUID_FRAME_STRIDE,

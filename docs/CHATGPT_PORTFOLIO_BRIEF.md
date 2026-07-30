@@ -428,12 +428,12 @@
 | Что | Где |
 |-----|-----|
 | Список хаба | `src/three/scenes/portfolio/hub/projectsData.js` |
-| Реестр модулей | `src/portfolio/core/projectRegistry.js` |
-| Имена i18n | `src/i18n/portfolioProjectsCopy.js` |
-| Нипигаз states | `src/portfolio/projects/nipigas/states.js` |
-| MMK-1 states | `src/portfolio/projects/mmk1/states.js` |
-| Troof states (old) | `src/portfolio/projects/troof/states.js` |
-| Шаблон проекта | `src/portfolio/projects/_template/` |
+| Реестр модулей | `src/pages/portfolio/core/projectRegistry.js` |
+| Имена i18n | `src/pages/portfolio/data/portfolioProjectsCopy.js` |
+| Нипигаз states | `src/pages/portfolio/projects/nipigas/states.js` |
+| MMK-1 states | `src/pages/portfolio/projects/mmk1/states.js` |
+| Troof states (old) | `src/pages/portfolio/projects/troof/states.js` |
+| Шаблон проекта | `src/pages/portfolio/projects/_template/` |
 | Правила | `docs/PORTFOLIO_RULES.md` |
 | Case1Scene | `src/three/scenes/portfolio/case1/Case1Scene.js` |
 | Case3Scene | `src/three/scenes/portfolio/case3/Case3Scene.js` |

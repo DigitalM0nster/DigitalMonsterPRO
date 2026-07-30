@@ -6,7 +6,7 @@ import {
 	getPortfolioLocale,
 	getPortfolioProjectListUppercase,
 	getPortfolioProjectName,
-} from "@/i18n/portfolioProjectsCopy.js";
+} from "@/pages/portfolio/data/portfolioProjectsCopy.js";
 import {
 	ensureHubCanvasGlitchRouteScope,
 	runHubCanvasGlitchRoute,
@@ -14,11 +14,11 @@ import {
 	setHubCanvasGlitchEnterDeferred,
 	playHubCanvasEnterFromScene,
 } from "./hubCanvasGlitchRoute.js";
-import { getRouteGlitchCascadeFinishMs } from "@/utils/routeGlitchConfig.js";
-import { cancelRouteGlitchStagger } from "@/utils/routeGlitchRegistry.js";
+import { getRouteGlitchCascadeFinishMs } from "@/functions/routeGlitchConfig.js";
+import { cancelRouteGlitchStagger } from "@/functions/routeGlitchRegistry.js";
 import { playGlitchTextSound } from "@/sounds/soundDesign.js";
-import { createGlitchTextSlots } from "@/shared/glitchText/glitchLetterModel.js";
-import { getSnakeLength, getTotalSnakeDuration, resolveGlitchSnakeTimeScale } from "@/shared/glitchText/glitchSnakeEngine.js";
+import { createGlitchTextSlots } from "@/components/GlitchText/glitchLetterModel.js";
+import { getSnakeLength, getTotalSnakeDuration, resolveGlitchSnakeTimeScale } from "@/components/GlitchText/glitchSnakeEngine.js";
 import { getHeroGlitchSnakeRunOptions } from "@/three/scenes/home/heroText/heroTextGlitchConfig.js";
 import { getPortfolioHubGlitchConfig } from "../portfolioHubGlitchConfig.js";
 import { applyHubScreenSnakeUniforms } from "./hubScreenSnakeTextMaterial.js";

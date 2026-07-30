@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { applySceneProgressToCamera } from "../utils/applySceneProgressToCamera.js";
 import { computeRouteSceneVisibility } from "../utils/routeSceneVisibility.js";
 import { isRingDormantReason } from "@/three/scenes/lifecycle/sceneLifecycle.js";
-import { store } from "@/store.jsx";
+import { store } from "@/app/store.jsx";
 import {
 	CONTACTS_PATH,
 	contactsCameraTune,

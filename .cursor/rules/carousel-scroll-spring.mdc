@@ -1,6 +1,6 @@
 ---
 description: Canonical spring scroll (progressTarget / progress) for carousel pages and About stages — use SceneCarousel reference, no hard idle snaps.
-globs: src/about/**/*,src/three/render/transition/**/*,src/portfolio/**/*Scroll*,src/components/HTML/components/ScrollPageNavigator/**/*
+globs: src/pages/about/**/*,src/three/render/transition/**/*,src/pages/portfolio/**/*Scroll*,src/templates/navigation/ScrollPageNavigator/**/*
 alwaysApply: false
 ---
 

@@ -7,8 +7,8 @@
 
 ## Принципы
 
-1. **Один интерфейс — много проектов.** Компоненты в `src/portfolio/ui/` переиспользуются без изменений.
-2. **Проект = папка + 4 файла.** Новый проект добавляется только через `src/portfolio/projects/<slug>/`.
+1. **Один интерфейс — много проектов.** Компоненты в `src/pages/portfolio/ui/` переиспользуются без изменений.
+2. **Проект = папка + 4 файла.** Новый проект добавляется только через `src/pages/portfolio/projects/<slug>/`.
 3. **Два уровня взаимодействия:**
    - **Уровень 1** — states + subStages (скролл / Navigation Core) → **разное поведение 3D**
    - **Уровень 2** — investigation → **уникальное поведение модели** (не tooltip, не «просто камера»)
@@ -20,7 +20,7 @@
 ## Структура файлов
 
 ```
-src/portfolio/
+src/pages/portfolio/
 ├── core/
 │   ├── types.js                 # JSDoc-контракты данных
 │   ├── projectRegistry.js       # Реестр всех проектов
@@ -161,7 +161,7 @@ export function createProjectScene(context) {
 
 ## Подключение нового проекта
 
-1. Создать `src/portfolio/projects/<slug>/` с 4 файлами + `index.js`
+1. Создать `src/pages/portfolio/projects/<slug>/` с 4 файлами + `index.js`
 2. Добавить import в `projectRegistry.js`
 3. Добавить route в `PortfolioPage` → `<PortfolioProjectShell slug="..." />`
 4. Зарегистрировать scene в `sceneDefinitions.js` (THREE pipeline)

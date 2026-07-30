@@ -13,7 +13,7 @@ export const DEV_PANEL_HOTKEY_HINTS = [
 	{ key: "2", label: "Epic Text" },
 	{ key: "3", label: "Contacts" },
 	{ key: "4", label: "Belka Scene" },
-	{ key: "5", label: "Hub Plate" },
+	{ key: "5", label: "Portfolio Camera" },
 	{ key: "7", label: "Case Arc" },
 	{ key: "8", label: "Liquid BG" },
 	{ key: "9", label: "Stage Rail" },

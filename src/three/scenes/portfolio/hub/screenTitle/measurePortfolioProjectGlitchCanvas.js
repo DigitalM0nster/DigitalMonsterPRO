@@ -1,12 +1,12 @@
 import {
 	getPortfolioProjectListUppercase,
 	getPortfolioProjectName,
-} from "@/i18n/portfolioProjectsCopy.js";
-import { createGlitchTextSlots } from "@/shared/glitchText/glitchLetterModel.js";
+} from "@/pages/portfolio/data/portfolioProjectsCopy.js";
+import { createGlitchTextSlots } from "@/components/GlitchText/glitchLetterModel.js";
 import {
 	measureCanvasGlitchTextSize,
-} from "@/shared/glitchText/drawCanvasGlitchText.js";
-import { SITE_LOCALES } from "@/utils/siteLocale.js";
+} from "@/components/GlitchText/drawCanvasGlitchText.js";
+import { SITE_LOCALES } from "@/functions/siteLocale.js";
 import { SCREEN_TEXT_FONT_FAMILY } from "./hubScreenTextCanvas.js";
 
 const MIN_CANVAS_WIDTH = 240;

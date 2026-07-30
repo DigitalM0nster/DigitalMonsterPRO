@@ -1,5 +1,5 @@
 import { digitalWhaleConfig } from "../digitalWhaleConfig.js";
-import { getGraphicsTier } from "@/utils/getGraphicsTier.js";
+import { getGraphicsTier } from "@/functions/getGraphicsTier.js";
 
 /** Лимит сетки океана по tier (продакшен / perf). */
 export function getOceanGridCap(tier = getGraphicsTier()) {

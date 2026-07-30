@@ -9,7 +9,7 @@ import {
 } from "../shaders/digitalWhaleShaders.js";
 import { withFogUniforms } from "./shaderFogUniforms.js";
 import { digitalWhaleConfig } from "../digitalWhaleConfig.js";
-import { getGraphicsTier } from "@/utils/getGraphicsTier.js";
+import { getGraphicsTier } from "@/functions/getGraphicsTier.js";
 import { getOceanTileCountCap } from "./heroSceneTierScale.js";
 
 /** Ширина одного тайла сетки по X — для бесшовного скролла. */

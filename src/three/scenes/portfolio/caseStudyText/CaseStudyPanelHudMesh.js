@@ -3,16 +3,16 @@ import {
 	getCasePanelHudEnterProgress,
 	getCasePanelHudEnterTravelSign,
 	getCasePanelHudState,
-} from "@/portfolio/core/casePanelHudBridge.js";
+} from "@/pages/portfolio/core/casePanelHudBridge.js";
 import {
 	getAboutPanelHudEnterProgress,
 	getAboutPanelHudEnterTravelSign,
 	getAboutPanelHudMixProgress,
 	getAboutPanelHudState,
-} from "@/about/aboutPanelHudBridge.js";
-import { getCaseStageClickMosaicProgress } from "@/portfolio/core/caseStageClickMosaic.js";
-import { getCasePanelHudLocaleMixProgress } from "@/portfolio/core/casePanelHudLocaleMix.js";
-import { getStageProgress } from "@/portfolio/core/stageProgress.js";
+} from "@/pages/about/aboutPanelHudBridge.js";
+import { getCaseStageClickMosaicProgress } from "@/pages/portfolio/core/caseStageClickMosaic.js";
+import { getCasePanelHudLocaleMixProgress } from "@/pages/portfolio/core/casePanelHudLocaleMix.js";
+import { getStageProgress } from "@/pages/portfolio/core/stageProgress.js";
 import {
 	createHexGridCutUniforms,
 	HEX_GRID_CUT_CORE_GLSL,

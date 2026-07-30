@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { subscribeKey } from "valtio/utils";
-import { ROUTE_TRANSITION_ENTER_MS } from "@/config/routeTransition.js";
+import { ROUTE_TRANSITION_ENTER_MS } from "@/app/config/routeTransition.js";
 import { CAROUSEL_PROGRESS_COMMIT_EPS } from "@/three/render/transition/SceneCarousel.js";
-import { store } from "@/store.jsx";
+import { store } from "@/app/store.jsx";
 
 /**
  * Краткий импульс scrollRestReactivate при возврате progress карусели к 0

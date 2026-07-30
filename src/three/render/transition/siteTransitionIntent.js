@@ -5,11 +5,11 @@
  * Call publishSiteRouteTransition whenever the visual route is about to change.
  * React / routePhase must not start chrome exits — only this module does.
  */
-import { getCasePanelHudState, setCasePanelHudEnterProgress } from "@/portfolio/core/casePanelHudBridge.js";
-import { stopCaseStudyAnimationFrame } from "@/portfolio/core/caseStudyAnimationFrame.js";
-import { cancelCasePanelHudReveal, isCasePanelHudRevealExiting, playCasePanelHudExit, releaseCasePanelHud } from "@/portfolio/core/casePanelHudReveal.js";
-import { playCaseArcOrbitExit } from "@/portfolio/ui/CaseStudyCanvas/caseStudyArcSession.js";
-import { store } from "@/store.jsx";
+import { getCasePanelHudState, setCasePanelHudEnterProgress } from "@/pages/portfolio/core/casePanelHudBridge.js";
+import { stopCaseStudyAnimationFrame } from "@/pages/portfolio/core/caseStudyAnimationFrame.js";
+import { cancelCasePanelHudReveal, isCasePanelHudRevealExiting, playCasePanelHudExit, releaseCasePanelHud } from "@/pages/portfolio/core/casePanelHudReveal.js";
+import { playSiteArcOrbitExit } from "@/components/SiteArc/siteArcSession.js";
+import { store } from "@/app/store.jsx";
 
 /** @typedef {'hex' | 'case-boundary' | 'about-boundary' | 'ring' | 'html-fallback'} SiteTransitionMode */
 /** @typedef {'none' | 'case-band' | 'case-full'} SiteChromeLeave */
@@ -150,7 +150,7 @@ function startCaseChromeLeave(chrome, from, to, mode = "hex") {
 
 	if (!store.openedCase && !hasHud) {
 		if (chrome === "case-full") {
-			playCaseArcOrbitExit();
+			playSiteArcOrbitExit();
 		}
 		stopCaseStudyAnimationFrame();
 		return;
@@ -158,7 +158,7 @@ function startCaseChromeLeave(chrome, from, to, mode = "hex") {
 
 	if (!hasHud) {
 		if (chrome === "case-full") {
-			playCaseArcOrbitExit();
+			playSiteArcOrbitExit();
 			releaseCasePanelHud();
 		}
 		return;
@@ -168,7 +168,7 @@ function startCaseChromeLeave(chrome, from, to, mode = "hex") {
 		// A chained boundary settle can begin as case→case (band hold) and then
 		// immediately become case→site. Upgrade that same in-flight animation.
 		if (chrome === "case-full") {
-			playCaseArcOrbitExit();
+			playSiteArcOrbitExit();
 			if (holdCasePanelHudForHexLeave(mode, chrome)) {
 				return;
 			}
@@ -178,7 +178,7 @@ function startCaseChromeLeave(chrome, from, to, mode = "hex") {
 	}
 
 	if (chrome === "case-full") {
-		playCaseArcOrbitExit();
+		playSiteArcOrbitExit();
 		if (holdCasePanelHudForHexLeave(mode, chrome)) {
 			return;
 		}

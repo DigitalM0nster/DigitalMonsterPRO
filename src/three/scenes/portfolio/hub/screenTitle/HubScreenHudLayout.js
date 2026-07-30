@@ -1,7 +1,6 @@
 import * as THREE from "three";
-import { store } from "@/store.jsx";
-import { requestPortfolioCaseNavigation } from "../../../../../utils/portfolioHubNavigate.js";
-import { commitPortfolioHubFocusIndex } from "../../../../../utils/portfolioHubBackground.js";
+import { store } from "@/app/store.jsx";
+import { commitPortfolioHubFocusIndex } from "@/functions/portfolioHubBackground.js";
 import { projectsData } from "../projectsData.js";
 import { portfolioHubPlatesConfig } from "../portfolioHubConfig.js";
 import { normalizeHubScreenHudConfig } from "./hubScreenTextConfig.js";
@@ -46,6 +45,7 @@ export class HubScreenHudLayout {
 		this._lastProjectsHoverPointerY = Number.NaN;
 		this._lastProjectsHoverCanPick = false;
 		this._projectsHoverNeedsRaycast = true;
+		this._projectsSelectionLocked = false;
 		/** Выбранный hover-проект — держится, пока не сменится или не уйдём с /portfolio. */
 		this._activeProjectIndex = -1;
 		this._projectsSingleActivePending = false;
@@ -77,6 +77,7 @@ export class HubScreenHudLayout {
 			return false;
 		}
 
+		this._projectsSelectionLocked = false;
 		resetPortfolioActiveDebug({ itemCount: this.projectsColumn.layers.length });
 		this._projectsSingleActivePending = true;
 		this._activeProjectIndex = -1;
@@ -106,14 +107,24 @@ export class HubScreenHudLayout {
 		return true;
 	}
 
-	playProjectsExitGlitch() {
+	playProjectsExitGlitch({ preserveFocus = false } = {}) {
 		this._projectsSingleActivePending = false;
-		this.clearActiveProject();
+		this._projectsSelectionLocked = preserveFocus;
+		if (preserveFocus) {
+			this._clearPlateFocusDebounceTimer();
+			this._activeProjectIndex = -1;
+			this._pointerHitIndex = -1;
+			this._pendingPlateFocusIndex = -1;
+			store.cursor.projectListHovered = false;
+		} else {
+			this.clearActiveProject();
+		}
 		this.projectsColumn.playExitGlitch();
 	}
 
 	stashProjectsHiddenForDormant() {
 		this._projectsSingleActivePending = false;
+		this._projectsSelectionLocked = false;
 		this.clearActiveProject();
 		this._projectsIntroExpectHidden = true;
 		this.projectsColumn.stashLayersHiddenForDormant();
@@ -231,7 +242,7 @@ export class HubScreenHudLayout {
 	}
 
 	_updateProjectsPointerHover(frame) {
-		const canPick = this.root.visible && this._visibilityMultiplier > 0.001 && this.projectsColumn.layers.length > 0;
+		const canPick = !this._projectsSelectionLocked && this.root.visible && this._visibilityMultiplier > 0.001 && this.projectsColumn.layers.length > 0;
 
 		if (!canPick || !frame?.camera || !frame?.pointer) {
 			store.cursor.projectListHovered = false;
@@ -286,18 +297,17 @@ export class HubScreenHudLayout {
 		}
 	}
 
-	tryOpenProjectOnClick() {
+	takeProjectSelectionOnClick() {
 		if (this._visibilityMultiplier <= 0.001 || !this.root.visible || this._pointerHitIndex < 0) {
-			return false;
+			return -1;
 		}
 
 		const project = projectsData[this._pointerHitIndex];
 		if (!project?.path) {
-			return false;
+			return -1;
 		}
 
-		requestPortfolioCaseNavigation(project.path);
-		return true;
+		return this._pointerHitIndex;
 	}
 
 	/**
@@ -312,7 +322,9 @@ export class HubScreenHudLayout {
 		this._worldPosition.copy(this.hudCfg.cameraOffset);
 		camera.localToWorld(this._worldPosition);
 		this.root.position.copy(this._worldPosition);
-		this.root.lookAt(camera.position);
+		// Camera-space HUD: inherit yaw/pitch/roll so labels remain level on screen
+		// while the 3D world rolls under Q/E free-camera tuning.
+		this.root.quaternion.copy(camera.quaternion);
 	}
 
 	update(frame) {
@@ -416,6 +428,7 @@ export class HubScreenHudLayout {
 	dispose() {
 		store.cursor.projectListHovered = false;
 		this._projectsSingleActivePending = false;
+		this._projectsSelectionLocked = false;
 		this._clearPlateFocusDebounceTimer();
 		this.leftColumn.dispose();
 		this.projectsColumn.dispose();

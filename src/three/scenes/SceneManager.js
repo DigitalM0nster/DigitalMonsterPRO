@@ -54,7 +54,7 @@ export class SceneManager {
 		this.activeId = "home";
 		/** Универсальные model-layer RT: A = source/single, B = target во время mix. */
 		this.layerTargets = { a: null, b: null };
-		this.size = { w: 0, h: 0 };
+		this.size = { w: 0, h: 0, dpr: 0 };
 		this.lastDelta = 0;
 		/** @type {string | null} */
 		this._caseMixPreviewId = null;
@@ -69,7 +69,7 @@ export class SceneManager {
 
 		this.scenes.set("home", new DigitalWhaleScene(this.gfx));
 		this.scenes.get("home")?.initHeroText?.(this.renderer);
-		this.scenes.set("portfolioHub", new PortfolioHubScene());
+		this.scenes.set("portfolioHub", new PortfolioHubScene({ inputElement: this.renderer.domElement }));
 		this.scenes.set("capabilities", new EmptyScene());
 		this.scenes.set("case01", new Case1Scene(this.renderer, this.store));
 		this.scenes.set("case04", new Case3Scene(this.renderer, this.store));
@@ -362,10 +362,11 @@ export class SceneManager {
 		if (width <= 0 || height <= 0) {
 			return;
 		}
-		if (this.size.w === width && this.size.h === height) {
+		const dpr = this.renderer.getPixelRatio();
+		if (this.size.w === width && this.size.h === height && this.size.dpr === dpr) {
 			return;
 		}
-		this.size = { w: width, h: height };
+		this.size = { w: width, h: height, dpr };
 
 		for (const scene of this.scenes.values()) {
 			scene.onViewportResize?.(width, height);
@@ -618,7 +619,7 @@ export class SceneManager {
 	 */
 	_renderSceneLayer(sceneId, layerTarget, options = {}) {
 		const sceneObj = this.scenes.get(sceneId);
-		const target = layerTarget ?? this._getLayerRenderTarget(sceneId);
+		const target = layerTarget ?? this._getLayerRenderTarget();
 		if (!sceneObj || !target) {
 			return null;
 		}
@@ -694,7 +695,7 @@ export class SceneManager {
 			return null;
 		}
 
-		return this._renderSceneLayer(sceneId, this.layerTargets.a);
+		return this._renderSceneLayer(sceneId, this._getLayerRenderTarget());
 	}
 
 	dispose() {

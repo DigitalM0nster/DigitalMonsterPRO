@@ -2,6 +2,30 @@
 
 These rules apply to every coding-agent task in this repository (Cursor, Codex, Claude Code, Gemini, and others). `CLAUDE.md` points here so non-Cursor agents load the same contract. Cursor also mirrors the preloader section in `.cursor/rules/preloader-runtime-perf.mdc` (`alwaysApply: true`) — **AGENTS.md remains the source of truth**.
 
+## Source structure (binding)
+
+The project uses a flat, page-first source layout. Do not recreate `components/HTML/components`, root feature duplicates such as `src/about` + a separate About page, or catch-all `shared` folders.
+
+```text
+src/
+  app/          # bootstrap composition, router, providers/context, global config and store
+  pages/        # route-owned code: home, portfolio, capabilities, about, contacts, demo
+  components/   # UI reused by independent routes (LeftMenu, SiteTopHud, SiteArc, etc.)
+  three/        # renderer ownership, scenes, effects and WebGL lifecycle
+  functions/    # shared pure helpers and site-level navigation/runtime helpers
+  hooks/        # shared React hooks only
+  styles/       # global styles; component/page styles stay next to their owner
+  sounds/       # audio subsystem
+  assets/       # small imported assets only; heavy URL assets live in public/
+  templates/    # archived reusable examples, never mounted by production code
+```
+
+- Keep page-specific components, data, hooks and styles inside their `pages/<route>` folder.
+- Keep a shared component and its local modules in one `components/<ComponentName>` folder.
+- `SiteArc` is a single site-wide component owned by `src/components/SiteArc`; portfolio may provide navigation data, but must not own the arc implementation.
+- The current imperative Three.js app is canonical. Old R3F code is isolated under `src/three/legacy/r3f` until it is deleted or migrated.
+- Do not keep generated `.css` or `.css.map` beside SCSS sources.
+
 ## Site transition continuity (binding)
 
 **One leave/enter logic for the whole site.** Canonical: [`src/three/render/transition/SITE_TRANSITION.md`](src/three/render/transition/SITE_TRANSITION.md) + `publishSiteRouteTransition` in `siteTransitionIntent.js`.
@@ -22,7 +46,7 @@ Canonical warm entry: `DigitalMonsterThreeApp._prepareApplication` (waits scene 
 
 ### TEMP — DEV fast preloader (remove later)
 
-**TODO(remove):** `src/config/devFlags.js` → `DEV_FAST_PRELOADER = true` skips full scene/hex/HUD warm in Vite DEV so Start unlocks faster. Prod is unaffected. To test real warm in DEV: set the flag `false`, or open with `?fullWarm=1`. Delete the flag + `src/utils/devFastPreloader.js` wiring when no longer needed.
+**TODO(remove):** `src/app/config/devFlags.js` → `DEV_FAST_PRELOADER = true` skips full scene/hex/HUD warm in Vite DEV so Start unlocks faster. Prod is unaffected. To test real warm in DEV: set the flag `false`, or open with `?fullWarm=1`. Delete the flag + `src/functions/devFastPreloader.js` wiring when no longer needed.
 
 ### Warm checklist (must complete under curtain before Start is honest)
 
@@ -110,7 +134,7 @@ Page-to-page scroll feel is defined by `progressTarget` + spring rest to `0`/`1`
 
 ## About left-panel HUD (story mosaic)
 
-Binding: [`src/about/ABOUT_PANEL_HUD.md`](src/about/ABOUT_PANEL_HUD.md). Cursor: `.cursor/rules/about-panel-hud.mdc`.
+Binding: [`src/pages/about/ABOUT_PANEL_HUD.md`](src/pages/about/ABOUT_PANEL_HUD.md). Cursor: `.cursor/rules/about-panel-hud.mdc`.
 
 - Story map only: `0→1` text1→text2, `1→2` text2→text3, `2→3` text3→empty. Mix is a uniform.
 - Text1 is idle-visible at story 0 (`enterProgress = null`) — **no** `playAboutPanelHudEnter` / `playAboutPanelHudExit` for About content.

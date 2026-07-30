@@ -1,8 +1,8 @@
 import * as THREE from "three";
 import { subscribeKey } from "valtio/utils";
-import { store } from "@/store.jsx";
-import { normalizeSiteLocale } from "@/utils/siteLocale.js";
-import { shouldAnimateSiteLocaleForRingScene } from "@/utils/siteLocaleSwitch.js";
+import { store } from "@/app/store.jsx";
+import { normalizeSiteLocale } from "@/functions/siteLocale.js";
+import { shouldAnimateSiteLocaleForRingScene } from "@/functions/siteLocaleSwitch.js";
 import {
 	findAllAboutEpicTextPlanes,
 	findAboutEpicTextPlane,

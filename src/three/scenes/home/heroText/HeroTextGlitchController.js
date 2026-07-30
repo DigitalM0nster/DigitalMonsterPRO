@@ -1,10 +1,10 @@
-import { createGlitchTextSlots } from "@/shared/glitchText/glitchLetterModel.js";
+import { createGlitchTextSlots } from "@/components/GlitchText/glitchLetterModel.js";
 import {
 	GlitchSnakeEngine,
 	getSnakeLength,
 	getTotalSnakeDuration,
 	resolveGlitchSnakeTimeScale,
-} from "@/shared/glitchText/glitchSnakeEngine.js";
+} from "@/components/GlitchText/glitchSnakeEngine.js";
 import { playGlitchTextSound } from "@/sounds/soundDesign.js";
 import { getHeroGlitchSnakeRunOptions } from "./heroTextGlitchConfig.js";
 
@@ -76,9 +76,9 @@ export class HeroTextGlitchController {
 	constructor({ uppercase = false, onRedraw } = {}) {
 		this.uppercase = uppercase;
 		this.onRedraw = onRedraw ?? (() => {});
-		/** @type {{ engine: GlitchSnakeEngine, slots: import('@/shared/glitchText/glitchSnakeEngine.js').GlitchLetterSlot[] }[]} */
+		/** @type {{ engine: GlitchSnakeEngine, slots: import('@/components/GlitchText/glitchSnakeEngine.js').GlitchLetterSlot[] }[]} */
 		this.primaryGroups = [];
-		/** @type {{ engine: GlitchSnakeEngine, slots: import('@/shared/glitchText/glitchSnakeEngine.js').GlitchLetterSlot[] }[] | null} */
+		/** @type {{ engine: GlitchSnakeEngine, slots: import('@/components/GlitchText/glitchSnakeEngine.js').GlitchLetterSlot[] }[] | null} */
 		this.secondaryGroups = null;
 		/** @type {ReturnType<typeof setTimeout>[]} */
 		this._switchTimeouts = [];

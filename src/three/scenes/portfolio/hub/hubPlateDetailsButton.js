@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { portfolioHubPlatesConfig } from "./portfolioHubConfig.js";
-import { getPortfolioLocale, getPortfolioViewCaseButtonLabel } from "@/i18n/portfolioProjectsCopy.js";
-import { normalizeSiteLocale, SITE_LOCALES } from "@/utils/siteLocale.js";
+import { getPortfolioLocale, getPortfolioViewCaseButtonLabel } from "@/pages/portfolio/data/portfolioProjectsCopy.js";
+import { normalizeSiteLocale, SITE_LOCALES } from "@/functions/siteLocale.js";
 import { playSound, HUB_PLATE_HOVER_GLITCH_GAIN } from "../../../../sounds/soundDesign.js";
 import {
 	applyHubPlateLabelBlurUniforms,
@@ -11,13 +11,13 @@ import {
 	applyHubPlateDetailsBloomUniforms,
 } from "./hubPlateDetailsTextMaterial.js";
 import { createHubScreenSnakeTextMaterial, applyHubScreenSnakeUniforms, applyHubScreenSnakeOpacity } from "./screenTitle/hubScreenSnakeTextMaterial.js";
-import { createGlitchTextSlots } from "@/shared/glitchText/glitchLetterModel.js";
-import { GlitchSnakeEngine } from "@/shared/glitchText/glitchSnakeEngine.js";
-import { drawGlitchTextLine } from "@/shared/glitchText/drawGlitchText.js";
+import { createGlitchTextSlots } from "@/components/GlitchText/glitchLetterModel.js";
+import { GlitchSnakeEngine } from "@/components/GlitchText/glitchSnakeEngine.js";
+import { drawGlitchTextLine } from "@/components/GlitchText/drawGlitchText.js";
 import { HeroTextGlitchController } from "@/three/scenes/home/heroText/HeroTextGlitchController.js";
 import { getHeroGlitchSnakeRunOptions } from "@/three/scenes/home/heroText/heroTextGlitchConfig.js";
 import { getPortfolioHubGlitchConfig } from "./portfolioHubGlitchConfig.js";
-import { store } from "@/store.jsx";
+import { store } from "@/app/store.jsx";
 
 const MIN_CANVAS_WIDTH = 200;
 const MIN_CANVAS_HEIGHT = 80;

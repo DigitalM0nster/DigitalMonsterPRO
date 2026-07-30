@@ -105,7 +105,7 @@ Unmount / `opacity=0` / `visible=false` is allowed only **after** the leave anim
 ## Checklist before shipping any transition change
 
 1. Leave goes through `publishSiteRouteTransition` (or a documented commit that calls it).
-2. No new `playCasePanelHudExit` / `playCaseArcOrbitExit` from React effects.
+2. No new `playCasePanelHudExit` / `playSiteArcOrbitExit` from React effects.
 3. No `scale→0` / camera teleport while the layer can still composite.
 4. Forward, reverse, cancel, and queued nav (already locked) all stay continuous.
 5. case→home, case→case, hub→case, about↔neighbors, home↔hub verified by eye.

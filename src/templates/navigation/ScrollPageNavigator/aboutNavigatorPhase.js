@@ -7,7 +7,7 @@
  * not a compressed 0.18…0.6 stage band plus a separate leave blend.
  */
 
-import { ABOUT_STAGE_COUNT } from "@/about/states.js";
+import { ABOUT_STAGE_COUNT } from "@/pages/about/states.js";
 
 /** Interior story stops: 0…ABOUT_STAGE_COUNT. Leave commit at +1. */
 export const ABOUT_STORY_MAX = ABOUT_STAGE_COUNT;

@@ -1,4 +1,4 @@
-import { store } from "../store.jsx";
+import { store } from "@/app/store.jsx";
 import { isPageSoundAllowed, registerPageVisibilitySoundHandlers } from "./pageVisibilitySound.js";
 import { isSoundAudible, registerSiteSoundMuteHandler } from "./siteSoundToggle.js";
 import {

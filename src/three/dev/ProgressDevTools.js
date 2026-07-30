@@ -1,13 +1,13 @@
-import { store } from "@/store.jsx";
+import { store } from "@/app/store.jsx";
 import { getSceneCarousel } from "@/three/render/transition/carouselPage.js";
 import { getCarouselProgressState, getHexShaderProgress } from "@/three/render/overlay/hexShaderProgress.js";
 import {
 	getAboutPanelHudEnterProgress,
 	getAboutPanelHudMixProgress,
-} from "@/about/aboutPanelHudBridge.js";
-import { getStageProgress, getStageProgressTarget } from "@/portfolio/core/stageProgress.js";
-import { isAboutExperienceRuntimeActive } from "@/about/aboutExperienceRuntime.js";
-import { isCaseExperienceRuntimeActive } from "@/portfolio/core/caseExperienceRuntime.js";
+} from "@/pages/about/aboutPanelHudBridge.js";
+import { getStageProgress, getStageProgressTarget } from "@/pages/portfolio/core/stageProgress.js";
+import { isAboutExperienceRuntimeActive } from "@/pages/about/aboutExperienceRuntime.js";
+import { isCaseExperienceRuntimeActive } from "@/pages/portfolio/core/caseExperienceRuntime.js";
 import { injectSceneDevToolsStyles, shouldOpenProgressDevFromUrl } from "./sceneDevPanelUtils.js";
 import { formatDevPanelHotkeyHints, registerDevPanelHotkey, unregisterDevPanelHotkey } from "./devPanelHotkeys.js";
 import { attachDevPanelDrag } from "./devPanelDrag.js";

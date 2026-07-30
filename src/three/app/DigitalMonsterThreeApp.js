@@ -6,9 +6,9 @@ import { case1PostProcessConfig } from "../scenes/portfolio/case1/case1PostProce
 import { HexGridOverlayPass } from "../render/overlay/HexGridOverlayPass.js";
 import { SceneManager } from "../scenes/SceneManager.js";
 import { disposeSharedDracoLoader } from "../assets/gltfLoader.js";
-import { getGraphicsConfig, getGraphicsTier, getGraphicsTierDiagnostics, resolveRendererPixelRatio, setCalibratedGraphicsTier } from "../../utils/getGraphicsTier.js";
+import { getGraphicsConfig, getGraphicsTier, getGraphicsTierDiagnostics, resolveRendererPixelRatio, setCalibratedGraphicsTier } from "@/functions/getGraphicsTier.js";
 import { applyDigitalWhaleConfigForTier } from "../scenes/home/digitalWhaleConfig.js";
-import { isPostProcessBypassedFromUrl } from "../../utils/postProcessTestFlags.js";
+import { isPostProcessBypassedFromUrl } from "@/functions/postProcessTestFlags.js";
 import { ModelsPostProcessPipeline } from "../render/models/ModelsPostProcessPipeline.js";
 import { AdaptiveFrameSkipper } from "../render/adaptiveFrameSkip.js";
 import { createWebGLRenderer } from "../renderer/configureWebGLRenderer.js";
@@ -21,21 +21,22 @@ import { isPortfolioCasePath, sceneIdToPage } from "../scenes/portfolio/hub/proj
 import { resolveSceneId } from "../scenes/resolveSceneId.js";
 import { disposeHexTransitionSound, preloadHexTransitionSound, updateHexTransitionSound } from "../../sounds/hexTransitionSound.js";
 import { disposeUnderwaterSound, preloadUnderwaterSound, updateUnderwaterSound } from "../../sounds/underwaterSound.js";
-import { cancelSharedAnimationFrame, requestSharedAnimationFrame } from "@/utils/sharedAnimationFrame.js";
-import { warmCasePanelHudUnderCurtain } from "@/portfolio/ui/CaseStudyCanvas/warmCasePanelHudUnderCurtain.js";
-import { warmAboutPanelHudUnderCurtain } from "@/about/warmAboutPanelHudUnderCurtain.js";
-import { getAboutPanelHudEnterProgress, getAboutPanelHudState } from "@/about/aboutPanelHudBridge.js";
-import { armAboutPanelHudForRoute } from "@/about/aboutPanelHudStory.js";
-import { getCasePanelHudEnterProgress } from "@/portfolio/core/casePanelHudBridge.js";
-import { createCaseStudyArcOverlay, disposeCaseStudyArcOverlay, syncCaseStudyArcOverlay } from "@/three/scenes/portfolio/caseStudyArc/caseStudyArcHost.js";
+import { cancelSharedAnimationFrame, requestSharedAnimationFrame } from "@/functions/sharedAnimationFrame.js";
+import { warmCasePanelHudUnderCurtain } from "@/pages/portfolio/ui/CaseStudyCanvas/warmCasePanelHudUnderCurtain.js";
+import { warmAboutPanelHudUnderCurtain } from "@/pages/about/warmAboutPanelHudUnderCurtain.js";
+import { getAboutPanelHudEnterProgress, getAboutPanelHudState } from "@/pages/about/aboutPanelHudBridge.js";
+import { armAboutPanelHudForRoute } from "@/pages/about/aboutPanelHudStory.js";
+import { getCasePanelHudEnterProgress } from "@/pages/portfolio/core/casePanelHudBridge.js";
+import { createSiteArcOverlay, disposeSiteArcOverlay, syncSiteArcOverlay } from "@/components/SiteArc/three/siteArcHost.js";
 import { AboutEpicTextDevTools } from "../dev/AboutEpicTextDevTools.js";
 import { BackgroundLiquidDevTools } from "../dev/BackgroundLiquidDevTools.js";
-import { CaseStudyArcDevTools } from "../dev/CaseStudyArcDevTools.js";
+import { SiteArcDevTools } from "../dev/SiteArcDevTools.js";
 import { CaseStudyStageRailDevTools } from "../dev/CaseStudyStageRailDevTools.js";
 import { BelkaOrbitsDevTools } from "../dev/BelkaOrbitsDevTools.js";
 import { ContactsDevTools } from "../dev/ContactsDevTools.js";
 import { ProgressDevTools } from "../dev/ProgressDevTools.js";
-import { isDevFastPreloader } from "../../utils/devFastPreloader.js";
+import { PortfolioCameraDevTools } from "../dev/PortfolioCameraDevTools.js";
+import { isDevFastPreloader } from "@/functions/devFastPreloader.js";
 
 const NO_GRAIN_BLUR = { enabled: false, radius: 0 };
 /** DEV: skip HUD paints + all-scene/hex RT marathon under the curtain. */
@@ -159,7 +160,7 @@ export class DigitalMonsterThreeApp {
 					getScene: () => this.sceneManager?.getSceneById?.("case06") ?? null,
 				})
 			: null;
-		this.caseArcDevTools = import.meta.env.DEV ? new CaseStudyArcDevTools() : null;
+		this.siteArcDevTools = import.meta.env.DEV ? new SiteArcDevTools() : null;
 		this.caseStageRailDevTools = import.meta.env.DEV ? new CaseStudyStageRailDevTools() : null;
 		this.sceneManager = new SceneManager(this.renderer, this.camera, {
 			store: this.store,
@@ -169,12 +170,18 @@ export class DigitalMonsterThreeApp {
 			getPointerBlocked: () => this.pointerBlocked,
 			gfx,
 		});
+		this.portfolioCameraDevTools = import.meta.env.DEV
+			? new PortfolioCameraDevTools({
+					getScene: () => this.sceneManager?.getSceneById?.("portfolioHub") ?? null,
+					getCamera: () => this.camera,
+				})
+			: null;
 		this.modelsPostProcess = new ModelsPostProcessPipeline(this.renderer, gfx);
 		this.screenCompositor = new ScreenCompositor();
 		this.sceneOverlayTextures = new Map();
 		this.sceneTransitionProgress = 0;
 		this.hexGridOverlay = new HexGridOverlayPass(this.renderer);
-		this.caseStudyArc = createCaseStudyArcOverlay();
+		this.siteArc = createSiteArcOverlay();
 		this._overlaySize = new THREE.Vector2();
 
 		this.currentPage = "/";
@@ -970,14 +977,14 @@ export class DigitalMonsterThreeApp {
 		// Right arc: site chrome — keep during case→case even if openedCase flickers.
 		this.renderer.getSize(this._overlaySize);
 		const isMobile = this._overlaySize.x < 768;
-		syncCaseStudyArcOverlay(this.caseStudyArc, {
+		syncSiteArcOverlay(this.siteArc, {
 			showCase: true,
 			viewportW: this._overlaySize.x,
 			viewportH: this._overlaySize.y,
 			isMobile,
 		});
-		if (this.caseStudyArc?.visible) {
-			this.caseStudyArc.renderScreenOverlay(this.renderer);
+		if (this.siteArc?.visible) {
+			this.siteArc.renderScreenOverlay(this.renderer);
 		}
 	}
 
@@ -1224,6 +1231,7 @@ export class DigitalMonsterThreeApp {
 					this._caseFrameDelta = 0;
 				}
 			}
+			this.portfolioCameraDevTools?.update?.();
 			this._syncNativeCursor();
 
 			const routePhase = this.routeTransition?.phase ?? "idle";
@@ -1281,8 +1289,8 @@ export class DigitalMonsterThreeApp {
 		this.store.cursor.caseHovered = false;
 		this.store.cursor.projectListHovered = false;
 		this.store.cursor.caseNavHovered = false;
-		disposeCaseStudyArcOverlay(this.caseStudyArc);
-		this.caseStudyArc = null;
+		disposeSiteArcOverlay(this.siteArc);
+		this.siteArc = null;
 		if (this.rafId !== null) {
 			cancelSharedAnimationFrame(this.rafId);
 		}
@@ -1307,10 +1315,12 @@ export class DigitalMonsterThreeApp {
 		this.contactsDevTools = null;
 		this.belkaOrbitsDevTools?.dispose?.();
 		this.belkaOrbitsDevTools = null;
-		this.caseArcDevTools?.dispose?.();
-		this.caseArcDevTools = null;
+		this.siteArcDevTools?.dispose?.();
+		this.siteArcDevTools = null;
 		this.caseStageRailDevTools?.dispose?.();
 		this.caseStageRailDevTools = null;
+		this.portfolioCameraDevTools?.dispose?.();
+		this.portfolioCameraDevTools = null;
 		this.backgroundPipeline.dispose();
 		disposeCarouselScroll();
 		disposeHexTransitionSound();

@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { store } from "../store.jsx";
+import { store } from "@/app/store.jsx";
 import { isPageSoundAllowed, registerPageVisibilitySoundHandlers } from "./pageVisibilitySound.js";
 import { isSoundAudible, registerSiteSoundMuteHandler } from "./siteSoundToggle.js";
 import { connectNodeToMasterBus, getMasterAudioContext, resumeMasterAudioContext, suspendMasterAudioContext } from "./masterAudioBus.js";

@@ -1,5 +1,5 @@
-import { store } from "@/store.jsx";
-import { normalizeSiteLocale } from "@/utils/siteLocale.js";
+import { store } from "@/app/store.jsx";
+import { normalizeSiteLocale } from "@/functions/siteLocale.js";
 
 /** Конфиг hero-надписи (digital-monster TextMesh). */
 export const HERO_TITLE_LINES = ["DIGITAL", "MONSTER"];

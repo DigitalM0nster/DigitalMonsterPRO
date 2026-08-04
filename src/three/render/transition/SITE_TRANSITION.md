@@ -46,7 +46,7 @@ publishSiteRouteTransition(fromPath, toPath, { mode })
 
 | `mode` | Who calls |
 |--------|-----------|
-| `hex` | `requestHexNavigation` (menu, dots, CTA, history, hub→case) |
+| `hex` | `requestHexNavigation` (menu, dots, CTA, history) |
 | `case-boundary` | Case scroll commit to adjacent case |
 | `about-boundary` | About scroll commit to ring neighbor |
 | `ring` | Ring spring commit (optional chrome no-op) |
@@ -66,6 +66,14 @@ publishSiteRouteTransition(fromPath, toPath, { mode })
 | Non-case → anywhere | No case chrome exit |
 
 Idempotent: second publish while already exiting does not restart mid-animation.
+
+### Portfolio selected-case routes
+
+`/portfolio/01…07` are selected states of the already-warmed `portfolioHub`
+scene, not separate visual scenes. Plate click starts the in-scene plate/camera
+animation and `commitPortfolioHubCaseRoute` commits the URL with
+`sceneCarouselSkipHtmlExit`; it must not publish a leave intent or start hex.
+The pathname is still authoritative for direct links and browser history.
 
 ---
 
@@ -104,10 +112,10 @@ Unmount / `opacity=0` / `visible=false` is allowed only **after** the leave anim
 
 ## Checklist before shipping any transition change
 
-1. Leave goes through `publishSiteRouteTransition` (or a documented commit that calls it).
+1. Leave goes through `publishSiteRouteTransition`; same-scene portfolio selection uses the documented direct commit above.
 2. No new `playCasePanelHudExit` / `playSiteArcOrbitExit` from React effects.
 3. No `scale→0` / camera teleport while the layer can still composite.
 4. Forward, reverse, cancel, and queued nav (already locked) all stay continuous.
-5. case→home, case→case, hub→case, about↔neighbors, home↔hub verified by eye.
+5. case→home, selected-case route sync, about↔neighbors, home↔hub verified by eye.
 
 If a design cannot satisfy this, propose a cheaper continuous presentation — do not add a one-off snap “just for this route”.

@@ -4,7 +4,7 @@ import "@/styles/portfolio/portfolio.scss";
 import "@/styles/portfolio/portfolioExploration.scss";
 
 import PortfolioHubContent from "./components/PortfolioHubContent.jsx";
-import { isPortfolioHubPath } from "@/three/scenes/portfolio/hub/projectsData.js";
+import { isPortfolioCasePath, isPortfolioHubPath } from "@/three/scenes/portfolio/hub/projectsData.js";
 import { usePageStateClasses } from "@/app/context/RouteTransitionContext.jsx";
 import { setPortfolioSpatialAudio } from "@/sounds/soundDesign.js";
 export default function PortfolioPage() {
@@ -16,7 +16,7 @@ export default function PortfolioPage() {
 		return () => setPortfolioSpatialAudio(false);
 	}, []);
 
-	if (!isPortfolioHubPath(location.pathname)) {
+	if (!isPortfolioHubPath(location.pathname) && !isPortfolioCasePath(location.pathname)) {
 		return <Navigate to="/portfolio" replace />;
 	}
 

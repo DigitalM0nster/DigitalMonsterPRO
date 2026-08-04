@@ -12,8 +12,8 @@ import { store } from "@/app/store.jsx";
  * displayPathname и phase — что на экране и анимация.
  * При быстрых кликах (главная → портфолио → главная) отменяем устаревшие таймеры.
  *
- * Scroll-commit карусели (`sceneCarouselSkipHtmlExit`): без EXIT_MS — HTML
- * меняется сразу. Клики (hub→case и т.п.) по-прежнему ждут stagger exit.
+ * Scroll-commit карусели и portfolioHub→selected-case (`sceneCarouselSkipHtmlExit`):
+ * без EXIT_MS — HTML меняется сразу. Обычные site-navigation clicks ждут stagger exit.
  */
 export function useRouteTransition(location) {
 	const pathname = location.pathname;

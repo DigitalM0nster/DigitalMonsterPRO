@@ -24,14 +24,19 @@ export const projectsData = [
 	{
 		id: "02",
 		slug: "02",
-		name: "Troof",
+		name: "Холод в авто",
 		path: "/portfolio/02",
-		hubLogo: "/images/portfolio/case2.webp",
-		hubTagline: "Кровельные системы и услуги",
-		hubKind: "Кровельные системы и услуги",
-		hubPlateSignal: "CORP · B2B",
+		hubLogo: "/images/portfolio/holod-v-auto-logo.png",
+		hubTagline: "Автомобильное климатическое оборудование",
+		hubKind: "Автомобильное климатическое оборудование",
+		hubPlateSignal: "AUTO · CLIMATE",
 		hubPlateLabel: {
-			secondary: "Кровельные системы и услуги",
+			secondary: "Автомобильное климатическое оборудование",
+		},
+		logoAccent: {
+			targetColor: [0.95, 0.08, 0.06],
+			tolerance: 0.72,
+			channelBoost: [4.5, 0.35, 0.2],
 		},
 	},
 	{
@@ -262,7 +267,7 @@ export function isPortfolioCasePath(pathname) {
 export function resolvePortfolioLeaveSound(displayPathname, targetPathname) {
 	if (
 		isPortfolioHubPath(displayPathname) &&
-		!isPortfolioHubPath(targetPathname)
+		!isPortfolioSectionPath(targetPathname)
 	) {
 		return "portfolio_leave";
 	}

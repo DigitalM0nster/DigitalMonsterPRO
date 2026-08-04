@@ -43,6 +43,10 @@ function isOverMenuButton(target) {
 	return Boolean(target?.closest?.(`.${styles.itemButton}`));
 }
 
+function isCompactMenuViewport() {
+	return typeof window !== "undefined" && window.matchMedia("(max-width: 1024px)").matches;
+}
+
 export default function LeftMenu() {
 	const navigate = useNavigate();
 	const { pathname } = useLocation();
@@ -207,7 +211,9 @@ export default function LeftMenu() {
 
 	const handleItemHoverEnter = useCallback(
 		(index, entry) => {
-			activateLabel(index);
+			if (!isCompactMenuViewport()) {
+				activateLabel(index);
+			}
 			setMenuCursorAnchor(index, buttonRefs, entry);
 		},
 		[activateLabel],
@@ -299,7 +305,7 @@ export default function LeftMenu() {
 	return (
 		<nav
 			ref={leftMenuRef}
-			className={`${styles.leftMenu} ${pathname.startsWith("/about") ? styles.aboutLayout : ""}`}
+			className={styles.leftMenu}
 			data-canvas-pointer-blocker="true"
 			aria-label="Основная навигация"
 			onPointerLeave={handleLeftMenuPointerLeave}

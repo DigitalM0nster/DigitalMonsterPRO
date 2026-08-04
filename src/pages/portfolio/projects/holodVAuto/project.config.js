@@ -3,23 +3,16 @@ import { caseStudyReferencePanelPreset } from "@/pages/portfolio/core/caseStudyR
 /** @type {import('@/pages/portfolio/core/types.js').PortfolioProjectConfig} */
 const projectConfig = {
 	id: "02",
-	slug: "troof",
+	slug: "holodVAuto",
 	route: "/portfolio/02",
-	title: "TROOF",
-	summary: "Многостраничный сайт кровельной компании с интерактивной композицией",
-	hubLogo: "/images/portfolio/case2.webp",
+	title: "ХОЛОД В АВТО",
+	summary: "Каталог и сервисная платформа автомобильного климатического оборудования",
+	hubLogo: "/images/portfolio/holod-v-auto-logo.png",
 	contentStatus: "ready",
-	models: {
-		primary: "/models/case2/platform1.glb",
-	},
-	scene: {
-		defaultCamera: { position: [0, 0, 9], lookAt: [0, 0, 0] },
-		rootOffsetDesktop: [1.25, 0, 0],
-	},
 	meta: {
-		year: 2022,
-		type: "TROOF / КРОВЕЛЬНЫЕ СИСТЕМЫ",
-		skills: ["HTML", "CSS", "JavaScript"],
+		year: 2026,
+		type: "ХОЛОД В АВТО / АВТОМОБИЛЬНЫЙ КЛИМАТ",
+		skills: ["Next.js", "React", "TypeScript"],
 	},
 	caseStudy: {
 		renderTextInScene: true,
@@ -30,17 +23,17 @@ const projectConfig = {
 		statsValueFirst: true,
 		metricsLayout: "verticalList",
 		anchorFooterBlock: false,
-		footerLabel: "TROOF / КРОВЕЛЬНЫЕ СИСТЕМЫ",
+		footerLabel: "ХОЛОД В АВТО / АВТОМОБИЛЬНЫЙ КЛИМАТ",
 		footerLabelCopy: {
-			en: "TROOF / ROOFING SYSTEMS",
-			zh: "TROOF / 屋面系统",
+			en: "HOLOD V AUTO / AUTOMOTIVE CLIMATE",
+			zh: "HOLOD V AUTO / 汽车气候系统",
 		},
 		mobileHorizontalSwipe: true,
 		...caseStudyReferencePanelPreset,
 	},
 	mediaPolicy: {
 		maxVideos: 0,
-		defaultLoad: "onDemand",
+		defaultLoad: "eager",
 	},
 };
 

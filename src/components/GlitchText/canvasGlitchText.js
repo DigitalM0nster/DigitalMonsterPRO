@@ -94,6 +94,8 @@ export class CanvasGlitchText {
 		this._pendingDrawLayer = null;
 		/** @type {HeroTextGlitchController | null} */
 		this._localeSwitchController = null;
+		/** Invalidates async locale completions after a newer switch or route exit. */
+		this._localeSwitchRunToken = 0;
 		this.engine = new GlitchSnakeEngine(() => {
 			this._requestDrawInPlace("both");
 		});
@@ -384,8 +386,22 @@ export class CanvasGlitchText {
 	}
 
 	_abortLocaleSwitch() {
-		this._localeSwitchController?.dispose();
+		this._localeSwitchRunToken += 1;
+		const controller = this._localeSwitchController;
 		this._localeSwitchController = null;
+		this._cancelPendingDrawInPlace();
+		controller?.dispose();
+	}
+
+	/**
+	 * Atomically stop locale compositing before another snake takes ownership.
+	 * The cancelled Promise may still settle, but its run token prevents a stale
+	 * locale from replacing this.engine or repainting the canvas afterwards.
+	 */
+	cancelLocaleSwitch() {
+		const hadActiveSwitch = Boolean(this._localeSwitchController);
+		this._abortLocaleSwitch();
+		return hadActiveSwitch;
 	}
 
 	ensureCanvasSize(primarySlots = this.slots, secondarySlots = null) {
@@ -565,18 +581,36 @@ export class CanvasGlitchText {
 		const runOptions = getHeroGlitchSnakeRunOptions(options);
 		const uppercase = options.uppercase ?? this.options.uppercase;
 		const nextValue = String(nextText);
+		if (options.animate === false) {
+			// Dormant scenes ask for a copy sync, not an animation. This flag used
+			// to be ignored, so hidden Home text still ran the full timeout snake
+			// and repainted canvases throughout another page's locale transition.
+			this.setText(nextValue, uppercase);
+			return Promise.resolve(true);
+		}
 
 		this.ensureCanvasSize();
 
 		const controller = new HeroTextGlitchController({
 			uppercase,
-			onRedraw: () => this._drawLocaleSwitchFrames(controller),
+			// GlitchSnakeEngine can publish several glyph changes in one tick.
+			// Keep the exact snake state, but upload the compact texture at most once
+			// per animation frame.
+			onRedraw: () => this._requestDrawInPlace("both"),
 		});
 		controller.primaryGroups = [{ engine: this.engine, slots: this.slots }];
 		this._localeSwitchController = controller;
+		const runToken = ++this._localeSwitchRunToken;
 
 		return controller.runLanguageSwitch([nextValue], runOptions).then(() => {
+			if (runToken !== this._localeSwitchRunToken || this._localeSwitchController !== controller) {
+				return false;
+			}
+
 			const group = controller.primaryGroups[0];
+			if (!group) {
+				return false;
+			}
 			this.engine = group.engine;
 			this.slots = group.slots;
 			this.options.text = nextValue;
@@ -584,6 +618,7 @@ export class CanvasGlitchText {
 			this._localeSwitchController = null;
 			this.ensureCanvasSize();
 			this.drawInPlace();
+			return true;
 		});
 	}
 
@@ -621,7 +656,12 @@ export class CanvasGlitchText {
 
 	/** @param {number} [timeBudgetMs] */
 	playDisappear(timeBudgetMs) {
+		this.cancelLocaleSwitch();
 		return this.engine.run("disappear", { timeBudgetMs });
+	}
+
+	waitForSnakeIdle() {
+		return this.engine.whenIdle();
 	}
 
 	dispose() {

@@ -610,6 +610,13 @@
 
 }
 
+@media (max-width: 1024px) {
+    :root {
+        --leftMenuWidth: 0px;
+        --leftMenuItemInset: 0px;
+    }
+}
+
 @media (max-width: 768px) {
 
     .audioContainer.active {
@@ -959,7 +966,8 @@
 
 @media (max-width: 640px) {
     :root {
-        --leftMenuWidth: 70vw;
+        --leftMenuWidth: 0px;
+        --leftMenuItemInset: 0px;
     }
 
     .audioContainer.active {
@@ -1645,7 +1653,5 @@
         font-size: 18px;
     }
 }
-
-
 
 

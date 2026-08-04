@@ -6,20 +6,24 @@ import { useCaseStudyMobileViewport } from "@/pages/portfolio/core/useCaseStudyM
 import { navigateCaseStudyToState } from "@/pages/portfolio/core/navigateCaseStudyState.js";
 import { useRouteTransitionContext } from "@/app/context/RouteTransitionContext.jsx";
 import { store } from "@/app/store.jsx";
+import { resolveSceneId } from "@/three/scenes/resolveSceneId.js";
 import CaseStudyPanelHudPainter from "./CaseStudyPanelHudPainter.jsx";
 
 /**
  * Site-level case HUD host (like LeftMenu / SiteTopHud).
  * One React tree across all case routes — chrome/snake survive case→case without remount.
- * Visible while displayPathname is a desktop case with renderTextInScene.
+ * Visible only when the resolved Three scene owns a legacy panelHud. Hub-plate
+ * case routes render their HUD on the plate and intentionally skip this host.
  */
 export default function CaseStudyPanelHudOverlay() {
 	const { displayPathname } = useRouteTransitionContext();
 	const project = useMemo(() => getProjectByRoute(displayPathname), [displayPathname]);
+	const sceneId = useMemo(() => resolveSceneId(displayPathname), [displayPathname]);
 	// Subscribe only to content identity — never stageProgress/scroll.
 	// Those update every spring tick; WebGL HUD reads them via getStageProgress().
 	// Tracking them here re-rendered the whole left painter at scroll FPS (CPU spike).
 	const experience = useSnapshot(store.portfolioExperience);
+	const openedCase = useSnapshot(store).openedCase;
 	const experienceSlug = experience.slug;
 	const experienceStateIndex = experience.activeStateIndex;
 	const experienceStateId = experience.activeStateId;
@@ -71,7 +75,19 @@ export default function CaseStudyPanelHudOverlay() {
 		};
 	}, [experienceHotspotId, experienceInvestigating, experienceSlug, experienceStateId, experienceStateIndex, goToState, project]);
 
-	if (!project || !renderTextInScene || isMobileLayout || !contextValue) {
+	// Current case routes are rendered by PortfolioHubScene: their panel, gallery
+	// and locale snake live directly on HubPlateInnerPanels. Mounting the legacy
+	// fullscreen HUD here would still repaint/upload its large canvases during a
+	// locale switch even though PortfolioHubScene has no panelHud to display them.
+	const sceneOwnsLegacyPanelHud = sceneId.startsWith("case");
+	if (
+		!sceneOwnsLegacyPanelHud ||
+		!openedCase ||
+		!project ||
+		!renderTextInScene ||
+		isMobileLayout ||
+		!contextValue
+	) {
 		return null;
 	}
 

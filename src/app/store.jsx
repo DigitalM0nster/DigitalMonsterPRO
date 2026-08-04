@@ -25,8 +25,8 @@ export const store = proxy({
 	sceneCarouselNavigatePath: null,
 	sceneCarouselDisplayPath: null,
 	/**
-	 * Scroll-commit карусели: сразу swap displayPathname (без 500ms HTML exit).
-	 * Клики (hub→case, меню) этот флаг не ставят — stagger exit остаётся.
+	 * Scroll-commit карусели и hub→selected-case: сразу swap displayPathname
+	 * (без 500ms HTML exit). Обычная site-navigation оставляет stagger exit.
 	 */
 	sceneCarouselSkipHtmlExit: false,
 	/** Click-переход карусели (меню) — блок скролла и повторных кликов */
@@ -48,6 +48,17 @@ export const store = proxy({
 	homeSceneProgressDebug: null,
 	/** Индекс проекта в меню хаба /portfolio (-1 = ничего не выбрано) */
 	portfolioHubFocusIndex: -1,
+	/** Bridge between the selected hub plate scene and its page-local column scroll owner. */
+	portfolioPlateCase: {
+		open: false,
+		projectIndex: -1,
+		progress: 0,
+		galleryIndex: 0,
+		requestOpenIndex: null,
+		requestClose: false,
+		columnProgress: 0,
+		columnTarget: 0,
+	},
 	/** 0…1 — текущая яркость HDR-фона (для HTML UI, напр. фон рамки меню) */
 	backgroundBrightness: getInitialBackgroundBrightness(),
 	cursor: {
@@ -67,6 +78,10 @@ export const store = proxy({
 		caseHovered: false,
 		/** Системный pointer над проектом в правом canvas-списке */
 		projectListHovered: false,
+		/** Native pointer over a clickable gallery thumbnail on the selected hub plate. */
+		screenGalleryHovered: false,
+		/** Native pointer is actively dragging the selected hub plate gallery. */
+		screenGalleryDragging: false,
 		/** Системный pointer над кружком правой навигации кейса */
 		caseNavHovered: false,
 		/** Temporarily fade the HUD cursor during an About substage click jump. */

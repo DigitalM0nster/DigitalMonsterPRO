@@ -6,7 +6,7 @@ import {
 	SCENE_ID_TO_PAGE,
 	SceneCarousel,
 } from "./SceneCarousel.js";
-import { sceneIdToPage } from "@/three/scenes/portfolio/hub/projectsData.js";
+import { isPortfolioCasePath, sceneIdToPage } from "@/three/scenes/portfolio/hub/projectsData.js";
 import {
 	handleHexNavigationCancelled,
 	handleHexNavigationComplete,
@@ -83,11 +83,15 @@ export function getSceneCarousel() {
  * @param {{ force?: boolean }} [options] force — ignore spring/hex gates (deep-link / Start)
  */
 export function syncCarouselFromPage(page, options = {}) {
-	if (!isCarouselRoutePage(page)) {
+	// A selected hub case is still rendered and owned by the warmed portfolioHub
+	// scene. Resolve that owner here without making case routes ordinary ring-scroll
+	// pages: carouselScroll keeps checking the original pathname separately.
+	const ownerPage = isPortfolioCasePath(page) ? "/portfolio" : page;
+	if (!isCarouselRoutePage(ownerPage)) {
 		return;
 	}
 
-	const targetId = pageToCarouselSceneId(page);
+	const targetId = pageToCarouselSceneId(ownerPage);
 	// While the browser URL is still /about, ignore non-force syncs that would
 	// snap the ring back to home (stale displayPathname "/" after Start).
 	if (
@@ -100,7 +104,7 @@ export function syncCarouselFromPage(page, options = {}) {
 		return;
 	}
 
-	carousel.syncFromPage(page, options);
+	carousel.syncFromPage(ownerPage, options);
 }
 
 /** Подключить wheel → progressTarget (один раз при старте THREE). */

@@ -1,6 +1,5 @@
 import projectConfig from "./project.config.js";
 import states from "./states.js";
-import hotspots from "./hotspots.js";
 import mobileContent from "./mobileContent.js";
 import { createProjectScene } from "./scene.js";
 import { createProjectModule } from "@/pages/portfolio/core/createProjectModule.js";
@@ -11,7 +10,7 @@ const localizedStates = states.map((state) => ({
 	localizedCopy: stateCopy[state.id] ?? {},
 }));
 
-const module = createProjectModule(projectConfig, localizedStates, hotspots, createProjectScene);
+const module = createProjectModule(projectConfig, localizedStates, {}, createProjectScene);
 module.mobileContent = mobileContent;
 
 export default module;

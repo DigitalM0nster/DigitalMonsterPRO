@@ -317,5 +317,12 @@ export function createHeroTitleText(renderer, scene) {
 		getGlitchDisplayedLocale() {
 			return localeSwitch.getDisplayedLocale();
 		},
+		/** Flush locale changes deferred while Home was dormant. */
+		syncLocaleForActivation() {
+			return Promise.all([
+				localeSwitch.syncLocaleForActivation(),
+				scrollHint.syncLocaleForActivation(),
+			]);
+		},
 	};
 }

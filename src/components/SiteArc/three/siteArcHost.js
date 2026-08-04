@@ -19,10 +19,14 @@ import {
 	resolveArcFadeBounds,
 } from "@/components/SiteArc/siteArcOpacity.js";
 import {
+	getSiteArcPreviewProjectId,
 	resolveSiteArcProjectItems,
 	syncSiteArcPreviewNavigation,
 } from "@/components/SiteArc/siteArcProjects.js";
-import { syncSiteArcSelectSequence } from "@/components/SiteArc/siteArcSelectSequence.js";
+import {
+	isSiteArcSelectSequencing,
+	syncSiteArcSelectSequence,
+} from "@/components/SiteArc/siteArcSelectSequence.js";
 import { getSiteArcShift } from "@/components/SiteArc/siteArcPositionMotion.js";
 import { getSceneCarousel } from "@/three/render/transition/carouselPage.js";
 import { isSiteArcSessionActive } from "@/components/SiteArc/siteArcSession.js";
@@ -50,6 +54,15 @@ function resolveSiteScrollGlowAngle(labelPositions, navStates, fallbackAngle) {
 	}
 
 	const carousel = getSceneCarousel();
+	// Click-hex progress is always 0→1, even for a backward/non-adjacent route.
+	// It must not masquerade as wheel progress toward `currentIndex + 1`.
+	if (
+		getSiteArcPreviewProjectId() != null ||
+		carousel?.isHexNavigationActive?.() ||
+		isSiteArcSelectSequencing()
+	) {
+		return fallbackAngle;
+	}
 	const currentArcId = CAROUSEL_SCENE_TO_SITE_ARC_ID[carousel.currentId] ?? source.activeId;
 	const currentIndex = navStates.findIndex((item) => item.id === currentArcId);
 	if (currentIndex < 0) {

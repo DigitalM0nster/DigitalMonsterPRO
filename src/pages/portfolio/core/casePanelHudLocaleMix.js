@@ -25,16 +25,15 @@ let displayedLocale = normalizeSiteLocale(store.siteLocale);
 /** @type {boolean | object | null} */
 let pendingDisplayPrepared = null;
 
-/** @type {null | {
- *   prepareWipe: (desiredLocale: string) => Promise<boolean | object>,
- *   onInstantSwap: (desiredLocale: string) => (boolean | Promise<boolean>),
- *   shouldAnimate?: () => boolean,
- *   onAfterDisplayed?: (locale: string, prepared: boolean | object | null) => void,
- * }} */
-let playCallHooks = null;
-
 function clamp01(value) {
 	return Math.max(0, Math.min(1, Number(value) || 0));
+}
+
+function commitDisplayedLocale(locale, onAfterDisplayed) {
+	displayedLocale = normalizeSiteLocale(locale);
+	const prepared = pendingDisplayPrepared;
+	pendingDisplayPrepared = null;
+	onAfterDisplayed?.(displayedLocale, prepared);
 }
 
 function publishStageProgressToStore() {
@@ -105,25 +104,12 @@ const caseLocaleMix = createPanelHudLocaleMixController({
 	getDesiredLocale: () => normalizeSiteLocale(store.siteLocale),
 	getDisplayedLocale: () => displayedLocale,
 	setDisplayedLocale: (locale) => {
-		displayedLocale = normalizeSiteLocale(locale);
-		const prepared = pendingDisplayPrepared;
-		pendingDisplayPrepared = null;
-		playCallHooks?.onAfterDisplayed?.(displayedLocale, prepared);
+		commitDisplayedLocale(locale);
 	},
-	shouldAnimate: () => {
-		if (typeof playCallHooks?.shouldAnimate === "function") {
-			return playCallHooks.shouldAnimate();
-		}
-		return shouldAnimateSiteLocaleForCaseChrome();
-	},
+	shouldAnimate: () => shouldAnimateSiteLocaleForCaseChrome(),
 	getDurationMs: () => getCaseChromeMosaicEnterMs(),
 	settle: settleCaseStage,
-	prepareWipe: async (desiredLocale) => {
-		if (typeof playCallHooks?.prepareWipe !== "function") {
-			return false;
-		}
-		return playCallHooks.prepareWipe(desiredLocale);
-	},
+	prepareWipe: async () => false,
 	onWipeTick: () => {
 		wakeCaseStudyAnimationFrame();
 	},
@@ -139,11 +125,8 @@ const caseLocaleMix = createPanelHudLocaleMixController({
 		store.portfolioExperience.stageProgressTarget = 0;
 		wakeCaseStudyAnimationFrame();
 	},
-	onInstantSwap: async (desiredLocale) => {
+	onInstantSwap: async () => {
 		pendingDisplayPrepared = { instant: true };
-		if (typeof playCallHooks?.onInstantSwap === "function") {
-			return playCallHooks.onInstantSwap(desiredLocale);
-		}
 		return true;
 	},
 	onWipePhaseChange: () => {
@@ -160,7 +143,7 @@ export function getCasePanelHudLocaleMixProgress() {
 }
 
 export function cancelCasePanelHudLocaleMix() {
-	playCallHooks = null;
+	pendingDisplayPrepared = null;
 	caseLocaleMix.cancel();
 }
 
@@ -173,7 +156,7 @@ export function syncCasePanelHudDisplayedLocale(locale) {
  * Settle → paint (caller) → mosaic wipe → chain while store locale differs.
  *
  * @param {{
- *   prepareWipe: (desiredLocale: string) => Promise<boolean | object>,
+ *   prepareWipe: (desiredLocale: string, helpers: { isCancelled: () => boolean }) => Promise<boolean | object>,
  *   onInstantSwap: (desiredLocale: string) => (boolean | Promise<boolean>),
  *   shouldAnimate?: () => boolean,
  *   onAfterDisplayed?: (locale: string, prepared: boolean | object | null) => void,
@@ -181,10 +164,17 @@ export function syncCasePanelHudDisplayedLocale(locale) {
  * @returns {Promise<boolean>}
  */
 export async function playCasePanelHudLocaleMixTowardStore(opts) {
-	playCallHooks = opts;
-	try {
-		return await caseLocaleMix.playTowardStore();
-	} finally {
-		playCallHooks = null;
-	}
+	return caseLocaleMix.playTowardStore({
+		shouldAnimate: typeof opts.shouldAnimate === "function"
+			? opts.shouldAnimate
+			: () => shouldAnimateSiteLocaleForCaseChrome(),
+		prepareWipe: (desiredLocale, helpers) => opts.prepareWipe(desiredLocale, helpers),
+		onInstantSwap: async (desiredLocale) => {
+			pendingDisplayPrepared = { instant: true };
+			return opts.onInstantSwap(desiredLocale);
+		},
+		setDisplayedLocale: (locale) => {
+			commitDisplayedLocale(locale, opts.onAfterDisplayed);
+		},
+	});
 }

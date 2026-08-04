@@ -33,6 +33,7 @@ export class HubPlatesRenderer {
 		/** @type {Array<{ rowIndex: number, plateIndex: number, projectIndex: number, basePosition: number[], mesh: THREE.Mesh | null, instanceId: number }>} */
 		this.plates = [];
 		this.sharedGeometry = null;
+		this.projectGeometry = null;
 		this.decorMaterial = null;
 		this.projectMaterial = null;
 		this.instancedMesh = null;
@@ -40,13 +41,14 @@ export class HubPlatesRenderer {
 		this._decorMosaicProgress = -1;
 	}
 
-	build({ cfg, layouts, projectLookup, buildGeometry, createProjectMaterial, createDecorMaterial }) {
+	build({ cfg, layouts, projectLookup, buildGeometry, buildProjectGeometry, createProjectMaterial, createDecorMaterial }) {
 		this.dispose();
 
 		this.sharedGeometry = buildGeometry(cfg);
+		this.projectGeometry = buildProjectGeometry?.(cfg) ?? this.sharedGeometry;
 		this.projectMaterial = createProjectMaterial();
 		this.decorMaterial = createDecorMaterial?.() ?? this.projectMaterial;
-		this._geometryKey = `${cfg.plateSize}:${cfg.depth}`;
+		this._geometryKey = `${cfg.plateSize}:${cfg.depth}:${cfg.caseSelection?.aspectRatio ?? 1}`;
 
 		const instanceEntries = [];
 
@@ -63,7 +65,8 @@ export class HubPlatesRenderer {
 			};
 
 			if (projectIndex >= 0) {
-				const mesh = new THREE.Mesh(this.sharedGeometry, this.projectMaterial);
+				const mesh = new THREE.Mesh(this.projectGeometry, this.projectMaterial);
+				mesh.updateMorphTargets();
 				mesh.position.set(layout.position[0], layout.position[1], layout.position[2]);
 				this.platesGroup.add(mesh);
 				plate.mesh = mesh;
@@ -235,6 +238,9 @@ export class HubPlatesRenderer {
 			plate.mesh.position.set(baseX, baseY, baseZ);
 			plate.mesh.rotation.set(0, 0, 0);
 			plate.mesh.scale.set(1, 1, 1);
+			if (plate.mesh.morphTargetInfluences) {
+				plate.mesh.morphTargetInfluences[0] = 0;
+			}
 		}
 	}
 
@@ -242,6 +248,9 @@ export class HubPlatesRenderer {
 		for (const plate of this.plates) {
 			if (plate.projectIndex >= 0 && plate.mesh) {
 				plate.mesh.scale.set(1, 1, 1);
+				if (plate.mesh.morphTargetInfluences) {
+					plate.mesh.morphTargetInfluences[0] = 0;
+				}
 			}
 		}
 	}
@@ -387,7 +396,11 @@ export class HubPlatesRenderer {
 
 		this.plates = [];
 		this.sharedGeometry?.dispose();
+		if (this.projectGeometry && this.projectGeometry !== this.sharedGeometry) {
+			this.projectGeometry.dispose();
+		}
 		this.sharedGeometry = null;
+		this.projectGeometry = null;
 
 		for (const material of materials) {
 			material.dispose();

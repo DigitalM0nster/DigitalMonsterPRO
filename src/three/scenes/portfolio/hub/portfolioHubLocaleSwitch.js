@@ -15,6 +15,7 @@ export function createPortfolioHubLocaleSwitchController({
 	getProjectsColumn,
 	getPlateLabels,
 	getPlateDetailsButtons,
+	getInnerPanels,
 	shouldAnimateLocale,
 } = {}) {
 	let displayedLocale = getPortfolioLocale();
@@ -35,20 +36,35 @@ export function createPortfolioHubLocaleSwitchController({
 			const projectsColumn = getProjectsColumn?.();
 			const plateLabels = getPlateLabels?.();
 			const plateDetailsButtons = getPlateDetailsButtons?.();
+			const innerPanels = getInnerPanels?.();
+			const casePanelIsActive = Number.isInteger(innerPanels?.activeProjectIndex)
+				&& innerPanels.activeProjectIndex >= 0;
 
 			if (!animate) {
-				// Defer past the click/hero frame — zero canvas work, but don't contend with home snakes.
+				// Defer past the click/hero frame; hidden case screens only remember pending copy.
 				await new Promise((resolve) => {
 					requestAnimationFrame(() => resolve());
 				});
-				void projectsColumn?.switchLocale?.(targetLocale, { animate: false });
-				void plateDetailsButtons?.updateLocale?.(targetLocale, portfolioHubPlatesConfig, { animate: false });
-				void plateLabels?.updateLocale?.(targetLocale, portfolioHubPlatesConfig, { animate: false });
-			} else {
 				await Promise.all([
+					projectsColumn?.switchLocale?.(targetLocale, { animate: false }),
+					plateDetailsButtons?.updateLocale?.(targetLocale, portfolioHubPlatesConfig, { animate: false }),
+					plateLabels?.updateLocale?.(targetLocale, portfolioHubPlatesConfig, { animate: false }),
+					innerPanels?.updateLocale?.(targetLocale, portfolioHubPlatesConfig, { animate: false }),
+				]);
+			} else {
+				// Exactly one visible text system owns the snake. On a case route the
+				// selected screen animates while hidden hub labels only stash copy; on
+				// /portfolio the existing projects column/plate labels keep ownership.
+				await Promise.all(casePanelIsActive ? [
+					projectsColumn?.switchLocale?.(targetLocale, { animate: false }),
+					plateDetailsButtons?.updateLocale?.(targetLocale, portfolioHubPlatesConfig, { animate: false }),
+					plateLabels?.updateLocale?.(targetLocale, portfolioHubPlatesConfig, { animate: false }),
+					innerPanels?.updateLocale?.(targetLocale, portfolioHubPlatesConfig, { animate: true }),
+				] : [
 					projectsColumn?.switchLocale?.(targetLocale, { animate: true }),
 					plateDetailsButtons?.updateLocale?.(targetLocale, portfolioHubPlatesConfig, { animate: true }),
 					plateLabels?.updateLocale?.(targetLocale, portfolioHubPlatesConfig, { animate: true }),
+					innerPanels?.updateLocale?.(targetLocale, portfolioHubPlatesConfig, { animate: false }),
 				]);
 			}
 			displayedLocale = targetLocale;

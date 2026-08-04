@@ -22,7 +22,9 @@ function clamp01(value) {
  *     durationMs: number,
  *     onTick: (value: number) => void,
  *   }) => Promise<void> }) => Promise<void>,
- *   prepareWipe: (desiredLocale: string) => Promise<boolean | object>,
+ *   prepareWipe: (desiredLocale: string, helpers: {
+ *     isCancelled: () => boolean,
+ *   }) => Promise<boolean | object>,
  *   onWipeTick: (t: number) => void,
  *   onWipeDone: (desiredLocale: string, prepared: boolean | object) => (void | Promise<void>),
  *   onInstantSwap: (desiredLocale: string) => (boolean | Promise<boolean>),
@@ -36,23 +38,33 @@ function clamp01(value) {
  */
 export function createPanelHudLocaleMixController(baseHooks) {
 	let busy = false;
-	let cancelled = false;
-	let rafId = 0;
+	let runGeneration = 0;
+	/** @type {{
+	 *   id: number,
+	 *   animations: Set<{
+	 *     rafId: number,
+	 *     finish: () => void,
+	 *   }>,
+	 * } | null} */
+	let activeRun = null;
 	/** @type {number | null} */
 	let wipeProgress = null;
 
-	function stopRaf() {
-		if (rafId) {
-			cancelAnimationFrame(rafId);
-			rafId = 0;
+	function isRunCurrent(run) {
+		return Boolean(busy && activeRun === run && run.id === runGeneration);
+	}
+
+	function stopRunAnimations(run) {
+		if (!run) {
+			return;
+		}
+		for (const animation of [...run.animations]) {
+			animation.finish();
 		}
 	}
 
-	function isCancelled() {
-		return cancelled || !busy;
-	}
-
 	/**
+	 * @param {NonNullable<typeof activeRun>} run
 	 * @param {{
 	 *   from: number,
 	 *   to: number,
@@ -60,44 +72,72 @@ export function createPanelHudLocaleMixController(baseHooks) {
 	 *   onTick: (value: number) => void,
 	 * }} opts
 	 */
-	function animateValue(opts) {
+	function animateValue(run, opts) {
+		if (!isRunCurrent(run)) {
+			return Promise.resolve();
+		}
+
 		const from = Number(opts.from) || 0;
 		const to = Number(opts.to) || 0;
 		const durationMs = Math.max(1, Number(opts.durationMs) || 1);
 		const distance = Math.abs(to - from);
 		if (distance <= 0.001) {
-			opts.onTick(to);
+			if (isRunCurrent(run)) {
+				opts.onTick(to);
+			}
 			return Promise.resolve();
 		}
 
 		const startedAt = performance.now();
 		return new Promise((resolve) => {
-			const tick = (now) => {
-				if (isCancelled()) {
+			let settled = false;
+			const animation = {
+				rafId: 0,
+				finish: () => {
+					if (settled) {
+						return;
+					}
+					settled = true;
+					if (animation.rafId) {
+						cancelAnimationFrame(animation.rafId);
+						animation.rafId = 0;
+					}
+					run.animations.delete(animation);
 					resolve();
+				},
+			};
+			run.animations.add(animation);
+
+			const tick = (now) => {
+				animation.rafId = 0;
+				if (!isRunCurrent(run)) {
+					animation.finish();
 					return;
 				}
 				const t = clamp01((now - startedAt) / durationMs);
 				opts.onTick(from + (to - from) * t);
-				if (t < 1) {
-					rafId = requestAnimationFrame(tick);
+				if (!isRunCurrent(run) || settled) {
+					animation.finish();
 					return;
 				}
-				rafId = 0;
+				if (t < 1) {
+					animation.rafId = requestAnimationFrame(tick);
+					return;
+				}
 				opts.onTick(to);
-				resolve();
+				animation.finish();
 			};
-			rafId = requestAnimationFrame(tick);
+			animation.rafId = requestAnimationFrame(tick);
 		});
 	}
 
 	function setBusy(next) {
 		busy = next;
-		baseHooks.onBusyChange?.(next);
 		if (!next) {
 			wipeProgress = null;
 			baseHooks.onWipePhaseChange?.(false);
 		}
+		baseHooks.onBusyChange?.(next);
 	}
 
 	return {
@@ -105,8 +145,10 @@ export function createPanelHudLocaleMixController(baseHooks) {
 		/** @returns {number | null} wipe mix only — null during settle / idle */
 		getWipeProgress: () => wipeProgress,
 		cancel() {
-			cancelled = true;
-			stopRaf();
+			runGeneration += 1;
+			const cancelledRun = activeRun;
+			activeRun = null;
+			stopRunAnimations(cancelledRun);
 			wipeProgress = null;
 			baseHooks.onWipePhaseChange?.(false);
 			setBusy(false);
@@ -125,9 +167,13 @@ export function createPanelHudLocaleMixController(baseHooks) {
 
 			const hooks = { ...baseHooks, ...callHooks };
 			const desiredNow = hooks.getDesiredLocale();
+			const requestGeneration = ++runGeneration;
 
 			if (!hooks.shouldAnimate()) {
 				const ok = await hooks.onInstantSwap(desiredNow);
+				if (requestGeneration !== runGeneration) {
+					return false;
+				}
 				if (ok !== false) {
 					hooks.setDisplayedLocale(desiredNow);
 				}
@@ -138,19 +184,24 @@ export function createPanelHudLocaleMixController(baseHooks) {
 				return true;
 			}
 
-			cancelled = false;
-			stopRaf();
+			const run = {
+				id: requestGeneration,
+				animations: new Set(),
+			};
+			const isCancelled = () => !isRunCurrent(run);
+			const animateRunValue = (opts) => animateValue(run, opts);
+			activeRun = run;
 			setBusy(true);
 
 			try {
-				while (!cancelled) {
+				while (!isCancelled()) {
 					const desired = hooks.getDesiredLocale();
 					if (desired === hooks.getDisplayedLocale()) {
 						break;
 					}
 
-					await hooks.settle({ isCancelled, animateValue });
-					if (cancelled) {
+					await hooks.settle({ isCancelled, animateValue: animateRunValue });
+					if (isCancelled()) {
 						return false;
 					}
 
@@ -159,8 +210,8 @@ export function createPanelHudLocaleMixController(baseHooks) {
 						break;
 					}
 
-					const prepared = await hooks.prepareWipe(wipeLocale);
-					if (!prepared || cancelled) {
+					const prepared = await hooks.prepareWipe(wipeLocale, { isCancelled });
+					if (!prepared || isCancelled()) {
 						return false;
 					}
 
@@ -168,9 +219,15 @@ export function createPanelHudLocaleMixController(baseHooks) {
 					if (!skipWipe) {
 						wipeProgress = 0;
 						hooks.onWipePhaseChange?.(true);
+						if (isCancelled()) {
+							return false;
+						}
 						hooks.onWipeTick(0);
+						if (isCancelled()) {
+							return false;
+						}
 
-						await animateValue({
+						await animateRunValue({
 							from: 0,
 							to: 1,
 							durationMs: Math.max(1, hooks.getDurationMs()),
@@ -180,22 +237,31 @@ export function createPanelHudLocaleMixController(baseHooks) {
 							},
 						});
 
-						if (cancelled) {
+						if (isCancelled()) {
 							return false;
 						}
 					}
 
 					await hooks.onWipeDone(wipeLocale, prepared);
+					if (isCancelled()) {
+						return false;
+					}
 					wipeProgress = null;
 					hooks.onWipePhaseChange?.(false);
+					if (isCancelled()) {
+						return false;
+					}
 					hooks.setDisplayedLocale(wipeLocale);
 				}
-				return true;
+				return !isCancelled();
 			} finally {
-				stopRaf();
-				wipeProgress = null;
-				hooks.onWipePhaseChange?.(false);
-				setBusy(false);
+				stopRunAnimations(run);
+				if (activeRun === run && run.id === runGeneration) {
+					activeRun = null;
+					wipeProgress = null;
+					hooks.onWipePhaseChange?.(false);
+					setBusy(false);
+				}
 			}
 		},
 	};

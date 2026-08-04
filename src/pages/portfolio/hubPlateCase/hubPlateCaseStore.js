@@ -62,6 +62,16 @@ export function syncHubPlateCaseFromScene({
 	state.progress = Math.max(0, Math.min(1, Number(progress) || 0));
 }
 
+export function setHubPlateCaseColumnMotion({ progress, target }) {
+	const state = store.portfolioPlateCase;
+	state.columnProgress = Math.max(-1.5, Math.min(1.5, Number(progress) || 0));
+	state.columnTarget = Math.max(-1.5, Math.min(1.5, Number(target) || 0));
+}
+
+export function resetHubPlateCaseColumnMotion() {
+	setHubPlateCaseColumnMotion({ progress: 0, target: 0 });
+}
+
 export function consumeHubPlateCaseOpenRequest() {
 	const state = store.portfolioPlateCase;
 	const index = state.requestOpenIndex;

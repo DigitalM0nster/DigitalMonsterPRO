@@ -1,5 +1,6 @@
 import { projectsData } from "./projectsData.js";
 import { siteBloomArtDirection } from "../../../render/models/siteBloomConfig.js";
+import { SITE_MAIN_COLOR } from "@/app/config/siteMainColor.js";
 
 /** Сетка плит хаба: 5 рядов × (reference + extra) в глубину. */
 export const PORTFOLIO_HUB_ROW_COUNT = 5;
@@ -42,17 +43,25 @@ export const portfolioHubPlatesConfig = {
 		durationMs: 500,
 		toOpacity: 0,
 	},
-	/** Click on a project keeps us inside the hub and gathers the warm project plates into one row. */
+	/** Click on a project keeps us inside the hub and gathers the warm project plates into one column. */
 	caseSelection: {
 		durationMs: 1350,
 		staggerMs: 45,
-		plateSpacing: 3.85,
+		returnDurationMs: 1350,
+		returnStaggerMs: 45,
+		plateColumnSpacing: 2.35,
+		columnPanels: {
+			sideOpacity: 0.7,
+			fadeDistance: 0.38,
+		},
 		siblingScale: 0.74,
 		activeScale: 0.74,
 		/** Project plates smoothly widen from square to 16:9 while gathering. */
 		aspectRatio: 16 / 9,
 		/** Keep child logo/text proportional until their reverse reveal is fully hidden. */
 		contentExitFraction: 0.32,
+		/** Finish widening before the prepared inner composition becomes visible. */
+		aspectEndFraction: 0.68,
 		/** Final camera pose after a project is selected. */
 		camera: {
 			position: [-4.4817, -0.2194, 7.8192],
@@ -63,6 +72,72 @@ export const portfolioHubPlatesConfig = {
 		lights: {
 			rect2: {
 				position: [-0.5, 15.4, 19.1],
+			},
+		},
+		innerPanel: {
+			revealStartFraction: 0.72,
+			revealEndFraction: 0.96,
+			/** Content depth inside the plate: 0 = rear wall, 1 = front glass. */
+			contentDepthRatio: 0.5,
+			/** Minimal anti-z-fighting clearance above the real front surface. */
+			glassFrontOffset: 0.001,
+			galleryTransition: {
+				durationMs: 760,
+				returnDurationMs: 360,
+				soundGain: 0.56,
+			},
+			galleryPlanes: {
+				/** Real rounded gallery plates: same silhouette, much thinner body. */
+				thickness: 0.055,
+				plateCornerRadius: 0.022,
+				shellOpacity: 0.82,
+				activeDepth: 0.1,
+				// Keep the complete thin body inside the main plate's rear wall.
+				sideDepth: -0.1,
+				recycleDistancePx: 360,
+				sideOpacity: 0.66,
+				cornerRadius: 0.024,
+				dragThresholdNdc: 0.06,
+				dragTravelNdc: 0.64,
+				dragClickToleranceNdc: 0.008,
+				dragFlickVelocityNdc: 0.55,
+				dragFollowRate: 16,
+				primaryColor: SITE_MAIN_COLOR,
+				highlightColor: "#d7f6ff",
+			},
+			hologram: {
+				primaryColor: SITE_MAIN_COLOR,
+				secondaryColor: "#69d5ff",
+				highlightColor: "#e7f9ff",
+				brightness: 1.4,
+				contrast: 1.12,
+				cyanMix: 0.018,
+				backlightStrength: 0.58,
+				edgeDepthStrength: 0.25,
+				scanlineStrength: 0.012,
+				flickerStrength: 0.003,
+				sweepStrength: 0.05,
+				chromaticShift: 0.00024,
+				frameStrength: 0.46,
+				fresnelStrength: 0.18,
+				vignetteStrength: 0.045,
+				mosaicTiles: [22, 10],
+				mosaicSoftness: 0.28,
+				mosaicScatter: 0.045,
+				mosaicGlow: 0.52,
+			},
+			glass: {
+				primaryColor: SITE_MAIN_COLOR,
+				secondaryColor: "#69d5ff",
+				highlightColor: "#e7f9ff",
+				glassReflectionStrength: 0.78,
+				fresnelStrength: 0.7,
+				surfaceNoiseStrength: 0.1,
+				coatingStrength: 0.48,
+				edgeGlowStrength: 0.96,
+				depthTintStrength: 0.28,
+				headOnReflectionStrength: 0.72,
+				baseGlassVisibility: 0.58,
 			},
 		},
 		decorMosaic: {

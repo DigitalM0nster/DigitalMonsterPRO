@@ -601,6 +601,44 @@
 	}
 }
 
+@media (max-width: 1024px) {
+	.topHud {
+		left: 28px;
+		right: 28px;
+	}
+
+	.topHudBar {
+		gap: clamp(22px, 5vw, 48px);
+	}
+
+	.meta {
+		gap: clamp(32px, 7vw, 72px);
+	}
+}
+
+@media (max-width: 900px) {
+	.topHudBar {
+		gap: 18px;
+	}
+
+	.brand {
+		font-size: 16px;
+	}
+
+	.pageRoute,
+	.soundRoute {
+		font-size: 9px;
+	}
+
+	.meta {
+		gap: 22px;
+	}
+
+	.clock {
+		display: none;
+	}
+}
+
 @media (max-width: 768px) {
 	.topHud {
 		display: none;

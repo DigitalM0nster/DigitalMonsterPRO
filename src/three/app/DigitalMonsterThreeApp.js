@@ -203,7 +203,7 @@ export class DigitalMonsterThreeApp {
 		this.disposed = false;
 		this.renderedNotified = false;
 		this.ready = false;
-		this._nativeCursorIsPointer = null;
+		this._nativeCursor = null;
 
 		window.addEventListener("resize", this.onResize);
 		this._resizeObserver =
@@ -1045,7 +1045,7 @@ export class DigitalMonsterThreeApp {
 
 	_resolveRenderFpsCap() {
 		const tierCap = this.gfx.renderFpsCap ?? 0;
-		if (!isPortfolioCasePath(this.currentPage)) {
+		if (!isPortfolioCasePath(this.currentPage) || this.sceneManager.getActiveSceneId() === "portfolioHub") {
 			return tierCap;
 		}
 		const caseIsStatic = (this.routeTransition?.phase ?? "idle") === "idle" && this.sceneManager.requiresContinuousRender() === false;
@@ -1175,13 +1175,19 @@ export class DigitalMonsterThreeApp {
 	}
 
 	_syncNativeCursor() {
-		const isPointer = Boolean(this.store.cursor.caseHovered || this.store.cursor.projectListHovered || this.store.cursor.caseNavHovered);
-		if (isPointer === this._nativeCursorIsPointer) {
+		const isPointer = Boolean(
+			this.store.cursor.caseHovered ||
+			this.store.cursor.projectListHovered ||
+			this.store.cursor.caseNavHovered
+		);
+		const cursor = this.store.cursor.screenGalleryHovered
+			? (this.store.cursor.screenGalleryDragging ? "grabbing" : "grab")
+			: (isPointer ? "pointer" : "default");
+		if (cursor === this._nativeCursor) {
 			return;
 		}
 
-		this._nativeCursorIsPointer = isPointer;
-		const cursor = isPointer ? "pointer" : "default";
+		this._nativeCursor = cursor;
 		this.container.style.cursor = cursor;
 		this.canvas.style.cursor = cursor;
 	}
@@ -1210,7 +1216,7 @@ export class DigitalMonsterThreeApp {
 			this.rafId = requestSharedAnimationFrame(tick);
 
 			const delta = this.clock.getDelta();
-			const onPortfolioCase = isPortfolioCasePath(this.currentPage);
+			const onPortfolioCase = isPortfolioCasePath(this.currentPage) && this.sceneManager.getActiveSceneId() !== "portfolioHub";
 			const adaptiveSkipRender = this.frameSkipper.shouldSkipRender({
 				tier: this.gfxTier,
 				renderFpsCap: this._resolveRenderFpsCap(),
@@ -1288,6 +1294,8 @@ export class DigitalMonsterThreeApp {
 		this.canvas.style.cursor = "";
 		this.store.cursor.caseHovered = false;
 		this.store.cursor.projectListHovered = false;
+		this.store.cursor.screenGalleryHovered = false;
+		this.store.cursor.screenGalleryDragging = false;
 		this.store.cursor.caseNavHovered = false;
 		disposeSiteArcOverlay(this.siteArc);
 		this.siteArc = null;

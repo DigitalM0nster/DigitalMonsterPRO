@@ -466,14 +466,18 @@ export class GlitchCanvasTextLayer {
 		this._markTexturesDirty({ main: false, snake: true });
 	}
 
-	switchLocaleWithSnake(nextText, { uppercase } = {}) {
+	switchLocaleWithSnake(nextText, options = {}) {
 		if (!this.glitchText) {
-			return Promise.resolve();
+			return Promise.resolve(false);
 		}
 
-		const runOptions = uppercase !== undefined ? { uppercase } : {};
+		const { uppercase } = options;
 
-		return this.glitchText.switchLocaleWithSnake(nextText, runOptions).then(() => {
+		return this.glitchText.switchLocaleWithSnake(nextText, options).then((completed) => {
+			if (!completed) {
+				return false;
+			}
+
 			if (this.layerCfg) {
 				this.layerCfg.text = nextText;
 				if (uppercase !== undefined) {
@@ -484,7 +488,17 @@ export class GlitchCanvasTextLayer {
 			if (this.texture) {
 				this._markTexturesDirty({ main: true, snake: true });
 			}
+
+			return true;
 		});
+	}
+
+	cancelLocaleSwitch() {
+		return this.glitchText?.cancelLocaleSwitch?.() ?? false;
+	}
+
+	waitForSnakeIdle() {
+		return this.glitchText?.waitForSnakeIdle?.() ?? Promise.resolve();
 	}
 
 	setLocaleTextHidden(nextText, { uppercase } = {}) {

@@ -6,10 +6,8 @@ import { CAPABILITIES, isCapabilitiesPath } from "@/pages/capabilities/data/capa
 import { getNavItemLabel } from "@/app/i18n/siteCopy.js";
 import { normalizeSiteLocale } from "@/functions/siteLocale.js";
 import { requestHexNavigation } from "@/functions/hexNavigation.js";
-import { isPortfolioCasePath } from "@/three/scenes/portfolio/hub/projectsData.js";
 import SiteArcDomNav from "@/components/SiteArc/SiteArcDomNav.jsx";
 import { setSiteArcNavigationSource } from "@/components/SiteArc/siteArcNavigationSource.js";
-import SiteArcOverlay from "@/components/SiteArc/SiteArcOverlay.jsx";
 
 const SITE_ITEMS = [
 	{ id: "main", routeNumber: "01", route: "/" },
@@ -39,10 +37,6 @@ export default function SiteArcNavigator() {
 	const proxyStore = useStore();
 	const locale = normalizeSiteLocale(proxyStore.siteLocale);
 	const capabilitiesMode = isCapabilitiesPath(displayPathname);
-	// Visual route owns chrome during hex. The eager browser URL must not swap
-	// site labels for case labels before the case layer actually becomes visible.
-	const caseRouteVisible = isPortfolioCasePath(displayPathname);
-
 	const items = useMemo(() => {
 		if (capabilitiesMode) {
 			return CAPABILITIES.map((item) => ({
@@ -66,13 +60,9 @@ export default function SiteArcNavigator() {
 	const sourceKey = capabilitiesMode ? "capabilities" : "site";
 
 	useLayoutEffect(() => {
-		if (caseRouteVisible) {
-			setSiteArcNavigationSource(null);
-			return undefined;
-		}
 		setSiteArcNavigationSource({ key: sourceKey, activeId, items });
 		return () => setSiteArcNavigationSource(null);
-	}, [activeId, caseRouteVisible, items, sourceKey]);
+	}, [activeId, items, sourceKey]);
 
 	const activate = useCallback((item) => {
 		const path = item?.route;
@@ -83,8 +73,6 @@ export default function SiteArcNavigator() {
 		}
 		if (!requestHexNavigation(path, location.pathname)) navigate(path);
 	}, [capabilitiesMode, location.pathname, navigate]);
-
-	if (caseRouteVisible) return <SiteArcOverlay />;
 
 	return (
 		<SiteArcDomNav

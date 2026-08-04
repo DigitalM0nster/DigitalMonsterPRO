@@ -1,5 +1,5 @@
 import nipigas from "../projects/nipigas/index.js";
-import troof from "../projects/troof/index.js";
+import holodVAuto from "../projects/holodVAuto/index.js";
 import mmk1 from "../projects/mmk1/index.js";
 import belkaProduction from "../projects/belkaProduction/index.js";
 import reEvolution from "../projects/reEvolution/index.js";
@@ -8,7 +8,7 @@ import hubarch from "../projects/hubarch/index.js";
 
 /** Case order = route numbers 01→07 (scroll/boundary/arc must stay in sync). */
 /** @type {import('./types.js').PortfolioProjectModule[]} */
-const ALL_PROJECTS = [nipigas, troof, ostankino, mmk1, reEvolution, belkaProduction, hubarch];
+const ALL_PROJECTS = [nipigas, holodVAuto, ostankino, mmk1, reEvolution, belkaProduction, hubarch];
 
 /** @type {Map<string, import('./types.js').PortfolioProjectModule>} */
 const bySlug = new Map(ALL_PROJECTS.map((p) => [p.config.slug, p]));

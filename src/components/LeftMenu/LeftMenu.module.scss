@@ -305,26 +305,30 @@
 	}
 }
 
-@media (max-width: 768px) {
-	.leftMenu.aboutLayout {
-		--leftMenuButtonWidth: 38px;
-		--leftMenuIconSize: 16px;
+@media (max-width: 1024px) {
+	.leftMenu {
+		--leftMenuButtonWidth: 42px;
+		--leftMenuIconSize: 17px;
 
 		left: 50%;
 		top: auto;
-		bottom: max(8px, env(safe-area-inset-bottom));
-		width: min(420px, calc(100vw - 24px));
-		height: 58px;
+		bottom: 0;
+		width: min(680px, 100vw);
+		height: calc(64px + env(safe-area-inset-bottom));
 		transform: translateX(-50%);
 		flex-direction: row;
 		justify-content: center;
-		padding: 6px 8px;
+		padding: 6px 12px max(6px, env(safe-area-inset-bottom));
 		border: 1px solid rgba(255, 255, 255, 0.12);
-		border-radius: 18px;
-		background: rgba(0, 8, 13, 0.94);
+		border-bottom: 0;
+		border-radius: 24px 24px 0 0;
+		background:
+			linear-gradient(180deg, rgba(3, 15, 23, 0.97), rgba(0, 7, 12, 0.985)),
+			rgba(0, 8, 13, 0.96);
 		box-shadow:
-			0 12px 40px rgba(0, 0, 0, 0.38),
-			inset 0 1px 0 rgba(255, 255, 255, 0.035);
+			0 -10px 34px rgba(0, 0, 0, 0.44),
+			0 0 18px color-mix(in srgb, var(--mainColor) 13%, transparent),
+			inset 0 1px 0 rgba(255, 255, 255, 0.04);
 
 		.topSection {
 			display: none;
@@ -335,14 +339,14 @@
 			min-width: 0;
 			flex-direction: row;
 			justify-content: center;
-			gap: clamp(1px, 1vw, 5px);
+			gap: clamp(4px, 1.4vw, 14px);
 		}
 
 		.bottomSection {
 			flex: 0 0 auto;
 			flex-direction: row;
 			justify-content: center;
-			gap: clamp(1px, 1vw, 5px);
+			gap: clamp(4px, 1.4vw, 14px);
 			margin: 0;
 		}
 
@@ -356,15 +360,35 @@
 	}
 }
 
-@media (max-width: 420px) {
-	.leftMenu.aboutLayout {
-		--leftMenuButtonWidth: 36px;
+@media (max-width: 640px) {
+	.leftMenu {
+		--leftMenuButtonWidth: clamp(34px, 10vw, 39px);
 		--leftMenuIconSize: 15px;
 
-		bottom: max(6px, env(safe-area-inset-bottom));
-		width: calc(100vw - 16px);
-		height: 56px;
-		padding: 5px 6px;
-		border-radius: 16px;
+		width: min(100vw, 460px);
+		height: calc(58px + env(safe-area-inset-bottom));
+		padding: 5px 8px max(5px, env(safe-area-inset-bottom));
+		border-radius: 20px 20px 0 0;
+
+		.iconRail,
+		.bottomSection {
+			gap: clamp(1px, 0.8vw, 5px);
+		}
+	}
+}
+
+@media (hover: none) and (max-width: 1024px) {
+	.leftMenu .itemButton {
+		.snapping {
+			transform: none;
+		}
+
+		&:hover .itemCircle::after {
+			opacity: 0;
+		}
+
+		&.active .itemCircle::after {
+			opacity: 0.4;
+		}
 	}
 }

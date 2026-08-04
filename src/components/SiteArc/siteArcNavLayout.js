@@ -182,7 +182,7 @@ export function buildSiteArcNavLayout(viewportW, viewportH, isMobile = false) {
 
 	// Keep the orbit's rightmost marker against the viewport edge. This target
 	// is focus-independent, so node rotation cannot leave a stale horizontal shift.
-	const viewportRightInset = isMobile ? 6 : 4;
+	const viewportRightInset = 10;
 	const orbitMarkerOuterR = resolveNodeMarkerRadii(internal, isMobile).outer;
 	const orbitOverflow = Math.max(
 		0,

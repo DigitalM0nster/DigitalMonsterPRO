@@ -1,7 +1,7 @@
 /**
- * Case-arc selection choreography:
- * 1) bright glow travels to the newly selected node (ring held still);
- * 2) then the cyclic ring spins so that node sits at wedge center;
+ * Site-arc selection choreography:
+ * 1) bright glow starts travelling to the newly selected node (ring held still);
+ * 2) halfway through that trip the cyclic ring starts spinning to centre it;
  *    glow sticks to the node while it rides in.
  */
 import { wakeCaseStudyAnimationFrame } from "@/pages/portfolio/core/caseStudyAnimationFrame.js";
@@ -13,11 +13,14 @@ import {
 	unfreezeSiteArcFocusTo,
 } from "./siteArcFocusMotion.js";
 import {
+	getArcGlowDistanceToTargetRad,
 	isArcGlowAnimating,
-	isArcGlowReadyForFocusSpin,
 	stickArcGlowToAngle,
 	syncArcGlowTargetFromScroll,
 } from "./siteArcGlowMotion.js";
+
+const FOCUS_SPIN_START_GLOW_PROGRESS = 0.5;
+const MIN_GLOW_TRAVEL_DISTANCE_RAD = 0.0001;
 
 /** @typedef {'idle' | 'glowTravel' | 'focusSpin'} ArcSelectPhase */
 
@@ -27,6 +30,7 @@ let phase = "idle";
 let trackedActiveIndex = null;
 let pendingFocusDeg = 0;
 let pendingPeriodDeg = 360;
+let glowTravelStartDistanceRad = 0;
 
 export function getSiteArcSelectPhase() {
 	return phase;
@@ -37,6 +41,7 @@ export function resetSiteArcSelectSequence() {
 	trackedActiveIndex = null;
 	pendingFocusDeg = 0;
 	pendingPeriodDeg = 360;
+	glowTravelStartDistanceRad = 0;
 }
 
 /**
@@ -79,6 +84,7 @@ export function syncSiteArcSelectSequence({
 		if (activeAngleRad != null) {
 			syncArcGlowTargetFromScroll(activeAngleRad);
 		}
+		glowTravelStartDistanceRad = getArcGlowDistanceToTargetRad();
 		phase = "glowTravel";
 		wakeCaseStudyAnimationFrame();
 		return;
@@ -92,6 +98,7 @@ export function syncSiteArcSelectSequence({
 		if (activeAngleRad != null) {
 			syncArcGlowTargetFromScroll(activeAngleRad);
 		}
+		glowTravelStartDistanceRad = getArcGlowDistanceToTargetRad();
 		phase = "glowTravel";
 		wakeCaseStudyAnimationFrame();
 		return;
@@ -101,8 +108,11 @@ export function syncSiteArcSelectSequence({
 		if (activeAngleRad != null) {
 			syncArcGlowTargetFromScroll(activeAngleRad);
 		}
-		// Start ring spin before glow fully settles — kills the end pause.
-		if (isArcGlowReadyForFocusSpin()) {
+		const remainingDistanceRad = getArcGlowDistanceToTargetRad();
+		const glowTravelProgress = glowTravelStartDistanceRad <= MIN_GLOW_TRAVEL_DISTANCE_RAD
+			? 1
+			: Math.max(0, Math.min(1, 1 - remainingDistanceRad / glowTravelStartDistanceRad));
+		if (glowTravelProgress >= FOCUS_SPIN_START_GLOW_PROGRESS || !isArcGlowAnimating()) {
 			phase = "focusSpin";
 			unfreezeSiteArcFocusTo(pendingFocusDeg, pendingPeriodDeg);
 			wakeCaseStudyAnimationFrame();

@@ -8,17 +8,12 @@ export function resolveSceneId(pathname) {
 		return "home";
 	}
 
-	if (pathname === "/portfolio") {
+	if (pathname === "/portfolio" || projectsData.some((project) => project.path === pathname)) {
 		return "portfolioHub";
 	}
 
 	if (pathname === "/capabilities" || pathname.startsWith("/capabilities/")) {
 		return "capabilities";
-	}
-
-	const caseProject = projectsData.find((p) => p.path === pathname);
-	if (caseProject) {
-		return `case${caseProject.slug}`;
 	}
 
 	if (pathname.startsWith("/about")) {

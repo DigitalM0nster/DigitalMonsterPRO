@@ -211,13 +211,23 @@ export class DigitalWhaleScene {
 		}
 
 		if (this.heroTitle) {
+			const localeReady = this.heroTitle.syncLocaleForActivation?.() ?? Promise.resolve();
 			if (this._heroTitleHiddenForLeave) {
 				// Off the carousel-commit frame — reveal must not stack with hub dormant work.
-				this._scheduleHeroTitleShow();
+				void Promise.resolve(localeReady).finally(() => {
+					if (this._appStarted && this._isHomePath(this._lastDisplayedPage)) {
+						this._scheduleHeroTitleShow();
+					}
+				});
 			} else {
 				// Scroll reverse keeps hero live as `previous`; only the hint was hidden on leave.
-				this.heroTitle.applyPosition?.();
-				this.heroTitle.ensureScrollHintVisible?.();
+				void Promise.resolve(localeReady).finally(() => {
+					if (!this._appStarted || !this._isHomePath(this._lastDisplayedPage)) {
+						return;
+					}
+					this.heroTitle?.applyPosition?.();
+					this.heroTitle?.ensureScrollHintVisible?.();
+				});
 			}
 			return;
 		}

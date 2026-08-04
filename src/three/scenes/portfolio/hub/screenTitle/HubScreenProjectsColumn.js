@@ -64,6 +64,8 @@ export class HubScreenProjectsColumn {
 		this._dormantFlushRaf = 0;
 		/** Locale changed while hub is off-page — apply canvases on next enter only. */
 		this._pendingLocale = null;
+		this._localeSwitchRunToken = 0;
+		this._exitGlitchRunToken = 0;
 	}
 
 	_layoutStack() {
@@ -343,6 +345,8 @@ export class HubScreenProjectsColumn {
 	}
 
 	playEnterGlitch({ onComplete } = {}) {
+		this._exitGlitchRunToken += 1;
+		this._cancelLocaleSwitches();
 		this._flushPendingLocale();
 		// Also sync layerCfg → hidden canvases when pending was applied earlier via
 		// setLocaleTextHidden, or cfg drifted while opacity was 0.
@@ -392,7 +396,23 @@ export class HubScreenProjectsColumn {
 		});
 	}
 
+	_cancelLocaleSwitches() {
+		this._localeSwitchRunToken += 1;
+		let cancelled = false;
+		for (const layer of this.layers) {
+			cancelled = layer.cancelLocaleSwitch?.() || cancelled;
+		}
+		return cancelled;
+	}
+
+	/**
+	 * Start the route-exit snake and resolve only after the cascade has dispatched
+	 * every label and the actual engines are idle.
+	 * A newer enter/stash invalidates completion so callers cannot hide a fresh list.
+	 */
 	playExitGlitch() {
+		const exitRunToken = ++this._exitGlitchRunToken;
+		this._cancelLocaleSwitches();
 		this._clearGlitchAppearFallback();
 		this._projectsIntroVisualComplete = null;
 		this.clearActiveProject();
@@ -402,9 +422,28 @@ export class HubScreenProjectsColumn {
 			layer.setLayerOpacity(listOpacity, { immediate: true });
 		}
 		runHubCanvasGlitchRoute("exit");
+
+		const cascadeFinishMs = getRouteGlitchCascadeFinishMs(
+			"portfolioHub",
+			"exit",
+			this.layers.length,
+		);
+		return new Promise((resolve) => {
+			setTimeout(resolve, cascadeFinishMs + 32);
+		}).then(async () => {
+			if (exitRunToken !== this._exitGlitchRunToken) {
+				return false;
+			}
+			await Promise.all(
+				this.layers.map((layer) => layer.waitForSnakeIdle?.() ?? Promise.resolve()),
+			);
+			return exitRunToken === this._exitGlitchRunToken;
+		});
 	}
 
 	stashLayersHiddenForDormant() {
+		this._exitGlitchRunToken += 1;
+		this._cancelLocaleSwitches();
 		this._clearGlitchAppearFallback();
 		this._projectsIntroVisualComplete = null;
 		this._clearProjectsIntroGlitchTimer();
@@ -556,8 +595,9 @@ export class HubScreenProjectsColumn {
 	/** Смена языка названий проектов (змейка на каждом слое, как hero subtitle). */
 	async switchLocale(locale = getPortfolioLocale(), { animate = true } = {}) {
 		if (this.layers.length === 0) {
-			return;
+			return false;
 		}
+		const localeRunToken = ++this._localeSwitchRunToken;
 
 		const uppercase = getPortfolioProjectListUppercase();
 
@@ -656,9 +696,13 @@ export class HubScreenProjectsColumn {
 				return layer.switchLocaleWithSnake(nextText, { uppercase, playSound: false });
 			}),
 		);
+
+		return localeRunToken === this._localeSwitchRunToken;
 	}
 
 	dispose() {
+		this._exitGlitchRunToken += 1;
+		this._cancelLocaleSwitches();
 		if (this._dormantFlushRaf) {
 			cancelAnimationFrame(this._dormantFlushRaf);
 			this._dormantFlushRaf = 0;

@@ -18,6 +18,8 @@ const SPACE_WIDTH_EM = 0.35;
  * @property {number} fontWeight
  * @property {number} letterSpacing
  * @property {string} color
+ * @property {string} [replacementColor]
+ * @property {string} [replacementShadowColor]
  * @property {string} [fontFamily]
  * @property {number} [paddingLeft]
  * @property {number} [paddingTop]
@@ -120,8 +122,8 @@ export function drawGlitchTextLine(ctx, slots, x, y, style, drawOptions = {}) {
 	const mainFont = `${style.fontWeight} ${style.fontSize}px ${mainFontFamily}`;
 	const layerMainOpacity = style.mainOpacity ?? 1;
 	const replacementAlpha = style.replacementFullOpacity ? 1 : layerMainOpacity;
-	const replacementColor = profile.replacementColor;
-	const shadowColor = profile.replacementShadowColor ?? replacementColor;
+	const replacementColor = style.replacementColor ?? profile.replacementColor;
+	const shadowColor = style.replacementShadowColor ?? profile.replacementShadowColor ?? replacementColor;
 
 	if (shouldClear) {
 		ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);

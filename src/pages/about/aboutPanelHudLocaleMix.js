@@ -5,8 +5,9 @@
  * Does **not** move About story / stage spring on locale change — wipe snapshots
  * whatever HUD band is visible at the current story (including mid-segment).
  *
- * Store locale is chased for the whole session (not only while About owns input):
- * animate wipe only when About is current; otherwise instant buffer/GPU swap.
+ * Store locale is observed for the whole session, but dormant About does no
+ * Canvas/GPU work. The final requested locale is prepared when About becomes
+ * the active route owner, then shown through the ordinary mosaic wipe.
  */
 import { subscribeKey } from "valtio/utils";
 import { getCaseChromeMosaicEnterMs } from "@/pages/portfolio/ui/CaseStudyCanvas/caseChromeMosaicConfig.js";
@@ -39,6 +40,15 @@ let playOpts = {};
 
 /** @type {(() => void) | null} */
 let storeLocaleUnsub = null;
+
+function getPreparedBufferLocale() {
+	const paintKey = getAboutPanelHudSessionBuffers()?.paintKey;
+	if (typeof paintKey !== "string" || paintKey.length === 0) {
+		return displayedLocale;
+	}
+	const separatorIndex = paintKey.indexOf("|");
+	return normalizeSiteLocale(separatorIndex >= 0 ? paintKey.slice(0, separatorIndex) : paintKey);
+}
 
 function cloneCanvas(source) {
 	if (!source?.width || !source?.height) {
@@ -78,15 +88,16 @@ function readStory() {
  * Shared controller always calls `settle` before wipe.
  * About keeps story where it is — no pin to nearest stage stop.
  */
-async function settleAboutStory(_helpers) {
+async function settleAboutStory() {
 	/* no-op */
 }
 
 /**
  * @param {string} desiredLocale
+ * @param {{ isCancelled?: () => boolean }} [helpers]
  * @returns {Promise<false | { story: number, skipWipe?: boolean }>}
  */
-async function prepareAboutWipe(desiredLocale) {
+async function prepareAboutWipe(desiredLocale, helpers = {}) {
 	const story = readStory();
 	const pair = resolveAboutPanelHudStoryPair(story);
 	const bridge = getAboutPanelHudState();
@@ -98,6 +109,7 @@ async function prepareAboutWipe(desiredLocale) {
 	const ok = await ensureAboutPanelHudCanvases({
 		force: true,
 		locale: desiredLocale,
+		shouldCommit: () => helpers.isCancelled?.() !== true,
 	});
 	if (!ok) {
 		return false;
@@ -132,7 +144,10 @@ async function prepareAboutWipe(desiredLocale) {
 
 const aboutLocaleMix = createPanelHudLocaleMixController({
 	getDesiredLocale: () => normalizeSiteLocale(store.siteLocale),
-	getDisplayedLocale: () => displayedLocale,
+	// The async painter owns a shared buffer pool. A cancelled older run can
+	// finish painting after cancellation, so the pool locale is the authoritative
+	// early-exit check; `displayedLocale` alone can otherwise accept stale pixels.
+	getDisplayedLocale: getPreparedBufferLocale,
 	setDisplayedLocale: (locale) => {
 		displayedLocale = normalizeSiteLocale(locale);
 	},
@@ -156,24 +171,18 @@ const aboutLocaleMix = createPanelHudLocaleMixController({
 		publishAboutPanelHudPair(nextPair.from, nextPair.to, { upload: true });
 		setAboutPanelHudMixProgress(nextPair.mix);
 	},
-	onInstantSwap: async (desiredLocale) => {
-		const storyProgress = readStory();
-		const ok = await ensureAboutPanelHudCanvases({ force: true, locale: desiredLocale });
-		if (!ok) {
-			return false;
-		}
-		const { from, to, mix } = resolveAboutPanelHudStoryPair(storyProgress);
-		reuploadAboutPanelHudWarmPool();
-		publishAboutPanelHudPair(from, to, { upload: true });
-		setAboutPanelHudMixProgress(mix);
-		return true;
+	onInstantSwap: async () => {
+		// Keep `displayedLocale` unchanged while About is dormant. Its next active
+		// chase prepares only the final requested locale, instead of repainting four
+		// fullscreen canvases and rebuilding the GPU pool during another page's UI.
+		return false;
 	},
 });
 
 export { isAboutPanelHudLocaleMixBusy };
 
 /**
- * Chase `store.siteLocale` for About HUD (animated only while About is current).
+ * Chase `store.siteLocale` for About HUD while About owns the visible route.
  * @param {{
  *   storyProgress?: number,
  *   getStoryProgress?: () => number,
@@ -185,7 +194,7 @@ export async function playAboutPanelHudLocaleMix(opts = {}) {
 	return aboutLocaleMix.playTowardStore();
 }
 
-/** Instant/animated chase from current store locale + story. */
+/** Deferred/animated chase from current store locale + story. */
 export function syncAboutPanelHudLocaleFromStore() {
 	return playAboutPanelHudLocaleMix({});
 }
@@ -203,10 +212,7 @@ export function getAboutPanelHudDisplayedLocale() {
 	return displayedLocale;
 }
 
-/**
- * Session-wide store chase — About runtime may be stopped while on home/hub.
- * Without this, changing language elsewhere leaves About HUD on the old locale.
- */
+/** Session-wide observer; dormant calls only retain the desired store locale. */
 export function ensureAboutPanelHudLocaleStoreSync() {
 	if (storeLocaleUnsub || typeof window === "undefined") {
 		return;

@@ -35,6 +35,7 @@ export class HubScreenHudLayout {
 		this._worldPosition = new THREE.Vector3();
 		this._projectsEnterPending = false;
 		this._projectsIntroExpectHidden = false;
+		this._projectsExitVisibilityOverride = false;
 		this._textHoverRaycaster = new THREE.Raycaster();
 		this._textHoverPointer = new THREE.Vector2();
 		this._projectsHoverLocalPoint = new THREE.Vector3();
@@ -63,12 +64,29 @@ export class HubScreenHudLayout {
 	}
 
 	_applyVisibility() {
-		const stackAlpha = this.baseOpacity * this._visibilityMultiplier;
-		const hasContent = this.leftColumn.layers.length > 0 || (this.hudCfg?.projects?.enabled !== false && this.projectsColumn.layers.length > 0);
-		this.root.visible = stackAlpha > 0.001 && hasContent;
+		const leftAlpha = this.baseOpacity * this._visibilityMultiplier;
+		const projectsVisibility = Math.max(this._visibilityMultiplier, this._projectsExitVisibilityOverride ? 1 : 0);
+		const projectsAlpha = this.baseOpacity * projectsVisibility;
+		const hasLeftContent = this.leftColumn.layers.length > 0;
+		const hasProjectsContent = this.hudCfg?.projects?.enabled !== false && this.projectsColumn.layers.length > 0;
 
-		this.leftColumn.setStackVisibility(stackAlpha);
-		this.projectsColumn.setStackVisibility(stackAlpha);
+		this.root.visible = (leftAlpha > 0.001 && hasLeftContent) || (projectsAlpha > 0.001 && hasProjectsContent);
+		this.leftColumn.setStackVisibility(leftAlpha);
+		this.projectsColumn.setStackVisibility(projectsAlpha);
+	}
+
+	_clearProjectsExitVisibilityOverride({ applyVisibility = true } = {}) {
+		const hadOverride = this._projectsExitVisibilityOverride;
+		this._projectsExitVisibilityOverride = false;
+		if (hadOverride && applyVisibility) {
+			this._applyVisibility();
+		}
+	}
+
+	_holdProjectsVisibleForExitGlitch() {
+		this._clearProjectsExitVisibilityOverride({ applyVisibility: false });
+		this._projectsExitVisibilityOverride = true;
+		this._applyVisibility();
 	}
 
 	/** Enter-змейка списка проектов (вместе с grid enter на /portfolio). */
@@ -77,6 +95,7 @@ export class HubScreenHudLayout {
 			return false;
 		}
 
+		this._clearProjectsExitVisibilityOverride();
 		this._projectsSelectionLocked = false;
 		resetPortfolioActiveDebug({ itemCount: this.projectsColumn.layers.length });
 		this._projectsSingleActivePending = true;
@@ -119,10 +138,24 @@ export class HubScreenHudLayout {
 		} else {
 			this.clearActiveProject();
 		}
-		this.projectsColumn.playExitGlitch();
+		if (this.hudCfg?.projects?.enabled === false || this.projectsColumn.layers.length === 0) {
+			return false;
+		}
+
+		// The route is committed immediately after the click, which normally makes
+		// the hub HUD invisible. Keep only the right column mounted until its
+		// disappear snake completes; the left HUD still follows route visibility.
+		this._holdProjectsVisibleForExitGlitch();
+		void this.projectsColumn.playExitGlitch().then((completed) => {
+			if (completed) {
+				this._clearProjectsExitVisibilityOverride();
+			}
+		});
+		return true;
 	}
 
 	stashProjectsHiddenForDormant() {
+		this._clearProjectsExitVisibilityOverride();
 		this._projectsSingleActivePending = false;
 		this._projectsSelectionLocked = false;
 		this.clearActiveProject();
@@ -202,7 +235,9 @@ export class HubScreenHudLayout {
 		}
 
 		if (this._activeProjectIndex < 0) {
-			this._applyActiveProjectIndex(0, {
+			const focusedProjectIndex = store.portfolioHubFocusIndex ?? -1;
+			const introProjectIndex = focusedProjectIndex >= 0 ? focusedProjectIndex : 0;
+			this._applyActiveProjectIndex(introProjectIndex, {
 				skipHoverGlitch: true,
 				immediatePlate: true,
 				immediateOpacity: false,
@@ -339,6 +374,7 @@ export class HubScreenHudLayout {
 	}
 
 	async init(cfg = portfolioHubPlatesConfig, { glitchIntro = true } = {}) {
+		this._clearProjectsExitVisibilityOverride({ applyVisibility: false });
 		this.hudCfg = normalizeHubScreenHudConfig(cfg);
 		this.baseOpacity = this.hudCfg.opacity;
 
@@ -429,6 +465,7 @@ export class HubScreenHudLayout {
 		store.cursor.projectListHovered = false;
 		this._projectsSingleActivePending = false;
 		this._projectsSelectionLocked = false;
+		this._clearProjectsExitVisibilityOverride({ applyVisibility: false });
 		this._clearPlateFocusDebounceTimer();
 		this.leftColumn.dispose();
 		this.projectsColumn.dispose();

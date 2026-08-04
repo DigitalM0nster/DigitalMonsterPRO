@@ -1,7 +1,8 @@
 /**
  * Длительность фазы «уход» старого роута (HTML + Canvas), мс.
- * Только для click-навигации (hub→case, меню без hex-defer и т.п.).
- * Scroll-commit карусели пропускает exit (`store.sceneCarouselSkipHtmlExit`).
+ * Только для click-навигации (меню без hex-defer и т.п.).
+ * Scroll-commit карусели и hub→selected-case пропускают exit
+ * (`store.sceneCarouselSkipHtmlExit`).
  */
 export const ROUTE_TRANSITION_EXIT_MS = 500;
 

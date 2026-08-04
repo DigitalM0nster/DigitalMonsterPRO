@@ -107,8 +107,16 @@ export class GlitchSnakeEngine {
 		/** @type {GlitchLetterSlot[]} */
 		this.slots = [];
 		this.onChange = onChange ?? (() => {});
-		/** @type {ReturnType<typeof setTimeout>[]} */
-		this._timeouts = [];
+		/** @type {{ at: number, fn: () => void }[]} */
+		this._scheduledEvents = [];
+		this._scheduledEventTimer = 0;
+		this._processingScheduledBatch = false;
+		this._scheduledBatchChanged = false;
+		/** @type {Map<GlitchLetterSlot, { startedAt: number, durationMs: number }>} */
+		this._mainFades = new Map();
+		this._mainFadeRaf = 0;
+		/** @type {Set<() => void>} */
+		this._idleResolvers = new Set();
 		this._hoverHighlightEnabled = false;
 	}
 
@@ -119,17 +127,53 @@ export class GlitchSnakeEngine {
 
 	abort() {
 		this._hoverHighlightEnabled = false;
-		this._timeouts.forEach(clearTimeout);
-		this._timeouts = [];
+		this._clearScheduledEvents();
+		this._stopMainFades();
 		for (const slot of this.slots) {
 			resetSlotRuntime(slot);
 		}
-		this.onChange();
+		try {
+			this.onChange();
+		} finally {
+			this._resolveIdleWaiters();
+		}
 	}
 
 	/** Змейка в процессе — ensureVisible не должен вызывать abort. */
 	hasActiveAnimation() {
-		return this._timeouts.length > 0;
+		return (
+			this._scheduledEvents.length > 0 ||
+			this._scheduledEventTimer !== 0 ||
+			this._processingScheduledBatch ||
+			this._mainFades.size > 0 ||
+			this._mainFadeRaf !== 0
+		);
+	}
+
+	/**
+	 * Resolve when every scheduled event owned by the current snake has run.
+	 * This is event-driven (no polling/rAF) and also resolves when the run is aborted.
+	 */
+	whenIdle() {
+		if (!this.hasActiveAnimation()) {
+			return Promise.resolve();
+		}
+
+		return new Promise((resolve) => {
+			this._idleResolvers.add(resolve);
+		});
+	}
+
+	_resolveIdleWaiters() {
+		if (this.hasActiveAnimation() || this._idleResolvers.size === 0) {
+			return;
+		}
+
+		const resolvers = [...this._idleResolvers];
+		this._idleResolvers.clear();
+		for (const resolve of resolvers) {
+			resolve();
+		}
 	}
 
 	/** Скрыть буквы для appear без промежуточного кадра «всё видно» (abort рисует полный текст). */
@@ -146,10 +190,14 @@ export class GlitchSnakeEngine {
 	}
 
 	prepareAppear() {
-		this._timeouts.forEach(clearTimeout);
-		this._timeouts = [];
+		this._clearScheduledEvents();
+		this._stopMainFades();
 		this._setSlotsHiddenForAppear();
-		this.onChange();
+		try {
+			this.onChange();
+		} finally {
+			this._resolveIdleWaiters();
+		}
 	}
 
 	restoreVisible() {
@@ -157,60 +205,161 @@ export class GlitchSnakeEngine {
 		this.onChange();
 	}
 
+	_clearScheduledEvents() {
+		if (this._scheduledEventTimer) {
+			clearTimeout(this._scheduledEventTimer);
+			this._scheduledEventTimer = 0;
+		}
+		this._scheduledEvents.length = 0;
+		this._scheduledBatchChanged = false;
+	}
+
+	_notifyChange() {
+		if (this._processingScheduledBatch) {
+			this._scheduledBatchChanged = true;
+			return;
+		}
+		this.onChange();
+	}
+
+	_insertScheduledEvent(event) {
+		let low = 0;
+		let high = this._scheduledEvents.length;
+		while (low < high) {
+			const middle = (low + high) >>> 1;
+			if (this._scheduledEvents[middle].at <= event.at) {
+				low = middle + 1;
+			} else {
+				high = middle;
+			}
+		}
+		this._scheduledEvents.splice(low, 0, event);
+		return low;
+	}
+
+	_armScheduledEventTimer() {
+		if (
+			this._processingScheduledBatch ||
+			this._scheduledEventTimer ||
+			this._scheduledEvents.length === 0
+		) {
+			return;
+		}
+		const delayMs = Math.max(0, this._scheduledEvents[0].at - performance.now());
+		this._scheduledEventTimer = setTimeout(() => {
+			this._scheduledEventTimer = 0;
+			this._flushScheduledEvents();
+		}, delayMs);
+	}
+
+	_flushScheduledEvents() {
+		this._processingScheduledBatch = true;
+		this._scheduledBatchChanged = false;
+		try {
+			let now = performance.now();
+			while (
+				this._scheduledEvents.length > 0 &&
+				this._scheduledEvents[0].at <= now + 0.5
+			) {
+				const event = this._scheduledEvents.shift();
+				event.fn();
+				now = performance.now();
+			}
+		} finally {
+			this._processingScheduledBatch = false;
+			if (this._scheduledBatchChanged) {
+				this._scheduledBatchChanged = false;
+				this.onChange();
+			}
+			this._armScheduledEventTimer();
+			this._resolveIdleWaiters();
+		}
+	}
+
 	_schedule(fn, ms) {
-		const id = setTimeout(() => {
-			this._timeouts = this._timeouts.filter((timeoutId) => timeoutId !== id);
-			fn();
-		}, ms);
-		this._timeouts.push(id);
-		return id;
+		const event = {
+			at: performance.now() + Math.max(0, ms),
+			fn,
+		};
+		const insertionIndex = this._insertScheduledEvent(event);
+		if (insertionIndex === 0 && this._scheduledEventTimer && !this._processingScheduledBatch) {
+			clearTimeout(this._scheduledEventTimer);
+			this._scheduledEventTimer = 0;
+		}
+		this._armScheduledEventTimer();
+		return event;
+	}
+
+	_stopMainFades() {
+		if (this._mainFadeRaf) {
+			cancelAnimationFrame(this._mainFadeRaf);
+			this._mainFadeRaf = 0;
+		}
+		this._mainFades.clear();
+	}
+
+	_scheduleMainFadeFrame() {
+		if (this._mainFadeRaf || this._mainFades.size === 0) {
+			return;
+		}
+
+		this._mainFadeRaf = requestAnimationFrame((now) => {
+			this._mainFadeRaf = 0;
+			for (const [slot, fade] of this._mainFades) {
+				const t = Math.min(1, Math.max(0, (now - fade.startedAt) / fade.durationMs));
+				slot.mainAlpha = t;
+				if (t >= 1) {
+					slot.mainAlpha = 1;
+					this._mainFades.delete(slot);
+				}
+			}
+			try {
+				this.onChange();
+			} finally {
+				if (this._mainFades.size > 0) {
+					this._scheduleMainFadeFrame();
+				} else {
+					this._resolveIdleWaiters();
+				}
+			}
+		});
 	}
 
 	_incrementMainHidden(slot) {
 		slot.mainHiddenCount += 1;
-		this.onChange();
+		this._notifyChange();
 	}
 
 	_decrementMainHidden(slot) {
 		slot.mainHiddenCount = Math.max(0, slot.mainHiddenCount - 1);
-		this.onChange();
+		this._notifyChange();
 	}
 
 	_incrementVisible(slot, index) {
 		slot.visibleCounts[index] += 1;
-		this.onChange();
+		this._notifyChange();
 	}
 
 	_decrementVisible(slot, index) {
 		slot.visibleCounts[index] = Math.max(0, slot.visibleCounts[index] - 1);
-		this.onChange();
+		this._notifyChange();
 	}
 
 	/** Плавное появление основной буквы после glitch-символов. */
 	_fadeMainLetterIn(slot, durationMs) {
 		if (slot.isSpace || durationMs <= 0) {
 			slot.mainAlpha = 1;
-			this.onChange();
+			this._notifyChange();
 			return;
 		}
 
 		slot.mainAlpha = 0;
-		const startedAt = performance.now();
-
-		const tick = () => {
-			const t = Math.min(1, (performance.now() - startedAt) / durationMs);
-			slot.mainAlpha = t;
-			this.onChange();
-
-			if (t < 1) {
-				this._schedule(tick, 16);
-			} else {
-				slot.mainAlpha = 1;
-				this.onChange();
-			}
-		};
-
-		this._schedule(tick, 0);
+		this._mainFades.set(slot, {
+			startedAt: performance.now(),
+			durationMs,
+		});
+		this._notifyChange();
+		this._scheduleMainFadeFrame();
 	}
 
 	/**
@@ -254,7 +403,7 @@ export class GlitchSnakeEngine {
 						} else {
 							slot.mainAlpha = 1;
 							slot.hoverPassed = this._hoverHighlightEnabled;
-							this.onChange();
+							this._notifyChange();
 						}
 					}
 				}, glitchDuration);
@@ -289,8 +438,8 @@ export class GlitchSnakeEngine {
 
 		// hover: как в HTML — не отменять прошлую змейку, счётчики mainHidden/visible сами сходятся.
 		if (mode !== "hover") {
-			this._timeouts.forEach(clearTimeout);
-			this._timeouts = [];
+			this._clearScheduledEvents();
+			this._stopMainFades();
 			// appear: prepareAppear сам выставит скрытое состояние без кадра «всё видно».
 			if (mode !== "appear") {
 				for (const slot of this.slots) {
@@ -320,6 +469,7 @@ export class GlitchSnakeEngine {
 			playGlitchTextSound(durationMs, "hover", options.soundPan);
 		}
 
+		this._resolveIdleWaiters();
 		return durationMs;
 	}
 

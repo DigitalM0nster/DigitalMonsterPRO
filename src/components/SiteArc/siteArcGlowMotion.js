@@ -4,8 +4,6 @@ import { getGraphicsTier } from "@/functions/getGraphicsTier.js";
 const GLOW_TRAVEL_LERP_SPEED = 3.25;
 /** Считаем «доехало» — snap + можно клеить к узлу. */
 const GLOW_ARRIVE_EPS_RAD = 0.08;
-/** Можно стартовать спин кольца, пока хвост свечения ещё доезжает. */
-const GLOW_SPIN_HANDOFF_EPS_RAD = 0.22;
 
 let glowAngleRad = 0;
 let glowTargetAngleRad = 0;
@@ -137,10 +135,10 @@ export function isArcGlowAnimating() {
 	return Math.abs(shortestRadDelta(glowAngleRad, glowTargetAngleRad)) > GLOW_ARRIVE_EPS_RAD;
 }
 
-/** Достаточно близко к цели, чтобы начать поворот кольца без паузы. */
-export function isArcGlowReadyForFocusSpin() {
+/** Remaining shortest angular distance to the current glow target. */
+export function getArcGlowDistanceToTargetRad() {
 	if (!glowMotionInitialized) {
-		return true;
+		return 0;
 	}
-	return Math.abs(shortestRadDelta(glowAngleRad, glowTargetAngleRad)) <= GLOW_SPIN_HANDOFF_EPS_RAD;
+	return Math.abs(shortestRadDelta(glowAngleRad, glowTargetAngleRad));
 }

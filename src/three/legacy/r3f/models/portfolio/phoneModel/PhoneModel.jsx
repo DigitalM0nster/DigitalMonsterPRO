@@ -4,8 +4,8 @@ import { useGLTF, useTexture } from "@react-three/drei";
 import { useStore } from "@/app/store.jsx";
 import { easing } from "maath";
 
-/** На 03/04/05 телефон скрыт — после скрытия можно не гонять позиции/дампы каждый кадр. */
-const PHONE_HIDDEN_SUBPAGES = ["/portfolio/03", "/portfolio/04", "/portfolio/05", "/portfolio/06", "/portfolio/07"];
+/** На кейсах без phone-сцены телефон скрыт — после скрытия не гоняем позиции/дампы каждый кадр. */
+const PHONE_HIDDEN_SUBPAGES = ["/portfolio/02", "/portfolio/03", "/portfolio/04", "/portfolio/05", "/portfolio/06", "/portfolio/07"];
 
 const DISPLAY_MAP_SWAP_MS = 650;
 
@@ -27,7 +27,6 @@ export default forwardRef(function PhoneMap(props, ref) {
 	const store = useStore();
 	const phoneModel = useGLTF("/models/case1/case1Phone.glb");
 	const case1map = useTexture("/models/case1/case1PhoneMap.jpg");
-	const case2map = useTexture("/models/case2/case2PhoneMap.jpg");
 	const [transitionOut, setTransitionOut] = useState(false);
 	const exitHideCompleteRef = useRef(false);
 	/** Один отложенный hide по скроллу вместо setTimeout на каждый кадр (CPU п.3). */
@@ -106,7 +105,7 @@ export default forwardRef(function PhoneMap(props, ref) {
 			}
 		};
 
-		// Видимость: портфолио / 02 и скрытые подстраницы переопределяют скролл; иначе — один таймер hide (CPU п.3)
+		// Видимость: хаб и кейсы без phone-сцены переопределяют скролл; иначе — один таймер hide (CPU п.3)
 		if (p === `/portfolio`) {
 			clearScrollHideTimer();
 			// Хаб: только плиты PortfolioHubModel, телефон не показываем
@@ -143,23 +142,6 @@ export default forwardRef(function PhoneMap(props, ref) {
 			easing.damp(phoneModel.materials.DisplayMat.color, "r", 10, 0.2, delta);
 			easing.damp(phoneModel.materials.DisplayMat.color, "g", 10, 0.2, delta);
 			easing.damp(phoneModel.materials.DisplayMat.color, "b", 10, 0.2, delta);
-		} else if (p === `/portfolio/02`) {
-			clearScrollHideTimer();
-			ref.current.visible = true;
-			const mat = phoneModel.materials.DisplayMat;
-			if (mat.map !== case2map) {
-				if (displayMapSwapTimerRef.current === null) {
-					displayMapSwapTimerRef.current = setTimeout(() => {
-						displayMapSwapTimerRef.current = null;
-						mat.map = case2map;
-					}, DISPLAY_MAP_SWAP_MS);
-				}
-			} else {
-				clearDisplayMapSwapTimer();
-			}
-			easing.damp(phoneModel.materials.DisplayMat.color, "r", 8.5, 0.2, delta);
-			easing.damp(phoneModel.materials.DisplayMat.color, "g", 8.5, 0.2, delta);
-			easing.damp(phoneModel.materials.DisplayMat.color, "b", 8.5, 0.2, delta);
 		} else if (PHONE_HIDDEN_SUBPAGES.includes(p)) {
 			clearScrollHideTimer();
 			ref.current.visible = false;

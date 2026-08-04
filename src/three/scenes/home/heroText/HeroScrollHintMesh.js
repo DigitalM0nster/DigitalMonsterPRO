@@ -313,7 +313,11 @@ export class HeroScrollHintMesh {
 			const locale = normalizeSiteLocale(store.siteLocale);
 			if (locale !== this.desiredLocale) {
 				this.desiredLocale = locale;
-				this._startLocaleAnimation();
+				// Keep dormant Home cold: remember copy only. Canvas paint and the
+				// texture upload are deferred until Home becomes active again.
+				if (shouldAnimateSiteLocaleForRingScene("home")) {
+					void this._startLocaleAnimation({ animate: true });
+				}
 			}
 		});
 
@@ -321,13 +325,12 @@ export class HeroScrollHintMesh {
 		this._draw();
 	}
 
-	async _startLocaleAnimation() {
+	async _startLocaleAnimation({ animate = shouldAnimateSiteLocaleForRingScene("home") } = {}) {
 		if (this.localeSwitching || this.desiredLocale === this.displayedLocale) return;
 
 		this.localeSwitching = true;
 		const targetLocale = this.desiredLocale;
 		const targetText = HERO_SCROLL_HINT_COPY[targetLocale] ?? HERO_SCROLL_HINT_COPY.ru;
-		const animate = shouldAnimateSiteLocaleForRingScene("home");
 
 		try {
 			// Same Jura (+ CJK fallback for zh) as hero subtitle — glyphs must be present before snake.
@@ -341,7 +344,6 @@ export class HeroScrollHintMesh {
 				);
 			} else {
 				this.glitchController.setText([targetText]);
-				this._draw();
 			}
 
 			this.displayedLocale = targetLocale;
@@ -349,13 +351,21 @@ export class HeroScrollHintMesh {
 			console.error("[HeroScrollHintMesh] locale switch failed", error);
 			this.glitchController.setText([targetText]);
 			this.displayedLocale = targetLocale;
-			this._draw();
 		} finally {
 			this.localeSwitching = false;
-			if (this.desiredLocale !== this.displayedLocale) {
-				this._startLocaleAnimation();
+			if (
+				this.desiredLocale !== this.displayedLocale
+				&& shouldAnimateSiteLocaleForRingScene("home")
+			) {
+				void this._startLocaleAnimation();
 			}
 		}
+	}
+
+	/** Paint the latest deferred locale once, immediately before Home is shown. */
+	syncLocaleForActivation() {
+		this.desiredLocale = normalizeSiteLocale(store.siteLocale);
+		return this._startLocaleAnimation({ animate: false });
 	}
 
 	playRevealEnter(durationMs = heroTextRevealConfig.enterDurationMs) {

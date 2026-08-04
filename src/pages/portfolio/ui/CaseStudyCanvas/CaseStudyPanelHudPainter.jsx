@@ -1194,7 +1194,10 @@ export default function CaseStudyPanelHudPainter({
 					forceLocaleRepaint(desiredLocale);
 					return true;
 				},
-				prepareWipe: async (targetLocale) => {
+				prepareWipe: async (targetLocale, { isCancelled }) => {
+					if (isCancelled()) {
+						return false;
+					}
 					const liveFrom = fromCanvasRef.current;
 					const liveTo = toCanvasRef.current;
 					const liveHost = hostRef.current;
@@ -1235,6 +1238,9 @@ export default function CaseStudyPanelHudPainter({
 					});
 					if (!painted) {
 						return { skipWipe: true, forceRepaint: true };
+					}
+					if (isCancelled()) {
+						return false;
 					}
 
 					liveCtx.publishHud(liveFrom, liveTo, {

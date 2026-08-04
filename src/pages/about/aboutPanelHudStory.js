@@ -213,7 +213,13 @@ function applyIdleEnterForStoryPair(from, mix) {
 
 /**
  * Paint text1 / text2 / text3 / empty buffers when locale or viewport changes.
- * @param {{ locale?: string, viewportW?: number, viewportH?: number, force?: boolean }} [opts]
+ * @param {{
+ *   locale?: string,
+ *   viewportW?: number,
+ *   viewportH?: number,
+ *   force?: boolean,
+ *   shouldCommit?: () => boolean,
+ * }} [opts]
  */
 export async function ensureAboutPanelHudCanvases(opts = {}) {
 	if (typeof document === "undefined" || readIsMobileViewport()) {
@@ -236,6 +242,9 @@ export async function ensureAboutPanelHudCanvases(opts = {}) {
 	}
 
 	await ensureCaseStudyCanvasFonts();
+	if (opts.shouldCommit?.() === false) {
+		return false;
+	}
 
 	const cachedZoneRef = { current: null };
 	const navLayout = resolveCaseProjectCanvasNavigationLayout(viewportW, viewportH, null);
@@ -270,22 +279,34 @@ export async function ensureAboutPanelHudCanvases(opts = {}) {
 	if (!fromResult) {
 		return false;
 	}
+	if (opts.shouldCommit?.() === false) {
+		return false;
+	}
 
 	paintCaseStudyPanelHudFrame({
 		...paintArgs,
 		canvas: c2,
 		frame: buildFrame("text2", locale, 1),
 	});
+	if (opts.shouldCommit?.() === false) {
+		return false;
+	}
 	paintCaseStudyPanelHudFrame({
 		...paintArgs,
 		canvas: c3,
 		frame: buildFrame("text3", locale, 2),
 	});
+	if (opts.shouldCommit?.() === false) {
+		return false;
+	}
 
 	empty.width = c1.width;
 	empty.height = c1.height;
 	const emptyCtx = empty.getContext("2d");
 	emptyCtx?.clearRect(0, 0, empty.width, empty.height);
+	if (opts.shouldCommit?.() === false) {
+		return false;
+	}
 
 	text1Canvas = c1;
 	text2Canvas = c2;

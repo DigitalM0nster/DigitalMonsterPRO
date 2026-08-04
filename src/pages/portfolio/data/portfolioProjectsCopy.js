@@ -10,9 +10,9 @@ export const PORTFOLIO_PROJECT_NAMES = {
 		zh: "NIPIGAS",
 	},
 	"02": {
-		ru: "TROOF",
-		en: "TROOF",
-		zh: "TROOF",
+		ru: "ХОЛОД В АВТО",
+		en: "HOLOD V AUTO",
+		zh: "HOLOD V AUTO",
 	},
 	"03": {
 		ru: "ОСТАНКИНО",
@@ -49,9 +49,9 @@ export const PORTFOLIO_PROJECT_PLATE_SECONDARY = {
 		zh: "互动周年纪念网站",
 	},
 	"02": {
-		ru: "кровельные системы и услуги",
-		en: "roofing systems and services",
-		zh: "屋面系统与服务",
+		ru: "автомобильное климатическое оборудование",
+		en: "automotive climate equipment",
+		zh: "汽车气候设备",
 	},
 	"03": {
 		ru: "интерактивный каталог офисов",

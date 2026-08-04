@@ -640,3 +640,45 @@ export function advanceHubMenuAnim(state, targetIndex, now, timing, getGridSlide
 export function getPlateProgressForProject(visuals, projectIndex) {
 	return visuals.plateProgressByProject.get(projectIndex) ?? 0;
 }
+
+/** Prime the menu controller to the exact frame produced by a settled hover. */
+export function settleHubMenuAnimAtFocus(state, targetIndex, getGridSlide) {
+	const slide = targetIndex >= 0 ? getGridSlide(targetIndex) : { y: 0, z: 0 };
+	state.targetIndex = targetIndex;
+	state.gridY = slide.y;
+	state.gridZ = slide.z;
+	state.gridFromY = slide.y;
+	state.gridFromZ = slide.z;
+	state.gridToY = slide.y;
+	state.gridToZ = slide.z;
+	state.gridStartedAt = 0;
+	state._lastTick.clear();
+
+	for (const [projectIndex, projectState] of state.projects.entries()) {
+		const focused = projectIndex === targetIndex;
+		settleChannel(projectState.plate, focused ? 1 : 0);
+		settleChannel(projectState.logoAppear, focused ? 1 : 0);
+		settleChannel(projectState.logoExit, 0);
+	}
+
+	if (targetIndex >= 0) {
+		const focusedState = getProjectState(state, targetIndex);
+		settleChannel(focusedState.plate, 1);
+		settleChannel(focusedState.logoAppear, 1);
+		settleChannel(focusedState.logoExit, 0);
+		state._lastTick.set(targetIndex, {
+			plateProgress: 1,
+			logoAppear: 1,
+			logoExit: 0,
+			logoVisible: 1,
+			plateMode: "idle",
+			logoAppearMode: "idle",
+			logoExitMode: "idle",
+			logoRevealJustStarted: false,
+			logoRevealJustPaused: false,
+			plateMovementJustStarted: false,
+		});
+	}
+
+	state._lastDisplayedLogoProject = targetIndex;
+}

@@ -3,7 +3,6 @@ import PropTypes from "prop-types";
 import { useRouteTransitionContext } from "@/app/context/RouteTransitionContext.jsx";
 import { shouldActivateRoutePage } from "@/functions/shouldActivateRoutePage.js";
 
-import Case2Model from "@/three/legacy/r3f/models/portfolio/case2/Case2Model.jsx";
 import Case3Model from "@/three/legacy/r3f/models/portfolio/case3/Case3Model.jsx";
 import Case4Model from "@/three/legacy/r3f/models/portfolio/case4/Case4Model.jsx";
 import Case5Model from "@/three/legacy/r3f/models/portfolio/case5/Case5Model.jsx";
@@ -35,7 +34,6 @@ export default function CanvasRoutes(props) {
 		storeProxy.scroll = 0;
 	}, [showHomeSparkles, camera, storeProxy]);
 
-	const case2ModelRef = useRef();
 	const case3ModelRef = useRef();
 	const case4ModelRef = useRef();
 	const case5ModelRef = useRef();
@@ -48,12 +46,11 @@ export default function CanvasRoutes(props) {
 			return;
 		}
 		const hub = portfolioHubModelRef.current;
-		const c2 = case2ModelRef.current;
 		const c3 = case3ModelRef.current;
 		const c4 = case4ModelRef.current;
 		const c5 = case5ModelRef.current;
 		const ct = contactsModelRef.current;
-		const refs = [hub, c2, c3, c4, c5, ct];
+		const refs = [hub, c3, c4, c5, ct];
 		const mounted = refs.filter(Boolean);
 		if (mounted.length >= 4 && mounted.some((node) => node.visible === false)) {
 			renderedScheduledRef.current = true;
@@ -79,7 +76,6 @@ export default function CanvasRoutes(props) {
 				currentPage={currentPage}
 				teleportPage={teleportPage}
 			/>
-			<Case2Model ref={case2ModelRef} currentPage={currentPage} teleportPage={teleportPage} />
 			<Case3Model ref={case3ModelRef} currentPage={currentPage} />
 			<Case4Model ref={case4ModelRef} currentPage={currentPage} />
 			<Case5Model ref={case5ModelRef} currentPage={currentPage} />

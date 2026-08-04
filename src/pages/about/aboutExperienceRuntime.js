@@ -746,7 +746,7 @@ function createAboutExperienceRuntime() {
 		syncAboutPanelHudFromStory(story);
 	};
 
-	/** Locale chase is session-wide in aboutPanelHudLocaleMix (instant off-About). */
+	/** Locale observer is session-wide; repaint/upload is deferred until About owns the route. */
 
 	const onViewportResize = () => {
 		if (disposed || !ownsInput()) {
@@ -841,6 +841,9 @@ function createAboutExperienceRuntime() {
 	void preloadAboutParticleSound();
 	void preloadAboutPcbAppearSound();
 	publish();
+	// Locale changes made on another route are intentionally deferred there.
+	// Prepare the latest About HUD copy only after About becomes the active owner.
+	void syncAboutPanelHudLocaleFromStore();
 	// Same arm path as AboutScene — once per visit (no double prepare+enter).
 	void armAboutPanelHudForRoute(clampStoryVisual(current));
 	if (current !== target) {

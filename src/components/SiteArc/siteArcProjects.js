@@ -7,6 +7,7 @@ import { normalizeSiteLocale } from "@/functions/siteLocale.js";
 import { siteArcInternals } from "./siteArcConfig.js";
 import { getSiteArcNavigationSource } from "./siteArcNavigationSource.js";
 import { store } from "@/app/store.jsx";
+import { getSceneCarousel } from "@/three/render/transition/carouselPage.js";
 
 const CAROUSEL_SCENE_TO_SITE_ARC_ID = {
 	home: "main",
@@ -22,6 +23,8 @@ let previewActiveProjectId = null;
 let previewAwaitingNavigation = false;
 /** True once a live hex/boundary drive was seen while preview is set. */
 let previewSawNavigation = false;
+/** Navigation drive ended; resolver decides whether it committed or cancelled. */
+let previewNavigationFinished = false;
 
 /**
  * @param {string | null | undefined} projectId
@@ -30,6 +33,7 @@ export function setSiteArcPreviewProjectId(projectId) {
 	previewActiveProjectId = projectId ?? null;
 	previewAwaitingNavigation = Boolean(projectId);
 	previewSawNavigation = false;
+	previewNavigationFinished = false;
 }
 
 export function getSiteArcPreviewProjectId() {
@@ -40,6 +44,7 @@ export function clearSiteArcPreviewProjectId() {
 	previewActiveProjectId = null;
 	previewAwaitingNavigation = false;
 	previewSawNavigation = false;
+	previewNavigationFinished = false;
 }
 
 /**
@@ -53,6 +58,7 @@ export function syncSiteArcPreviewNavigation(navigating) {
 	if (navigating) {
 		previewAwaitingNavigation = false;
 		previewSawNavigation = true;
+		previewNavigationFinished = false;
 		return;
 	}
 	if (previewAwaitingNavigation) {
@@ -60,8 +66,9 @@ export function syncSiteArcPreviewNavigation(navigating) {
 		return;
 	}
 	if (previewSawNavigation) {
-		// Drive ended without route matching preview → cancelled leave.
-		clearSiteArcPreviewProjectId();
+		// SceneCarousel commits synchronously; the Valtio mirror may still lag by
+		// one paint. Let the resolver compare against carousel.currentId first.
+		previewNavigationFinished = true;
 	}
 }
 
@@ -125,11 +132,36 @@ export function resolveSiteArcProjectItems(locale, activeProjectId = null) {
 		// displayPathname intentionally lags during the transition, so using only
 		// source.activeId would start the focus spin late. Read the committed scene
 		// directly for the site ring; capabilities keep their nested-route id.
+		const carousel = getSceneCarousel();
 		const committedSiteId = siteSource.key === "site"
-			? CAROUSEL_SCENE_TO_SITE_ARC_ID[store.sceneCarouselCurrentId]
+			? CAROUSEL_SCENE_TO_SITE_ARC_ID[carousel?.currentId ?? store.sceneCarouselCurrentId]
 			: null;
-		const activeId = committedSiteId ?? siteSource.activeId;
+		const targetSiteId = siteSource.key === "site" && carousel?.isHexNavigationActive?.()
+			? CAROUSEL_SCENE_TO_SITE_ARC_ID[carousel.getHexTargetSceneId?.()]
+			: null;
+		const hasItem = (id) => Boolean(id && items.some((item) => item.id === id));
+		const previewConfirmed = Boolean(
+			previewActiveProjectId && (
+				previewActiveProjectId === committedSiteId ||
+				previewActiveProjectId === siteSource.activeId
+			)
+		);
+		const previewCancelled = Boolean(
+			previewActiveProjectId && previewNavigationFinished && !previewConfirmed
+		);
+		const previewId = !previewCancelled && hasItem(previewActiveProjectId)
+			? previewActiveProjectId
+			: null;
+		const targetId = hasItem(targetSiteId) ? targetSiteId : null;
+		const committedId = hasItem(committedSiteId) ? committedSiteId : null;
+		const activeId = previewId ?? targetId ?? committedId ?? siteSource.activeId;
 		const activeNavIndex = Math.max(0, items.findIndex((item) => item.id === activeId));
+
+		if (previewActiveProjectId) {
+			if (previewConfirmed || previewNavigationFinished) {
+				clearSiteArcPreviewProjectId();
+			}
+		}
 		const ringGapDeg = resolveSiteArcRingGapDeg(items.length);
 		return {
 			items,
@@ -160,10 +192,13 @@ export function resolveSiteArcProjectItems(locale, activeProjectId = null) {
 			scrollAnchor: projects.length <= 1 ? 0 : index / (projects.length - 1),
 		};
 	});
-	const effectiveId = previewActiveProjectId ?? activeProjectId;
+	let effectiveId = previewActiveProjectId ?? activeProjectId;
 	// Route caught up — drop click preview.
 	if (previewActiveProjectId && previewActiveProjectId === activeProjectId) {
-		previewActiveProjectId = null;
+		clearSiteArcPreviewProjectId();
+	} else if (previewActiveProjectId && previewNavigationFinished) {
+		clearSiteArcPreviewProjectId();
+		effectiveId = activeProjectId;
 	}
 	const activeNavIndex = items.findIndex((item) => item.id === effectiveId);
 	const ringGapDeg = resolveSiteArcRingGapDeg(items.length);

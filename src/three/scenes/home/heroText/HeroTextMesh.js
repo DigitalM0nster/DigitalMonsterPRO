@@ -336,6 +336,14 @@ export class HeroTextMesh {
 		}
 	}
 
+	/** Upload copy prepared off-route so the next Home draw stays allocation-free. */
+	uploadPreparedTexture() {
+		if (!this._textTexture || typeof this.renderer?.initTexture !== "function") {
+			return;
+		}
+		this.renderer.initTexture(this._textTexture);
+	}
+
 	_drawDecorativeLine(context, normalizedFontSize) {
 		if (!this.decorativeTopLine) {
 			return;
@@ -472,6 +480,10 @@ export class HeroTextMesh {
 	_redrawGlitchCanvas() {
 		if (!this.canvas || !this.useGlitchSnake) {
 			return;
+		}
+		if (this._glitchRedrawRaf) {
+			cancelAnimationFrame(this._glitchRedrawRaf);
+			this._glitchRedrawRaf = 0;
 		}
 
 		const context = this.canvas.getContext("2d", { alpha: true });

@@ -7,7 +7,7 @@ const projectConfig = {
 	route: "/portfolio/07",
 	title: "HUBARCH",
 	summary: "Архитектурное портфолио на React с управлением контентом через WordPress",
-	hubLogo: "/images/portfolio/case7.webp",
+	hubLogo: "/images/portfolio/hubarch/image1.webp",
 	contentStatus: "ready",
 	meta: {
 		year: 2025,

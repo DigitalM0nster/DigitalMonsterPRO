@@ -313,11 +313,11 @@ export class HeroScrollHintMesh {
 			const locale = normalizeSiteLocale(store.siteLocale);
 			if (locale !== this.desiredLocale) {
 				this.desiredLocale = locale;
-				// Keep dormant Home cold: remember copy only. Canvas paint and the
-				// texture upload are deferred until Home becomes active again.
-				if (shouldAnimateSiteLocaleForRingScene("home")) {
-					void this._startLocaleAnimation({ animate: true });
-				}
+				// The tiny dormant repaint keeps activation allocation/upload-free;
+				// only the visible Home route runs the locale snake.
+				void this._startLocaleAnimation({
+					animate: shouldAnimateSiteLocaleForRingScene("home"),
+				});
 			}
 		});
 
@@ -347,17 +347,19 @@ export class HeroScrollHintMesh {
 			}
 
 			this.displayedLocale = targetLocale;
+			if (!animate) {
+				this.renderer?.initTexture?.(this.texture);
+			}
 		} catch (error) {
 			console.error("[HeroScrollHintMesh] locale switch failed", error);
 			this.glitchController.setText([targetText]);
 			this.displayedLocale = targetLocale;
 		} finally {
 			this.localeSwitching = false;
-			if (
-				this.desiredLocale !== this.displayedLocale
-				&& shouldAnimateSiteLocaleForRingScene("home")
-			) {
-				void this._startLocaleAnimation();
+			if (this.desiredLocale !== this.displayedLocale) {
+				void this._startLocaleAnimation({
+					animate: shouldAnimateSiteLocaleForRingScene("home"),
+				});
 			}
 		}
 	}

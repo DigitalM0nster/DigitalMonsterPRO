@@ -7,7 +7,7 @@ const projectConfig = {
 	route: "/portfolio/06",
 	title: "Belka Production",
 	summary: "Корпоративный сайт и портфолио продакшн-студии полного цикла",
-	hubLogo: "/images/portfolio/case4.webp",
+	hubLogo: "/images/portfolio/belka-production/image1.webp",
 	contentStatus: "ready",
 	meta: {
 		year: 2023,

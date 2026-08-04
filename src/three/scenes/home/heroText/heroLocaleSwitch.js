@@ -51,6 +51,10 @@ export function createHeroLocaleSwitchController({
 						animate,
 					}),
 				]);
+				if (!animate) {
+					subtitle.uploadPreparedTexture?.();
+					stack.uploadPreparedTexture?.();
+				}
 
 				syncLayerPositions(resolveHeroTextPosition(heroTextPositionConfig));
 				displayedLocale = targetLocale;
@@ -58,13 +62,10 @@ export function createHeroLocaleSwitchController({
 				console.error("[heroLocaleSwitch] locale switch failed", error);
 			} finally {
 				isSwitching = false;
-				// Hidden Home records locale changes without chasing them with
-				// CanvasTexture uploads until it owns the screen again.
-				if (
-					desiredLocale !== displayedLocale
-					&& shouldAnimateSiteLocaleForRingScene("home")
-				) {
-					void runLocaleSwitch();
+				if (desiredLocale !== displayedLocale) {
+					void runLocaleSwitch({
+						animate: shouldAnimateSiteLocaleForRingScene("home"),
+					});
 				}
 			}
 		})();
@@ -80,15 +81,16 @@ export function createHeroLocaleSwitchController({
 		trackedStoreLocale = store.siteLocale;
 		desiredLocale = getHeroLocale();
 
-		if (
-			isSwitching
-			|| desiredLocale === displayedLocale
-			|| !shouldAnimateSiteLocaleForRingScene("home")
-		) {
+		if (isSwitching || desiredLocale === displayedLocale) {
 			return;
 		}
 
-		void runLocaleSwitch({ animate: true });
+		// Keep every prepared Home texture current while another route owns the
+		// screen. The dormant path is a one-shot repaint (no snake), so returning
+		// from Contacts only reveals already-uploaded resources.
+		void runLocaleSwitch({
+			animate: shouldAnimateSiteLocaleForRingScene("home"),
+		});
 	};
 
 	const unsubscribe = subscribe(store, handleStoreUpdate);

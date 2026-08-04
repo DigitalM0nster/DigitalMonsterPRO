@@ -36,7 +36,7 @@ const PANEL_DATA_BY_ID = {
 		},
 		year: "2026",
 		type: "АВТОМОБИЛЬНОЕ КЛИМАТИЧЕСКОЕ ОБОРУДОВАНИЕ",
-		url: "https://holod-v-avto.ru/",
+		url: "https://holod-v-auto.ru/",
 		gallery: [
 			"/images/portfolio/holod-v-auto/image1.webp",
 			"/images/portfolio/holod-v-auto/image2.webp",
@@ -47,6 +47,8 @@ const PANEL_DATA_BY_ID = {
 			"/images/portfolio/holod-v-auto/image7.webp",
 			"/images/portfolio/holod-v-auto/image8.webp",
 			"/images/portfolio/holod-v-auto/image9.webp",
+			"/images/portfolio/holod-v-auto/image10.webp",
+			"/images/portfolio/holod-v-auto/image11.webp",
 		],
 	},
 	"03": {
@@ -118,7 +120,16 @@ const PANEL_DATA_BY_ID = {
 		year: "2023",
 		type: "FULL-CYCLE PRODUCTION",
 		url: "https://belka-production.ru/",
-		gallery: ["/images/portfolio/case4.webp"],
+		gallery: [
+			"/images/portfolio/belka-production/image1.webp",
+			"/images/portfolio/belka-production/image2.webp",
+			"/images/portfolio/belka-production/image3.webp",
+			"/images/portfolio/belka-production/image4.webp",
+			"/images/portfolio/belka-production/image5.webp",
+			"/images/portfolio/belka-production/image6.webp",
+			"/images/portfolio/belka-production/image7.webp",
+			"/images/portfolio/belka-production/image8.webp",
+		],
 	},
 	"07": {
 		description: {
@@ -129,7 +140,21 @@ const PANEL_DATA_BY_ID = {
 		year: "2025",
 		type: "АРХИТЕКТУРА И ИНТЕРЬЕРЫ",
 		url: "https://hubarch.ru/",
-		gallery: ["/images/portfolio/case7.webp"],
+		gallery: [
+			"/images/portfolio/hubarch/image1.webp",
+			"/images/portfolio/hubarch/image2.webp",
+			"/images/portfolio/hubarch/image3.webp",
+			"/images/portfolio/hubarch/image4.webp",
+			"/images/portfolio/hubarch/image5.webp",
+			"/images/portfolio/hubarch/image6.webp",
+			"/images/portfolio/hubarch/image7.webp",
+			"/images/portfolio/hubarch/image8.webp",
+			"/images/portfolio/hubarch/image9.webp",
+			"/images/portfolio/hubarch/image10.webp",
+			"/images/portfolio/hubarch/image11.webp",
+			"/images/portfolio/hubarch/image12.webp",
+			"/images/portfolio/hubarch/image13.webp",
+		],
 	},
 };
 

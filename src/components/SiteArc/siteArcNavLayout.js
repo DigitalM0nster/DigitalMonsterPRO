@@ -25,6 +25,8 @@ import {
 } from "./siteArcProjects.js";
 import { syncSiteArcSelectSequence } from "./siteArcSelectSequence.js";
 import { getSiteArcShift, setSiteArcShiftTarget } from "./siteArcPositionMotion.js";
+import { setSiteArcFocusFromScroll } from "./siteArcFocusMotion.js";
+import { resolveSiteArcCarouselMotion } from "./siteArcCarouselMotion.js";
 import { getSceneCarousel } from "@/three/render/transition/carouselPage.js";
 
 const DEG = Math.PI / 180;
@@ -155,7 +157,11 @@ export function buildSiteArcNavLayout(viewportW, viewportH, isMobile = false) {
 	const ringGapDeg = arcProjects.ringGapDeg;
 	const ringPeriodDeg = arcProjects.ringPeriodDeg;
 	const focusIndex = arcProjects.activeNavIndex;
-	const focusDeg = siteArcRuntime.focusRotationDeg
+	const carouselMotion = resolveSiteArcCarouselMotion(navStates, ringGapDeg);
+	if (carouselMotion) {
+		setSiteArcFocusFromScroll(carouselMotion.focusDeg, ringPeriodDeg);
+	}
+	const focusDeg = carouselMotion?.focusDeg ?? siteArcRuntime.focusRotationDeg
 		?? (focusIndex >= 0 ? focusIndex * ringGapDeg : 0);
 	const introOpacity = Math.max(0, Math.min(1, siteArcRuntime.introOpacity ?? 1));
 
@@ -182,7 +188,7 @@ export function buildSiteArcNavLayout(viewportW, viewportH, isMobile = false) {
 
 	// Keep the orbit's rightmost marker against the viewport edge. This target
 	// is focus-independent, so node rotation cannot leave a stale horizontal shift.
-	const viewportRightInset = 10;
+	const viewportRightInset = internal.viewportRightInset ?? 20;
 	const orbitMarkerOuterR = resolveNodeMarkerRadii(internal, isMobile).outer;
 	const orbitOverflow = Math.max(
 		0,
@@ -209,12 +215,14 @@ export function buildSiteArcNavLayout(viewportW, viewportH, isMobile = false) {
 
 	const activeNavIndex = arcProjects.activeNavIndex;
 	const activeAngle = activeNavIndex >= 0 ? labelPositions[activeNavIndex]?.angle : null;
-	syncSiteArcSelectSequence({
-		activeIndex: activeNavIndex,
-		ringGapDeg,
-		ringPeriodDeg,
-		activeAngleRad: activeAngle,
-	});
+	if (!carouselMotion) {
+		syncSiteArcSelectSequence({
+			activeIndex: activeNavIndex,
+			ringGapDeg,
+			ringPeriodDeg,
+			activeAngleRad: activeAngle,
+		});
+	}
 
 	// Stable index = navStates index (not compacted). DomNav slots stay 1:1 with projects.
 	/** @type {Array<object | null>} */

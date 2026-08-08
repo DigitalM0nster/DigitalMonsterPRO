@@ -271,5 +271,5 @@ export function shouldOpenHubDevFromUrl() {
 
 export function shouldOpenWhaleDevFromUrl() {
 	const params = new URLSearchParams(window.location.search);
-	return params.has("whaleDev") || params.has("heroDev");
+	return params.has("oceanDev") || params.has("whaleDev") || params.has("heroDev");
 }

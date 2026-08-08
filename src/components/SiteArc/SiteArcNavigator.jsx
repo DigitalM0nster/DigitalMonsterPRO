@@ -2,7 +2,6 @@ import { useCallback, useLayoutEffect, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useStore } from "@/app/store.jsx";
 import { useRouteTransitionContext } from "@/app/context/RouteTransitionContext.jsx";
-import { CAPABILITIES, isCapabilitiesPath } from "@/pages/capabilities/data/capabilities.js";
 import { getNavItemLabel } from "@/app/i18n/siteCopy.js";
 import { normalizeSiteLocale } from "@/functions/siteLocale.js";
 import { requestHexNavigation } from "@/functions/hexNavigation.js";
@@ -36,43 +35,24 @@ export default function SiteArcNavigator() {
 	const { displayPathname } = useRouteTransitionContext();
 	const proxyStore = useStore();
 	const locale = normalizeSiteLocale(proxyStore.siteLocale);
-	const capabilitiesMode = isCapabilitiesPath(displayPathname);
-	const items = useMemo(() => {
-		if (capabilitiesMode) {
-			return CAPABILITIES.map((item) => ({
-				id: item.id,
-				route: item.path,
-				routeNumber: item.number,
-				title: item.title,
-				pathTitle: item.title,
-			}));
-		}
-		return SITE_ITEMS.map((item) => ({
-			...item,
-			title: getNavItemLabel(item.id, locale),
-			pathTitle: getNavItemLabel(item.id, locale),
-		}));
-	}, [capabilitiesMode, locale]);
+	const items = useMemo(() => SITE_ITEMS.map((item) => ({
+		...item,
+		title: getNavItemLabel(item.id, locale),
+		pathTitle: getNavItemLabel(item.id, locale),
+	})), [locale]);
 
-	const activeId = capabilitiesMode
-		? (items.find((item) => normalizePath(item.route) === normalizePath(displayPathname))?.id ?? items[0].id)
-		: resolveSiteActiveId(displayPathname);
-	const sourceKey = capabilitiesMode ? "capabilities" : "site";
+	const activeId = resolveSiteActiveId(displayPathname);
 
 	useLayoutEffect(() => {
-		setSiteArcNavigationSource({ key: sourceKey, activeId, items });
+		setSiteArcNavigationSource({ key: "site", activeId, items });
 		return () => setSiteArcNavigationSource(null);
-	}, [activeId, items, sourceKey]);
+	}, [activeId, items]);
 
 	const activate = useCallback((item) => {
 		const path = item?.route;
 		if (!path || normalizePath(path) === normalizePath(location.pathname)) return;
-		if (capabilitiesMode && isCapabilitiesPath(path)) {
-			navigate(path);
-			return;
-		}
 		if (!requestHexNavigation(path, location.pathname)) navigate(path);
-	}, [capabilitiesMode, location.pathname, navigate]);
+	}, [location.pathname, navigate]);
 
 	return (
 		<SiteArcDomNav

@@ -247,9 +247,13 @@ void main() {
 	float core = 1.0 - smoothstep(0.0, 0.14, dist);
 	float glow = 1.0 - smoothstep(0.1, 0.46, dist);
 
-	float waveBoost = 0.88 + smoothstep(0.0, 0.35, vWave) * 0.12;
-	vec3 color = uColor * waveBoost * (core * 1.6 + glow * 0.45 * uGlow);
-	float alpha = (core * 0.75 + glow * 0.3 * uGlow) * uAlphaMult;
+	// Whale-like controlled HDR core (max 1.35x) plus a visible color floor for
+	// the halo. The old 4-5x multiplier is what burned selected points to white.
+	float maxColorChannel = max(max(uColor.r, uColor.g), max(uColor.b, 0.0001));
+	float hueSafeLight = min(0.42 + core * 0.93, 1.35 / maxColorChannel);
+	vec3 color = uColor * hueSafeLight;
+	float haloStrength = sqrt(max(uGlow, 0.0));
+	float alpha = clamp((core * 0.95 + glow * 0.18 * haloStrength) * uAlphaMult, 0.0, 1.0);
 
 	gl_FragColor = vec4(color, alpha);
 
@@ -395,8 +399,12 @@ void main() {
 	float flow = pow(0.5 + 0.5 * sin(cellId.x * 0.13 + cellId.y * 0.21 - uTime * 0.85), 5.0);
 	float waveBoost = 0.72 + smoothstep(-0.1, 0.4, vWave) * 0.28;
 	float energy = (0.38 + seed * 0.34 + flow * 0.42 + rareNode * 2.4) * waveBoost;
-	vec3 color = uPointColor * (core * (1.2 + energy * 1.35) + glow * (0.12 + energy * 0.2 * uGlow));
-	float alpha = (core * 0.72 + glow * (0.08 + rareNode * 0.18)) * uAlphaMult * energy * resolved;
+	// Match the high-tier point sprite: controlled HDR core and a colored halo,
+	// without the old unbounded energy multiplier.
+	float maxColorChannel = max(max(uPointColor.r, uPointColor.g), max(uPointColor.b, 0.0001));
+	float hueSafeLight = min(0.42 + core * 0.93, 1.35 / maxColorChannel);
+	vec3 color = uPointColor * hueSafeLight;
+	float alpha = clamp((core * 0.72 + glow * (0.08 + rareNode * 0.18)) * uAlphaMult * energy * resolved, 0.0, 1.0);
 
 	if (alpha < 0.0001) {
 		discard;

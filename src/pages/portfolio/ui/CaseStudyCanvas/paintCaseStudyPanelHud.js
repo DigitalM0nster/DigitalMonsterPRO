@@ -283,6 +283,7 @@ export function paintCaseStudyPanelHudChrome(args) {
 				chapterBase: stageFrame.chapterBase ?? project.config.caseStudy?.chapterBase ?? 0,
 				categoryFontSize,
 				headerTextX,
+				headerLinkVisual: stageFrame.headerLinkVisual,
 				viewportH,
 			},
 			railAlpha > 0.5 ? stageHitRegions : null,

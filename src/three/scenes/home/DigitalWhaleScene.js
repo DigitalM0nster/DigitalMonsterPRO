@@ -621,7 +621,10 @@ export class DigitalWhaleScene {
 		}
 
 		this.oceanGroup.updateMatrixWorld(true);
-		this.oceanSurfaceGroup.worldToLocal(this._coverageCamScratch.copy(camera.position));
+		// Resolve the desired child offset in the stable parent space. Using
+		// oceanSurfaceGroup.worldToLocal() here includes last frame's own offset and
+		// creates p(n + 1) = cameraX - p(n): two alternating positions every frame.
+		this.oceanGroup.worldToLocal(this._coverageCamScratch.copy(camera.position));
 		this._oceanCoverageOffsetX = this._coverageCamScratch.x;
 	}
 
@@ -885,6 +888,27 @@ export class DigitalWhaleScene {
 		this._syncFogMaterials();
 		this.syncCamera(this.smoothPointer);
 		this._applyOceanTilt(this.smoothPointer);
+	}
+
+	/** DEV panel: update only ocean transforms/uniforms; rebuild geometry explicitly. */
+	applyOceanConfigFromDev(options = {}) {
+		if (!import.meta.env.DEV) {
+			return;
+		}
+
+		const o = digitalWhaleConfig.ocean;
+		if (options.rebuildGrid === true) {
+			this._rebuildOceanGrid();
+		}
+
+		this.oceanGroup.position.set(o.posX, o.posY, o.posZ);
+		this.oceanGroup.scale.set(o.scaleX, 1, o.scaleZ);
+		this.whaleScaleNeutralizer.scale.set(1 / Math.max(o.scaleX, 1e-6), 1, 1 / Math.max(o.scaleZ, 1e-6));
+		this._applyOceanTilt(this.smoothPointer);
+		this.oceanGroup.updateMatrixWorld(true);
+		this._applyOceanMaterialConfig(o);
+		this._syncOceanScrollState();
+		this._syncOceanRipple();
 	}
 
 	_applyOceanTilt(pointer = { x: 0, y: 0 }) {

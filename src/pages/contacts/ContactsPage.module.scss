@@ -93,6 +93,15 @@
 	scrollbar-color: color-mix(in srgb, var(--mainColor) 35%, transparent) transparent;
 }
 
+/*
+ * Keep the inactive neighbour in layout so its clipped children retain a real
+ * hidden start frame. `display: none` made route enter jump to the final state.
+ */
+.renderDisabled {
+	visibility: hidden;
+	pointer-events: none;
+}
+
 /** Line / block mask — text slides out of this box on enter/leave. */
 .textClip {
 	display: block;

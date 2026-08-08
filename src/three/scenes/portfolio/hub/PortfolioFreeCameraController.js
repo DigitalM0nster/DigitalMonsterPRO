@@ -33,8 +33,10 @@ function vectorToArray(vector) {
 }
 
 export class PortfolioFreeCameraController {
-	constructor(inputElement) {
+	constructor(inputElement, options = {}) {
 		this.inputElement = inputElement;
+		this.snapshotName = options.snapshotName ?? "portfolioHubCamera";
+		this.logLabel = options.logLabel ?? "portfolioCamera";
 		this.enabled = false;
 		this.pointerLocked = false;
 		this.moveSpeed = 3.5;
@@ -260,17 +262,17 @@ export class PortfolioFreeCameraController {
 
 	getSnapshotText(camera = this._camera) {
 		const snapshot = this.getSnapshot(camera);
-		return `portfolioHubCamera = ${JSON.stringify(snapshot, null, 2)}`;
+		return `${this.snapshotName} = ${JSON.stringify(snapshot, null, 2)}`;
 	}
 
 	async copySnapshot(camera = this._camera) {
 		const text = this.getSnapshotText(camera);
 		try {
 			await navigator.clipboard.writeText(text);
-			console.info("[portfolioCamera] copied to clipboard\n" + text);
+			console.info(`[${this.logLabel}] copied to clipboard\n${text}`);
 			return true;
 		} catch {
-			console.info("[portfolioCamera] clipboard unavailable\n" + text);
+			console.info(`[${this.logLabel}] clipboard unavailable\n${text}`);
 			return false;
 		}
 	}

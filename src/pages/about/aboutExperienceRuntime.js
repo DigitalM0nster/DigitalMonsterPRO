@@ -67,6 +67,7 @@ import {
 	registerSiteNavigationProgressOwner,
 	resolveStoryRest,
 } from "@/three/render/transition/siteNavigationProgressOwner.js";
+import { requestSiteArcScrollRepaint } from "@/pages/portfolio/core/caseStudyAnimationFrame.js";
 
 /**
  * Imperative About story/wheel owner.
@@ -399,6 +400,7 @@ function createAboutExperienceRuntime() {
 			root.style.setProperty("--about-stage-position", stagePosition.toFixed(6));
 		}
 		syncAboutPanelHudFromStory(visualCurrent);
+		requestSiteArcScrollRepaint();
 		// White PCB particle bed — follows painted story even at rest (no blue edge SFX).
 		updateAboutParticleSound(current);
 	};

@@ -23,6 +23,39 @@ const CONTACTS_PANEL_SCROLL_REST = 0.1;
 /** Stagger step between clipped text exits (locale snakes keep their own delays). */
 const CLIP_STAGGER_STEP = 1;
 
+function cssTimeToMs(value) {
+	const token = String(value ?? "").trim();
+	const amount = Number.parseFloat(token) || 0;
+	return token.endsWith("ms") ? amount : amount * 1000;
+}
+
+function getLongestPanelTransition(panel) {
+	const elements = [panel, ...panel.querySelectorAll(`.${styles.textClipInner}`)];
+	let longest = { element: panel, property: null, totalMs: 0 };
+
+	for (const element of elements) {
+		const computed = window.getComputedStyle(element);
+		const properties = computed.transitionProperty.split(",").map((value) => value.trim());
+		const durations = computed.transitionDuration.split(",").map(cssTimeToMs);
+		const delays = computed.transitionDelay.split(",").map(cssTimeToMs);
+		const count = Math.max(properties.length, durations.length, delays.length);
+
+		for (let index = 0; index < count; index += 1) {
+			const totalMs = durations[index % durations.length] + delays[index % delays.length];
+			if (totalMs > longest.totalMs) {
+				const property = properties[index % properties.length];
+				longest = {
+					element,
+					property: property === "all" ? null : property,
+					totalMs,
+				};
+			}
+		}
+	}
+
+	return longest;
+}
+
 /**
  * @returns {"active" | "inactive top" | "inactive bottom" | "inactive"}
  * Forward scroll (progress > 0, down → next) → inactive top
@@ -55,11 +88,16 @@ function resolveContactsPanelScrollClass() {
  */
 function useContactsPanelScrollClass() {
 	const [panelClass, setPanelClass] = useState(resolveContactsPanelScrollClass);
+	const panelClassRef = useRef(panelClass);
 
 	useEffect(() => {
 		const sync = () => {
 			const next = resolveContactsPanelScrollClass();
-			setPanelClass((prev) => (prev === next ? prev : next));
+			if (panelClassRef.current === next) {
+				return;
+			}
+			panelClassRef.current = next;
+			setPanelClass(next);
 		};
 		sync();
 		const stopProgress = subscribeKey(store, "sceneCarouselProgress", sync);
@@ -73,6 +111,66 @@ function useContactsPanelScrollClass() {
 	}, []);
 
 	return panelClass;
+}
+
+/** Wait for the real outgoing CSS transition before removing the panel from paint. */
+function useContactsPanelRenderDisabled(panelClass, panelRef) {
+	const [exitCompleted, setExitCompleted] = useState(panelClass !== "active");
+	const exitCompletedRef = useRef(panelClass !== "active");
+
+	useEffect(() => {
+		if (panelClass === "active") {
+			exitCompletedRef.current = false;
+			setExitCompleted(false);
+			return undefined;
+		}
+		// Pages mounted as an inactive carousel neighbour start hidden; only an
+		// active → inactive transition owns the directional exit animation.
+		if (exitCompletedRef.current) {
+			return undefined;
+		}
+
+		const panel = panelRef.current;
+		if (!panel) {
+			exitCompletedRef.current = true;
+			setExitCompleted(true);
+			return undefined;
+		}
+
+		setExitCompleted(false);
+		const longest = getLongestPanelTransition(panel);
+		if (longest.totalMs <= 0) {
+			exitCompletedRef.current = true;
+			setExitCompleted(true);
+			return undefined;
+		}
+
+		let settled = false;
+		const finish = () => {
+			if (settled) return;
+			settled = true;
+			exitCompletedRef.current = true;
+			setExitCompleted(true);
+		};
+		const onTransitionEnd = (event) => {
+			if (event.target !== longest.element) return;
+			if (longest.property && event.propertyName !== longest.property) return;
+			finish();
+		};
+
+		longest.element.addEventListener("transitionend", onTransitionEnd);
+		// Fallback for interrupted browser transition events; primary completion is
+		// the actual transitionend of the longest staggered element.
+		const fallbackId = window.setTimeout(finish, Math.ceil(longest.totalMs) + 80);
+
+		return () => {
+			settled = true;
+			window.clearTimeout(fallbackId);
+			longest.element.removeEventListener("transitionend", onTransitionEnd);
+		};
+	}, [panelClass, panelRef]);
+
+	return panelClass !== "active" && exitCompleted;
 }
 
 function AttachIcon() {
@@ -113,6 +211,11 @@ function SubmitArrow() {
 function ContactsPage() {
 	const pageClassName = usePageStateClasses("contacts");
 	const panelScrollClass = useContactsPanelScrollClass();
+	const panelRef = useRef(null);
+	// Keep form/glitch component state mounted, but remove the dense glyph tree
+	// from layout, paint and compositing only after its directional exit finishes.
+	const panelRenderDisabled = useContactsPanelRenderDisabled(panelScrollClass, panelRef);
+	const panelInteractive = panelScrollClass === "active";
 	const { siteLocale } = useSnapshot(store);
 	const copy = getContactsCopy(siteLocale);
 
@@ -176,7 +279,16 @@ function ContactsPage() {
 		>
 			<div className={styles.panelSlot}>
 				<div
-					className={`${styles.panel} ${panelScrollClass}`}
+					ref={panelRef}
+					className={[
+						styles.panel,
+						panelScrollClass,
+						panelRenderDisabled && styles.renderDisabled,
+					]
+						.filter(Boolean)
+						.join(" ")}
+					aria-hidden={!panelInteractive}
+					inert={!panelInteractive ? "" : undefined}
 					onPointerDownCapture={guardHexHit}
 				>
 					<header className={styles.intro}>

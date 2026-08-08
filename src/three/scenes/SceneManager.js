@@ -4,17 +4,18 @@ import { resolveSceneId } from "./resolveSceneId.js";
 import { getSceneCarousel } from "@/three/render/transition/carouselPage.js";
 import { isCarouselRoutePage } from "../render/transition/SceneCarousel.js";
 import { getHexRevealFromTop, getHexShaderProgress } from "../render/overlay/hexShaderProgress.js";
+import { getCapabilitiesInternalHexState } from "../render/transition/capabilitiesInternalHex.js";
 import { resolveHexHitOwnerSceneId, yNormFromTopFromNdcY } from "../render/overlay/hexHitOwnership.js";
 import { SceneCarouselLifecycleDispatcher } from "./lifecycle/SceneCarouselLifecycleDispatcher.js";
 import { DigitalWhaleScene } from "./home/DigitalWhaleScene.js";
 import { PlaceholderScene } from "./types/PlaceholderScene.js";
 import { PortfolioHubScene } from "./portfolio/PortfolioHubScene.js";
 import { Case1Scene } from "./portfolio/case1/Case1Scene.js";
-import { Case3Scene } from "./portfolio/case3/Case3Scene.js";
 import { BelkaScene } from "./portfolio/case6/BelkaScene.js";
+import { Mmk1CapabilityScene } from "./capabilities/mmk1/Mmk1CapabilityScene.js";
 import { AboutScene } from "./about/AboutScene.js";
 import { ContactsScene } from "./contacts/ContactsScene.js";
-import { EmptyScene } from "./types/EmptyScene.js";
+import { SceneDragYawController } from "./interaction/SceneDragYawController.js";
 
 function createLayerRenderTarget(renderer, width, height, gfx) {
 	const dpr = renderer.getPixelRatio();
@@ -60,6 +61,7 @@ export class SceneManager {
 		this._caseMixPreviewId = null;
 		/** Cached case panel HUD meshes — avoid scanning all scenes twice per frame. */
 		this._casePanelHuds = null;
+		this.sceneDragYaw = new SceneDragYawController(this.store);
 		this.routeState = {
 			currentPage: "/",
 			teleportPage: "/",
@@ -70,9 +72,8 @@ export class SceneManager {
 		this.scenes.set("home", new DigitalWhaleScene(this.gfx));
 		this.scenes.get("home")?.initHeroText?.(this.renderer);
 		this.scenes.set("portfolioHub", new PortfolioHubScene({ inputElement: this.renderer.domElement }));
-		this.scenes.set("capabilities", new EmptyScene());
+		this.scenes.set("capabilities", new Mmk1CapabilityScene(this.renderer, this.store));
 		this.scenes.set("case01", new Case1Scene(this.renderer, this.store));
-		this.scenes.set("case04", new Case3Scene(this.renderer, this.store));
 		this.scenes.set("case06", new BelkaScene(this.renderer, this.store));
 		this.scenes.set("about", new AboutScene(this.store));
 		this.scenes.set("contacts", new ContactsScene(this.store));
@@ -324,7 +325,13 @@ export class SceneManager {
 	}
 
 	getBloomRevealForSceneId(sceneId) {
-		const scene = this.scenes.get(sceneId);
+		// Internal capability variants render through the same prepared scene and
+		// bloom pipeline. `capabilitiesLightTrails` is only a mix-layer identity;
+		// treating it as a missing scene faded bloom to zero during the hex wipe.
+		const resolvedSceneId = sceneId === "capabilitiesLightTrails"
+			? "capabilities"
+			: sceneId;
+		const scene = this.scenes.get(resolvedSceneId);
 		if (!scene) {
 			return 0;
 		}
@@ -349,6 +356,9 @@ export class SceneManager {
 			camera: this.camera,
 			store: this.store,
 			pointer,
+			// Passive visual response must survive hex Y-band hit ownership. The
+			// interaction frame may zero `pointer`, but never this viewport signal.
+			visualPointer: pointer,
 			pointerDown: this.getPointerDown(),
 			pointerBlocked: this.getPointerBlocked(),
 			viewportWidth: Math.floor(cssW * dpr),
@@ -482,11 +492,24 @@ export class SceneManager {
 		const carousel = getSceneCarousel();
 		const carouselActiveIds = carouselHub ? this._getCarouselActiveIdSet() : null;
 		const interactiveId = this._resolveInteractiveSceneId(carousel, carouselHub);
+		this.sceneDragYaw.update(delta, {
+			sceneId: interactiveId,
+			pointer: frame.visualPointer,
+			pointerDown: frame.pointerDown,
+			enabled: Boolean(
+				interactiveId
+				&& this.scenes.has(interactiveId)
+				&& !frame.pointerBlocked
+				&& !carousel.isInteractionLocked()
+				&& getHexShaderProgress() <= 0.001
+			),
+		});
+		const dragBlocksScenePointer = this.sceneDragYaw.isBlockingScenePointer();
 
 		for (const [id, scene] of this.scenes.entries()) {
 			const isActive = scene === this.getActiveScene();
 			const inCarousel = carouselActiveIds?.has(id) ?? false;
-			const acceptsPointer = id === interactiveId;
+			const acceptsPointer = id === interactiveId && !dragBlocksScenePointer;
 			const pointerState = {
 				pointerDown: acceptsPointer ? frame.pointerDown : false,
 				pointerBlocked: !acceptsPointer || frame.pointerBlocked,
@@ -573,12 +596,56 @@ export class SceneManager {
 
 	renderCarouselMix(options = {}) {
 		const carousel = getSceneCarousel();
+		const internalCapabilities = getCapabilitiesInternalHexState();
+		if (
+			carousel.currentId === "capabilities"
+			&& internalCapabilities.transitioning
+			&& carousel.getMixProgress() <= 0.0001
+			&& !carousel.isInteractionLocked()
+		) {
+			const sourceModels = this._renderSceneLayer(
+				"capabilities",
+				this._getMixLayerRenderTarget("capabilities", "a"),
+				{ capabilityVariant: "mmk1" },
+			);
+			const targetModels = this._renderSceneLayer(
+				"capabilities",
+				this._getMixLayerRenderTarget("capabilities", "b"),
+				{ capabilityVariant: "lightTrails" },
+			);
+			return {
+				sourceId: "capabilities",
+				targetId: "capabilitiesLightTrails",
+				sourceModels,
+				targetModels,
+			};
+		}
 		const { sourceId, targetId } = carousel.getMixSourceTargetIds();
 		const hexProgress = options.hexProgress ?? getHexShaderProgress();
 		const skipIdleTarget = hexProgress <= 0.0001 || options.skipIdleTargetLayer === true;
+		// Ring scroll has no click-hex lifecycle to wake a dormant capability
+		// target. Select and prepare the exact variant before its first real RT draw:
+		// portfolio -> capabilities shows 01/MMK-1, about -> capabilities shows 02.
+		const targetCapabilityVariant =
+			targetId === "capabilities"
+			&& !carousel.isHexNavigationActive()
+			&& hexProgress > 0.0001
+				? (sourceId === "about" ? "lightTrails" : "mmk1")
+				: null;
+		if (targetCapabilityVariant) {
+			this.scenes.get("capabilities")?.prepareCarouselMixTarget?.({
+				variant: targetCapabilityVariant,
+			});
+		}
 
 		const sourceModels = this._renderSceneLayer(sourceId, this._getMixLayerRenderTarget(sourceId, "a"));
-		const targetModels = sourceId === targetId || skipIdleTarget ? sourceModels : this._renderSceneLayer(targetId, this._getMixLayerRenderTarget(targetId, "b"));
+		const targetModels = sourceId === targetId || skipIdleTarget
+			? sourceModels
+			: this._renderSceneLayer(
+				targetId,
+				this._getMixLayerRenderTarget(targetId, "b"),
+				targetCapabilityVariant ? { capabilityVariant: targetCapabilityVariant } : undefined,
+			);
 
 		return {
 			sourceId,
@@ -636,6 +703,10 @@ export class SceneManager {
 			return target.texture;
 		}
 
+		if (sceneId === "capabilities") {
+			sceneObj.setCapabilityRenderVariant?.(options.capabilityVariant ?? null);
+		}
+
 		const threeScene = sceneObj.getScene?.();
 		if (!threeScene) {
 			return null;
@@ -649,6 +720,9 @@ export class SceneManager {
 		const carousel = getSceneCarousel();
 		const layerFrame = this._withSceneProgressFrame(frame, sceneId, carousel);
 		sceneObj.applyCamera?.(this.camera, layerFrame);
+		this.sceneDragYaw.apply(this.camera, sceneId, {
+			capabilityVariant: options.capabilityVariant ?? null,
+		});
 
 		const prevTarget = this.renderer.getRenderTarget();
 		const prevAutoClear = this.renderer.autoClear;
@@ -700,6 +774,7 @@ export class SceneManager {
 
 	dispose() {
 		this.disposed = true;
+		this.sceneDragYaw?.dispose();
 		for (const scene of this.scenes.values()) {
 			scene.dispose?.();
 		}

@@ -15,7 +15,39 @@ const GRID_SIZE = 64;
 const GRID_DIVISIONS = 104;
 const ROOT_DESKTOP = new THREE.Vector3(4.15, -3.18, 0);
 const ROOT_MOBILE = new THREE.Vector3(0, -2.15, 0);
-const CRANE_ROTATION_Y = -Math.PI / 2 + 0.35;
+const CRANE_ROTATION_Y = THREE.MathUtils.degToRad(-77);
+const CRANE_ANCHOR_REFERENCE_ROTATION_Y = -Math.PI / 2 + 0.35;
+const CONSTRUCTION_BLOCK_ROTATION_Y = CRANE_ANCHOR_REFERENCE_ROTATION_Y;
+const CRANE_WIRES_FAKE_LIT = {
+	baseColor: 0x252b2f,
+	rimColor: 0x839198,
+	rimStrength: 0.72,
+	rimPower: 2.6,
+	metalness: 1,
+	keyStrength: 0.48,
+	fillStrength: 0.2,
+	ambient: 0.12,
+	specularStrength: 0.82,
+	roughness: 0.3,
+	surfaceVariation: 0.06,
+	weathering: 0.025,
+	brushing: 0.2,
+};
+const CRANE_LIGHTS_FAKE_LIT = {
+	baseColor: 0x52abff,
+	rimColor: 0xd2ebff,
+	rimStrength: 2.4,
+	rimPower: 2,
+	metalness: 0.12,
+	keyStrength: 0.2,
+	fillStrength: 0.1,
+	ambient: 14.8,
+	specularStrength: 1.2,
+	roughness: 0.08,
+	surfaceVariation: 0,
+	weathering: 0,
+	brushing: 0,
+};
 /** Trail length as a fraction of each vertical rail. */
 const BEACON_TRAIL_FRAC = 0.44;
 const BEACON_BASE_Y = 0.05;
@@ -187,7 +219,7 @@ function footprintEdgeDistance(px, pz, foot) {
 }
 
 function createConstructionBlockDefinitions() {
-	const blockRotation = CRANE_ROTATION_Y;
+	const blockRotation = CONSTRUCTION_BLOCK_ROTATION_Y;
 	const blocks = [
 		{ x: 0, z: 0.08, localX: 0.3, localZ: -0.1, width: 1.85, height: 0.1, depth: 2.55, rotation: blockRotation },
 		{ x: 0, z: 0.0, localX: 0.4, localZ: -0.1, width: 1.3, height: 0.1, depth: 2.0, baseY: 0.1, rotation: blockRotation },
@@ -218,6 +250,8 @@ function createDigitalNodes(disposables, cityBuildings, constructionBlocks) {
 	const group = new THREE.Group();
 	const nodePositions = [];
 	const nodeColors = [];
+	const nodeTwinklePhases = [];
+	const nodeTwinkleSpeeds = [];
 	const verticalDefinitions = createBeaconSitesInFrontOfCity(cityBuildings, constructionBlocks);
 	const spacing = GRID_SIZE / GRID_DIVISIONS;
 	const halfDivisions = GRID_DIVISIONS / 2;
@@ -230,12 +264,23 @@ function createDigitalNodes(disposables, cityBuildings, constructionBlocks) {
 			nodePositions.push(x, 0.035, z);
 			const brightness = 0.35 + ((gx * 17 + gz * 29) ** 2 % 19) / 32;
 			nodeColors.push(0, brightness * 0.78, brightness);
+			const phaseSeed = Math.sin(gx * 12.9898 + gz * 78.233) * 43758.5453;
+			const speedSeed = Math.sin(gx * 39.3467 - gz * 11.1351) * 24634.6345;
+			const phaseRandom = phaseSeed - Math.floor(phaseSeed);
+			const speedRandom = speedSeed - Math.floor(speedSeed);
+			nodeTwinklePhases.push(phaseRandom * Math.PI * 2);
+			nodeTwinkleSpeeds.push(0.55 + speedRandom * 1.15);
 		}
 	}
 
 	const pointsGeometry = new THREE.BufferGeometry();
 	pointsGeometry.setAttribute("position", new THREE.Float32BufferAttribute(nodePositions, 3));
 	pointsGeometry.setAttribute("color", new THREE.Float32BufferAttribute(nodeColors, 3));
+	pointsGeometry.setAttribute("aTwinklePhase", new THREE.Float32BufferAttribute(nodeTwinklePhases, 1));
+	pointsGeometry.setAttribute("aTwinkleSpeed", new THREE.Float32BufferAttribute(nodeTwinkleSpeeds, 1));
+	const pointTwinkleUniforms = {
+		uTwinkleTime: { value: 0 },
+	};
 	const pointsMaterial = new THREE.PointsMaterial({
 		color: 0xffffff,
 		vertexColors: true,
@@ -251,6 +296,32 @@ function createDigitalNodes(disposables, cityBuildings, constructionBlocks) {
 		fog: true,
 		toneMapped: false,
 	});
+	pointsMaterial.userData.twinkleUniforms = pointTwinkleUniforms;
+	pointsMaterial.onBeforeCompile = (shader) => {
+		Object.assign(shader.uniforms, pointTwinkleUniforms);
+		shader.vertexShader = shader.vertexShader
+			.replace(
+				"#include <common>",
+				`#include <common>
+attribute float aTwinklePhase;
+attribute float aTwinkleSpeed;
+uniform float uTwinkleTime;
+varying float vTwinkle;`,
+			)
+			.replace(
+				"#include <begin_vertex>",
+				`#include <begin_vertex>
+float twinkleWave = 0.5 + 0.5 * sin(uTwinkleTime * aTwinkleSpeed + aTwinklePhase);
+vTwinkle = mix(0.18, 1.0, pow(twinkleWave, 1.6));`,
+			);
+		shader.fragmentShader = shader.fragmentShader
+			.replace("#include <common>", "#include <common>\nvarying float vTwinkle;")
+			.replace(
+				"#include <map_particle_fragment>",
+				"#include <map_particle_fragment>\ndiffuseColor.a *= vTwinkle;",
+			);
+	};
+	pointsMaterial.customProgramCacheKey = () => "case3-digital-points-random-twinkle-v1";
 	group.add(new THREE.Points(pointsGeometry, pointsMaterial));
 	disposables.push(pointsGeometry, pointsMaterial);
 
@@ -598,30 +669,63 @@ function createNeonConstructionBlocks(disposables) {
 }
 
 function mergeCraneGeometry(sourceScene) {
-	const geometries = [];
+	const bodyGeometries = [];
+	const wireGeometries = [];
+	const lightGeometries = [];
 	sourceScene.updateMatrixWorld(true);
 	sourceScene.traverse((object) => {
 		if (!object.isMesh || !object.geometry?.attributes?.position) return;
+		const objectName = String(object.name ?? "").toLowerCase();
+		const materialNames = (Array.isArray(object.material) ? object.material : [object.material])
+			.map((material) => String(material?.name ?? "").toLowerCase());
+		const isWire = objectName === "wires" || materialNames.includes("wiresmaterial");
+		const isLight = objectName.startsWith("lightsphere") || materialNames.includes("red");
 		let geometry = object.geometry.index ? object.geometry.toNonIndexed() : object.geometry.clone();
 		geometry.applyMatrix4(object.matrixWorld);
 		for (const attributeName of Object.keys(geometry.attributes)) {
-			if (attributeName !== "position") geometry.deleteAttribute(attributeName);
+			if (attributeName !== "position") {
+				geometry.deleteAttribute(attributeName);
+			}
 		}
 		geometry.clearGroups();
-		geometries.push(geometry);
+		if (isLight) lightGeometries.push(geometry);
+		else if (isWire) wireGeometries.push(geometry);
+		else bodyGeometries.push(geometry);
 	});
 
-	if (geometries.length === 0) return null;
-	const merged = mergeGeometries(geometries, false);
-	for (const geometry of geometries) geometry.dispose();
-	merged?.computeVertexNormals();
-	return merged;
+	if (bodyGeometries.length === 0) return null;
+	const body = mergeGeometries(bodyGeometries, false);
+	const wires = wireGeometries.length > 0 ? mergeGeometries(wireGeometries, false) : null;
+	const lights = lightGeometries.length > 0 ? mergeGeometries(lightGeometries, false) : null;
+	for (const geometry of [...bodyGeometries, ...wireGeometries, ...lightGeometries]) geometry.dispose();
+	for (const geometry of [body, wires, lights]) {
+		geometry?.computeVertexNormals();
+		geometry?.computeBoundingBox();
+		geometry?.computeBoundingSphere();
+	}
+	return { body, wires, lights };
 }
 
 export class Case3Scene {
-	constructor(renderer, store) {
+	/**
+	 * @param {import("three").WebGLRenderer} renderer
+	 * @param {object} store
+	 * @param {{
+	 *   sceneId?: string,
+	 *   matchPage?: (pathname: string) => boolean,
+	 *   createPanelHud?: boolean,
+	 *   panelHudRequiresOpenedCase?: boolean,
+	 *   enableBlockHover?: boolean,
+	 *   settleRootOnEnter?: boolean,
+	 * }} [options]
+	 */
+	constructor(renderer, store, options = {}) {
 		this.renderer = renderer;
 		this.store = store;
+		this.sceneId = options.sceneId ?? "case04";
+		this.matchPage = options.matchPage ?? isCase3Path;
+		this.panelHudRequiresOpenedCase = options.panelHudRequiresOpenedCase !== false;
+		this.settleRootOnEnter = options.settleRootOnEnter === true;
 		this.threeScene = new THREE.Scene();
 		this.threeScene.fog = new THREE.FogExp2(0x00050b, 0.074);
 		this.root = new THREE.Group();
@@ -643,6 +747,10 @@ export class Case3Scene {
 		this.pointerDown = false;
 		this.pointerBlocked = true;
 		this.craneMesh = null;
+		this.craneBodyMesh = null;
+		this.craneWiresMesh = null;
+		this.craneLightsMesh = null;
+		this._craneRotationY = CRANE_ROTATION_Y;
 		this.pointerInteract = null;
 		this.gridRadar = null;
 		this._radarStateIndex = -1;
@@ -659,18 +767,22 @@ export class Case3Scene {
 		this.digital = createDigitalNodes(this.disposables, cityBuildings, constructionBlocks);
 		this.root.add(this.city, this.grid, this.constructionBlocks, this.digital.group);
 
-		this.pointerInteract = createCase3PointerInteract({
-			constructionBlocks: this.constructionBlocks,
-			store: this.store,
-			disposables: this.disposables,
-		});
+		this.pointerInteract = options.enableBlockHover === false
+			? null
+			: createCase3PointerInteract({
+					constructionBlocks: this.constructionBlocks,
+					store: this.store,
+					disposables: this.disposables,
+				});
 
-		/** Left panel HUD — same WebGL path as Nipigas (Case1). */
-		this.panelHud = createCaseStudyPanelHud(this.threeScene);
+		/** Left panel HUD — only case-study routes need the CanvasTexture path. */
+		this.panelHud = options.createPanelHud === false
+			? null
+			: createCaseStudyPanelHud(this.threeScene);
 
 		this.lifecycle = createCaseSceneLifecycle(this, {
-			sceneId: "case04",
-			matchPage: isCase3Path,
+			sceneId: this.sceneId,
+			matchPage: this.matchPage,
 			getRoot: () => this.root,
 			getStore: () => this.store,
 			getPanelHud: () => this.panelHud,
@@ -681,12 +793,19 @@ export class Case3Scene {
 				onEnterShow: () => {
 					this.lifecycle.setActivePage(true);
 					const mobile = (typeof window !== "undefined" ? window.innerWidth : 1280) <= 768;
+					if (this.settleRootOnEnter) {
+						this.root.position.copy(mobile ? ROOT_MOBILE : ROOT_DESKTOP);
+					}
 					this.root.scale.setScalar(mobile ? 0.72 : 1);
 					this._radarStateIndex = this.store?.portfolioExperience?.activeStateIndex ?? 0;
 					this.gridRadar?.trigger();
 				},
 				onMixPreviewShow: () => {
-					this.root.scale.setScalar(1);
+					const mobile = (typeof window !== "undefined" ? window.innerWidth : 1280) <= 768;
+					if (this.settleRootOnEnter) {
+						this.root.position.copy(mobile ? ROOT_MOBILE : ROOT_DESKTOP);
+					}
+					this.root.scale.setScalar(mobile ? 0.72 : 1);
 				},
 				onExitHold: (frame) => {
 					const mobile = (frame?.viewportWidth ?? window.innerWidth) <= 768;
@@ -712,25 +831,46 @@ export class Case3Scene {
 			.loadAsync("/models/case3/crane1.glb")
 			.then((gltf) => {
 				if (this._disposed || !this.threeScene) return false;
-				const mergedGeometry = mergeCraneGeometry(gltf.scene);
-				if (!mergedGeometry) throw new Error("Crane GLB contains no mesh geometry");
+				const geometries = mergeCraneGeometry(gltf.scene);
+				if (!geometries?.body) throw new Error("Crane GLB contains no body mesh geometry");
 				const craneMaterial = createCase3FakeLitMaterial("crane");
-				const crane = new THREE.Mesh(mergedGeometry, craneMaterial);
-				this.disposables.push(mergedGeometry, craneMaterial);
+				const wiresMaterial = createCase3FakeLitMaterial("crane", CRANE_WIRES_FAKE_LIT);
+				const lightsMaterial = createCase3FakeLitMaterial("crane", CRANE_LIGHTS_FAKE_LIT);
+				const crane = new THREE.Group();
+				const bodyMesh = new THREE.Mesh(geometries.body, craneMaterial);
+				const wiresMesh = geometries.wires
+					? new THREE.Mesh(geometries.wires, wiresMaterial)
+					: null;
+				const lightsMesh = geometries.lights
+					? new THREE.Mesh(geometries.lights, lightsMaterial)
+					: null;
+				crane.add(bodyMesh);
+				if (wiresMesh) crane.add(wiresMesh);
+				if (lightsMesh) crane.add(lightsMesh);
+				this.disposables.push(geometries.body, craneMaterial, wiresMaterial, lightsMaterial);
+				if (geometries.wires) this.disposables.push(geometries.wires);
+				if (geometries.lights) this.disposables.push(geometries.lights);
 				// Normalize from the source dimensions first; camera angle must not change model scale.
 				const initialBox = new THREE.Box3().setFromObject(crane);
 				const initialSize = initialBox.getSize(new THREE.Vector3());
 				const scale = 8.2 / Math.max(initialSize.x, initialSize.y, initialSize.z, 0.001);
 				crane.scale.setScalar(scale);
-				// The asset's boom points along depth. Rotate it into a low three-quarter elevation.
-				crane.rotation.y = CRANE_ROTATION_Y;
+				// Keep placement/pivot in the pose used when MMK-1 hotspot coordinates were
+				// calibrated. The live initial rotation is applied only after centering, so
+				// changing it rotates crane + anchors around the same physical pivot.
+				crane.rotation.y = CRANE_ANCHOR_REFERENCE_ROTATION_Y;
 				crane.updateMatrixWorld(true);
 				const box = new THREE.Box3().setFromObject(crane);
 				const center = box.getCenter(new THREE.Vector3());
 				// The tower (not the full boom bounding-box center) belongs over the HUD rings.
 				crane.position.set(-center.x - 0.38, -box.min.y, -center.z);
+				crane.rotation.y = this._craneRotationY;
+				crane.updateMatrixWorld(true);
 				this.modelRoot.add(crane);
 				this.craneMesh = crane;
+				this.craneBodyMesh = bodyMesh;
+				this.craneWiresMesh = wiresMesh;
+				this.craneLightsMesh = lightsMesh;
 
 				this.loaded = true;
 				if (this._mixPreview) {
@@ -745,6 +885,51 @@ export class Case3Scene {
 				console.error("[Case3Scene] crane load failed", error);
 				return false;
 			});
+	}
+
+	getCraneRotationY() {
+		return this.craneMesh?.rotation.y ?? this._craneRotationY;
+	}
+
+	setCraneRotationY(rotationY) {
+		if (!Number.isFinite(rotationY)) {
+			return false;
+		}
+		this._craneRotationY = rotationY;
+		if (this.craneMesh) {
+			this.craneMesh.rotation.y = rotationY;
+			this.craneMesh.updateMatrixWorld(true);
+		}
+		return true;
+	}
+
+	/** Matrix used by world-calibrated capability markers at the settled enter pose. */
+	getCraneAnchorReferenceMatrix() {
+		if (!this.craneMesh) return null;
+		const rootMatrix = new THREE.Matrix4().compose(
+			ROOT_DESKTOP,
+			this.root.quaternion,
+			new THREE.Vector3(1, 1, 1),
+		);
+		this.modelRoot.updateMatrix();
+		const craneQuaternion = new THREE.Quaternion().setFromEuler(
+			new THREE.Euler(
+				this.craneMesh.rotation.x,
+				CRANE_ANCHOR_REFERENCE_ROTATION_Y,
+				this.craneMesh.rotation.z,
+				this.craneMesh.rotation.order,
+			),
+		);
+		const craneMatrix = new THREE.Matrix4().compose(
+			this.craneMesh.position,
+			craneQuaternion,
+			this.craneMesh.scale,
+		);
+		return rootMatrix.multiply(this.modelRoot.matrix).multiply(craneMatrix);
+	}
+
+	resetCraneRotation() {
+		return this.setCraneRotationY(CRANE_ROTATION_Y);
 	}
 
 	resetCarouselState() {
@@ -775,6 +960,11 @@ export class Case3Scene {
 
 	setMixPreviewActive(active) {
 		this.lifecycle.setMixPreviewActive(active);
+	}
+
+	/** Wake a prepared target before the first hex frame; no route enter required. */
+	prepareCarouselMixTarget() {
+		this.lifecycle.setMixPreviewActive(true);
 	}
 
 	shouldRender() {
@@ -816,6 +1006,7 @@ export class Case3Scene {
 			showCase: this.showCase,
 			mixPreview: this._mixPreview,
 			store: this.store,
+			active: this.showCase && (!this.panelHudRequiresOpenedCase || Boolean(this.store?.openedCase)),
 		});
 
 		if (!this.loaded) return;
@@ -860,8 +1051,9 @@ export class Case3Scene {
 
 		const radar = this.gridRadar?.update(delta) ?? { intensity: 0 };
 		const radarIntensity = radar.intensity;
-		this.digital.pointsMaterial.opacity =
-			0.72 + Math.sin(this.elapsed * 1.8) * 0.2 + radarIntensity * CASE3_RADAR.pointsBoost;
+		this.digital.pointsMaterial.opacity = 0.88 + radarIntensity * CASE3_RADAR.pointsBoost;
+		const pointTwinkleUniforms = this.digital.pointsMaterial.userData.twinkleUniforms;
+		if (pointTwinkleUniforms) pointTwinkleUniforms.uTwinkleTime.value = this.elapsed;
 		const cityMat = this.city.userData.material;
 		if (cityMat) {
 			cityMat.opacity = this._cityBaseOpacity + radarIntensity * CASE3_RADAR.cityBoost;

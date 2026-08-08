@@ -9,7 +9,6 @@ import {
 } from "../shaders/digitalWhaleShaders.js";
 import { withFogUniforms } from "./shaderFogUniforms.js";
 import { digitalWhaleConfig } from "../digitalWhaleConfig.js";
-import { getGraphicsTier } from "@/functions/getGraphicsTier.js";
 import { getOceanTileCountCap } from "./heroSceneTierScale.js";
 
 /** Ширина одного тайла сетки по X — для бесшовного скролла. */
@@ -108,6 +107,8 @@ export function createOceanSurface(gridSize, meshSegments, tileCount = 5) {
 		fog: true,
 		transparent: true,
 		depthWrite: false,
+		// Additive halo makes the ocean emit light; the shader caps RGB energy so
+		// the glow does not return to the old white-clipped cores.
 		blending: THREE.AdditiveBlending,
 		uniforms: withFogUniforms({
 			uTime: { value: 0 },
@@ -176,6 +177,8 @@ export function createOceanParticles(gridSize) {
 		fog: true,
 		transparent: true,
 		depthWrite: false,
+		// Additive is required for a visible luminous halo. RGB energy is bounded
+		// in the fragment shader, so individual cores retain pointColor.
 		blending: THREE.AdditiveBlending,
 		uniforms: withFogUniforms({
 			uTime: { value: 0 },

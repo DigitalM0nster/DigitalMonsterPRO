@@ -24,13 +24,20 @@ export function createCaseStudyPanelHud(threeScene) {
  * and stomps the target's warm stage-1 textures before enter.
  *
  * @param {CaseStudyPanelHudMesh | null | undefined} panelHud
- * @param {{ showCase?: boolean, mixPreview?: boolean, store?: { openedCase?: unknown } | null }} opts
+ * @param {{ showCase?: boolean, mixPreview?: boolean, store?: { openedCase?: unknown } | null, active?: boolean | null }} opts
  */
-export function syncCaseStudyPanelHud(panelHud, { showCase = false, mixPreview = false, store = null } = {}) {
+export function syncCaseStudyPanelHud(panelHud, {
+	showCase = false,
+	mixPreview = false,
+	store = null,
+	active = null,
+} = {}) {
 	if (!panelHud) return;
 
 	void mixPreview;
-	const hudActive = Boolean(showCase && store?.openedCase);
+	const hudActive = active == null
+		? Boolean(showCase && store?.openedCase)
+		: Boolean(active);
 	if (hudActive) {
 		// Content only on bridge revision; anim uniforms every active frame.
 		panelHud.syncFromBridge();

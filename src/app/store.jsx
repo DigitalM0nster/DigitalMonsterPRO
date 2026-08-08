@@ -132,6 +132,22 @@ export const store = proxy({
 		mobileSwipeProgress: 0,
 	},
 	/**
+	 * Page-level capabilities story. A capability is one stage regardless of how
+	 * many prepared text variants or interactive detail states its scene owns.
+	 */
+	capabilitiesExperience: {
+		active: false,
+		progress: 0,
+		progressTarget: 0,
+		storyProgress: 0,
+		storyProgressTarget: 0,
+		stagePosition: 0,
+		activeStageIndex: 0,
+		activeStageId: "mmk1",
+		investigating: false,
+		activeHotspotId: null,
+	},
+	/**
 	 * About story bridge. Four stages each own 0…1 (`stageProgress`);
 	 * `storyProgress` is 0…4; `progress` is overall 0…1 (story/4) for hex edges.
 	 */

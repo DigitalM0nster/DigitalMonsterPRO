@@ -286,5 +286,8 @@ export function createCase3PointerInteract({ constructionBlocks, store, disposab
 			lastCanHit = false;
 			if (hoveredIndex >= 0) applyHover(-1);
 		},
+		isHovered() {
+			return hoveredIndex >= 0;
+		},
 	};
 }

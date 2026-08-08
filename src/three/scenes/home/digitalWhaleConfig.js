@@ -27,13 +27,13 @@ const DIGITAL_WHALE_PRESETS = {
 			scaleZ: 0.4,
 			gridCols: 408,
 			gridRows: 110,
-			pointScale: 2.8,
-			pointAlpha: 1,
-			pointGlow: 6,
-			gridAlpha: 1.52,
+			pointScale: 12,
+			pointAlpha: 1.5,
+			pointGlow: 12,
+			gridAlpha: 3,
 			waveAmp: 0.7,
 			rippleAmp: 0.45,
-			pointColor: "#1da3f7",
+			pointColor: "#4dbbff",
 			gridColor: "#002aff",
 			/** Локальное смещение центра ряби (от кита или океана — см. rippleFollowWhale). */
 			rippleCenterX: -3,
@@ -41,7 +41,7 @@ const DIGITAL_WHALE_PRESETS = {
 			/** true — смещение от кита; false — от группы океана (фиксированная позиция на воде). */
 			rippleFollowWhale: false,
 			/** Постоянный скролл сетки по X (ед./с). */
-			scrollSpeedX: 5,
+			scrollSpeedX: 2,
 			/** Скорость волн по Z (ед./с). Положительное — от камеры, в −Z. */
 			scrollSpeedZ: 3.5,
 		},
@@ -194,7 +194,7 @@ const DIGITAL_WHALE_PRESETS = {
 			/** true — смещение от кита; false — от группы океана (фиксированная позиция на воде). */
 			rippleFollowWhale: false,
 			/** Постоянный скролл сетки по X (ед./с). */
-			scrollSpeedX: 5,
+			scrollSpeedX: 2,
 			/** Скорость волн по Z (ед./с). Положительное — от камеры, в −Z. */
 			scrollSpeedZ: 3.5,
 		},

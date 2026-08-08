@@ -80,10 +80,17 @@ import { normalizeSiteLocale } from "@/functions/siteLocale.js";
 import { isCaseEnterFromAnotherCase } from "@/functions/hexNavigation.js";
 import { LEFT_MENU_SELECTOR } from "@/three/scenes/home/heroText/heroTextLayout.js";
 import { subscribeLeftMenuContentAnchor } from "@/components/LeftMenu/leftMenuContentAnchor.js";
+import {
+	resetCaseStudyStageRailHeaderLink,
+	syncCaseStudyStageRailHeaderLinkActiveFloat,
+} from "./caseStudyStageRail.js";
 import styles from "./CaseStudyPanelHudPainter.module.scss";
 
 /** Stage rail is outside chrome mosaic bounds — fade with full enter/exit only. */
-function resolveStageRailOpacity() {
+function resolveStageRailOpacity(keepVisible = false) {
+	if (keepVisible) {
+		return 1;
+	}
 	const enterProgress = getCasePanelHudEnterProgress();
 	if (enterProgress == null) {
 		return 1;
@@ -103,6 +110,9 @@ function resolveStageRailOpacity() {
 export default function CaseStudyPanelHudPainter({
 	hideProjectNavigation = false,
 	skipPanelIntro = false,
+	stageRailStates = null,
+	stageRailInteractive = true,
+	keepStageRailVisible = false,
 }) {
 	const { phase: routePhase } = useRouteTransitionContext();
 	const { pathname } = useLocation();
@@ -155,6 +165,49 @@ export default function CaseStudyPanelHudPainter({
 			locale: siteLocale,
 		});
 	}, [activeStateIndex, project, siteLocale]);
+
+	const resolveChromeFrame = useCallback(() => {
+		if (Array.isArray(stageRailStates) && stageRailStates.length > 0) {
+			const experience = store.capabilitiesExperience;
+			syncCaseStudyStageRailHeaderLinkActiveFloat(Number(experience.stagePosition) || 0);
+			const railIndex = Math.max(
+				0,
+				Math.min(stageRailStates.length - 1, Number(experience.activeStageIndex) || 0),
+			);
+			return {
+				states: stageRailStates,
+				activeStateId: experience.activeStageId ?? stageRailStates[railIndex]?.id,
+				activeStateIndex: railIndex,
+				activeFloat: Number(experience.stagePosition) || 0,
+				highlightPast: false,
+				headerLinkVisual: {
+					phase: "shown",
+					t: 1,
+					pathCap: 1,
+					anchorIndex: railIndex,
+				},
+				chapterBase: 1,
+			};
+		}
+		syncCaseStudyStageRailHeaderLinkActiveFloat(null);
+		return {
+			states: frameData.states,
+			activeStateId,
+			activeStateIndex: store.portfolioExperience.activeStateIndex ?? activeStateIndex,
+			chapterBase: frameData.chapterBase ?? project.config.caseStudy?.chapterBase ?? 0,
+		};
+	}, [
+		activeStateId,
+		activeStateIndex,
+		frameData.chapterBase,
+		frameData.states,
+		project.config.caseStudy?.chapterBase,
+		stageRailStates,
+	]);
+
+	useEffect(() => () => {
+		syncCaseStudyStageRailHeaderLinkActiveFloat(null);
+	}, []);
 
 	const projectNavigationData = useMemo(
 		() => resolveCaseProjectCanvasNavigationData(project, siteLocale),
@@ -315,13 +368,20 @@ export default function CaseStudyPanelHudPainter({
 	}, [hideProjectNavigation]);
 
 	const publishStageHits = useCallback((hits) => {
+		if (!stageRailInteractive) {
+			if (lastStageHitsSigRef.current !== "") {
+				lastStageHitsSigRef.current = "";
+				setStageHitRegions([]);
+			}
+			return;
+		}
 		const next = Array.isArray(hits) ? hits : [];
 		const hitsSig = hitRegionsSignature(next);
 		if (hitsSig !== lastStageHitsSigRef.current) {
 			lastStageHitsSigRef.current = hitsSig;
 			setStageHitRegions(next);
 		}
-	}, []);
+	}, [stageRailInteractive]);
 
 	// Adopt preloader-warmed canvases on case enter only — never on locale change
 	// (locale rebind of stage-0 warm over the live stage flashes / skips paint).
@@ -430,12 +490,7 @@ export default function CaseStudyPanelHudPainter({
 			pendingChrome?.projectId ?? pathname,
 		].join("|");
 		const chromeChanged = chromeKey !== lastChromeKeyRef.current;
-		const chromeFrame = {
-			states: frameData.states,
-			activeStateId,
-			activeStateIndex: store.portfolioExperience.activeStateIndex ?? activeStateIndex,
-			chapterBase: frameData.chapterBase ?? project.config.caseStudy?.chapterBase ?? 0,
-		};
+		const chromeFrame = resolveChromeFrame();
 
 		const paintChromeLive = () => {
 			const chromeCanvas = chromeCanvasRef.current;
@@ -515,7 +570,7 @@ export default function CaseStudyPanelHudPainter({
 					...chromeArgs,
 					skipClear: true,
 					stageRailOnly: true,
-					stageRailOpacity: resolveStageRailOpacity(),
+					stageRailOpacity: resolveStageRailOpacity(keepStageRailVisible),
 				});
 				publishChromeHits(null);
 				publishStageHits(railPainted?.stageHitRegions);
@@ -526,7 +581,7 @@ export default function CaseStudyPanelHudPainter({
 			chromeMosaicFrozenKeyRef.current = "";
 			const painted = paintCaseStudyPanelHudChrome({
 				...chromeArgs,
-				stageRailOpacity: resolveStageRailOpacity(),
+				stageRailOpacity: resolveStageRailOpacity(keepStageRailVisible),
 			});
 			chromeBoundsRef.current = painted?.chromeBounds ?? null;
 			publishChromeHits(hideProjectNavigation ? null : painted);
@@ -753,11 +808,9 @@ export default function CaseStudyPanelHudPainter({
 		}
 	}, [
 		activeStateId,
-		activeStateIndex,
-		frameData.chapterBase,
-		frameData.states,
 		hideProjectNavigation,
 		hudReady,
+		keepStageRailVisible,
 		panelConfigRevision,
 		pathname,
 		project,
@@ -765,6 +818,7 @@ export default function CaseStudyPanelHudPainter({
 		publishStageHits,
 		publishChromeHits,
 		publishHud,
+		resolveChromeFrame,
 		resolvePaintFrames,
 		routePhase,
 		siteLocale,
@@ -805,12 +859,7 @@ export default function CaseStudyPanelHudPainter({
 			navData?.nextProject?.config?.id ?? "",
 			pendingChrome?.projectId ?? pathname,
 		].join("|");
-		const chromeFrame = {
-			states: frameData.states,
-			activeStateId,
-			activeStateIndex: store.portfolioExperience.activeStateIndex ?? activeStateIndex,
-			chapterBase: frameData.chapterBase ?? project.config.caseStudy?.chapterBase ?? 0,
-		};
+		const chromeFrame = resolveChromeFrame();
 
 		const chromeCanvas = chromeCanvasRef.current;
 		if (!chromeCanvas) {
@@ -888,7 +937,7 @@ export default function CaseStudyPanelHudPainter({
 				...chromeArgs,
 				skipClear: true,
 				stageRailOnly: true,
-				stageRailOpacity: resolveStageRailOpacity(),
+				stageRailOpacity: resolveStageRailOpacity(keepStageRailVisible),
 			});
 			publishChromeHits(null);
 			publishStageHits(railPainted?.stageHitRegions);
@@ -899,7 +948,7 @@ export default function CaseStudyPanelHudPainter({
 		chromeMosaicFrozenKeyRef.current = "";
 		const painted = paintCaseStudyPanelHudChrome({
 			...chromeArgs,
-			stageRailOpacity: resolveStageRailOpacity(),
+			stageRailOpacity: resolveStageRailOpacity(keepStageRailVisible),
 		});
 		chromeBoundsRef.current = painted?.chromeBounds ?? null;
 		publishChromeHits(hideProjectNavigation ? null : painted);
@@ -907,15 +956,14 @@ export default function CaseStudyPanelHudPainter({
 		lastChromeKeyRef.current = chromeKey;
 	}, [
 		activeStateId,
-		activeStateIndex,
-		frameData.chapterBase,
-		frameData.states,
 		hideProjectNavigation,
+		keepStageRailVisible,
 		pathname,
 		project,
 		projectNavigationData,
 		publishChromeHits,
 		publishStageHits,
+		resolveChromeFrame,
 		siteLocale,
 	]);
 
@@ -942,7 +990,7 @@ export default function CaseStudyPanelHudPainter({
 			? (getProjectByRoute(livePending.route) ?? project)
 			: project;
 		const paintPath = livePending?.route ?? pathname;
-		const activeIndex = store.portfolioExperience.activeStateIndex ?? 0;
+		const chromeFrame = resolveChromeFrame();
 		const painted = paintCaseStudyPanelHudChrome({
 			canvas: chromeCanvas,
 			viewportW,
@@ -951,25 +999,19 @@ export default function CaseStudyPanelHudPainter({
 			pathname: paintPath,
 			projectNavigationData: navData,
 			hideProjectNavigation,
-			frame: {
-				states: frameData.states,
-				activeStateId: frameData.states[activeIndex]?.id ?? activeStateId,
-				activeStateIndex: activeIndex,
-				chapterBase: frameData.chapterBase ?? project.config.caseStudy?.chapterBase ?? 0,
-			},
+			frame: chromeFrame,
 			stageRailOnly: true,
-			stageRailOpacity: resolveStageRailOpacity(),
+			stageRailOpacity: resolveStageRailOpacity(keepStageRailVisible),
 		});
 		publishStageHits(painted?.stageHitRegions);
 	}, [
-		activeStateId,
-		frameData.chapterBase,
-		frameData.states,
 		hideProjectNavigation,
+		keepStageRailVisible,
 		pathname,
 		project,
 		projectNavigationData,
 		publishStageHits,
+		resolveChromeFrame,
 	]);
 
 	const paintChromeStageRailRef = useRef(paintChromeStageRail);
@@ -1002,7 +1044,7 @@ export default function CaseStudyPanelHudPainter({
 	const requestPaintRef = useRef(requestPaint);
 	requestPaintRef.current = requestPaint;
 
-	useEffect(() => {
+	useLayoutEffect(() => {
 		return subscribePendingCaseChromeNav(() => {
 			// Chrome names only — never force left-content re-upload.
 			lastChromeKeyRef.current = "";
@@ -1077,11 +1119,14 @@ export default function CaseStudyPanelHudPainter({
 		chromeBoundsRef.current = null;
 		introFinishedRef.current = false;
 		hoveredProjectNavIdRef.current = null;
-		adoptedRouteRef.current = "";
 		setHudReady(false);
 		setCasePanelHudEnterProgress(0);
+		if (Array.isArray(stageRailStates) && stageRailStates.length > 0) {
+			resetCaseStudyStageRailHeaderLink(store.capabilitiesExperience.activeStageIndex, { animate: true });
+			wakeCaseStudyAnimationFrame();
+		}
 		requestPaintRef.current(true);
-	}, [project.config.id]);
+	}, [project.config.id, stageRailStates]);
 
 	useEffect(() => {
 		let cancelled = false;
@@ -1096,12 +1141,16 @@ export default function CaseStudyPanelHudPainter({
 				return;
 			}
 			fontsReadyRef.current = true;
+			if (Array.isArray(stageRailStates) && stageRailStates.length > 0) {
+				resetCaseStudyStageRailHeaderLink(store.capabilitiesExperience.activeStageIndex, { animate: true });
+			}
 			requestPaintRef.current(true);
+			wakeCaseStudyAnimationFrame();
 		});
 		return () => {
 			cancelled = true;
 		};
-	}, [skipPanelIntro]);
+	}, [skipPanelIntro, stageRailStates]);
 
 	// Enter: mosaic roll-up + scroll text sound. Always from hidden (0) → appear.
 	// Must run on every case land (hub→case, case→case, menu). Do not require routePhase
@@ -1504,4 +1553,7 @@ export default function CaseStudyPanelHudPainter({
 CaseStudyPanelHudPainter.propTypes = {
 	hideProjectNavigation: PropTypes.bool,
 	skipPanelIntro: PropTypes.bool,
+	stageRailStates: PropTypes.arrayOf(PropTypes.shape({ id: PropTypes.string.isRequired })),
+	stageRailInteractive: PropTypes.bool,
+	keepStageRailVisible: PropTypes.bool,
 };

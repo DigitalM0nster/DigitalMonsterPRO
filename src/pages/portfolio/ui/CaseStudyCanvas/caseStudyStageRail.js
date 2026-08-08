@@ -56,6 +56,7 @@ let headerLinkPathCap = 1;
 /** Stage index the path is attached to while animating / idle. */
 let headerLinkAnchorIndex = 0;
 let headerLinkPendingAnchor = 0;
+let headerLinkActiveFloatOverride = null;
 /** Skip advancing t on the frame we enter a phase so the first paint shows t=0. */
 let headerLinkHoldTick = false;
 
@@ -65,6 +66,21 @@ let headerLinkHoldTick = false;
  */
 export function syncCaseStudyStageRailHeaderLinkAnchor(stageIndex) {
 	headerLinkPendingAnchor = Math.max(0, stageIndex | 0);
+}
+
+/** Start a fresh circle-to-number draw when a page-level rail is mounted. */
+export function resetCaseStudyStageRailHeaderLink(stageIndex = 0, { animate = true } = {}) {
+	const anchor = Math.max(0, stageIndex | 0);
+	headerLinkPendingAnchor = anchor;
+	headerLinkAnchorIndex = anchor;
+	headerLinkPathCap = 1;
+	headerLinkPhase = animate ? "in" : "shown";
+	headerLinkT = animate ? 0 : 1;
+	headerLinkHoldTick = animate;
+}
+
+export function syncCaseStudyStageRailHeaderLinkActiveFloat(value) {
+	headerLinkActiveFloatOverride = Number.isFinite(value) ? value : null;
 }
 
 function beginHeaderLinkErase() {
@@ -91,6 +107,9 @@ function beginHeaderLinkDraw(nodeIndex) {
 }
 
 function resolveHeaderLinkActiveFloat() {
+	if (headerLinkActiveFloatOverride != null) {
+		return headerLinkActiveFloatOverride;
+	}
 	const activeIndex = store.portfolioExperience?.activeStateIndex ?? headerLinkPendingAnchor;
 	const stateCount = Math.max(
 		activeIndex + 2,
@@ -567,7 +586,9 @@ function resolveHeaderLinkGeometry(x0, y0, x1, y1, activeFloat) {
 		};
 	}
 	const signY = dy < 0 ? -1 : 1;
-	const leg = Math.min(dx * 0.5, absDy * 0.5);
+	// The badge sits close to the spine. A minimum outward elbow keeps the
+	// connector readable instead of collapsing into a second vertical rail.
+	const leg = Math.min(Math.max(22, dx * 0.5), absDy * 0.5);
 	const xMid = x0 + leg;
 	const chamferT = resolveHeaderLinkChamferT(activeFloat);
 	const yCorner1 = y0 + signY * leg * chamferT;
@@ -713,7 +734,7 @@ function strokeHeaderLink(ctx, x0, y0, x1, y1, color, activeFloat, phase, t, pat
 	ctx.shadowBlur = 0;
 	ctx.setLineDash([3, 4]);
 	ctx.strokeStyle = getArcLineStrokeStyle(color, caseStudyStageRailConfig.linkAlpha);
-	ctx.lineWidth = resolveRailTrackW();
+	ctx.lineWidth = Math.max(1.15, resolveRailTrackW() * 1.15);
 	ctx.beginPath();
 	ctx.moveTo(visible[0].x, visible[0].y);
 	for (let i = 1; i < visible.length; i += 1) {
@@ -731,9 +752,11 @@ function strokeHeaderLink(ctx, x0, y0, x1, y1, color, activeFloat, phase, t, pat
  * @param {number} yActive
  * @param {number} clear
  */
-function nodeHighlight(index, activeFloat, cy, yActive, clear) {
+function nodeHighlight(index, activeFloat, cy, yActive, clear, highlightPast = true) {
 	const capture = nodeGlowCapture(cy, yActive, clear);
-	const past = index < activeFloat - 0.02 ? caseStudyStageRailConfig.nodePastAlpha : 0;
+	const past = highlightPast && index < activeFloat - 0.02
+		? caseStudyStageRailConfig.nodePastAlpha
+		: 0;
 	// Peak when the traveling glow sits on this circle (arc node behavior).
 	return Math.max(past, capture);
 }
@@ -779,6 +802,8 @@ function drawStageIndexLabel(ctx, label, xRight, cy, highlight, theme) {
  *   chapterBase?: number,
  *   categoryFontSize?: number,
  *   headerTextX?: number,
+ *   highlightPast?: boolean,
+ *   headerLinkVisual?: { phase: HeaderLinkPhase, t: number, pathCap: number, anchorIndex: number },
  *   viewportH?: number,
  * }} data
  * @param {object[]} [hitRegions]
@@ -834,7 +859,14 @@ export function drawCaseStudyStageRail(ctx, x, headerTop, data, hitRegions = nul
 	for (let index = 0; index < states.length; index += 1) {
 		const state = states[index];
 		const cy = centers[index];
-		const highlight = nodeHighlight(index, activeFloat, cy, yActive, clear);
+		const highlight = nodeHighlight(
+			index,
+			activeFloat,
+			cy,
+			yActive,
+			clear,
+			data.highlightPast !== false,
+		);
 		drawArcStyleNode(ctx, spineX, cy, radii, highlight);
 		drawStageIndexLabel(
 			ctx,
@@ -860,8 +892,11 @@ export function drawCaseStudyStageRail(ctx, x, headerTop, data, hitRegions = nul
 	}
 
 	if (headerTextX != null) {
-		syncCaseStudyStageRailHeaderLinkAnchor(activeIndex);
-		const linkVisual = getCaseStudyStageRailHeaderLinkVisual();
+		const externalLinkVisual = data.headerLinkVisual ?? null;
+		if (!externalLinkVisual) {
+			syncCaseStudyStageRailHeaderLinkAnchor(activeIndex);
+		}
+		const linkVisual = externalLinkVisual ?? getCaseStudyStageRailHeaderLinkVisual();
 		const anchor = Math.max(0, Math.min(centers.length - 1, linkVisual.anchorIndex));
 		const linkY = centers[anchor] ?? yActive;
 		strokeHeaderLink(

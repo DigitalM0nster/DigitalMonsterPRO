@@ -25,5 +25,10 @@ export function shouldAnimateSiteLocaleForCaseChrome() {
 		return true;
 	}
 	const id = getSceneCarousel().currentId;
+	// Capabilities deliberately reuse the prepared case left-panel HUD. Give
+	// that mounted panel the same mosaic locale transition as an open case.
+	if (id === "capabilities" && store.capabilitiesExperience?.active) {
+		return true;
+	}
 	return typeof id === "string" && id.startsWith("case");
 }

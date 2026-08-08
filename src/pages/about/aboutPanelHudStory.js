@@ -168,13 +168,13 @@ function estimateVerticalZone(viewportH, projectNavLayout) {
 }
 
 /**
- * Front-half wipe: mosaic finishes in the first 0.5 of each story segment,
- * second half holds the settled band while 3D keeps chasing the soft About spring.
+ * Twice the previous text speed: finish in the first quarter of each story
+ * segment, then hold while 3D keeps chasing the same shared spring.
  * @param {number} local 0…1 inside a story segment
  */
 export function stageLocalToHudMix(local) {
 	const t = clamp01(local);
-	return t < 0.5 ? clamp01(t * 2) : 1;
+	return t < 0.25 ? clamp01(t * 4) : 1;
 }
 
 /**

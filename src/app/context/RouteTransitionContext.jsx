@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { subscribeKey } from "valtio/utils";
 import { store } from "@/app/store.jsx";
 import { getPageVisibilityClasses } from "@/functions/pageVisibilityState.js";
@@ -42,16 +42,17 @@ function usePageVisibilityClasses(section) {
 		});
 
 	const [visibility, setVisibility] = useState(compute);
+	const visibilityRef = useRef(visibility);
 
 	useEffect(() => {
 		const sync = () => {
 			const next = compute();
-			setVisibility((prev) => {
-				if (prev.length === next.length && prev.every((value, index) => value === next[index])) {
-					return prev;
-				}
-				return next;
-			});
+			const prev = visibilityRef.current;
+			if (prev.length === next.length && prev.every((value, index) => value === next[index])) {
+				return;
+			}
+			visibilityRef.current = next;
+			setVisibility(next);
 		};
 
 		sync();

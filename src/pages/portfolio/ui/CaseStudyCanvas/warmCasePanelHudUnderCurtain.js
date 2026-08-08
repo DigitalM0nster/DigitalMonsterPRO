@@ -56,6 +56,19 @@ function cacheKey(route, locale, viewportW, viewportH) {
 	return `${route}|${normalizeSiteLocale(locale)}|${viewportW}x${viewportH}`;
 }
 
+function getProjectPanelHudRoutes(project) {
+	return Array.from(new Set([
+		project.config.route,
+		...(project.config.caseStudy?.panelHudRoutes ?? []),
+	].map((route) => String(route ?? "/").replace(/\/+$/, "") || "/")));
+}
+
+function cacheProjectEntry(project, locale, viewportW, viewportH, entry) {
+	for (const route of getProjectPanelHudRoutes(project)) {
+		cache.set(cacheKey(route, locale, viewportW, viewportH), entry);
+	}
+}
+
 function buildMosaic(fromCanvas, mosaicBounds, viewportW) {
 	const drawCfg = resolveLeftPanelDrawConfig(viewportW);
 	const vw = Math.max(1, mosaicBounds?.viewportW ?? fromCanvas.width);
@@ -225,13 +238,16 @@ function paintProjectEntry(project, locale, viewportW, viewportH) {
  * @param {WarmHudEntry} entry
  */
 function uploadEntryToScene(sceneManager, renderer, project, entry) {
-	const sceneId = resolveSceneId(project.config.route);
-	const scene = sceneManager.getSceneById?.(sceneId);
-	const panelHud = scene?.panelHud;
-	if (!panelHud?.applyWarmCanvases) {
-		return;
+	const uploadedSceneIds = new Set();
+	for (const route of getProjectPanelHudRoutes(project)) {
+		const sceneId = resolveSceneId(route);
+		if (uploadedSceneIds.has(sceneId)) {
+			continue;
+		}
+		uploadedSceneIds.add(sceneId);
+		const panelHud = sceneManager.getSceneById?.(sceneId)?.panelHud;
+		panelHud?.applyWarmCanvases?.(entry.fromCanvas, entry.toCanvas, entry.mosaic, renderer);
 	}
-	panelHud.applyWarmCanvases(entry.fromCanvas, entry.toCanvas, entry.mosaic, renderer);
 }
 
 /**
@@ -270,7 +286,7 @@ export async function warmCasePanelHudUnderCurtain({ sceneManager, renderer }) {
 				if (!entry) {
 					continue;
 				}
-				cache.set(cacheKey(project.config.route, locale, viewportW, viewportH), entry);
+				cacheProjectEntry(project, locale, viewportW, viewportH, entry);
 				if (locale === activeLocale) {
 					uploadEntryToScene(sceneManager, renderer, project, entry);
 				}
@@ -312,7 +328,7 @@ export async function rewarmCasePanelHudGpuForLocale(locale) {
 			try {
 				entry = paintProjectEntry(project, siteLocale, viewportW, viewportH);
 				if (entry) {
-					cache.set(key, entry);
+					cacheProjectEntry(project, siteLocale, viewportW, viewportH, entry);
 				}
 			} catch (error) {
 				console.warn("[casePanelHud] locale rewarm paint failed", project?.config?.route, error);

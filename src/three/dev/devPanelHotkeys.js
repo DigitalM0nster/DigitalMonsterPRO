@@ -14,9 +14,11 @@ export const DEV_PANEL_HOTKEY_HINTS = [
 	{ key: "3", label: "Contacts" },
 	{ key: "4", label: "Belka Scene" },
 	{ key: "5", label: "Portfolio Camera" },
+	{ key: "6", label: "Ocean" },
 	{ key: "7", label: "Case Arc" },
 	{ key: "8", label: "Liquid BG" },
 	{ key: "9", label: "Stage Rail" },
+	{ key: "0", label: "MMK-1 Camera" },
 ];
 export function formatDevPanelHotkeyHints() {
 	return DEV_PANEL_HOTKEY_HINTS.map(({ key, label }) => `${key} — ${label}`).join(" · ");

@@ -11,6 +11,9 @@ const states = [
 
 export const ABOUT_STAGE_COUNT = states.length;
 
+/** Only the first three story stops belong to the left text/HUD rail. */
+export const ABOUT_PANEL_STAGE_COUNT = 3;
+
 /** @deprecated equal legacy anchors — prefer story index / stageProgress */
 export const ABOUT_SCROLL_ANCHORS = states.map((_, index) =>
 	index / Math.max(states.length - 1, 1),

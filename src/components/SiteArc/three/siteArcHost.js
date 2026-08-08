@@ -12,77 +12,44 @@ import {
 	resolveSiteArcGeometry,
 } from "@/components/SiteArc/siteArcGeometry.js";
 import { getCyclicItemRelativeDeg } from "@/components/SiteArc/siteArcCycle.js";
-import { getArcGlowCenterAngleRad } from "@/components/SiteArc/siteArcGlowMotion.js";
+import {
+	getArcGlowCenterAngleRad,
+	stickArcGlowToAngle,
+} from "@/components/SiteArc/siteArcGlowMotion.js";
 import { getNodeArcGlowHighlight } from "@/components/SiteArc/siteArcActiveGlow.js";
 import {
 	getArcLineCutoutHalfRad,
 	resolveArcFadeBounds,
 } from "@/components/SiteArc/siteArcOpacity.js";
 import {
-	getSiteArcPreviewProjectId,
 	resolveSiteArcProjectItems,
 	syncSiteArcPreviewNavigation,
 } from "@/components/SiteArc/siteArcProjects.js";
-import {
-	isSiteArcSelectSequencing,
-	syncSiteArcSelectSequence,
-} from "@/components/SiteArc/siteArcSelectSequence.js";
+import { syncSiteArcSelectSequence } from "@/components/SiteArc/siteArcSelectSequence.js";
 import { getSiteArcShift } from "@/components/SiteArc/siteArcPositionMotion.js";
+import { setSiteArcFocusFromScroll } from "@/components/SiteArc/siteArcFocusMotion.js";
+import { resolveSiteArcCarouselMotion } from "@/components/SiteArc/siteArcCarouselMotion.js";
 import { getSceneCarousel } from "@/three/render/transition/carouselPage.js";
 import { isSiteArcSessionActive } from "@/components/SiteArc/siteArcSession.js";
-import {
-	getSiteArcNavigationSource,
-	isSiteArcNavigationActive,
-} from "@/components/SiteArc/siteArcNavigationSource.js";
+import { isSiteArcNavigationActive } from "@/components/SiteArc/siteArcNavigationSource.js";
 import { SiteArcMesh } from "./SiteArcMesh.js";
 import { SITE_ARC_MAX_NODES } from "./siteArcShader.js";
 
 const DEG = Math.PI / 180;
 
-const CAROUSEL_SCENE_TO_SITE_ARC_ID = {
-	home: "main",
-	portfolioHub: "portfolio",
-	capabilities: "capabilities",
-	about: "about",
-	contacts: "contacts",
-};
-
-function resolveSiteScrollGlowAngle(labelPositions, navStates, fallbackAngle) {
-	const source = getSiteArcNavigationSource();
-	if (source?.key !== "site" || navStates.length < 2) {
+function resolveSiteScrollGlowAngle(labelPositions, carouselMotion, fallbackAngle) {
+	if (!carouselMotion) {
 		return fallbackAngle;
 	}
-
-	const carousel = getSceneCarousel();
-	// Click-hex progress is always 0→1, even for a backward/non-adjacent route.
-	// It must not masquerade as wheel progress toward `currentIndex + 1`.
-	if (
-		getSiteArcPreviewProjectId() != null ||
-		carousel?.isHexNavigationActive?.() ||
-		isSiteArcSelectSequencing()
-	) {
-		return fallbackAngle;
-	}
-	const currentArcId = CAROUSEL_SCENE_TO_SITE_ARC_ID[carousel.currentId] ?? source.activeId;
-	const currentIndex = navStates.findIndex((item) => item.id === currentArcId);
-	if (currentIndex < 0) {
-		return fallbackAngle;
-	}
-
-	const progress = Math.max(-1, Math.min(1, Number(carousel.progress) || 0));
-	if (Math.abs(progress) < 0.0001) {
-		return labelPositions[currentIndex]?.angle ?? fallbackAngle;
-	}
-
-	const direction = progress > 0 ? 1 : -1;
-	const targetIndex = (currentIndex + direction + navStates.length) % navStates.length;
-	const fromAngle = labelPositions[currentIndex]?.angle;
-	const toAngle = labelPositions[targetIndex]?.angle;
+	const fromAngle = labelPositions[carouselMotion.currentIndex]?.angle;
+	const toAngle = labelPositions[carouselMotion.targetIndex]?.angle;
 	if (!Number.isFinite(fromAngle) || !Number.isFinite(toAngle)) {
 		return fallbackAngle;
 	}
 
-	return fromAngle + (toAngle - fromAngle) * Math.abs(progress);
+	const angle = fromAngle + (toAngle - fromAngle) * carouselMotion.segmentProgress;
+	stickArcGlowToAngle(angle);
+	return angle;
 }
 
 /**
@@ -129,7 +96,11 @@ export function buildSiteArcGpuState(viewportW, viewportH, isMobile = false) {
 	const ringGapDeg = arcProjects.ringGapDeg;
 	const ringPeriodDeg = arcProjects.ringPeriodDeg;
 	const focusIndex = arcProjects.activeNavIndex;
-	const focusDeg = siteArcRuntime.focusRotationDeg
+	const carouselMotion = resolveSiteArcCarouselMotion(navStates, ringGapDeg);
+	if (carouselMotion) {
+		setSiteArcFocusFromScroll(carouselMotion.focusDeg, ringPeriodDeg);
+	}
+	const focusDeg = carouselMotion?.focusDeg ?? siteArcRuntime.focusRotationDeg
 		?? (focusIndex >= 0 ? focusIndex * ringGapDeg : 0);
 
 	const arcGeo = resolveSiteArcGeometry(
@@ -173,16 +144,18 @@ export function buildSiteArcGpuState(viewportW, viewportH, isMobile = false) {
 
 	const activeNavIndex = arcProjects.activeNavIndex;
 	const activeAngle = activeNavIndex >= 0 ? labelPositions[activeNavIndex]?.angle : null;
-	syncSiteArcSelectSequence({
-		activeIndex: activeNavIndex,
-		ringGapDeg,
-		ringPeriodDeg,
-		activeAngleRad: activeAngle,
-	});
+	if (!carouselMotion) {
+		syncSiteArcSelectSequence({
+			activeIndex: activeNavIndex,
+			ringGapDeg,
+			ringPeriodDeg,
+			activeAngleRad: activeAngle,
+		});
+	}
 
 	const glowCenterAngleRad = resolveSiteScrollGlowAngle(
 		labelPositions,
-		navStates,
+		carouselMotion,
 		getArcGlowCenterAngleRad(),
 	);
 	const glowStrength = 1;
@@ -201,8 +174,9 @@ export function buildSiteArcGpuState(viewportW, viewportH, isMobile = false) {
 		const hl = glowCenterAngleRad != null
 			? getNodeArcGlowHighlight(pos.angle, glowCenterAngleRad, cfg, glowStrength)
 			: 0;
-		const activeBoost = i === activeNavIndex ? 1 : 0;
-		nodeHighlights.push(Math.max(hl, activeBoost));
+		// Glow proximity owns brightness so the old circle fades while the next
+		// one brightens. A hard active boost caused a one-frame hand-off at commit.
+		nodeHighlights.push(hl);
 	}
 
 	return {

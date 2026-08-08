@@ -17,7 +17,6 @@ import { syncArcGlowTargetFromScroll } from "./siteArcGlowMotion.js";
 import { setSiteArcPreviewProjectId } from "./siteArcProjects.js";
 import { buildSiteArcNavLayout } from "./siteArcNavLayout.js";
 import { SITE_ARC_DISPLAY_FONT, SITE_ARC_TEXT_COLOR } from "./siteArcConfig.js";
-import { caseChromeOwnsHexHitAtClientY } from "@/three/render/overlay/hexHitOwnership.js";
 import {
 	disposeSiteArcNavSnakeIfOrphaned,
 	paintSiteArcNavSnakeDomLabel,
@@ -225,10 +224,7 @@ export default function SiteArcDomNav({
 		wakeCaseStudyAnimationFrame();
 	}, [snap.siteLocale, snap.portfolioExperience?.slug, pathname]);
 
-	const onActivateIndex = useCallback((index, clientY) => {
-		if (!caseChromeOwnsHexHitAtClientY(clientY)) {
-			return;
-		}
+	const onActivateIndex = useCallback((index) => {
 		const item = layoutRef.current?.items?.[index];
 		if (!item?.route) {
 			return;
@@ -263,7 +259,7 @@ export default function SiteArcDomNav({
 					className={styles.item}
 					hidden
 					onPointerEnter={() => onHoverSnake(index)}
-					onClick={(event) => onActivateIndex(index, event.clientY)}
+					onClick={() => onActivateIndex(index)}
 				>
 					<span className={styles.hit} aria-hidden="true" />
 					<span className={styles.labelHit} data-arc-label-hit aria-hidden="true" />

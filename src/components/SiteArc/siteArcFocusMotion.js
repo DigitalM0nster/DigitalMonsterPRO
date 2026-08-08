@@ -45,6 +45,30 @@ export function setSiteArcFocusTarget(nextTargetDeg, periodDeg = ringPeriodDeg) 
 	wakeCaseStudyAnimationFrame();
 }
 
+/**
+ * Wheel progress owns the painted ring directly while a route segment is live.
+ * Keeping the internal focus value in sync lets the post-commit focus animation
+ * continue from the last painted position instead of jumping back to the source.
+ * @param {number} nextFocusDeg
+ * @param {number} [periodDeg]
+ */
+export function setSiteArcFocusFromScroll(nextFocusDeg, periodDeg = ringPeriodDeg) {
+	if (!Number.isFinite(nextFocusDeg)) {
+		return;
+	}
+	const period = Number.isFinite(periodDeg) && periodDeg > 0 ? periodDeg : 360;
+	const changed = currentFocusDeg === null
+		|| Math.abs(nextFocusDeg - currentFocusDeg) > FOCUS_EPSILON_DEG;
+	ringPeriodDeg = period;
+	frozen = false;
+	currentFocusDeg = nextFocusDeg;
+	targetFocusDeg = nextFocusDeg;
+	siteArcRuntime.focusRotationDeg = nextFocusDeg;
+	if (changed) {
+		wakeCaseStudyAnimationFrame();
+	}
+}
+
 /** Hold the ring still (glow-travel phase). */
 export function freezeSiteArcFocus() {
 	if (currentFocusDeg === null) {

@@ -23,6 +23,14 @@ let caseLeavingToNonCase = false;
 /** Last chrome leave key — avoids restarting the same exit animation. */
 let lastChromeLeaveKey = "";
 
+/** @type {Set<(transition: ReturnType<typeof publishSiteRouteTransition>) => void>} */
+const transitionListeners = new Set();
+
+export function subscribeSiteRouteTransition(listener) {
+	transitionListeners.add(listener);
+	return () => transitionListeners.delete(listener);
+}
+
 /**
  * @param {string | null | undefined} path
  * @returns {string}
@@ -223,7 +231,7 @@ export function publishSiteRouteTransition(fromPath, toPath, options = {}) {
 	const chrome = resolveSiteChromeLeave(from, to);
 	startCaseChromeLeave(chrome, from, to, mode);
 
-	return {
+	const transition = {
 		from,
 		to,
 		mode,
@@ -231,4 +239,8 @@ export function publishSiteRouteTransition(fromPath, toPath, options = {}) {
 		leaveSite: chrome === "case-full",
 		caseToCase: chrome === "case-band",
 	};
+	for (const listener of transitionListeners) {
+		listener(transition);
+	}
+	return transition;
 }

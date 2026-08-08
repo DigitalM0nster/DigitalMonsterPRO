@@ -9,7 +9,7 @@ export const caseStudyStageRailConfigDefaults = {
 	trackWidthMin: 1,
 	futureAlpha: 0.28,
 	progressAlpha: 0.58,
-	linkAlpha: 0.42,
+	linkAlpha: 0.66,
 	nodeIdleAlpha: 0.24,
 	nodeMidAlpha: 0.1,
 	nodePastAlpha: 1,

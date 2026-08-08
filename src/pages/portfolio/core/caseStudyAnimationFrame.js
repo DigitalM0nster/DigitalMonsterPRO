@@ -33,6 +33,7 @@ import {
 } from "@/pages/portfolio/ui/CaseStudyCanvas/caseStudyStageRail.js";
 import { cancelSharedAnimationFrame, requestSharedAnimationFrame } from "@/functions/sharedAnimationFrame.js";
 import { isSiteArcNavigationActive } from "@/components/SiteArc/siteArcNavigationSource.js";
+import { isSiteArcCarouselMotionActive } from "@/components/SiteArc/siteArcCarouselMotion.js";
 
 /** @type {(() => void) | null} */
 let arcPaintCallback = null;
@@ -233,6 +234,7 @@ function shouldContinueAnimationFrame() {
 	const arcMotion =
 		isArcGlowAnimating()
 		|| isArcNavLabelColorsAnimating()
+		|| isSiteArcCarouselMotionActive()
 		|| isSiteArcShiftAnimating()
 		|| isSiteArcFocusAnimating()
 		|| isSiteArcSelectSequencing()
@@ -338,6 +340,7 @@ function frame(now) {
 	const labelsAnimating = tickArcNavLabelColors(dt);
 	const arcPositionMoving = tickSiteArcShift(dt);
 	const arcFocusMoving = tickSiteArcFocus(dt);
+	const arcCarouselMoving = isSiteArcCarouselMotionActive();
 	const labelHoverMoving = tickArcLabelHover(dt);
 	const panelScrollChanged = hasPanelScrollChangedSincePaint();
 	const arcScrollChanged = hasArcScrollChangedSincePaint();
@@ -348,6 +351,7 @@ function frame(now) {
 		|| labelsAnimating
 		|| arcPositionMoving
 		|| arcFocusMoving
+		|| arcCarouselMoving
 		|| labelHoverMoving
 		|| isSiteArcSelectSequencing()
 		|| arcScrollChanged
@@ -418,6 +422,16 @@ export function markSiteArcDirty() {
 	arcPaintPending = true;
 	lastArcPaintedScroll = Number.NaN;
 	nextArcPaintAt = 0;
+	startAnimationLoop();
+}
+
+/**
+ * Internal page-story progress changed. Keep the existing arc frame deadline:
+ * resetting it every spring tick bypasses ARC_FRAME_INTERVAL_MS and recreates
+ * the former 60 FPS Canvas/DOM CPU spike.
+ */
+export function requestSiteArcScrollRepaint() {
+	arcPaintPending = true;
 	startAnimationLoop();
 }
 

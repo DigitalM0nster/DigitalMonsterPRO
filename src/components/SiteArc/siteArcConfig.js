@@ -76,6 +76,8 @@ export const siteArcInternals = {
 	centerYRatio: 0.5,
 	maxNavItems: 5,
 	canvasBleedRight: 300,
+	/** Keep the orbit marker this far inside the right viewport edge. */
+	viewportRightInset: 20,
 	/** Text right-edge anchor before the node, matching the marked layout. */
 	labelGapRight: 30,
 	labelStackGap: 10,

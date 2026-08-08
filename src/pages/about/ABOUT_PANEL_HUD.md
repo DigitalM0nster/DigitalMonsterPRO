@@ -29,21 +29,21 @@ Do not drive leave with both mosaic `enterProgress` exit and hex warp. Stage scr
 ## Story → pair map (strict)
 
 `story` is About story progress in `0…4` (stage `i` owns `i → i+1`).  
-**Front-half wipe:** mosaic `mix` runs `0→1` only on the first half of each segment; the second half holds the settled band while 3D keeps the soft About spring.
+**First-quarter wipe:** mosaic `mix` runs `0→1` in the first quarter of each segment (2× the former text speed); the rest holds the settled band while 3D keeps the soft About spring.
 
 | Story range | `from` | `to` | `mixProgress` | Meaning |
 |-------------|--------|------|---------------|---------|
-| `0 → 0.5` | text1 | text2 | `story × 2` | Text1 wiped by text2 |
-| `0.5 → 1` | text1 | text2 | `1` | Hold text2 (3D still finishing segment) |
-| `1 → 1.5` | text2 | text3 | `(story − 1) × 2` | Text2 wiped by text3 |
-| `1.5 → 2` | text2 | text3 | `1` | Hold text3 |
-| `2 → 2.5` | text3 | empty | `(story − 2) × 2` | Text3 wiped out |
-| `2.5 → 3` | text3 | empty | `1` | Hold empty |
+| `0 → 0.25` | text1 | text2 | `story × 4` | Text1 wiped by text2 |
+| `0.25 → 1` | text1 | text2 | `1` | Hold text2 (3D still finishing segment) |
+| `1 → 1.25` | text2 | text3 | `(story − 1) × 4` | Text2 wiped by text3 |
+| `1.25 → 2` | text2 | text3 | `1` | Hold text3 |
+| `2 → 2.25` | text3 | empty | `(story − 2) × 4` | Text3 wiped out |
+| `2.25 → 3` | text3 | empty | `1` | Hold empty |
 | `≥ 3` | empty | empty | `1` | No left band |
 
 At an integer stop `n ∈ {0,1,2}` the active band is fully `from` of the next segment (`mix = 0` on that segment’s pair). At `story = 0`, text1 is idle full show. At `story = 1` / `2` the previous segment already held `mix = 1`, so the pair swap stays seamless.
 
-Reverse scroll uses the same map — mix decreases on the front half only; hold zones stay settled.
+Reverse scroll uses the same map — mix decreases on the first quarter only; hold zones stay settled. The visible left rail contains only text stops 1–3 and fades with text3→empty; later 3D/route stops never add rail nodes.
 
 ---
 

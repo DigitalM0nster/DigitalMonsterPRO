@@ -36,6 +36,8 @@ import { BelkaOrbitsDevTools } from "../dev/BelkaOrbitsDevTools.js";
 import { ContactsDevTools } from "../dev/ContactsDevTools.js";
 import { ProgressDevTools } from "../dev/ProgressDevTools.js";
 import { PortfolioCameraDevTools } from "../dev/PortfolioCameraDevTools.js";
+import { OceanDevTools } from "../dev/OceanDevTools.js";
+import { Mmk1CameraDevTools } from "../dev/Mmk1CameraDevTools.js";
 import { isDevFastPreloader } from "@/functions/devFastPreloader.js";
 
 const NO_GRAIN_BLUR = { enabled: false, radius: 0 };
@@ -130,7 +132,7 @@ export class DigitalMonsterThreeApp {
 		this.store.graphicsBloomRadius = gfx.bloomRadius;
 		this.store.graphicsPowerPreference = gfx.powerPreference;
 
-		this.camera = new THREE.PerspectiveCamera(40, 1, 0.1, 150);
+		this.camera = new THREE.PerspectiveCamera(40, 1, 0.01, 200);
 		this.camera.position.set(0, 0, 9);
 
 		this.pointer = { x: 0, y: 0 };
@@ -170,9 +172,20 @@ export class DigitalMonsterThreeApp {
 			getPointerBlocked: () => this.pointerBlocked,
 			gfx,
 		});
+		this.oceanDevTools = import.meta.env.DEV
+			? new OceanDevTools({
+					getScene: () => this.sceneManager?.getSceneById?.("home") ?? null,
+				})
+			: null;
 		this.portfolioCameraDevTools = import.meta.env.DEV
 			? new PortfolioCameraDevTools({
 					getScene: () => this.sceneManager?.getSceneById?.("portfolioHub") ?? null,
+					getCamera: () => this.camera,
+				})
+			: null;
+		this.mmk1CameraDevTools = import.meta.env.DEV
+			? new Mmk1CameraDevTools({
+					getScene: () => this.sceneManager?.getSceneById?.("capabilities") ?? null,
 					getCamera: () => this.camera,
 				})
 			: null;
@@ -213,7 +226,12 @@ export class DigitalMonsterThreeApp {
 					})
 				: null;
 		this._resizeObserver?.observe(container);
-		window.addEventListener("pointermove", this._onViewportPointerMove, { passive: true });
+		// Capture keeps passive scene parallax alive above DOM chrome whose
+		// handlers may stop pointermove propagation (left menu, HUD, arc).
+		window.addEventListener("pointermove", this._onViewportPointerMove, {
+			passive: true,
+			capture: true,
+		});
 		window.addEventListener("pointerdown", this._onPointerDown);
 		window.addEventListener("pointerup", this._onPointerUp);
 		this.canvas.addEventListener("pointermove", this._onPointerMove);
@@ -662,7 +680,7 @@ export class DigitalMonsterThreeApp {
 	_getPanelOverlayTextureForScene(sceneId) {
 		// Idle path / non-hex: case left HUD stays screen-overlay (sharp). Arc/chrome DOM
 		// are never baked. Hex leave uses `_getHexBakeOverlayTexture` instead.
-		if (sceneId?.startsWith("case")) {
+		if (sceneId?.startsWith("case") || sceneId === "capabilities") {
 			return null;
 		}
 		return this._getSceneOverlayTexture(sceneId);
@@ -678,7 +696,7 @@ export class DigitalMonsterThreeApp {
 		if (sceneId === "about") {
 			return this._getAboutPanelHudHexOverlayTexture();
 		}
-		if (sceneId?.startsWith("case")) {
+		if (sceneId?.startsWith("case") || sceneId === "capabilities") {
 			return this._getCasePanelHudHexOverlayTexture(sceneId);
 		}
 		return this._getPanelOverlayTextureForScene(sceneId);
@@ -811,13 +829,17 @@ export class DigitalMonsterThreeApp {
 		const hexProgressLive = this._getHexShaderProgress() > 0.0001;
 		const caseOpen = Boolean(this.store.openedCase);
 		const carousel = getSceneCarousel();
+		const capabilityHudOpen = carousel.currentId === "capabilities"
+			&& this.sceneManager.getActiveSceneId() === "capabilities"
+			&& String(this.currentPage ?? "").startsWith("/capabilities");
+		const caseStyleHudOpen = caseOpen || capabilityHudOpen;
 		// Click lock (`_clickPhase`) arms before progress leaves 0 — treat that as hex-live
 		// so home scroll-hint moves into models RT instead of vanishing for one frame.
 		const hexNavLive = Boolean(carousel.isHexNavigationActive?.() || carousel.isCaseBoundaryDrive?.());
 		const hexActive = hexProgressLive || hexNavLive;
 		// Left HUD compose/hide is folded into _renderCasePanelHudScreenOverlays
 		// (one pass over cached HUDs). When case closed, hide all immediately.
-		if (!caseOpen) {
+		if (!caseStyleHudOpen) {
 			this.sceneManager.forEachCasePanelHud((hud) => {
 				hud.setComposeMode("models");
 				if (hud.visible) {
@@ -890,8 +912,11 @@ export class DigitalMonsterThreeApp {
 		const carousel = getSceneCarousel();
 		const caseOpen = Boolean(this.store.openedCase);
 		const hexProgress = this._getHexShaderProgress();
+		const capabilityHudOpen = carousel.currentId === "capabilities"
+			&& this.sceneManager.getActiveSceneId() === "capabilities"
+			&& String(this.currentPage ?? "").startsWith("/capabilities");
 
-		if (caseOpen) {
+		if (caseOpen || capabilityHudOpen) {
 			// Idle: sharp screen overlay after bloom.
 			// Hex leave (case→site click OR case→case scroll boundary): left text
 			// bakes into the hex RT — do not screen-draw (would sit on top of the
@@ -903,8 +928,13 @@ export class DigitalMonsterThreeApp {
 			// the arming frame (hexProgress≈0) → one-frame brightness flash.
 			const activeHud = this.sceneManager.getActiveCasePanelHud();
 			const caseScrollMix = carousel.isCaseBoundaryDrive();
+			const mixIds = carousel.getMixSourceTargetIds?.() ?? {};
+			const capabilityMixParticipant = mixIds.sourceId === "capabilities" || mixIds.targetId === "capabilities";
 			/** Hex owns the band whenever models are in a live wipe (click or scroll). */
-			const hexOwnsLeftHud = (caseScrollMix || carousel.isHexNavigationActive()) && hexProgress > 0.0001;
+			const hexOwnsLeftHud = hexProgress > 0.0001 && (
+				(caseOpen && (caseScrollMix || carousel.isHexNavigationActive()))
+				|| (capabilityHudOpen && capabilityMixParticipant)
+			);
 			this.sceneManager.forEachCasePanelHud((hud) => {
 				const allow = hud === activeHud;
 				if (!allow) {
@@ -1238,6 +1268,7 @@ export class DigitalMonsterThreeApp {
 				}
 			}
 			this.portfolioCameraDevTools?.update?.();
+			this.mmk1CameraDevTools?.update?.();
 			this._syncNativeCursor();
 
 			const routePhase = this.routeTransition?.phase ?? "idle";
@@ -1305,7 +1336,7 @@ export class DigitalMonsterThreeApp {
 		window.removeEventListener("resize", this.onResize);
 		this._resizeObserver?.disconnect();
 		this._resizeObserver = null;
-		window.removeEventListener("pointermove", this._onViewportPointerMove);
+		window.removeEventListener("pointermove", this._onViewportPointerMove, true);
 		window.removeEventListener("pointerdown", this._onPointerDown);
 		window.removeEventListener("pointerup", this._onPointerUp);
 		this.canvas.removeEventListener("pointermove", this._onPointerMove);
@@ -1329,6 +1360,10 @@ export class DigitalMonsterThreeApp {
 		this.caseStageRailDevTools = null;
 		this.portfolioCameraDevTools?.dispose?.();
 		this.portfolioCameraDevTools = null;
+		this.mmk1CameraDevTools?.dispose?.();
+		this.mmk1CameraDevTools = null;
+		this.oceanDevTools?.dispose?.();
+		this.oceanDevTools = null;
 		this.backgroundPipeline.dispose();
 		disposeCarouselScroll();
 		disposeHexTransitionSound();

@@ -173,14 +173,20 @@ export default function GlitchBilingualText({
 	const relativeLocale = sizeToActiveLocale ? displayedLocale : widestLocale;
 
 	const measureWidths = () => {
-		if (isAnimatingRef.current) {
+		const root = rootRef.current;
+		// A Contacts transition may keep this tree mounted under display:none.
+		// Ignore the resulting zero-size ResizeObserver notification so hiding the
+		// panel does not fan out into one React state update per glitch label.
+		if (isAnimatingRef.current || !root || root.getClientRects().length === 0) {
 			return;
 		}
 		const nextWidths = {};
 		for (const loc of SITE_LOCALES) {
 			nextWidths[loc] = groupRefs.current[loc]?.offsetWidth ?? 0;
 		}
-		setGroupWidths(nextWidths);
+		setGroupWidths((prev) =>
+			SITE_LOCALES.every((loc) => prev[loc] === nextWidths[loc]) ? prev : nextWidths,
+		);
 	};
 
 	const applyLocaleInstant = (toLocale) => {

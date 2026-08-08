@@ -68,7 +68,14 @@ export function shouldCarouselScrollWheel(ctx, event) {
 	}
 
 	const carousel = getSceneCarousel();
-	if (carousel.currentId === "about" || carousel.isInteractionLocked()) {
+	// About and Capabilities own multi-stage internal scroll. Their runtimes
+	// explicitly hand only the final overshoot to the ring carousel; allowing
+	// this global listener to consume the same wheel event skips inner stages.
+	if (
+		carousel.currentId === "about"
+		|| carousel.currentId === "capabilities"
+		|| carousel.isInteractionLocked()
+	) {
 		return false;
 	}
 

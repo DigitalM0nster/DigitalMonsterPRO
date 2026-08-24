@@ -1,0 +1,65 @@
+{
+  "capturedAt": "2026-08-14",
+  "path": "/capabilities/spatial-matrix",
+  "viewport": { "width": 1920, "height": 945, "dpr": 1 },
+  "rendererCanvas": { "width": 3840, "height": 1890, "clientWidth": 1920, "clientHeight": 945 },
+  "webgl2": true,
+  "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 3070 Ti (0x00002482) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+  "cityHudVisible": false,
+  "consoleErrors": [],
+  "fiveSecondDeliveryProbe": {
+    "frames": 375,
+    "averageFps": 75.00600048003842,
+    "p95FrameMs": 13.400000000001455,
+    "over25Ratio": 0
+  },
+  "roundaboutIslandGeometryExtentAssertion": {
+    "match": true,
+    "extentRadius": 0.17,
+    "renderedTopRadius": 0.17,
+    "renderedBottomRadius": 0.17,
+    "renderedMaximumRadius": 0.17,
+    "extentYRange": [0, 0.095],
+    "renderedYRange": [0, 0.095]
+  },
+  "frozenMasterplan": {
+    "authored": 45,
+    "accepted": 45,
+    "rowsSha256": "56f8f9534957e889f2afba3bc335f40bc1a2a1c7ca2641ded68042ca75c439d2"
+  },
+  "physicalExtentModel": {
+    "total": 108,
+    "roadRibbon": 30,
+    "connectorRibbon": 8,
+    "sidewalkCurbRibbon": 60,
+    "junctionArmPolygon": 8,
+    "roundaboutCirculationAnnulus": 1,
+    "roundaboutIslandDisk": 1,
+    "rendererExtentCountsMatch": true,
+    "physicalCenterlinesMapped": "39/39"
+  },
+  "footprintAgainstPhysicalExtents": {
+    "requiredEpsilon": 0.035,
+    "conflicts": 0,
+    "minimumSignedClearance": 0.0435196714,
+    "closestPair": {
+      "buildingId": 19,
+      "extentId": "sidewalk:center-2:3:left"
+    },
+    "building6Top2SignedClearance": 0.1873593361
+  },
+  "roadGraph": {
+    "valid": true,
+    "nodeCount": 27,
+    "edgeCount": 30,
+    "centerlineCount": 39,
+    "segmentCount": 198,
+    "unexpectedCrossings": 0,
+    "entryTangencies": "4/4",
+    "exitTangencies": "4/4",
+    "circulationAttachments": "8/8",
+    "approachJoins": "8/8"
+  },
+  "scopedTotal": { "drawCalls": 16, "triangles": 6632 },
+  "checks": { "targetedEslint": "PASS", "productionBuild": "PASS" }
+}

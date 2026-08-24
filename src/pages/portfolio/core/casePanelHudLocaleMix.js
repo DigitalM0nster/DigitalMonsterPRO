@@ -152,6 +152,10 @@ export function syncCasePanelHudDisplayedLocale(locale) {
 	displayedLocale = normalizeSiteLocale(locale);
 }
 
+export function getCasePanelHudDisplayedLocale() {
+	return displayedLocale;
+}
+
 /**
  * Settle → paint (caller) → mosaic wipe → chain while store locale differs.
  *

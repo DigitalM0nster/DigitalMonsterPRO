@@ -1,0 +1,68 @@
+{
+  "gate": "GATE4",
+  "correctionPass": 8,
+  "techVerdict": "PASS",
+  "visualVerdict": "PASS",
+  "capture": {
+    "viewport": [1920, 945],
+    "dpr": 1,
+    "canvas": [3840, 1890, 1920, 945],
+    "webgl2": true,
+    "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 3070 Ti (0x00002482) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+    "normalUrl": "http://127.0.0.1:4184/capabilities/spatial-matrix",
+    "debugUrl": "http://127.0.0.1:4184/capabilities/spatial-matrix?cityTrafficDebug=1"
+  },
+  "performance15Seconds": {
+    "durationMs": 14998.700000000004,
+    "frames": 1124,
+    "averageFps": 74.9398281184369,
+    "meanFrameMs": 13.344039145907477,
+    "p95FrameMs": 13.5,
+    "maxFrameMs": 26.5,
+    "framesOver25Ms": 1
+  },
+  "console": {
+    "errors": [],
+    "warnings": [
+      "Existing THREE.WebGLRenderer useLegacyLights deprecation",
+      "Existing WebGL shader potentially-uninitialized sampler warnings outside the local-traffic owner"
+    ]
+  },
+  "rasterizationCorrection": {
+    "oldPerInstanceDeterminantSign": -1,
+    "newPerInstanceDeterminantSign": 1,
+    "actualInstanceMatrixDeterminant": 0.002945080168006476,
+    "frontSidePreserved": true,
+    "doubleSideWorkaroundUsed": false,
+    "shaderEnergyChangedInPass8": false,
+    "legacyMirroredMutationCaught": true
+  },
+  "pixelQa": {
+    "deterministicTimeSeconds": 10,
+    "expectedStrongSamples": 12,
+    "expectedCenters": [
+      [0, 0, 855, 634], [1, 1, 1081, 560], [2, 2, 1291, 496],
+      [3, 3, 847, 626], [4, 4, 832, 612], [5, 5, 969, 508],
+      [6, 6, 947, 497], [9, 9, 1409, 745], [10, 10, 704, 510],
+      [12, 12, 1426, 765], [13, 13, 1116, 597], [19, 12, 1266, 851]
+    ],
+    "captureTimingToleranceNote": "The browser still was captured approximately 52 ms after the deterministic target, so the overlay is an inspection aid rather than a fixed-pixel pass/fail oracle for moving fragments.",
+    "motionEvidenceShowsRasterizedFragments": true
+  },
+  "evidence": {
+    "normalStill": "gate4-pass8-city-exact-1920x945-dpr1.png",
+    "t10Still": "gate4-pass8-t10-pixel-qa-1920x945-dpr1.png",
+    "t10Overlay": "gate4-pass8-t10-pixel-qa-overlay.png",
+    "debugStill": "gate4-pass8-debug-exact-1920x945-dpr1.png",
+    "normalMotion": "gate4-pass8-normal-motion-15s-1920x945-dpr1.webp",
+    "localTrafficCropMotion": "gate4-pass8-local-traffic-crop-15s.webp",
+    "localTrafficContactSheet": "gate4-pass8-local-traffic-contact-sheet.png"
+  },
+  "cleanup": {
+    "inAppBrowserClosed": true,
+    "headlessContextClosed": true,
+    "temporaryHeadlessProfileRemoved": true,
+    "loopbackServerStopped": true,
+    "remainingListenerOn127001Port4184": false
+  }
+}

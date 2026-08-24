@@ -744,6 +744,7 @@ export class Case3Scene {
 		this._allowExitOverlay = true;
 		this.elapsed = 0;
 		this.cameraParallax = new THREE.Vector2();
+		this.cameraLookAt = new THREE.Vector3();
 		this.pointerDown = false;
 		this.pointerBlocked = true;
 		this.craneMesh = null;
@@ -991,6 +992,17 @@ export class Case3Scene {
 		return { enabled: false };
 	}
 
+	getCameraLookAt(frame, target = this.cameraLookAt) {
+		const progress = frame?.sceneProgress ?? 0;
+		const parallaxX = this.cameraParallax.x;
+		const parallaxY = this.cameraParallax.y;
+		return target.set(
+			CASE3_CAMERA.lookX + parallaxX * 0.08,
+			CASE3_CAMERA.lookY - progress * 0.12 + parallaxY * 0.06,
+			CASE3_CAMERA.lookZ,
+		);
+	}
+
 	applyCamera(camera, frame) {
 		const progress = frame?.sceneProgress ?? 0;
 		const parallaxX = this.cameraParallax.x;
@@ -998,7 +1010,7 @@ export class Case3Scene {
 		camera.position.set(CASE3_CAMERA.x + parallaxX * 0.18, CASE3_CAMERA.y - progress * 0.12 + parallaxY * 0.12, CASE3_CAMERA.z);
 		camera.fov = CASE3_CAMERA.fov;
 		camera.updateProjectionMatrix();
-		camera.lookAt(CASE3_CAMERA.lookX + parallaxX * 0.08, CASE3_CAMERA.lookY - progress * 0.12 + parallaxY * 0.06, CASE3_CAMERA.lookZ);
+		camera.lookAt(this.getCameraLookAt(frame));
 	}
 
 	update(delta, frame) {

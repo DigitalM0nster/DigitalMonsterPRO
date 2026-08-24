@@ -1,0 +1,134 @@
+{
+  "gate": "GATE 3",
+  "pass": "correction-1",
+  "status": "independent-re-review",
+  "capturedAt": "2026-08-14",
+  "runtime": {
+    "route": "/capabilities/spatial-matrix",
+    "viewport": [1920, 945],
+    "devicePixelRatio": 1,
+    "canvas": {
+      "drawingBuffer": [3840, 1890],
+      "client": [1920, 945]
+    },
+    "webgl": "WebGL2",
+    "gpu": "ANGLE (NVIDIA, NVIDIA GeForce RTX 3070 Ti, D3D11)",
+    "consoleErrors": [],
+    "consoleWarnings": [
+      "Existing Three.js useLegacyLights deprecation warning"
+    ]
+  },
+  "performanceProbe": {
+    "frames": 375,
+    "averageFps": 75.00300012000481,
+    "p95FrameMs": 13.4,
+    "framesOver25Ms": 0
+  },
+  "frozenQa": {
+    "cameraPosition": [11.9, 7.35, 14.3],
+    "cameraTarget": [-1.35, -0.62, -0.2],
+    "fov": 39,
+    "seed": "0xD1617A1",
+    "masterplanSha256": "56f8f9534957e889f2afba3bc335f40bc1a2a1c7ca2641ded68042ca75c439d2"
+  },
+  "facadeAudit": {
+    "buildingsCovered": 45,
+    "buildingTotal": 45,
+    "facadeBatches": 3,
+    "facadeParts": 147,
+    "orientations": 294,
+    "physicalFaceDirections": 588,
+    "detailedCells": 1176,
+    "groupedCells": 171,
+    "auditedCells": 1347,
+    "faceCellChecks": 2694,
+    "apertureRectChecks": 4041,
+    "incompleteGroupedCellsMasked": 492,
+    "edgeClips": 0,
+    "edgeOverlaps": 0,
+    "edgeStretches": 0,
+    "continuityCases": 2352,
+    "continuitySamplesPerCase": 16,
+    "continuityFailures": 0,
+    "maxLinearBlendError": 0,
+    "interpolatedHashThresholds": 0,
+    "perWindowMeshes": 0,
+    "perWindowLights": 0,
+    "perWindowTextures": 0,
+    "textureUniforms": 0
+  },
+  "lightingDistribution": {
+    "detailed": {
+      "lit": 704,
+      "dark": 1648,
+      "litPercent": 29.93,
+      "neutralPercent": 96.64,
+      "warmPercent": 2.89,
+      "coolPercent": 0.47
+    },
+    "grouped": {
+      "lit": 103,
+      "dark": 239,
+      "litPercent": 30.12,
+      "neutralPercent": 97.66,
+      "warmPercent": 2.34,
+      "coolPercent": 0
+    }
+  },
+  "lod": {
+    "normalizedDistanceRange": [18, 34],
+    "derivativeRange": [0.55, 1.1],
+    "endpointColourClassification": "independent grouped and detailed RGB-energy endpoints",
+    "blend": "linear endpoint contribution mix only",
+    "timeDependentNoise": false
+  },
+  "budgetsAndInvariants": {
+    "architectureAndRoadDrawCalls": 16,
+    "architectureAndRoadTriangles": 6632,
+    "roadExtents": 108,
+    "roadConflicts": 0,
+    "minimumSignedClearance": 0.04351967138168539,
+    "graph": {
+      "nodes": 27,
+      "edges": 30,
+      "centerlines": 39,
+      "segments": 198,
+      "unexpectedCrossings": 0
+    },
+    "protectedHighwayUnchanged": true,
+    "protectedCraneUnchanged": true,
+    "globalChromeUnchanged": true,
+    "allWarmLifecyclePreserved": true
+  },
+  "checks": {
+    "facadeValidators": "PASS",
+    "roadAndFrozenValidators": "PASS",
+    "targetedEslint": "PASS",
+    "productionBuild": "PASS"
+  },
+  "evidence": {
+    "canonicalStill": "gate3-facade-distant-1920x945-dpr1.png",
+    "centralCloseup": "gate3-facade-closeup-central.png",
+    "rearCloseup": "gate3-facade-closeup-rear.png",
+    "officeEdgeCloseup": "gate3-family-edge-closeup-office.png",
+    "civicEdgeCloseup": "gate3-family-edge-closeup-civic.png",
+    "obliqueAfterMotion": "gate3-facade-oblique-after-motion-1920x945-dpr1.png",
+    "slowOrbitAndReturnVideo": "gate3-facade-slow-orbit-return-21s-1920x945-dpr1.webm",
+    "slowOrbitDurationMs": 17048,
+    "springReturnDurationMs": 4502,
+    "denseMotionSequenceDurationMs": 16508,
+    "denseMotionFrames": [
+      "gate3-motion-frame-010pct.png",
+      "gate3-motion-frame-020pct.png",
+      "gate3-motion-frame-030pct.png",
+      "gate3-motion-frame-040pct.png",
+      "gate3-motion-frame-050pct.png",
+      "gate3-motion-frame-060pct.png",
+      "gate3-motion-frame-070pct.png",
+      "gate3-motion-frame-080pct.png",
+      "gate3-motion-frame-090pct.png",
+      "gate3-motion-frame-100pct.png"
+    ],
+    "motionProtocolNote": "The frozen QA camera is preserved. A bounded slow orbit changes per-building view depth, then the existing spring returns to the canonical pose; this demonstrates reversible distance/derivative LOD without introducing a new camera dolly."
+  }
+}

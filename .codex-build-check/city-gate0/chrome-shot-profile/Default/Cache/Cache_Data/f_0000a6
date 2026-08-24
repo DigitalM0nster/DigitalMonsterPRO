@@ -1,0 +1,683 @@
+/** Шейдеры цифрового океана (партиклы) и point cloud кита. */
+import { underwaterPointGrainGlsl } from "/src/three/shaders/underwaterPointGrain.glsl.js";
+import { oceanSwimWakeRippleGlsl } from "/src/three/scenes/home/shaders/oceanSwimWakeRipple.glsl.js";
+export const whaleMeshParticleVertexShader = `
+#include <common>
+#include <fog_pars_vertex>
+
+uniform float uTime;
+uniform float uPointScale;
+
+attribute float aIntensity;
+
+varying float vIntensity;
+varying float vPulse;
+varying vec3 vLocalPos;
+
+void main() {
+	vec3 pos = position;
+	vLocalPos = pos;
+
+	float breathe = sin(uTime * 1.1 + pos.x * 0.22 + pos.y * 0.15) * 0.04;
+	pos += normalize(pos + vec3(0.001)) * breathe;
+
+	vIntensity = aIntensity;
+	vPulse = 0.5 + 0.5 * sin(uTime * 1.6 + pos.x * 0.5 + pos.z * 0.35);
+
+	vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+	gl_PointSize = uPointScale;
+	gl_Position = projectionMatrix * mvPosition;
+
+	#include <fog_vertex>
+}
+`;
+export const whaleMeshParticleFragmentShader = `
+#include <common>
+#include <fog_pars_fragment>
+
+${underwaterPointGrainGlsl}
+
+uniform vec3 uColor;
+uniform float uAlphaMult;
+uniform float uGlow;
+uniform float uGrainBlurRadius;
+uniform float uPointScale;
+uniform float uMuteStrength;
+uniform vec3 uMuteCenter;
+uniform vec3 uMuteRadius;
+
+varying float vIntensity;
+varying float vPulse;
+varying vec3 vLocalPos;
+
+float particleZoneFade(vec3 localPos) {
+	if (uMuteStrength < 0.001) {
+		return 1.0;
+	}
+
+	vec3 d = (localPos - uMuteCenter) / max(uMuteRadius, vec3(0.001));
+	float dist = length(d);
+	return mix(1.0 - uMuteStrength, 1.0, smoothstep(0.3, 1.0, dist));
+}
+
+vec4 sampleWhaleParticle(vec2 pointCoord, float grainSoft, float zoneFade) {
+	vec2 uv = pointCoord - 0.5;
+	float dist = length(uv);
+
+	if (dist > 0.5 + grainSoft * 0.35) {
+		return vec4(0.0);
+	}
+
+	float core = 1.0 - smoothstep(0.0, 0.14 + grainSoft, dist);
+	float glow = 1.0 - smoothstep(0.08, 0.46 + grainSoft * 1.6, dist);
+
+	vec3 color = uColor * (core * 1.5 + glow * 0.45 * uGlow) * (0.2 + vIntensity * 0.8 + vPulse * 0.12 * vIntensity) * zoneFade;
+	float alpha = (core * 0.78 + glow * 0.32 * uGlow) * uAlphaMult * vIntensity * zoneFade;
+
+	return vec4(color, alpha);
+}
+
+void main() {
+	vec3 accumColor = vec3(0.0);
+	float accumAlpha = 0.0;
+	vec4 tap;
+	float zoneFade = particleZoneFade(vLocalPos);
+
+	if (uGrainBlurRadius < 0.0000001) {
+		tap = sampleWhaleParticle(gl_PointCoord, 0.0, zoneFade);
+		if (tap.a < 0.001) {
+			discard;
+		}
+		accumColor = tap.rgb;
+		accumAlpha = tap.a;
+	} else {
+		float grainSoft = underwaterGrainSoft(uGrainBlurRadius);
+		float grainTap = underwaterGrainTap(uGrainBlurRadius, uPointScale);
+		vec2 screenSeed = gl_FragCoord.xy * 0.00137;
+
+		for (int i = 0; i < 6; i++) {
+			vec2 tapCoord = gl_PointCoord + grainBlurOffset(screenSeed + float(i) * 0.173, grainTap);
+			tap = sampleWhaleParticle(tapCoord, grainSoft, zoneFade);
+			accumColor += tap.rgb * tap.a;
+			accumAlpha += tap.a;
+		}
+
+		if (accumAlpha < 0.001) {
+			discard;
+		}
+
+		accumColor /= max(accumAlpha, 0.001);
+		accumAlpha /= 6.0;
+	}
+
+	gl_FragColor = vec4(accumColor, accumAlpha);
+
+	#include <fog_fragment>
+}
+`;
+/** SkinnedMesh whale on low/medium: luminous micro-points, no CPU particles. */
+export const whaleHologramVertexShader = `
+#define USE_SKINNING
+
+#include <common>
+#include <fog_pars_vertex>
+#include <skinning_pars_vertex>
+
+void main() {
+	#include <begin_vertex>
+	#include <morphtarget_vertex>
+	#include <skinning_vertex>
+
+	vec4 mvPosition = modelViewMatrix * vec4(transformed, 1.0);
+	gl_Position = projectionMatrix * mvPosition;
+
+	#include <fog_vertex>
+}
+`;
+export const whaleHologramFragmentShader = `
+#include <common>
+#include <fog_pars_fragment>
+
+uniform float uTime;
+uniform vec3 uColor;
+uniform float uOpacity;
+uniform float uGlow;
+
+float hash21(vec2 p) {
+	return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+}
+
+void main() {
+	// Round, staggered cells hide FBX triangulation instead of lighting every
+	// low-poly face. The shader remains one skinned draw call.
+	const float cellPx = 5.5;
+	vec2 rowCoord = gl_FragCoord.xy / cellPx;
+	rowCoord.x += mod(floor(rowCoord.y), 2.0) * 0.5;
+	vec2 cellId = floor(rowCoord);
+	vec2 cellUv = fract(rowCoord) - 0.5;
+	float seed = hash21(cellId);
+	float radius = mix(0.105, 0.225, seed);
+	float distToCenter = length(cellUv);
+	float aa = max(fwidth(distToCenter) * 1.35, 0.012);
+	float core = 1.0 - smoothstep(radius - aa, radius + aa, distToCenter);
+	float halo = 1.0 - smoothstep(radius + aa, 0.48, distToCenter);
+
+	float travel = 0.5 + 0.5 * sin(cellId.x * 0.19 + cellId.y * 0.11 - uTime * 2.0);
+	float sweep = pow(0.5 + 0.5 * sin(gl_FragCoord.y * 0.032 - uTime * 1.55), 9.0);
+	float energy = 0.62 + travel * 0.34 + sweep * 1.7;
+	float alpha = (core * 0.92 + halo * 0.16) * energy * uOpacity;
+	if (alpha < 0.008) {
+		discard;
+	}
+
+	vec3 color = uColor * (0.72 + core * (1.15 + uGlow * 0.22) + halo * 0.32 + sweep * 0.85);
+
+	gl_FragColor = vec4(color, alpha);
+
+	#include <fog_fragment>
+}
+`;
+export const oceanParticlesVertexShader = `
+#include <common>
+#include <fog_pars_vertex>
+
+${oceanSwimWakeRippleGlsl}
+
+uniform float uTime;
+uniform vec2 uRippleCenter;
+uniform vec2 uRippleDir;
+uniform vec2 uScrollPhase;
+uniform float uWaveAmp;
+uniform float uRippleAmp;
+uniform float uPointScale;
+
+varying float vWave;
+varying float vPulse;
+
+void main() {
+	vec3 pos = position;
+	vec3 worldPos = (modelMatrix * vec4(position, 1.0)).xyz;
+	float waveX = worldPos.x - uScrollPhase.x;
+	float waveZ = worldPos.z - uScrollPhase.y;
+
+	float wave1 = sin(waveX * 0.35 - uTime * 0.8) * 0.25;
+	float wave2 = sin(waveZ * 0.55 - uTime * 0.6) * 0.18;
+	float wave3 = sin((waveX + waveZ) * 0.25 - uTime * 0.4) * 0.22;
+
+	float rippleWave = oceanSwimWakeRipple(vec2(worldPos.x, worldPos.z), uRippleCenter, uRippleDir, uTime);
+
+	pos.y += (wave1 + wave2 + wave3) * uWaveAmp + rippleWave * uRippleAmp;
+
+	vWave = pos.y;
+	vPulse = 0.5 + 0.5 * sin(-uTime * 1.4 + waveX * 0.6 + waveZ * 0.4);
+
+	vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+	gl_PointSize = uPointScale;
+	gl_Position = projectionMatrix * mvPosition;
+
+	#include <fog_vertex>
+}
+`;
+export const oceanParticlesFragmentShader = `
+#include <common>
+#include <fog_pars_fragment>
+
+uniform vec3 uColor;
+uniform float uAlphaMult;
+uniform float uGlow;
+
+varying float vWave;
+varying float vPulse;
+
+void main() {
+	vec2 uv = gl_PointCoord - 0.5;
+	float dist = length(uv);
+
+	if (dist > 0.5) {
+		discard;
+	}
+
+	float core = 1.0 - smoothstep(0.0, 0.14, dist);
+	float glow = 1.0 - smoothstep(0.1, 0.46, dist);
+
+	// Whale-like controlled HDR core (max 1.35x) plus a visible color floor for
+	// the halo. The old 4-5x multiplier is what burned selected points to white.
+	float maxColorChannel = max(max(uColor.r, uColor.g), max(uColor.b, 0.0001));
+	float hueSafeLight = min(0.42 + core * 0.93, 1.35 / maxColorChannel);
+	vec3 color = uColor * hueSafeLight;
+	float haloStrength = sqrt(max(uGlow, 0.0));
+	float alpha = clamp((core * 0.95 + glow * 0.18 * haloStrength) * uAlphaMult, 0.0, 1.0);
+
+	gl_FragColor = vec4(color, alpha);
+
+	#include <fog_fragment>
+}
+`;
+export const oceanGridLineVertexShader = `
+#include <common>
+#include <fog_pars_vertex>
+
+${oceanSwimWakeRippleGlsl}
+
+uniform float uTime;
+uniform vec2 uRippleCenter;
+uniform vec2 uRippleDir;
+uniform vec2 uScrollPhase;
+uniform float uWaveAmp;
+uniform float uRippleAmp;
+
+varying float vWave;
+varying float vPulse;
+
+void main() {
+	vec3 pos = position;
+	vec3 worldPos = (modelMatrix * vec4(position, 1.0)).xyz;
+	float waveX = worldPos.x - uScrollPhase.x;
+	float waveZ = worldPos.z - uScrollPhase.y;
+
+	float wave1 = sin(waveX * 0.35 - uTime * 0.8) * 0.25;
+	float wave2 = sin(waveZ * 0.55 - uTime * 0.6) * 0.18;
+	float wave3 = sin((waveX + waveZ) * 0.25 - uTime * 0.4) * 0.22;
+
+	float rippleWave = oceanSwimWakeRipple(vec2(worldPos.x, worldPos.z), uRippleCenter, uRippleDir, uTime);
+
+	pos.y += (wave1 + wave2 + wave3) * uWaveAmp + rippleWave * uRippleAmp;
+
+	vWave = pos.y;
+	vPulse = 0.5 + 0.5 * sin(-uTime * 1.4 + waveX * 0.6 + waveZ * 0.4);
+
+	vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+	gl_Position = projectionMatrix * mvPosition;
+
+	#include <fog_vertex>
+}
+`;
+/** Океан: одна плоскость, точки (и опционально линии) рисуются в fragment shader. */
+export const oceanSurfaceVertexShader = `
+#include <common>
+#include <fog_pars_vertex>
+
+${oceanSwimWakeRippleGlsl}
+
+uniform float uTime;
+uniform vec2 uRippleCenter;
+uniform vec2 uRippleDir;
+uniform float uWaveAmp;
+uniform float uRippleAmp;
+uniform vec2 uScrollPhase;
+
+varying vec2 vSurfaceLocalXZ;
+varying float vWave;
+varying float vPulse;
+
+void main() {
+	vec3 pos = position;
+	vSurfaceLocalXZ = pos.xz;
+
+	vec3 worldPos = (modelMatrix * vec4(position, 1.0)).xyz;
+	float waveX = position.x - uScrollPhase.x;
+	float waveZ = position.z - uScrollPhase.y;
+
+	float wave1 = sin(waveX * 0.35 - uTime * 0.8) * 0.25;
+	float wave2 = sin(waveZ * 0.55 - uTime * 0.6) * 0.18;
+	float wave3 = sin((waveX + waveZ) * 0.25 - uTime * 0.4) * 0.22;
+
+	float rippleWave = oceanSwimWakeRipple(vec2(worldPos.x, worldPos.z), uRippleCenter, uRippleDir, uTime);
+
+	pos.y += (wave1 + wave2 + wave3) * uWaveAmp + rippleWave * uRippleAmp;
+
+	vWave = pos.y;
+	vPulse = 0.5 + 0.5 * sin(-uTime * 1.4 + waveX * 0.6 + waveZ * 0.4);
+
+	vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+	gl_Position = projectionMatrix * mvPosition;
+
+	#include <fog_vertex>
+}
+`;
+export const oceanSurfaceFragmentShader = `
+#include <common>
+#include <fog_pars_fragment>
+
+uniform vec3 uPointColor;
+uniform vec3 uGridColor;
+uniform float uTime;
+uniform float uGridCols;
+uniform float uGridRows;
+uniform float uSurfaceWidth;
+uniform float uSurfaceDepth;
+uniform float uSurfaceZNear;
+uniform float uPointScale;
+uniform float uAlphaMult;
+uniform float uGlow;
+uniform float uGridAlpha;
+uniform vec2 uScrollPhase;
+
+varying vec2 vSurfaceLocalXZ;
+varying float vWave;
+varying float vPulse;
+
+float oceanHash(vec2 p) {
+	return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+}
+
+void main() {
+	// cols ячеек: точки в центрах, без дубля на ±width/2 между соседними периодами 120.
+	float stepX = uSurfaceWidth / max(uGridCols, 1.0);
+	float stepZ = uSurfaceDepth / max(uGridRows, 1.0);
+	float scrolledX = vSurfaceLocalXZ.x - uScrollPhase.x;
+	float scrolledZ = vSurfaceLocalXZ.y - uScrollPhase.y;
+	float periodX = mod(scrolledX + uSurfaceWidth, uSurfaceWidth);
+	float zFromNear = uSurfaceZNear - scrolledZ;
+	vec2 g = vec2(periodX, zFromNear);
+	vec2 cellCoord = vec2((g.x - stepX * 0.5) / stepX, (g.y - stepZ * 0.5) / stepZ);
+
+	vec2 cellId = floor(cellCoord);
+	vec2 distFromCenter = abs(fract(cellCoord) - 0.5);
+	float coordDdx = length(dFdx(cellCoord));
+	float coordDdy = length(dFdy(cellCoord));
+	float pxPerCell = 1.0 / max(max(coordDdx, coordDdy), 0.0001);
+	float distCenterPx = length(distFromCenter) * pxPerCell;
+	float seed = oceanHash(cellId);
+	// Fade sub-pixel cells instead of allowing perspective aliasing to merge
+	// them into thick luminous bands near the horizon.
+	float resolved = smoothstep(0.8, 2.2, pxPerCell);
+	float radiusPx = mix(0.55, 1.2, seed) * clamp(uPointScale * 0.52, 0.65, 1.25);
+	float core = 1.0 - smoothstep(radiusPx * 0.35, radiusPx * 0.35 + 0.9, distCenterPx);
+	float glow = 1.0 - smoothstep(radiusPx * 0.5, radiusPx + 2.2, distCenterPx);
+	float rareNode = smoothstep(0.94, 0.995, seed);
+	float flow = pow(0.5 + 0.5 * sin(cellId.x * 0.13 + cellId.y * 0.21 - uTime * 0.85), 5.0);
+	float waveBoost = 0.72 + smoothstep(-0.1, 0.4, vWave) * 0.28;
+	float energy = (0.38 + seed * 0.34 + flow * 0.42 + rareNode * 2.4) * waveBoost;
+	// Match the high-tier point sprite: controlled HDR core and a colored halo,
+	// without the old unbounded energy multiplier.
+	float maxColorChannel = max(max(uPointColor.r, uPointColor.g), max(uPointColor.b, 0.0001));
+	float hueSafeLight = min(0.42 + core * 0.93, 1.35 / maxColorChannel);
+	vec3 color = uPointColor * hueSafeLight;
+	float alpha = clamp((core * 0.72 + glow * (0.08 + rareNode * 0.18)) * uAlphaMult * energy * resolved, 0.0, 1.0);
+
+	if (alpha < 0.0001) {
+		discard;
+	}
+
+	gl_FragColor = vec4(color, alpha);
+
+	#include <fog_fragment>
+}
+`;
+export const oceanGridLineFragmentShader = `
+#include <common>
+#include <fog_pars_fragment>
+
+uniform vec3 uColor;
+uniform float uGridAlpha;
+
+varying float vWave;
+varying float vPulse;
+
+void main() {
+	float waveBoost = 0.7 + smoothstep(0.0, 0.35, vWave) * 0.3;
+	vec3 color = uColor * waveBoost * (0.85 + vPulse * 0.15);
+	float alpha = 0.22 * waveBoost * uGridAlpha;
+
+	gl_FragColor = vec4(color, alpha);
+
+	#include <fog_fragment>
+}
+`;
+export const ambientDriftVertexShader = `
+#include <common>
+#include <fog_pars_vertex>
+
+uniform float uTime;
+uniform float uPointScale;
+uniform float uDriftAmp;
+uniform float uLocalSurfaceY;
+uniform float uAnchorY;
+uniform float uOceanCeilingY;
+/** Тот же поток, что у сетки океана — частицы уезжают вправо и появляются слева. */
+uniform float uScrollPhase;
+uniform float uWrapWidth;
+
+attribute float aPhase;
+attribute float aSize;
+
+varying float vOceanY;
+
+void main() {
+	vec3 pos = position;
+
+	float halfW = max(uWrapWidth, 0.001) * 0.5;
+	pos.x = mod(pos.x + uScrollPhase + halfW, halfW * 2.0) - halfW;
+
+	float driftX = sin(uTime * 0.45 + aPhase) * uDriftAmp;
+	float driftY = sin(uTime * 0.32 + aPhase * 1.7) * uDriftAmp * 0.35;
+	float driftZ = cos(uTime * 0.38 + aPhase * 0.9) * uDriftAmp;
+
+	pos += vec3(driftX, driftY, driftZ);
+	pos.y = min(pos.y, uLocalSurfaceY);
+	vOceanY = uAnchorY + pos.y;
+
+	vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+	gl_PointSize = uPointScale * aSize * (140.0 / max(-mvPosition.z, 1.0));
+	gl_Position = projectionMatrix * mvPosition;
+
+	#include <fog_vertex>
+}
+`;
+export const ambientDriftFragmentShader = `
+#include <common>
+#include <fog_pars_fragment>
+
+uniform vec3 uColor;
+uniform float uAlphaMult;
+uniform float uGlow;
+uniform float uOceanCeilingY;
+uniform float uOceanFadeBand;
+
+varying float vOceanY;
+
+void main() {
+	vec2 uv = gl_PointCoord - 0.5;
+	float dist = length(uv);
+
+	if (dist > 0.5) {
+		discard;
+	}
+
+	float core = 1.0 - smoothstep(0.0, 0.2, dist);
+	float glow = 1.0 - smoothstep(0.12, 0.48, dist);
+	float topFade = 1.0 - smoothstep(uOceanCeilingY - uOceanFadeBand, uOceanCeilingY, vOceanY);
+
+	vec3 color = uColor * (core * 1.2 + glow * 0.35 * uGlow);
+	float alpha = (core * 0.55 + glow * 0.28 * uGlow) * uAlphaMult * topFade;
+
+	gl_FragColor = vec4(color, alpha);
+
+	#include <fog_fragment>
+}
+`;
+/** Шлейф за китом — ярче у тела, гаснет к хвосту (aLife). */
+export const whaleWakeVertexShader = `
+#include <common>
+
+uniform float uPointScale;
+
+attribute float aSize;
+attribute float aLife;
+
+varying float vLife;
+
+void main() {
+	vLife = aLife;
+
+	vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+	float size = uPointScale * aSize * (0.65 + aLife * 0.55) * (130.0 / max(-mvPosition.z, 1.0));
+	gl_PointSize = max(3.0, size);
+	gl_Position = projectionMatrix * mvPosition;
+}
+`;
+export const whaleWakeFragmentShader = `
+#include <common>
+
+uniform vec3 uColor;
+uniform float uAlphaMult;
+
+varying float vLife;
+
+void main() {
+	vec2 uv = gl_PointCoord - 0.5;
+	float dist = length(uv);
+
+	if (dist > 0.5) {
+		discard;
+	}
+
+	float core = 1.0 - smoothstep(0.0, 0.18, dist);
+	float glow = 1.0 - smoothstep(0.1, 0.42, dist);
+	float fade = vLife * vLife * (3.0 - 2.0 * vLife);
+	float alpha = (core * 0.55 + glow * 0.38) * uAlphaMult * fade;
+
+	if (alpha < 0.01) {
+		discard;
+	}
+
+	vec3 color = uColor * (core * 1.15 + glow * 0.45) * (0.55 + fade * 0.65);
+	gl_FragColor = vec4(color, alpha);
+}
+`;
+export const whalePointsVertexShader = `
+#include <common>
+#include <fog_pars_vertex>
+
+uniform float uTime;
+uniform float uPointScale;
+
+attribute float aSize;
+attribute float aIntensity;
+attribute float aHeadBias;
+
+varying float vIntensity;
+varying float vAlpha;
+
+void main() {
+	vec3 pos = position;
+
+	float breathe = sin(uTime * 1.0 + position.x * 0.18) * 0.06;
+	pos.y += breathe;
+
+	float reveal = smoothstep(0.42, 0.94, aHeadBias);
+	reveal = max(reveal, step(0.82, aHeadBias));
+
+	float impulse = sin(position.x * 0.45 - uTime * 2.4) * 0.5 + 0.5;
+	impulse *= smoothstep(-14.0, 8.0, position.x - 7.0);
+
+	vIntensity = aIntensity * (0.4 + impulse * 0.6);
+	vAlpha = reveal * (0.35 + aIntensity * 0.65);
+
+	vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+	gl_PointSize = aSize * uPointScale * (72.0 / -mvPosition.z) * (0.55 + reveal * 0.45);
+	gl_Position = projectionMatrix * mvPosition;
+
+	#include <fog_vertex>
+}
+`;
+export const whalePointsFragmentShader = `
+#include <common>
+#include <fog_pars_fragment>
+
+uniform vec3 uColor;
+
+varying float vIntensity;
+varying float vAlpha;
+
+void main() {
+	vec2 uv = gl_PointCoord - 0.5;
+	float dist = length(uv);
+
+	if (dist > 0.5) {
+		discard;
+	}
+
+	float core = 1.0 - smoothstep(0.0, 0.16, dist);
+	float glow = 1.0 - smoothstep(0.12, 0.44, dist);
+	float alpha = (core * 0.8 + glow * 0.35) * vAlpha;
+	vec3 color = uColor * (core * 1.4 + glow * 0.5) * (0.7 + vIntensity * 0.5);
+
+	gl_FragColor = vec4(color, alpha);
+
+	#include <fog_fragment>
+}
+`;
+export const finVertexShader = `
+uniform float uTime;
+varying float vGlow;
+
+void main() {
+	vec3 pos = position;
+	pos.y += sin(uTime * 1.6 + position.x * 0.8) * 0.06;
+
+	vGlow = 0.6 + 0.4 * sin(uTime * 2.0 + position.y * 2.5);
+
+	gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+}
+`;
+export const finFragmentShader = `
+uniform vec3 uColor;
+varying float vGlow;
+
+void main() {
+	float alpha = vGlow * 0.85;
+	gl_FragColor = vec4(uColor, alpha);
+}
+`;
+export const whaleAccentVertexShader = `
+#include <common>
+#include <fog_pars_vertex>
+
+uniform float uTime;
+uniform float uAccentScale;
+
+attribute float aSize;
+attribute float aPulse;
+
+varying float vGlow;
+
+void main() {
+	vec3 pos = position;
+	pos.y += sin(uTime * 1.1 + aPulse * 6.28) * 0.05;
+
+	vGlow = 0.65 + 0.35 * sin(uTime * 2.2 + aPulse * 10.0);
+
+	vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+	gl_PointSize = aSize * uAccentScale * (145.0 / -mvPosition.z);
+	gl_Position = projectionMatrix * mvPosition;
+
+	#include <fog_vertex>
+}
+`;
+export const whaleAccentFragmentShader = `
+#include <common>
+#include <fog_pars_fragment>
+
+uniform vec3 uColor;
+varying float vGlow;
+
+void main() {
+	vec2 uv = gl_PointCoord - 0.5;
+	float dist = length(uv);
+	if (dist > 0.5) discard;
+
+	float core = 1.0 - smoothstep(0.08, 0.22, dist);
+	float halo = 1.0 - smoothstep(0.22, 0.48, dist);
+
+	vec3 color = uColor * (1.0 + vGlow * 0.35);
+	float alpha = (core * 0.95 + halo * 0.35) * vGlow;
+
+	gl_FragColor = vec4(color, alpha);
+
+	#include <fog_fragment>
+}
+`;
+
+//# sourceMappingURL=data:application/json;base64,eyJtYXBwaW5ncyI6IjtBQUVBLFNBQVMsZ0NBQWdDO0FBQ3pDLFNBQVMsK0JBQStCO0FBRXhDLE9BQU8sTUFBTSxnQ0FBMkM7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7OztBQStCeEQsT0FBTyxNQUFNLGtDQUE2Qzs7OztFQUl4RCx5QkFBeUI7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7OztBQWtGM0IsT0FBTyxNQUFNLDRCQUF1Qzs7Ozs7Ozs7Ozs7Ozs7Ozs7O0FBbUJwRCxPQUFPLE1BQU0sOEJBQXlDOzs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7O0FBNEN0RCxPQUFPLE1BQU0sNkJBQXdDOzs7O0VBSW5ELHdCQUF3Qjs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7OztBQXNDMUIsT0FBTyxNQUFNLCtCQUEwQzs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7QUFvQ3ZELE9BQU8sTUFBTSw0QkFBdUM7Ozs7RUFJbEQsd0JBQXdCOzs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7QUFxQzFCLE9BQU8sTUFBTSwyQkFBc0M7Ozs7RUFJakQsd0JBQXdCOzs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7OztBQXVDMUIsT0FBTyxNQUFNLDZCQUF3Qzs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7OztBQXVFckQsT0FBTyxNQUFNLDhCQUF5Qzs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7QUFxQnRELE9BQU8sTUFBTSwyQkFBc0M7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7QUF5Q25ELE9BQU8sTUFBTSw2QkFBd0M7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7OztBQWtDckQsT0FBTyxNQUFNLHdCQUFtQzs7Ozs7Ozs7Ozs7Ozs7Ozs7OztBQW9CaEQsT0FBTyxNQUFNLDBCQUFxQzs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7QUE4QmxELE9BQU8sTUFBTSwwQkFBcUM7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7OztBQXFDbEQsT0FBTyxNQUFNLDRCQUF1Qzs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7O0FBNEJwRCxPQUFPLE1BQU0sa0JBQTZCOzs7Ozs7Ozs7Ozs7O0FBYzFDLE9BQU8sTUFBTSxvQkFBK0I7Ozs7Ozs7OztBQVU1QyxPQUFPLE1BQU0sMEJBQXFDOzs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7O0FBMEJsRCxPQUFPLE1BQU0sNEJBQXVDIiwibmFtZXMiOltdLCJzb3VyY2VzIjpbImRpZ2l0YWxXaGFsZVNoYWRlcnMuanMiXSwidmVyc2lvbiI6Mywic291cmNlc0NvbnRlbnQiOlsiLyoqINCo0LXQudC00LXRgNGLINGG0LjRhNGA0L7QstC+0LPQviDQvtC60LXQsNC90LAgKNC/0LDRgNGC0LjQutC70YspINC4IHBvaW50IGNsb3VkINC60LjRgtCwLiAqL1xuXG5pbXBvcnQgeyB1bmRlcndhdGVyUG9pbnRHcmFpbkdsc2wgfSBmcm9tIFwiQC90aHJlZS9zaGFkZXJzL3VuZGVyd2F0ZXJQb2ludEdyYWluLmdsc2wuanNcIjtcbmltcG9ydCB7IG9jZWFuU3dpbVdha2VSaXBwbGVHbHNsIH0gZnJvbSBcIi4vb2NlYW5Td2ltV2FrZVJpcHBsZS5nbHNsLmpzXCI7XG5cbmV4cG9ydCBjb25zdCB3aGFsZU1lc2hQYXJ0aWNsZVZlcnRleFNoYWRlciA9IC8qIGdsc2wgKi8gYFxuI2luY2x1ZGUgPGNvbW1vbj5cbiNpbmNsdWRlIDxmb2dfcGFyc192ZXJ0ZXg+XG5cbnVuaWZvcm0gZmxvYXQgdVRpbWU7XG51bmlmb3JtIGZsb2F0IHVQb2ludFNjYWxlO1xuXG5hdHRyaWJ1dGUgZmxvYXQgYUludGVuc2l0eTtcblxudmFyeWluZyBmbG9hdCB2SW50ZW5zaXR5O1xudmFyeWluZyBmbG9hdCB2UHVsc2U7XG52YXJ5aW5nIHZlYzMgdkxvY2FsUG9zO1xuXG52b2lkIG1haW4oKSB7XG5cdHZlYzMgcG9zID0gcG9zaXRpb247XG5cdHZMb2NhbFBvcyA9IHBvcztcblxuXHRmbG9hdCBicmVhdGhlID0gc2luKHVUaW1lICogMS4xICsgcG9zLnggKiAwLjIyICsgcG9zLnkgKiAwLjE1KSAqIDAuMDQ7XG5cdHBvcyArPSBub3JtYWxpemUocG9zICsgdmVjMygwLjAwMSkpICogYnJlYXRoZTtcblxuXHR2SW50ZW5zaXR5ID0gYUludGVuc2l0eTtcblx0dlB1bHNlID0gMC41ICsgMC41ICogc2luKHVUaW1lICogMS42ICsgcG9zLnggKiAwLjUgKyBwb3MueiAqIDAuMzUpO1xuXG5cdHZlYzQgbXZQb3NpdGlvbiA9IG1vZGVsVmlld01hdHJpeCAqIHZlYzQocG9zLCAxLjApO1xuXHRnbF9Qb2ludFNpemUgPSB1UG9pbnRTY2FsZTtcblx0Z2xfUG9zaXRpb24gPSBwcm9qZWN0aW9uTWF0cml4ICogbXZQb3NpdGlvbjtcblxuXHQjaW5jbHVkZSA8Zm9nX3ZlcnRleD5cbn1cbmA7XG5cbmV4cG9ydCBjb25zdCB3aGFsZU1lc2hQYXJ0aWNsZUZyYWdtZW50U2hhZGVyID0gLyogZ2xzbCAqLyBgXG4jaW5jbHVkZSA8Y29tbW9uPlxuI2luY2x1ZGUgPGZvZ19wYXJzX2ZyYWdtZW50PlxuXG4ke3VuZGVyd2F0ZXJQb2ludEdyYWluR2xzbH1cblxudW5pZm9ybSB2ZWMzIHVDb2xvcjtcbnVuaWZvcm0gZmxvYXQgdUFscGhhTXVsdDtcbnVuaWZvcm0gZmxvYXQgdUdsb3c7XG51bmlmb3JtIGZsb2F0IHVHcmFpbkJsdXJSYWRpdXM7XG51bmlmb3JtIGZsb2F0IHVQb2ludFNjYWxlO1xudW5pZm9ybSBmbG9hdCB1TXV0ZVN0cmVuZ3RoO1xudW5pZm9ybSB2ZWMzIHVNdXRlQ2VudGVyO1xudW5pZm9ybSB2ZWMzIHVNdXRlUmFkaXVzO1xuXG52YXJ5aW5nIGZsb2F0IHZJbnRlbnNpdHk7XG52YXJ5aW5nIGZsb2F0IHZQdWxzZTtcbnZhcnlpbmcgdmVjMyB2TG9jYWxQb3M7XG5cbmZsb2F0IHBhcnRpY2xlWm9uZUZhZGUodmVjMyBsb2NhbFBvcykge1xuXHRpZiAodU11dGVTdHJlbmd0aCA8IDAuMDAxKSB7XG5cdFx0cmV0dXJuIDEuMDtcblx0fVxuXG5cdHZlYzMgZCA9IChsb2NhbFBvcyAtIHVNdXRlQ2VudGVyKSAvIG1heCh1TXV0ZVJhZGl1cywgdmVjMygwLjAwMSkpO1xuXHRmbG9hdCBkaXN0ID0gbGVuZ3RoKGQpO1xuXHRyZXR1cm4gbWl4KDEuMCAtIHVNdXRlU3RyZW5ndGgsIDEuMCwgc21vb3Roc3RlcCgwLjMsIDEuMCwgZGlzdCkpO1xufVxuXG52ZWM0IHNhbXBsZVdoYWxlUGFydGljbGUodmVjMiBwb2ludENvb3JkLCBmbG9hdCBncmFpblNvZnQsIGZsb2F0IHpvbmVGYWRlKSB7XG5cdHZlYzIgdXYgPSBwb2ludENvb3JkIC0gMC41O1xuXHRmbG9hdCBkaXN0ID0gbGVuZ3RoKHV2KTtcblxuXHRpZiAoZGlzdCA+IDAuNSArIGdyYWluU29mdCAqIDAuMzUpIHtcblx0XHRyZXR1cm4gdmVjNCgwLjApO1xuXHR9XG5cblx0ZmxvYXQgY29yZSA9IDEuMCAtIHNtb290aHN0ZXAoMC4wLCAwLjE0ICsgZ3JhaW5Tb2Z0LCBkaXN0KTtcblx0ZmxvYXQgZ2xvdyA9IDEuMCAtIHNtb290aHN0ZXAoMC4wOCwgMC40NiArIGdyYWluU29mdCAqIDEuNiwgZGlzdCk7XG5cblx0dmVjMyBjb2xvciA9IHVDb2xvciAqIChjb3JlICogMS41ICsgZ2xvdyAqIDAuNDUgKiB1R2xvdykgKiAoMC4yICsgdkludGVuc2l0eSAqIDAuOCArIHZQdWxzZSAqIDAuMTIgKiB2SW50ZW5zaXR5KSAqIHpvbmVGYWRlO1xuXHRmbG9hdCBhbHBoYSA9IChjb3JlICogMC43OCArIGdsb3cgKiAwLjMyICogdUdsb3cpICogdUFscGhhTXVsdCAqIHZJbnRlbnNpdHkgKiB6b25lRmFkZTtcblxuXHRyZXR1cm4gdmVjNChjb2xvciwgYWxwaGEpO1xufVxuXG52b2lkIG1haW4oKSB7XG5cdHZlYzMgYWNjdW1Db2xvciA9IHZlYzMoMC4wKTtcblx0ZmxvYXQgYWNjdW1BbHBoYSA9IDAuMDtcblx0dmVjNCB0YXA7XG5cdGZsb2F0IHpvbmVGYWRlID0gcGFydGljbGVab25lRmFkZSh2TG9jYWxQb3MpO1xuXG5cdGlmICh1R3JhaW5CbHVyUmFkaXVzIDwgMC4wMDAwMDAxKSB7XG5cdFx0dGFwID0gc2FtcGxlV2hhbGVQYXJ0aWNsZShnbF9Qb2ludENvb3JkLCAwLjAsIHpvbmVGYWRlKTtcblx0XHRpZiAodGFwLmEgPCAwLjAwMSkge1xuXHRcdFx0ZGlzY2FyZDtcblx0XHR9XG5cdFx0YWNjdW1Db2xvciA9IHRhcC5yZ2I7XG5cdFx0YWNjdW1BbHBoYSA9IHRhcC5hO1xuXHR9IGVsc2Uge1xuXHRcdGZsb2F0IGdyYWluU29mdCA9IHVuZGVyd2F0ZXJHcmFpblNvZnQodUdyYWluQmx1clJhZGl1cyk7XG5cdFx0ZmxvYXQgZ3JhaW5UYXAgPSB1bmRlcndhdGVyR3JhaW5UYXAodUdyYWluQmx1clJhZGl1cywgdVBvaW50U2NhbGUpO1xuXHRcdHZlYzIgc2NyZWVuU2VlZCA9IGdsX0ZyYWdDb29yZC54eSAqIDAuMDAxMzc7XG5cblx0XHRmb3IgKGludCBpID0gMDsgaSA8IDY7IGkrKykge1xuXHRcdFx0dmVjMiB0YXBDb29yZCA9IGdsX1BvaW50Q29vcmQgKyBncmFpbkJsdXJPZmZzZXQoc2NyZWVuU2VlZCArIGZsb2F0KGkpICogMC4xNzMsIGdyYWluVGFwKTtcblx0XHRcdHRhcCA9IHNhbXBsZVdoYWxlUGFydGljbGUodGFwQ29vcmQsIGdyYWluU29mdCwgem9uZUZhZGUpO1xuXHRcdFx0YWNjdW1Db2xvciArPSB0YXAucmdiICogdGFwLmE7XG5cdFx0XHRhY2N1bUFscGhhICs9IHRhcC5hO1xuXHRcdH1cblxuXHRcdGlmIChhY2N1bUFscGhhIDwgMC4wMDEpIHtcblx0XHRcdGRpc2NhcmQ7XG5cdFx0fVxuXG5cdFx0YWNjdW1Db2xvciAvPSBtYXgoYWNjdW1BbHBoYSwgMC4wMDEpO1xuXHRcdGFjY3VtQWxwaGEgLz0gNi4wO1xuXHR9XG5cblx0Z2xfRnJhZ0NvbG9yID0gdmVjNChhY2N1bUNvbG9yLCBhY2N1bUFscGhhKTtcblxuXHQjaW5jbHVkZSA8Zm9nX2ZyYWdtZW50PlxufVxuYDtcblxuLyoqIFNraW5uZWRNZXNoIHdoYWxlIG9uIGxvdy9tZWRpdW06IGx1bWlub3VzIG1pY3JvLXBvaW50cywgbm8gQ1BVIHBhcnRpY2xlcy4gKi9cbmV4cG9ydCBjb25zdCB3aGFsZUhvbG9ncmFtVmVydGV4U2hhZGVyID0gLyogZ2xzbCAqLyBgXG4jZGVmaW5lIFVTRV9TS0lOTklOR1xuXG4jaW5jbHVkZSA8Y29tbW9uPlxuI2luY2x1ZGUgPGZvZ19wYXJzX3ZlcnRleD5cbiNpbmNsdWRlIDxza2lubmluZ19wYXJzX3ZlcnRleD5cblxudm9pZCBtYWluKCkge1xuXHQjaW5jbHVkZSA8YmVnaW5fdmVydGV4PlxuXHQjaW5jbHVkZSA8bW9ycGh0YXJnZXRfdmVydGV4PlxuXHQjaW5jbHVkZSA8c2tpbm5pbmdfdmVydGV4PlxuXG5cdHZlYzQgbXZQb3NpdGlvbiA9IG1vZGVsVmlld01hdHJpeCAqIHZlYzQodHJhbnNmb3JtZWQsIDEuMCk7XG5cdGdsX1Bvc2l0aW9uID0gcHJvamVjdGlvbk1hdHJpeCAqIG12UG9zaXRpb247XG5cblx0I2luY2x1ZGUgPGZvZ192ZXJ0ZXg+XG59XG5gO1xuXG5leHBvcnQgY29uc3Qgd2hhbGVIb2xvZ3JhbUZyYWdtZW50U2hhZGVyID0gLyogZ2xzbCAqLyBgXG4jaW5jbHVkZSA8Y29tbW9uPlxuI2luY2x1ZGUgPGZvZ19wYXJzX2ZyYWdtZW50PlxuXG51bmlmb3JtIGZsb2F0IHVUaW1lO1xudW5pZm9ybSB2ZWMzIHVDb2xvcjtcbnVuaWZvcm0gZmxvYXQgdU9wYWNpdHk7XG51bmlmb3JtIGZsb2F0IHVHbG93O1xuXG5mbG9hdCBoYXNoMjEodmVjMiBwKSB7XG5cdHJldHVybiBmcmFjdChzaW4oZG90KHAsIHZlYzIoMTI3LjEsIDMxMS43KSkpICogNDM3NTguNTQ1MzEyMyk7XG59XG5cbnZvaWQgbWFpbigpIHtcblx0Ly8gUm91bmQsIHN0YWdnZXJlZCBjZWxscyBoaWRlIEZCWCB0cmlhbmd1bGF0aW9uIGluc3RlYWQgb2YgbGlnaHRpbmcgZXZlcnlcblx0Ly8gbG93LXBvbHkgZmFjZS4gVGhlIHNoYWRlciByZW1haW5zIG9uZSBza2lubmVkIGRyYXcgY2FsbC5cblx0Y29uc3QgZmxvYXQgY2VsbFB4ID0gNS41O1xuXHR2ZWMyIHJvd0Nvb3JkID0gZ2xfRnJhZ0Nvb3JkLnh5IC8gY2VsbFB4O1xuXHRyb3dDb29yZC54ICs9IG1vZChmbG9vcihyb3dDb29yZC55KSwgMi4wKSAqIDAuNTtcblx0dmVjMiBjZWxsSWQgPSBmbG9vcihyb3dDb29yZCk7XG5cdHZlYzIgY2VsbFV2ID0gZnJhY3Qocm93Q29vcmQpIC0gMC41O1xuXHRmbG9hdCBzZWVkID0gaGFzaDIxKGNlbGxJZCk7XG5cdGZsb2F0IHJhZGl1cyA9IG1peCgwLjEwNSwgMC4yMjUsIHNlZWQpO1xuXHRmbG9hdCBkaXN0VG9DZW50ZXIgPSBsZW5ndGgoY2VsbFV2KTtcblx0ZmxvYXQgYWEgPSBtYXgoZndpZHRoKGRpc3RUb0NlbnRlcikgKiAxLjM1LCAwLjAxMik7XG5cdGZsb2F0IGNvcmUgPSAxLjAgLSBzbW9vdGhzdGVwKHJhZGl1cyAtIGFhLCByYWRpdXMgKyBhYSwgZGlzdFRvQ2VudGVyKTtcblx0ZmxvYXQgaGFsbyA9IDEuMCAtIHNtb290aHN0ZXAocmFkaXVzICsgYWEsIDAuNDgsIGRpc3RUb0NlbnRlcik7XG5cblx0ZmxvYXQgdHJhdmVsID0gMC41ICsgMC41ICogc2luKGNlbGxJZC54ICogMC4xOSArIGNlbGxJZC55ICogMC4xMSAtIHVUaW1lICogMi4wKTtcblx0ZmxvYXQgc3dlZXAgPSBwb3coMC41ICsgMC41ICogc2luKGdsX0ZyYWdDb29yZC55ICogMC4wMzIgLSB1VGltZSAqIDEuNTUpLCA5LjApO1xuXHRmbG9hdCBlbmVyZ3kgPSAwLjYyICsgdHJhdmVsICogMC4zNCArIHN3ZWVwICogMS43O1xuXHRmbG9hdCBhbHBoYSA9IChjb3JlICogMC45MiArIGhhbG8gKiAwLjE2KSAqIGVuZXJneSAqIHVPcGFjaXR5O1xuXHRpZiAoYWxwaGEgPCAwLjAwOCkge1xuXHRcdGRpc2NhcmQ7XG5cdH1cblxuXHR2ZWMzIGNvbG9yID0gdUNvbG9yICogKDAuNzIgKyBjb3JlICogKDEuMTUgKyB1R2xvdyAqIDAuMjIpICsgaGFsbyAqIDAuMzIgKyBzd2VlcCAqIDAuODUpO1xuXG5cdGdsX0ZyYWdDb2xvciA9IHZlYzQoY29sb3IsIGFscGhhKTtcblxuXHQjaW5jbHVkZSA8Zm9nX2ZyYWdtZW50PlxufVxuYDtcblxuZXhwb3J0IGNvbnN0IG9jZWFuUGFydGljbGVzVmVydGV4U2hhZGVyID0gLyogZ2xzbCAqLyBgXG4jaW5jbHVkZSA8Y29tbW9uPlxuI2luY2x1ZGUgPGZvZ19wYXJzX3ZlcnRleD5cblxuJHtvY2VhblN3aW1XYWtlUmlwcGxlR2xzbH1cblxudW5pZm9ybSBmbG9hdCB1VGltZTtcbnVuaWZvcm0gdmVjMiB1UmlwcGxlQ2VudGVyO1xudW5pZm9ybSB2ZWMyIHVSaXBwbGVEaXI7XG51bmlmb3JtIHZlYzIgdVNjcm9sbFBoYXNlO1xudW5pZm9ybSBmbG9hdCB1V2F2ZUFtcDtcbnVuaWZvcm0gZmxvYXQgdVJpcHBsZUFtcDtcbnVuaWZvcm0gZmxvYXQgdVBvaW50U2NhbGU7XG5cbnZhcnlpbmcgZmxvYXQgdldhdmU7XG52YXJ5aW5nIGZsb2F0IHZQdWxzZTtcblxudm9pZCBtYWluKCkge1xuXHR2ZWMzIHBvcyA9IHBvc2l0aW9uO1xuXHR2ZWMzIHdvcmxkUG9zID0gKG1vZGVsTWF0cml4ICogdmVjNChwb3NpdGlvbiwgMS4wKSkueHl6O1xuXHRmbG9hdCB3YXZlWCA9IHdvcmxkUG9zLnggLSB1U2Nyb2xsUGhhc2UueDtcblx0ZmxvYXQgd2F2ZVogPSB3b3JsZFBvcy56IC0gdVNjcm9sbFBoYXNlLnk7XG5cblx0ZmxvYXQgd2F2ZTEgPSBzaW4od2F2ZVggKiAwLjM1IC0gdVRpbWUgKiAwLjgpICogMC4yNTtcblx0ZmxvYXQgd2F2ZTIgPSBzaW4od2F2ZVogKiAwLjU1IC0gdVRpbWUgKiAwLjYpICogMC4xODtcblx0ZmxvYXQgd2F2ZTMgPSBzaW4oKHdhdmVYICsgd2F2ZVopICogMC4yNSAtIHVUaW1lICogMC40KSAqIDAuMjI7XG5cblx0ZmxvYXQgcmlwcGxlV2F2ZSA9IG9jZWFuU3dpbVdha2VSaXBwbGUodmVjMih3b3JsZFBvcy54LCB3b3JsZFBvcy56KSwgdVJpcHBsZUNlbnRlciwgdVJpcHBsZURpciwgdVRpbWUpO1xuXG5cdHBvcy55ICs9ICh3YXZlMSArIHdhdmUyICsgd2F2ZTMpICogdVdhdmVBbXAgKyByaXBwbGVXYXZlICogdVJpcHBsZUFtcDtcblxuXHR2V2F2ZSA9IHBvcy55O1xuXHR2UHVsc2UgPSAwLjUgKyAwLjUgKiBzaW4oLXVUaW1lICogMS40ICsgd2F2ZVggKiAwLjYgKyB3YXZlWiAqIDAuNCk7XG5cblx0dmVjNCBtdlBvc2l0aW9uID0gbW9kZWxWaWV3TWF0cml4ICogdmVjNChwb3MsIDEuMCk7XG5cdGdsX1BvaW50U2l6ZSA9IHVQb2ludFNjYWxlO1xuXHRnbF9Qb3NpdGlvbiA9IHByb2plY3Rpb25NYXRyaXggKiBtdlBvc2l0aW9uO1xuXG5cdCNpbmNsdWRlIDxmb2dfdmVydGV4PlxufVxuYDtcblxuZXhwb3J0IGNvbnN0IG9jZWFuUGFydGljbGVzRnJhZ21lbnRTaGFkZXIgPSAvKiBnbHNsICovIGBcbiNpbmNsdWRlIDxjb21tb24+XG4jaW5jbHVkZSA8Zm9nX3BhcnNfZnJhZ21lbnQ+XG5cbnVuaWZvcm0gdmVjMyB1Q29sb3I7XG51bmlmb3JtIGZsb2F0IHVBbHBoYU11bHQ7XG51bmlmb3JtIGZsb2F0IHVHbG93O1xuXG52YXJ5aW5nIGZsb2F0IHZXYXZlO1xudmFyeWluZyBmbG9hdCB2UHVsc2U7XG5cbnZvaWQgbWFpbigpIHtcblx0dmVjMiB1diA9IGdsX1BvaW50Q29vcmQgLSAwLjU7XG5cdGZsb2F0IGRpc3QgPSBsZW5ndGgodXYpO1xuXG5cdGlmIChkaXN0ID4gMC41KSB7XG5cdFx0ZGlzY2FyZDtcblx0fVxuXG5cdGZsb2F0IGNvcmUgPSAxLjAgLSBzbW9vdGhzdGVwKDAuMCwgMC4xNCwgZGlzdCk7XG5cdGZsb2F0IGdsb3cgPSAxLjAgLSBzbW9vdGhzdGVwKDAuMSwgMC40NiwgZGlzdCk7XG5cblx0Ly8gV2hhbGUtbGlrZSBjb250cm9sbGVkIEhEUiBjb3JlIChtYXggMS4zNXgpIHBsdXMgYSB2aXNpYmxlIGNvbG9yIGZsb29yIGZvclxuXHQvLyB0aGUgaGFsby4gVGhlIG9sZCA0LTV4IG11bHRpcGxpZXIgaXMgd2hhdCBidXJuZWQgc2VsZWN0ZWQgcG9pbnRzIHRvIHdoaXRlLlxuXHRmbG9hdCBtYXhDb2xvckNoYW5uZWwgPSBtYXgobWF4KHVDb2xvci5yLCB1Q29sb3IuZyksIG1heCh1Q29sb3IuYiwgMC4wMDAxKSk7XG5cdGZsb2F0IGh1ZVNhZmVMaWdodCA9IG1pbigwLjQyICsgY29yZSAqIDAuOTMsIDEuMzUgLyBtYXhDb2xvckNoYW5uZWwpO1xuXHR2ZWMzIGNvbG9yID0gdUNvbG9yICogaHVlU2FmZUxpZ2h0O1xuXHRmbG9hdCBoYWxvU3RyZW5ndGggPSBzcXJ0KG1heCh1R2xvdywgMC4wKSk7XG5cdGZsb2F0IGFscGhhID0gY2xhbXAoKGNvcmUgKiAwLjk1ICsgZ2xvdyAqIDAuMTggKiBoYWxvU3RyZW5ndGgpICogdUFscGhhTXVsdCwgMC4wLCAxLjApO1xuXG5cdGdsX0ZyYWdDb2xvciA9IHZlYzQoY29sb3IsIGFscGhhKTtcblxuXHQjaW5jbHVkZSA8Zm9nX2ZyYWdtZW50PlxufVxuYDtcblxuZXhwb3J0IGNvbnN0IG9jZWFuR3JpZExpbmVWZXJ0ZXhTaGFkZXIgPSAvKiBnbHNsICovIGBcbiNpbmNsdWRlIDxjb21tb24+XG4jaW5jbHVkZSA8Zm9nX3BhcnNfdmVydGV4PlxuXG4ke29jZWFuU3dpbVdha2VSaXBwbGVHbHNsfVxuXG51bmlmb3JtIGZsb2F0IHVUaW1lO1xudW5pZm9ybSB2ZWMyIHVSaXBwbGVDZW50ZXI7XG51bmlmb3JtIHZlYzIgdVJpcHBsZURpcjtcbnVuaWZvcm0gdmVjMiB1U2Nyb2xsUGhhc2U7XG51bmlmb3JtIGZsb2F0IHVXYXZlQW1wO1xudW5pZm9ybSBmbG9hdCB1UmlwcGxlQW1wO1xuXG52YXJ5aW5nIGZsb2F0IHZXYXZlO1xudmFyeWluZyBmbG9hdCB2UHVsc2U7XG5cbnZvaWQgbWFpbigpIHtcblx0dmVjMyBwb3MgPSBwb3NpdGlvbjtcblx0dmVjMyB3b3JsZFBvcyA9IChtb2RlbE1hdHJpeCAqIHZlYzQocG9zaXRpb24sIDEuMCkpLnh5ejtcblx0ZmxvYXQgd2F2ZVggPSB3b3JsZFBvcy54IC0gdVNjcm9sbFBoYXNlLng7XG5cdGZsb2F0IHdhdmVaID0gd29ybGRQb3MueiAtIHVTY3JvbGxQaGFzZS55O1xuXG5cdGZsb2F0IHdhdmUxID0gc2luKHdhdmVYICogMC4zNSAtIHVUaW1lICogMC44KSAqIDAuMjU7XG5cdGZsb2F0IHdhdmUyID0gc2luKHdhdmVaICogMC41NSAtIHVUaW1lICogMC42KSAqIDAuMTg7XG5cdGZsb2F0IHdhdmUzID0gc2luKCh3YXZlWCArIHdhdmVaKSAqIDAuMjUgLSB1VGltZSAqIDAuNCkgKiAwLjIyO1xuXG5cdGZsb2F0IHJpcHBsZVdhdmUgPSBvY2VhblN3aW1XYWtlUmlwcGxlKHZlYzIod29ybGRQb3MueCwgd29ybGRQb3MueiksIHVSaXBwbGVDZW50ZXIsIHVSaXBwbGVEaXIsIHVUaW1lKTtcblxuXHRwb3MueSArPSAod2F2ZTEgKyB3YXZlMiArIHdhdmUzKSAqIHVXYXZlQW1wICsgcmlwcGxlV2F2ZSAqIHVSaXBwbGVBbXA7XG5cblx0dldhdmUgPSBwb3MueTtcblx0dlB1bHNlID0gMC41ICsgMC41ICogc2luKC11VGltZSAqIDEuNCArIHdhdmVYICogMC42ICsgd2F2ZVogKiAwLjQpO1xuXG5cdHZlYzQgbXZQb3NpdGlvbiA9IG1vZGVsVmlld01hdHJpeCAqIHZlYzQocG9zLCAxLjApO1xuXHRnbF9Qb3NpdGlvbiA9IHByb2plY3Rpb25NYXRyaXggKiBtdlBvc2l0aW9uO1xuXG5cdCNpbmNsdWRlIDxmb2dfdmVydGV4PlxufVxuYDtcblxuLyoqINCe0LrQtdCw0L06INC+0LTQvdCwINC/0LvQvtGB0LrQvtGB0YLRjCwg0YLQvtGH0LrQuCAo0Lgg0L7Qv9GG0LjQvtC90LDQu9GM0L3QviDQu9C40L3QuNC4KSDRgNC40YHRg9GO0YLRgdGPINCyIGZyYWdtZW50IHNoYWRlci4gKi9cbmV4cG9ydCBjb25zdCBvY2VhblN1cmZhY2VWZXJ0ZXhTaGFkZXIgPSAvKiBnbHNsICovIGBcbiNpbmNsdWRlIDxjb21tb24+XG4jaW5jbHVkZSA8Zm9nX3BhcnNfdmVydGV4PlxuXG4ke29jZWFuU3dpbVdha2VSaXBwbGVHbHNsfVxuXG51bmlmb3JtIGZsb2F0IHVUaW1lO1xudW5pZm9ybSB2ZWMyIHVSaXBwbGVDZW50ZXI7XG51bmlmb3JtIHZlYzIgdVJpcHBsZURpcjtcbnVuaWZvcm0gZmxvYXQgdVdhdmVBbXA7XG51bmlmb3JtIGZsb2F0IHVSaXBwbGVBbXA7XG51bmlmb3JtIHZlYzIgdVNjcm9sbFBoYXNlO1xuXG52YXJ5aW5nIHZlYzIgdlN1cmZhY2VMb2NhbFhaO1xudmFyeWluZyBmbG9hdCB2V2F2ZTtcbnZhcnlpbmcgZmxvYXQgdlB1bHNlO1xuXG52b2lkIG1haW4oKSB7XG5cdHZlYzMgcG9zID0gcG9zaXRpb247XG5cdHZTdXJmYWNlTG9jYWxYWiA9IHBvcy54ejtcblxuXHR2ZWMzIHdvcmxkUG9zID0gKG1vZGVsTWF0cml4ICogdmVjNChwb3NpdGlvbiwgMS4wKSkueHl6O1xuXHRmbG9hdCB3YXZlWCA9IHBvc2l0aW9uLnggLSB1U2Nyb2xsUGhhc2UueDtcblx0ZmxvYXQgd2F2ZVogPSBwb3NpdGlvbi56IC0gdVNjcm9sbFBoYXNlLnk7XG5cblx0ZmxvYXQgd2F2ZTEgPSBzaW4od2F2ZVggKiAwLjM1IC0gdVRpbWUgKiAwLjgpICogMC4yNTtcblx0ZmxvYXQgd2F2ZTIgPSBzaW4od2F2ZVogKiAwLjU1IC0gdVRpbWUgKiAwLjYpICogMC4xODtcblx0ZmxvYXQgd2F2ZTMgPSBzaW4oKHdhdmVYICsgd2F2ZVopICogMC4yNSAtIHVUaW1lICogMC40KSAqIDAuMjI7XG5cblx0ZmxvYXQgcmlwcGxlV2F2ZSA9IG9jZWFuU3dpbVdha2VSaXBwbGUodmVjMih3b3JsZFBvcy54LCB3b3JsZFBvcy56KSwgdVJpcHBsZUNlbnRlciwgdVJpcHBsZURpciwgdVRpbWUpO1xuXG5cdHBvcy55ICs9ICh3YXZlMSArIHdhdmUyICsgd2F2ZTMpICogdVdhdmVBbXAgKyByaXBwbGVXYXZlICogdVJpcHBsZUFtcDtcblxuXHR2V2F2ZSA9IHBvcy55O1xuXHR2UHVsc2UgPSAwLjUgKyAwLjUgKiBzaW4oLXVUaW1lICogMS40ICsgd2F2ZVggKiAwLjYgKyB3YXZlWiAqIDAuNCk7XG5cblx0dmVjNCBtdlBvc2l0aW9uID0gbW9kZWxWaWV3TWF0cml4ICogdmVjNChwb3MsIDEuMCk7XG5cdGdsX1Bvc2l0aW9uID0gcHJvamVjdGlvbk1hdHJpeCAqIG12UG9zaXRpb247XG5cblx0I2luY2x1ZGUgPGZvZ192ZXJ0ZXg+XG59XG5gO1xuXG5leHBvcnQgY29uc3Qgb2NlYW5TdXJmYWNlRnJhZ21lbnRTaGFkZXIgPSAvKiBnbHNsICovIGBcbiNpbmNsdWRlIDxjb21tb24+XG4jaW5jbHVkZSA8Zm9nX3BhcnNfZnJhZ21lbnQ+XG5cbnVuaWZvcm0gdmVjMyB1UG9pbnRDb2xvcjtcbnVuaWZvcm0gdmVjMyB1R3JpZENvbG9yO1xudW5pZm9ybSBmbG9hdCB1VGltZTtcbnVuaWZvcm0gZmxvYXQgdUdyaWRDb2xzO1xudW5pZm9ybSBmbG9hdCB1R3JpZFJvd3M7XG51bmlmb3JtIGZsb2F0IHVTdXJmYWNlV2lkdGg7XG51bmlmb3JtIGZsb2F0IHVTdXJmYWNlRGVwdGg7XG51bmlmb3JtIGZsb2F0IHVTdXJmYWNlWk5lYXI7XG51bmlmb3JtIGZsb2F0IHVQb2ludFNjYWxlO1xudW5pZm9ybSBmbG9hdCB1QWxwaGFNdWx0O1xudW5pZm9ybSBmbG9hdCB1R2xvdztcbnVuaWZvcm0gZmxvYXQgdUdyaWRBbHBoYTtcbnVuaWZvcm0gdmVjMiB1U2Nyb2xsUGhhc2U7XG5cbnZhcnlpbmcgdmVjMiB2U3VyZmFjZUxvY2FsWFo7XG52YXJ5aW5nIGZsb2F0IHZXYXZlO1xudmFyeWluZyBmbG9hdCB2UHVsc2U7XG5cbmZsb2F0IG9jZWFuSGFzaCh2ZWMyIHApIHtcblx0cmV0dXJuIGZyYWN0KHNpbihkb3QocCwgdmVjMigxMjcuMSwgMzExLjcpKSkgKiA0Mzc1OC41NDUzMTIzKTtcbn1cblxudm9pZCBtYWluKCkge1xuXHQvLyBjb2xzINGP0YfQtdC10Lo6INGC0L7Rh9C60Lgg0LIg0YbQtdC90YLRgNCw0YUsINCx0LXQtyDQtNGD0LHQu9GPINC90LAgwrF3aWR0aC8yINC80LXQttC00YMg0YHQvtGB0LXQtNC90LjQvNC4INC/0LXRgNC40L7QtNCw0LzQuCAxMjAuXG5cdGZsb2F0IHN0ZXBYID0gdVN1cmZhY2VXaWR0aCAvIG1heCh1R3JpZENvbHMsIDEuMCk7XG5cdGZsb2F0IHN0ZXBaID0gdVN1cmZhY2VEZXB0aCAvIG1heCh1R3JpZFJvd3MsIDEuMCk7XG5cdGZsb2F0IHNjcm9sbGVkWCA9IHZTdXJmYWNlTG9jYWxYWi54IC0gdVNjcm9sbFBoYXNlLng7XG5cdGZsb2F0IHNjcm9sbGVkWiA9IHZTdXJmYWNlTG9jYWxYWi55IC0gdVNjcm9sbFBoYXNlLnk7XG5cdGZsb2F0IHBlcmlvZFggPSBtb2Qoc2Nyb2xsZWRYICsgdVN1cmZhY2VXaWR0aCwgdVN1cmZhY2VXaWR0aCk7XG5cdGZsb2F0IHpGcm9tTmVhciA9IHVTdXJmYWNlWk5lYXIgLSBzY3JvbGxlZFo7XG5cdHZlYzIgZyA9IHZlYzIocGVyaW9kWCwgekZyb21OZWFyKTtcblx0dmVjMiBjZWxsQ29vcmQgPSB2ZWMyKChnLnggLSBzdGVwWCAqIDAuNSkgLyBzdGVwWCwgKGcueSAtIHN0ZXBaICogMC41KSAvIHN0ZXBaKTtcblxuXHR2ZWMyIGNlbGxJZCA9IGZsb29yKGNlbGxDb29yZCk7XG5cdHZlYzIgZGlzdEZyb21DZW50ZXIgPSBhYnMoZnJhY3QoY2VsbENvb3JkKSAtIDAuNSk7XG5cdGZsb2F0IGNvb3JkRGR4ID0gbGVuZ3RoKGRGZHgoY2VsbENvb3JkKSk7XG5cdGZsb2F0IGNvb3JkRGR5ID0gbGVuZ3RoKGRGZHkoY2VsbENvb3JkKSk7XG5cdGZsb2F0IHB4UGVyQ2VsbCA9IDEuMCAvIG1heChtYXgoY29vcmREZHgsIGNvb3JkRGR5KSwgMC4wMDAxKTtcblx0ZmxvYXQgZGlzdENlbnRlclB4ID0gbGVuZ3RoKGRpc3RGcm9tQ2VudGVyKSAqIHB4UGVyQ2VsbDtcblx0ZmxvYXQgc2VlZCA9IG9jZWFuSGFzaChjZWxsSWQpO1xuXHQvLyBGYWRlIHN1Yi1waXhlbCBjZWxscyBpbnN0ZWFkIG9mIGFsbG93aW5nIHBlcnNwZWN0aXZlIGFsaWFzaW5nIHRvIG1lcmdlXG5cdC8vIHRoZW0gaW50byB0aGljayBsdW1pbm91cyBiYW5kcyBuZWFyIHRoZSBob3Jpem9uLlxuXHRmbG9hdCByZXNvbHZlZCA9IHNtb290aHN0ZXAoMC44LCAyLjIsIHB4UGVyQ2VsbCk7XG5cdGZsb2F0IHJhZGl1c1B4ID0gbWl4KDAuNTUsIDEuMiwgc2VlZCkgKiBjbGFtcCh1UG9pbnRTY2FsZSAqIDAuNTIsIDAuNjUsIDEuMjUpO1xuXHRmbG9hdCBjb3JlID0gMS4wIC0gc21vb3Roc3RlcChyYWRpdXNQeCAqIDAuMzUsIHJhZGl1c1B4ICogMC4zNSArIDAuOSwgZGlzdENlbnRlclB4KTtcblx0ZmxvYXQgZ2xvdyA9IDEuMCAtIHNtb290aHN0ZXAocmFkaXVzUHggKiAwLjUsIHJhZGl1c1B4ICsgMi4yLCBkaXN0Q2VudGVyUHgpO1xuXHRmbG9hdCByYXJlTm9kZSA9IHNtb290aHN0ZXAoMC45NCwgMC45OTUsIHNlZWQpO1xuXHRmbG9hdCBmbG93ID0gcG93KDAuNSArIDAuNSAqIHNpbihjZWxsSWQueCAqIDAuMTMgKyBjZWxsSWQueSAqIDAuMjEgLSB1VGltZSAqIDAuODUpLCA1LjApO1xuXHRmbG9hdCB3YXZlQm9vc3QgPSAwLjcyICsgc21vb3Roc3RlcCgtMC4xLCAwLjQsIHZXYXZlKSAqIDAuMjg7XG5cdGZsb2F0IGVuZXJneSA9ICgwLjM4ICsgc2VlZCAqIDAuMzQgKyBmbG93ICogMC40MiArIHJhcmVOb2RlICogMi40KSAqIHdhdmVCb29zdDtcblx0Ly8gTWF0Y2ggdGhlIGhpZ2gtdGllciBwb2ludCBzcHJpdGU6IGNvbnRyb2xsZWQgSERSIGNvcmUgYW5kIGEgY29sb3JlZCBoYWxvLFxuXHQvLyB3aXRob3V0IHRoZSBvbGQgdW5ib3VuZGVkIGVuZXJneSBtdWx0aXBsaWVyLlxuXHRmbG9hdCBtYXhDb2xvckNoYW5uZWwgPSBtYXgobWF4KHVQb2ludENvbG9yLnIsIHVQb2ludENvbG9yLmcpLCBtYXgodVBvaW50Q29sb3IuYiwgMC4wMDAxKSk7XG5cdGZsb2F0IGh1ZVNhZmVMaWdodCA9IG1pbigwLjQyICsgY29yZSAqIDAuOTMsIDEuMzUgLyBtYXhDb2xvckNoYW5uZWwpO1xuXHR2ZWMzIGNvbG9yID0gdVBvaW50Q29sb3IgKiBodWVTYWZlTGlnaHQ7XG5cdGZsb2F0IGFscGhhID0gY2xhbXAoKGNvcmUgKiAwLjcyICsgZ2xvdyAqICgwLjA4ICsgcmFyZU5vZGUgKiAwLjE4KSkgKiB1QWxwaGFNdWx0ICogZW5lcmd5ICogcmVzb2x2ZWQsIDAuMCwgMS4wKTtcblxuXHRpZiAoYWxwaGEgPCAwLjAwMDEpIHtcblx0XHRkaXNjYXJkO1xuXHR9XG5cblx0Z2xfRnJhZ0NvbG9yID0gdmVjNChjb2xvciwgYWxwaGEpO1xuXG5cdCNpbmNsdWRlIDxmb2dfZnJhZ21lbnQ+XG59XG5gO1xuXG5leHBvcnQgY29uc3Qgb2NlYW5HcmlkTGluZUZyYWdtZW50U2hhZGVyID0gLyogZ2xzbCAqLyBgXG4jaW5jbHVkZSA8Y29tbW9uPlxuI2luY2x1ZGUgPGZvZ19wYXJzX2ZyYWdtZW50PlxuXG51bmlmb3JtIHZlYzMgdUNvbG9yO1xudW5pZm9ybSBmbG9hdCB1R3JpZEFscGhhO1xuXG52YXJ5aW5nIGZsb2F0IHZXYXZlO1xudmFyeWluZyBmbG9hdCB2UHVsc2U7XG5cbnZvaWQgbWFpbigpIHtcblx0ZmxvYXQgd2F2ZUJvb3N0ID0gMC43ICsgc21vb3Roc3RlcCgwLjAsIDAuMzUsIHZXYXZlKSAqIDAuMztcblx0dmVjMyBjb2xvciA9IHVDb2xvciAqIHdhdmVCb29zdCAqICgwLjg1ICsgdlB1bHNlICogMC4xNSk7XG5cdGZsb2F0IGFscGhhID0gMC4yMiAqIHdhdmVCb29zdCAqIHVHcmlkQWxwaGE7XG5cblx0Z2xfRnJhZ0NvbG9yID0gdmVjNChjb2xvciwgYWxwaGEpO1xuXG5cdCNpbmNsdWRlIDxmb2dfZnJhZ21lbnQ+XG59XG5gO1xuXG5leHBvcnQgY29uc3QgYW1iaWVudERyaWZ0VmVydGV4U2hhZGVyID0gLyogZ2xzbCAqLyBgXG4jaW5jbHVkZSA8Y29tbW9uPlxuI2luY2x1ZGUgPGZvZ19wYXJzX3ZlcnRleD5cblxudW5pZm9ybSBmbG9hdCB1VGltZTtcbnVuaWZvcm0gZmxvYXQgdVBvaW50U2NhbGU7XG51bmlmb3JtIGZsb2F0IHVEcmlmdEFtcDtcbnVuaWZvcm0gZmxvYXQgdUxvY2FsU3VyZmFjZVk7XG51bmlmb3JtIGZsb2F0IHVBbmNob3JZO1xudW5pZm9ybSBmbG9hdCB1T2NlYW5DZWlsaW5nWTtcbi8qKiDQotC+0YIg0LbQtSDQv9C+0YLQvtC6LCDRh9GC0L4g0YMg0YHQtdGC0LrQuCDQvtC60LXQsNC90LAg4oCUINGH0LDRgdGC0LjRhtGLINGD0LXQt9C20LDRjtGCINCy0L/RgNCw0LLQviDQuCDQv9C+0Y/QstC70Y/RjtGC0YHRjyDRgdC70LXQstCwLiAqL1xudW5pZm9ybSBmbG9hdCB1U2Nyb2xsUGhhc2U7XG51bmlmb3JtIGZsb2F0IHVXcmFwV2lkdGg7XG5cbmF0dHJpYnV0ZSBmbG9hdCBhUGhhc2U7XG5hdHRyaWJ1dGUgZmxvYXQgYVNpemU7XG5cbnZhcnlpbmcgZmxvYXQgdk9jZWFuWTtcblxudm9pZCBtYWluKCkge1xuXHR2ZWMzIHBvcyA9IHBvc2l0aW9uO1xuXG5cdGZsb2F0IGhhbGZXID0gbWF4KHVXcmFwV2lkdGgsIDAuMDAxKSAqIDAuNTtcblx0cG9zLnggPSBtb2QocG9zLnggKyB1U2Nyb2xsUGhhc2UgKyBoYWxmVywgaGFsZlcgKiAyLjApIC0gaGFsZlc7XG5cblx0ZmxvYXQgZHJpZnRYID0gc2luKHVUaW1lICogMC40NSArIGFQaGFzZSkgKiB1RHJpZnRBbXA7XG5cdGZsb2F0IGRyaWZ0WSA9IHNpbih1VGltZSAqIDAuMzIgKyBhUGhhc2UgKiAxLjcpICogdURyaWZ0QW1wICogMC4zNTtcblx0ZmxvYXQgZHJpZnRaID0gY29zKHVUaW1lICogMC4zOCArIGFQaGFzZSAqIDAuOSkgKiB1RHJpZnRBbXA7XG5cblx0cG9zICs9IHZlYzMoZHJpZnRYLCBkcmlmdFksIGRyaWZ0Wik7XG5cdHBvcy55ID0gbWluKHBvcy55LCB1TG9jYWxTdXJmYWNlWSk7XG5cdHZPY2VhblkgPSB1QW5jaG9yWSArIHBvcy55O1xuXG5cdHZlYzQgbXZQb3NpdGlvbiA9IG1vZGVsVmlld01hdHJpeCAqIHZlYzQocG9zLCAxLjApO1xuXHRnbF9Qb2ludFNpemUgPSB1UG9pbnRTY2FsZSAqIGFTaXplICogKDE0MC4wIC8gbWF4KC1tdlBvc2l0aW9uLnosIDEuMCkpO1xuXHRnbF9Qb3NpdGlvbiA9IHByb2plY3Rpb25NYXRyaXggKiBtdlBvc2l0aW9uO1xuXG5cdCNpbmNsdWRlIDxmb2dfdmVydGV4PlxufVxuYDtcblxuZXhwb3J0IGNvbnN0IGFtYmllbnREcmlmdEZyYWdtZW50U2hhZGVyID0gLyogZ2xzbCAqLyBgXG4jaW5jbHVkZSA8Y29tbW9uPlxuI2luY2x1ZGUgPGZvZ19wYXJzX2ZyYWdtZW50PlxuXG51bmlmb3JtIHZlYzMgdUNvbG9yO1xudW5pZm9ybSBmbG9hdCB1QWxwaGFNdWx0O1xudW5pZm9ybSBmbG9hdCB1R2xvdztcbnVuaWZvcm0gZmxvYXQgdU9jZWFuQ2VpbGluZ1k7XG51bmlmb3JtIGZsb2F0IHVPY2VhbkZhZGVCYW5kO1xuXG52YXJ5aW5nIGZsb2F0IHZPY2Vhblk7XG5cbnZvaWQgbWFpbigpIHtcblx0dmVjMiB1diA9IGdsX1BvaW50Q29vcmQgLSAwLjU7XG5cdGZsb2F0IGRpc3QgPSBsZW5ndGgodXYpO1xuXG5cdGlmIChkaXN0ID4gMC41KSB7XG5cdFx0ZGlzY2FyZDtcblx0fVxuXG5cdGZsb2F0IGNvcmUgPSAxLjAgLSBzbW9vdGhzdGVwKDAuMCwgMC4yLCBkaXN0KTtcblx0ZmxvYXQgZ2xvdyA9IDEuMCAtIHNtb290aHN0ZXAoMC4xMiwgMC40OCwgZGlzdCk7XG5cdGZsb2F0IHRvcEZhZGUgPSAxLjAgLSBzbW9vdGhzdGVwKHVPY2VhbkNlaWxpbmdZIC0gdU9jZWFuRmFkZUJhbmQsIHVPY2VhbkNlaWxpbmdZLCB2T2NlYW5ZKTtcblxuXHR2ZWMzIGNvbG9yID0gdUNvbG9yICogKGNvcmUgKiAxLjIgKyBnbG93ICogMC4zNSAqIHVHbG93KTtcblx0ZmxvYXQgYWxwaGEgPSAoY29yZSAqIDAuNTUgKyBnbG93ICogMC4yOCAqIHVHbG93KSAqIHVBbHBoYU11bHQgKiB0b3BGYWRlO1xuXG5cdGdsX0ZyYWdDb2xvciA9IHZlYzQoY29sb3IsIGFscGhhKTtcblxuXHQjaW5jbHVkZSA8Zm9nX2ZyYWdtZW50PlxufVxuYDtcblxuLyoqINCo0LvQtdC50YQg0LfQsCDQutC40YLQvtC8IOKAlCDRj9GA0YfQtSDRgyDRgtC10LvQsCwg0LPQsNGB0L3QtdGCINC6INGF0LLQvtGB0YLRgyAoYUxpZmUpLiAqL1xuZXhwb3J0IGNvbnN0IHdoYWxlV2FrZVZlcnRleFNoYWRlciA9IC8qIGdsc2wgKi8gYFxuI2luY2x1ZGUgPGNvbW1vbj5cblxudW5pZm9ybSBmbG9hdCB1UG9pbnRTY2FsZTtcblxuYXR0cmlidXRlIGZsb2F0IGFTaXplO1xuYXR0cmlidXRlIGZsb2F0IGFMaWZlO1xuXG52YXJ5aW5nIGZsb2F0IHZMaWZlO1xuXG52b2lkIG1haW4oKSB7XG5cdHZMaWZlID0gYUxpZmU7XG5cblx0dmVjNCBtdlBvc2l0aW9uID0gbW9kZWxWaWV3TWF0cml4ICogdmVjNChwb3NpdGlvbiwgMS4wKTtcblx0ZmxvYXQgc2l6ZSA9IHVQb2ludFNjYWxlICogYVNpemUgKiAoMC42NSArIGFMaWZlICogMC41NSkgKiAoMTMwLjAgLyBtYXgoLW12UG9zaXRpb24ueiwgMS4wKSk7XG5cdGdsX1BvaW50U2l6ZSA9IG1heCgzLjAsIHNpemUpO1xuXHRnbF9Qb3NpdGlvbiA9IHByb2plY3Rpb25NYXRyaXggKiBtdlBvc2l0aW9uO1xufVxuYDtcblxuZXhwb3J0IGNvbnN0IHdoYWxlV2FrZUZyYWdtZW50U2hhZGVyID0gLyogZ2xzbCAqLyBgXG4jaW5jbHVkZSA8Y29tbW9uPlxuXG51bmlmb3JtIHZlYzMgdUNvbG9yO1xudW5pZm9ybSBmbG9hdCB1QWxwaGFNdWx0O1xuXG52YXJ5aW5nIGZsb2F0IHZMaWZlO1xuXG52b2lkIG1haW4oKSB7XG5cdHZlYzIgdXYgPSBnbF9Qb2ludENvb3JkIC0gMC41O1xuXHRmbG9hdCBkaXN0ID0gbGVuZ3RoKHV2KTtcblxuXHRpZiAoZGlzdCA+IDAuNSkge1xuXHRcdGRpc2NhcmQ7XG5cdH1cblxuXHRmbG9hdCBjb3JlID0gMS4wIC0gc21vb3Roc3RlcCgwLjAsIDAuMTgsIGRpc3QpO1xuXHRmbG9hdCBnbG93ID0gMS4wIC0gc21vb3Roc3RlcCgwLjEsIDAuNDIsIGRpc3QpO1xuXHRmbG9hdCBmYWRlID0gdkxpZmUgKiB2TGlmZSAqICgzLjAgLSAyLjAgKiB2TGlmZSk7XG5cdGZsb2F0IGFscGhhID0gKGNvcmUgKiAwLjU1ICsgZ2xvdyAqIDAuMzgpICogdUFscGhhTXVsdCAqIGZhZGU7XG5cblx0aWYgKGFscGhhIDwgMC4wMSkge1xuXHRcdGRpc2NhcmQ7XG5cdH1cblxuXHR2ZWMzIGNvbG9yID0gdUNvbG9yICogKGNvcmUgKiAxLjE1ICsgZ2xvdyAqIDAuNDUpICogKDAuNTUgKyBmYWRlICogMC42NSk7XG5cdGdsX0ZyYWdDb2xvciA9IHZlYzQoY29sb3IsIGFscGhhKTtcbn1cbmA7XG5cbmV4cG9ydCBjb25zdCB3aGFsZVBvaW50c1ZlcnRleFNoYWRlciA9IC8qIGdsc2wgKi8gYFxuI2luY2x1ZGUgPGNvbW1vbj5cbiNpbmNsdWRlIDxmb2dfcGFyc192ZXJ0ZXg+XG5cbnVuaWZvcm0gZmxvYXQgdVRpbWU7XG51bmlmb3JtIGZsb2F0IHVQb2ludFNjYWxlO1xuXG5hdHRyaWJ1dGUgZmxvYXQgYVNpemU7XG5hdHRyaWJ1dGUgZmxvYXQgYUludGVuc2l0eTtcbmF0dHJpYnV0ZSBmbG9hdCBhSGVhZEJpYXM7XG5cbnZhcnlpbmcgZmxvYXQgdkludGVuc2l0eTtcbnZhcnlpbmcgZmxvYXQgdkFscGhhO1xuXG52b2lkIG1haW4oKSB7XG5cdHZlYzMgcG9zID0gcG9zaXRpb247XG5cblx0ZmxvYXQgYnJlYXRoZSA9IHNpbih1VGltZSAqIDEuMCArIHBvc2l0aW9uLnggKiAwLjE4KSAqIDAuMDY7XG5cdHBvcy55ICs9IGJyZWF0aGU7XG5cblx0ZmxvYXQgcmV2ZWFsID0gc21vb3Roc3RlcCgwLjQyLCAwLjk0LCBhSGVhZEJpYXMpO1xuXHRyZXZlYWwgPSBtYXgocmV2ZWFsLCBzdGVwKDAuODIsIGFIZWFkQmlhcykpO1xuXG5cdGZsb2F0IGltcHVsc2UgPSBzaW4ocG9zaXRpb24ueCAqIDAuNDUgLSB1VGltZSAqIDIuNCkgKiAwLjUgKyAwLjU7XG5cdGltcHVsc2UgKj0gc21vb3Roc3RlcCgtMTQuMCwgOC4wLCBwb3NpdGlvbi54IC0gNy4wKTtcblxuXHR2SW50ZW5zaXR5ID0gYUludGVuc2l0eSAqICgwLjQgKyBpbXB1bHNlICogMC42KTtcblx0dkFscGhhID0gcmV2ZWFsICogKDAuMzUgKyBhSW50ZW5zaXR5ICogMC42NSk7XG5cblx0dmVjNCBtdlBvc2l0aW9uID0gbW9kZWxWaWV3TWF0cml4ICogdmVjNChwb3MsIDEuMCk7XG5cdGdsX1BvaW50U2l6ZSA9IGFTaXplICogdVBvaW50U2NhbGUgKiAoNzIuMCAvIC1tdlBvc2l0aW9uLnopICogKDAuNTUgKyByZXZlYWwgKiAwLjQ1KTtcblx0Z2xfUG9zaXRpb24gPSBwcm9qZWN0aW9uTWF0cml4ICogbXZQb3NpdGlvbjtcblxuXHQjaW5jbHVkZSA8Zm9nX3ZlcnRleD5cbn1cbmA7XG5cbmV4cG9ydCBjb25zdCB3aGFsZVBvaW50c0ZyYWdtZW50U2hhZGVyID0gLyogZ2xzbCAqLyBgXG4jaW5jbHVkZSA8Y29tbW9uPlxuI2luY2x1ZGUgPGZvZ19wYXJzX2ZyYWdtZW50PlxuXG51bmlmb3JtIHZlYzMgdUNvbG9yO1xuXG52YXJ5aW5nIGZsb2F0IHZJbnRlbnNpdHk7XG52YXJ5aW5nIGZsb2F0IHZBbHBoYTtcblxudm9pZCBtYWluKCkge1xuXHR2ZWMyIHV2ID0gZ2xfUG9pbnRDb29yZCAtIDAuNTtcblx0ZmxvYXQgZGlzdCA9IGxlbmd0aCh1dik7XG5cblx0aWYgKGRpc3QgPiAwLjUpIHtcblx0XHRkaXNjYXJkO1xuXHR9XG5cblx0ZmxvYXQgY29yZSA9IDEuMCAtIHNtb290aHN0ZXAoMC4wLCAwLjE2LCBkaXN0KTtcblx0ZmxvYXQgZ2xvdyA9IDEuMCAtIHNtb290aHN0ZXAoMC4xMiwgMC40NCwgZGlzdCk7XG5cdGZsb2F0IGFscGhhID0gKGNvcmUgKiAwLjggKyBnbG93ICogMC4zNSkgKiB2QWxwaGE7XG5cdHZlYzMgY29sb3IgPSB1Q29sb3IgKiAoY29yZSAqIDEuNCArIGdsb3cgKiAwLjUpICogKDAuNyArIHZJbnRlbnNpdHkgKiAwLjUpO1xuXG5cdGdsX0ZyYWdDb2xvciA9IHZlYzQoY29sb3IsIGFscGhhKTtcblxuXHQjaW5jbHVkZSA8Zm9nX2ZyYWdtZW50PlxufVxuYDtcblxuZXhwb3J0IGNvbnN0IGZpblZlcnRleFNoYWRlciA9IC8qIGdsc2wgKi8gYFxudW5pZm9ybSBmbG9hdCB1VGltZTtcbnZhcnlpbmcgZmxvYXQgdkdsb3c7XG5cbnZvaWQgbWFpbigpIHtcblx0dmVjMyBwb3MgPSBwb3NpdGlvbjtcblx0cG9zLnkgKz0gc2luKHVUaW1lICogMS42ICsgcG9zaXRpb24ueCAqIDAuOCkgKiAwLjA2O1xuXG5cdHZHbG93ID0gMC42ICsgMC40ICogc2luKHVUaW1lICogMi4wICsgcG9zaXRpb24ueSAqIDIuNSk7XG5cblx0Z2xfUG9zaXRpb24gPSBwcm9qZWN0aW9uTWF0cml4ICogbW9kZWxWaWV3TWF0cml4ICogdmVjNChwb3MsIDEuMCk7XG59XG5gO1xuXG5leHBvcnQgY29uc3QgZmluRnJhZ21lbnRTaGFkZXIgPSAvKiBnbHNsICovIGBcbnVuaWZvcm0gdmVjMyB1Q29sb3I7XG52YXJ5aW5nIGZsb2F0IHZHbG93O1xuXG52b2lkIG1haW4oKSB7XG5cdGZsb2F0IGFscGhhID0gdkdsb3cgKiAwLjg1O1xuXHRnbF9GcmFnQ29sb3IgPSB2ZWM0KHVDb2xvciwgYWxwaGEpO1xufVxuYDtcblxuZXhwb3J0IGNvbnN0IHdoYWxlQWNjZW50VmVydGV4U2hhZGVyID0gLyogZ2xzbCAqLyBgXG4jaW5jbHVkZSA8Y29tbW9uPlxuI2luY2x1ZGUgPGZvZ19wYXJzX3ZlcnRleD5cblxudW5pZm9ybSBmbG9hdCB1VGltZTtcbnVuaWZvcm0gZmxvYXQgdUFjY2VudFNjYWxlO1xuXG5hdHRyaWJ1dGUgZmxvYXQgYVNpemU7XG5hdHRyaWJ1dGUgZmxvYXQgYVB1bHNlO1xuXG52YXJ5aW5nIGZsb2F0IHZHbG93O1xuXG52b2lkIG1haW4oKSB7XG5cdHZlYzMgcG9zID0gcG9zaXRpb247XG5cdHBvcy55ICs9IHNpbih1VGltZSAqIDEuMSArIGFQdWxzZSAqIDYuMjgpICogMC4wNTtcblxuXHR2R2xvdyA9IDAuNjUgKyAwLjM1ICogc2luKHVUaW1lICogMi4yICsgYVB1bHNlICogMTAuMCk7XG5cblx0dmVjNCBtdlBvc2l0aW9uID0gbW9kZWxWaWV3TWF0cml4ICogdmVjNChwb3MsIDEuMCk7XG5cdGdsX1BvaW50U2l6ZSA9IGFTaXplICogdUFjY2VudFNjYWxlICogKDE0NS4wIC8gLW12UG9zaXRpb24ueik7XG5cdGdsX1Bvc2l0aW9uID0gcHJvamVjdGlvbk1hdHJpeCAqIG12UG9zaXRpb247XG5cblx0I2luY2x1ZGUgPGZvZ192ZXJ0ZXg+XG59XG5gO1xuXG5leHBvcnQgY29uc3Qgd2hhbGVBY2NlbnRGcmFnbWVudFNoYWRlciA9IC8qIGdsc2wgKi8gYFxuI2luY2x1ZGUgPGNvbW1vbj5cbiNpbmNsdWRlIDxmb2dfcGFyc19mcmFnbWVudD5cblxudW5pZm9ybSB2ZWMzIHVDb2xvcjtcbnZhcnlpbmcgZmxvYXQgdkdsb3c7XG5cbnZvaWQgbWFpbigpIHtcblx0dmVjMiB1diA9IGdsX1BvaW50Q29vcmQgLSAwLjU7XG5cdGZsb2F0IGRpc3QgPSBsZW5ndGgodXYpO1xuXHRpZiAoZGlzdCA+IDAuNSkgZGlzY2FyZDtcblxuXHRmbG9hdCBjb3JlID0gMS4wIC0gc21vb3Roc3RlcCgwLjA4LCAwLjIyLCBkaXN0KTtcblx0ZmxvYXQgaGFsbyA9IDEuMCAtIHNtb290aHN0ZXAoMC4yMiwgMC40OCwgZGlzdCk7XG5cblx0dmVjMyBjb2xvciA9IHVDb2xvciAqICgxLjAgKyB2R2xvdyAqIDAuMzUpO1xuXHRmbG9hdCBhbHBoYSA9IChjb3JlICogMC45NSArIGhhbG8gKiAwLjM1KSAqIHZHbG93O1xuXG5cdGdsX0ZyYWdDb2xvciA9IHZlYzQoY29sb3IsIGFscGhhKTtcblxuXHQjaW5jbHVkZSA8Zm9nX2ZyYWdtZW50PlxufVxuYDtcbiJdfQ==

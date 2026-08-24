@@ -105,6 +105,12 @@ function buildFrame(blockId, locale, index) {
 		arcNavigationEvenSpacing: false,
 		leftPanelOverrides: {
 			maxFeatures: Math.max(5, features.length),
+			// About stages use the full text width: no decorative 1/2/3 column.
+			featureShowNumbers: false,
+			traitListTopSize: 16,
+			traitListBottomSize: 14,
+			traitListTextGap: 5,
+			traitListRowPadY: 13,
 			// Match case reference panel: muted description (not white @ 0.78).
 			descriptionUseThemeMuted: true,
 		},

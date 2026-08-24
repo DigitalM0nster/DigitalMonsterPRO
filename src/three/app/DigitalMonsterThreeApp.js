@@ -18,15 +18,17 @@ import { hexGridOverlayDefaults } from "../render/overlay/hexGridOverlayConfig.j
 import { getSceneCarousel, initCarouselScroll, syncCarouselFromPage, disposeCarouselScroll } from "@/three/render/transition/carouselPage.js";
 import { CAROUSEL_SCENE_IDS, SCENE_ID_TO_PAGE } from "../render/transition/SceneCarousel.js";
 import { isPortfolioCasePath, sceneIdToPage } from "../scenes/portfolio/hub/projectsData.js";
-import { resolveSceneId } from "../scenes/resolveSceneId.js";
 import { disposeHexTransitionSound, preloadHexTransitionSound, updateHexTransitionSound } from "../../sounds/hexTransitionSound.js";
 import { disposeUnderwaterSound, preloadUnderwaterSound, updateUnderwaterSound } from "../../sounds/underwaterSound.js";
 import { cancelSharedAnimationFrame, requestSharedAnimationFrame } from "@/functions/sharedAnimationFrame.js";
 import { warmCasePanelHudUnderCurtain } from "@/pages/portfolio/ui/CaseStudyCanvas/warmCasePanelHudUnderCurtain.js";
+import { getWarmCasePanelHud } from "@/pages/portfolio/ui/CaseStudyCanvas/warmCasePanelHudUnderCurtain.js";
 import { warmAboutPanelHudUnderCurtain } from "@/pages/about/warmAboutPanelHudUnderCurtain.js";
 import { getAboutPanelHudEnterProgress, getAboutPanelHudState } from "@/pages/about/aboutPanelHudBridge.js";
 import { armAboutPanelHudForRoute } from "@/pages/about/aboutPanelHudStory.js";
 import { getCasePanelHudEnterProgress } from "@/pages/portfolio/core/casePanelHudBridge.js";
+import { getCasePanelHudDisplayedLocale } from "@/pages/portfolio/core/casePanelHudLocaleMix.js";
+import { getCapabilityBySceneVariant } from "@/pages/capabilities/data/capabilities.js";
 import { createSiteArcOverlay, disposeSiteArcOverlay, syncSiteArcOverlay } from "@/components/SiteArc/three/siteArcHost.js";
 import { AboutEpicTextDevTools } from "../dev/AboutEpicTextDevTools.js";
 import { BackgroundLiquidDevTools } from "../dev/BackgroundLiquidDevTools.js";
@@ -38,11 +40,9 @@ import { ProgressDevTools } from "../dev/ProgressDevTools.js";
 import { PortfolioCameraDevTools } from "../dev/PortfolioCameraDevTools.js";
 import { OceanDevTools } from "../dev/OceanDevTools.js";
 import { Mmk1CameraDevTools } from "../dev/Mmk1CameraDevTools.js";
-import { isDevFastPreloader } from "@/functions/devFastPreloader.js";
 
 const NO_GRAIN_BLUR = { enabled: false, radius: 0 };
-/** DEV: skip HUD paints + all-scene/hex RT marathon under the curtain. */
-const DEV_FAST_PRELOADER = isDevFastPreloader();
+const SKIP_ALL_WARM_IN_DEVELOPMENT = import.meta.env.DEV;
 /** Idle home: mix progress ≈ 0 — hex/bloom/composite не нужны. */
 const IDLE_HOME_HEX_EPS = 0.0001;
 const CANVAS_POINTER_BLOCKER_SELECTOR = '[data-canvas-pointer-blocker="true"]';
@@ -254,24 +254,22 @@ export class DigitalMonsterThreeApp {
 	 * Start must not unlock before this settles. compile() alone is not enough.
 	 */
 	async _prepareApplication() {
-		try {
-			if (DEV_FAST_PRELOADER) {
-				// Don't block Start on every case GLB — only landing + home + background.
-				const landingId = resolveSceneId(this.teleportPage || this.currentPage || "/");
-				const criticalIds = new Set(["home", landingId]);
-				const waits = [this.backgroundPipeline.readyPromise];
-				for (const id of criticalIds) {
-					const scene = this.sceneManager.getSceneById(id);
-					const promise = scene?.ensurePrepared?.() ?? scene?.readyPromise;
-					if (promise) {
-						waits.push(promise);
+		if (SKIP_ALL_WARM_IN_DEVELOPMENT) {
+			this.ready = true;
+			void this.sceneManager.readyPromise
+				.then(() => {
+					if (!this.disposed) {
+						this.sceneManager.getSceneById("home")?.prepareHeroTextUnderCurtain?.();
 					}
-				}
-				await Promise.allSettled(waits);
-				console.info(`[three] DEV fast preloader — waiting only for [${[...criticalIds].join(", ")}] (use ?fullWarm=1 to restore)`);
-			} else {
-				await Promise.all([this.sceneManager.readyPromise, this.backgroundPipeline.readyPromise]);
-			}
+				})
+				.catch((error) => {
+					this.prepareError = error;
+					console.error("[three] development scene preparation failed", error);
+				});
+			return true;
+		}
+		try {
+			await Promise.all([this.sceneManager.readyPromise, this.backgroundPipeline.readyPromise]);
 			if (this.disposed) {
 				return false;
 			}
@@ -280,41 +278,28 @@ export class DigitalMonsterThreeApp {
 			// Late UI under curtain, then compile (hero includes scroll-hint meshes).
 			this.sceneManager.getSceneById("home")?.prepareHeroTextUnderCurtain?.();
 
-			if (!DEV_FAST_PRELOADER) {
-				await yieldToNextPaint();
-				// Case HUD Canvas2D → CanvasTexture upload for every renderTextInScene case.
-				await warmCasePanelHudUnderCurtain({
-					sceneManager: this.sceneManager,
-					renderer: this.renderer,
-				});
-				if (this.disposed) {
-					return false;
-				}
+			await yieldToNextPaint();
+			// Case and capability HUD canvases/textures for every locale.
+			await warmCasePanelHudUnderCurtain({
+				sceneManager: this.sceneManager,
+				renderer: this.renderer,
+			});
+			if (this.disposed) {
+				return false;
+			}
 
-				await yieldToNextPaint();
-				await warmAboutPanelHudUnderCurtain({
-					sceneManager: this.sceneManager,
-					renderer: this.renderer,
-				});
-				if (this.disposed) {
-					return false;
-				}
+			await yieldToNextPaint();
+			await warmAboutPanelHudUnderCurtain({
+				sceneManager: this.sceneManager,
+				renderer: this.renderer,
+			});
+			if (this.disposed) {
+				return false;
 			}
 
 			this.sceneManager.warmupRenderTargets();
 
-			/**
-			 * DEV_FAST_PRELOADER (off by default): optional subset compile while iterating.
-			 * Honest warm compiles every scene with breaths between each.
-			 */
-			if (DEV_FAST_PRELOADER) {
-				const landingId = resolveSceneId(this.teleportPage || this.currentPage || "/");
-				await this.sceneManager.warmupPrograms({
-					sceneIds: [...new Set(["home", "portfolioHub", landingId].filter(Boolean))],
-				});
-			} else {
-				await this.sceneManager.warmupPrograms();
-			}
+			await this.sceneManager.warmupPrograms();
 			if (this.disposed) {
 				return false;
 			}
@@ -322,14 +307,14 @@ export class DigitalMonsterThreeApp {
 			// Pipeline dry-run after all prepared materials exist (re-run if you add
 			// another late prepare step that creates new ShaderMaterials).
 			await this._warmupRenderPipeline();
-			return true;
-		} catch (error) {
-			console.warn("[three] preload warm-up failed; continuing with runtime compilation", error);
-			return false;
-		} finally {
 			if (!this.disposed) {
 				this.ready = true;
 			}
+			return true;
+		} catch (error) {
+			this.prepareError = error;
+			console.error("[three] allWarm preparation failed; Start remains locked", error);
+			return false;
 		}
 	}
 
@@ -351,12 +336,8 @@ export class DigitalMonsterThreeApp {
 		const warmedTexture = this.noPostProcess ? hexTexture : this.modelsPostProcess.applyBloom(hexTexture, 0, 1);
 		this.screenCompositor.drawToScreen(this.renderer, null, warmedTexture ?? hexTexture, NO_GRAIN_BLUR);
 
-		// Contract: every interactive scene + leave hex pairs get a REAL draw under
-		// the curtain. compile() alone left case deep-link → home cold on HUD exit.
-		// DEV fast path: one pipeline dry-run is enough to unlock Start while iterating.
-		if (!DEV_FAST_PRELOADER) {
-			await this._warmupAllScenesAndHexPairs(backgroundTexture);
-		}
+		// Contract: every interactive scene + leave hex pair gets a real draw.
+		await this._warmupAllScenesAndHexPairs(backgroundTexture);
 
 		await yieldToNextPaint();
 		this._renderFrame(0);
@@ -383,6 +364,44 @@ export class DigitalMonsterThreeApp {
 				drawnIds.add(sceneId);
 			}
 		}
+		const missingSceneIds = sceneIds.filter((sceneId) => !drawnIds.has(sceneId));
+		if (missingSceneIds.length > 0) {
+			throw new Error(`[three] allWarm missed real scene draws: ${missingSceneIds.join(", ")}`);
+		}
+
+		// Capabilities owns five worlds inside one Three scene. A generic scene draw
+		// only uploads the currently active world, so every variant is drawn explicitly.
+		const capabilityScene = this.sceneManager.getSceneById("capabilities");
+		const capabilityVariants = capabilityScene?.getCapabilityRenderVariants?.() ?? [];
+		try {
+			for (const capabilityVariant of capabilityVariants) {
+				await breath();
+				const texture = await this.sceneManager.warmupSceneDrawChunked(
+					"capabilities",
+					"a",
+					breath,
+					{ capabilityVariant },
+				);
+				if (!texture) {
+					throw new Error(`[three] allWarm missed capability variant: ${capabilityVariant}`);
+				}
+			}
+
+			for (let index = 0; index < capabilityVariants.length - 1; index += 1) {
+				const warmed = await this._warmHexPair(backgroundTexture, {
+					sourceId: "capabilities",
+					targetId: "capabilities",
+					sourceVariant: capabilityVariants[index],
+					targetVariant: capabilityVariants[index + 1],
+					breath,
+				});
+				if (!warmed) {
+					throw new Error(`[three] allWarm missed capability hex pair: ${capabilityVariants[index]} -> ${capabilityVariants[index + 1]}`);
+				}
+			}
+		} finally {
+			capabilityScene?.setCapabilityRenderVariant?.(null);
+		}
 
 		// Pass 2: home + hub again — first InstancedMesh/ocean frame often still allocates.
 		for (const sceneId of ["home", "portfolioHub"]) {
@@ -404,40 +423,59 @@ export class DigitalMonsterThreeApp {
 				continue;
 			}
 
-			// Never stack two scene RTs + hex + bloom in one frame.
-			await breath();
-			const sourceTex = await this.sceneManager.warmupSceneDrawChunked(sourceId, "a", breath);
-			if (!sourceTex || this.disposed) {
-				continue;
+			const warmed = await this._warmHexPair(backgroundTexture, {
+				sourceId,
+				targetId,
+				breath,
+			});
+			if (!warmed) {
+				throw new Error(`[three] allWarm missed hex pair: ${sourceId} -> ${targetId}`);
 			}
-
-			await breath();
-			const targetTex = await this.sceneManager.warmupSceneDrawChunked(targetId, "b", breath);
-			if (!targetTex || this.disposed) {
-				continue;
-			}
-
-			// Match runtime bake: home stays on black; everyone else gets liquid under models.
-			const bgA = sourceId === "home" ? null : backgroundTexture;
-			const bgB = targetId === "home" ? null : backgroundTexture;
-
-			await breath();
-			const fullA = this.screenCompositor.compositeToLayerTarget(this.renderer, "a", bgA, sourceTex, NO_GRAIN_BLUR);
-
-			await breath();
-			const fullB = this.screenCompositor.compositeToLayerTarget(this.renderer, "b", bgB, targetTex, NO_GRAIN_BLUR);
-
-			await breath();
-			this.hexGridOverlay.setTextures(fullA, fullB);
-			this.hexGridOverlay.setProgress(0.55);
-			const hexTexture = this.hexGridOverlay.renderModelsMixToTexture(this.renderer) ?? fullA;
-
-			await breath();
-			const warmed = this.noPostProcess ? hexTexture : this.modelsPostProcess.applyBloom(hexTexture, 0, 1);
-			this.screenCompositor.drawToScreen(this.renderer, null, warmed ?? hexTexture, NO_GRAIN_BLUR);
 		}
 
 		this.hexGridOverlay.setProgress(prevProgress);
+	}
+
+	async _warmHexPair(backgroundTexture, {
+		sourceId,
+		targetId,
+		sourceVariant = null,
+		targetVariant = null,
+		breath,
+	}) {
+		if (this.disposed) return false;
+		await breath();
+		const sourceTex = await this.sceneManager.warmupSceneDrawChunked(
+			sourceId,
+			"a",
+			breath,
+			sourceVariant ? { capabilityVariant: sourceVariant } : {},
+		);
+		if (!sourceTex || this.disposed) return false;
+
+		await breath();
+		const targetTex = await this.sceneManager.warmupSceneDrawChunked(
+			targetId,
+			"b",
+			breath,
+			targetVariant ? { capabilityVariant: targetVariant } : {},
+		);
+		if (!targetTex || this.disposed) return false;
+
+		const bgA = sourceId === "home" ? null : backgroundTexture;
+		const bgB = targetId === "home" ? null : backgroundTexture;
+		await breath();
+		const fullA = this.screenCompositor.compositeToLayerTarget(this.renderer, "a", bgA, sourceTex, NO_GRAIN_BLUR);
+		await breath();
+		const fullB = this.screenCompositor.compositeToLayerTarget(this.renderer, "b", bgB, targetTex, NO_GRAIN_BLUR);
+		await breath();
+		this.hexGridOverlay.setTextures(fullA, fullB);
+		this.hexGridOverlay.setProgress(0.55);
+		const hexTexture = this.hexGridOverlay.renderModelsMixToTexture(this.renderer) ?? fullA;
+		await breath();
+		const warmedTexture = this.noPostProcess ? hexTexture : this.modelsPostProcess.applyBloom(hexTexture, 0, 1);
+		this.screenCompositor.drawToScreen(this.renderer, null, warmedTexture ?? hexTexture, NO_GRAIN_BLUR);
+		return true;
 	}
 
 	/**
@@ -622,7 +660,13 @@ export class DigitalMonsterThreeApp {
 		// treats them as empty plate and replaces with liquid. Bake liquid under models.
 		const involvesAbout = pageA === "/about" || pageB === "/about" || mix.sourceId === "about" || mix.targetId === "about";
 		const involvesPortfolioHub = mix.sourceId === "portfolioHub" || mix.targetId === "portfolioHub";
-		const bakeBackgroundUnderModels = involvesHome || involvesAbout || involvesPortfolioHub;
+		// Internal capability scenes can contain dark, non-emissive surfaces. They
+		// must stay visible on both sides of the hex wipe instead of passing through
+		// the luminance-key path, which treated those surfaces as an empty black plate.
+		const bakeBackgroundUnderModels = involvesHome
+			|| involvesAbout
+			|| involvesPortfolioHub
+			|| mix.internalCapabilitiesMix === true;
 
 		const sharedBackground = this.backgroundPipeline.renderCarouselBackground(delta, bgOptions) ?? this.backgroundPipeline.lastTexture;
 		// Home never uses site liquid — even if the other carousel page already changed.
@@ -643,11 +687,27 @@ export class DigitalMonsterThreeApp {
 		if (bakeBackgroundUnderModels) {
 			const bgA = pageA === "/" ? null : sharedBackground;
 			const bgB = pageB === "/" ? null : sharedBackground;
-			const contentA = this.screenCompositor.compositeToLayerTarget(this.renderer, "a", bgA, mix.sourceModels, grainBlur, this._getHexBakeOverlayTexture(mix.sourceId));
+			const internalHudOnTarget = mix.internalCapabilitiesMix === true
+				&& mix.internalCapabilitiesHudLayer === "target";
+			const sourceHudSceneId = internalHudOnTarget ? null : mix.sourceId;
+			const targetHudSceneId = internalHudOnTarget ? "capabilities" : mix.targetId;
+			const sourceHudTexture = mix.internalCapabilitiesMix
+				? this._getCapabilityHexOverlayTexture(mix.sourceCapabilityVariant)
+				: this._getHexBakeOverlayTexture(sourceHudSceneId);
+			const targetHudTexture = mix.internalCapabilitiesMix
+				? this._getCapabilityHexOverlayTexture(mix.targetCapabilityVariant)
+				: mix.targetId === "capabilities" && mix.targetCapabilityVariant
+					// Ring entry prepares stage 01 from Portfolio and stage 05 from About
+					// before it becomes active, so its live HUD cannot pass the ordinary
+					// active-scene bake guard yet. Use the matching preloader-warmed copy
+					// to keep text continuous through either hex handoff.
+					? this._getCapabilityHexOverlayTexture(mix.targetCapabilityVariant)
+					: this._getHexBakeOverlayTexture(targetHudSceneId);
+			const contentA = this.screenCompositor.compositeToLayerTarget(this.renderer, "a", bgA, mix.sourceModels, grainBlur, sourceHudTexture);
 
 			let contentB = contentA;
 			if (!skipTargetLayer) {
-				contentB = this.screenCompositor.compositeToLayerTarget(this.renderer, "b", bgB, mix.targetModels, grainBlur, this._getHexBakeOverlayTexture(mix.targetId));
+				contentB = this.screenCompositor.compositeToLayerTarget(this.renderer, "b", bgB, mix.targetModels, grainBlur, targetHudTexture);
 			}
 
 			// Same UV warp on source (A) and target (B) — do not disable for case leave.
@@ -766,6 +826,24 @@ export class DigitalMonsterThreeApp {
 			return null;
 		}
 		return texture;
+	}
+
+	/** Prepared, per-scene capability copy for the corresponding hex layer. */
+	_getCapabilityHexOverlayTexture(capabilityVariant) {
+		const capability = getCapabilityBySceneVariant(capabilityVariant);
+		const hud = this.sceneManager.getCasePanelHudBySceneId("capabilities");
+		if (!capability || !hud) {
+			return null;
+		}
+		const viewportW = Math.max(1, this.container.clientWidth || window.innerWidth);
+		const viewportH = Math.max(1, this.container.clientHeight || window.innerHeight);
+		const warm = getWarmCasePanelHud(
+			capability.path,
+			getCasePanelHudDisplayedLocale(),
+			viewportW,
+			viewportH,
+		);
+		return hud.getWarmCanvasTexture?.(warm?.fromCanvas) ?? null;
 	}
 
 	_getSceneOverlayTexture(sceneId) {

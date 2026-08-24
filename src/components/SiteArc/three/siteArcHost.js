@@ -34,6 +34,7 @@ import { isSiteArcSessionActive } from "@/components/SiteArc/siteArcSession.js";
 import { isSiteArcNavigationActive } from "@/components/SiteArc/siteArcNavigationSource.js";
 import { SiteArcMesh } from "./SiteArcMesh.js";
 import { SITE_ARC_MAX_NODES } from "./siteArcShader.js";
+import { resolveSiteArcCapabilityStages } from "@/components/SiteArc/siteArcCapabilityStages.js";
 
 const DEG = Math.PI / 180;
 
@@ -48,6 +49,41 @@ function resolveSiteScrollGlowAngle(labelPositions, carouselMotion, fallbackAngl
 	}
 
 	const angle = fromAngle + (toAngle - fromAngle) * carouselMotion.segmentProgress;
+	stickArcGlowToAngle(angle);
+	return angle;
+}
+
+function resolveCapabilitiesGlowAngle(capabilitiesLayout, labelPositions, carousel, fallbackAngle) {
+	if (
+		carousel?.currentId !== "capabilities"
+		|| capabilitiesLayout.stageAngles.length === 0
+	) {
+		return fallbackAngle;
+	}
+	const firstStageAngle = capabilitiesLayout.stageAngles[0];
+	const lastStageAngle = capabilitiesLayout.stageAngles.at(-1);
+	const routeProgress = Math.max(-1, Math.min(1, Number(carousel.progress) || 0));
+	let angle;
+	if (routeProgress > 0.0001) {
+		const aboutIndex = labelPositions.findIndex((_, index) => index > capabilitiesLayout.capabilitiesIndex);
+		const aboutAngle = labelPositions[aboutIndex]?.angle ?? lastStageAngle;
+		angle = lastStageAngle + (aboutAngle - lastStageAngle) * routeProgress;
+	} else if (routeProgress < -0.0001) {
+		const portfolioAngle = labelPositions[capabilitiesLayout.capabilitiesIndex - 1]?.angle
+			?? firstStageAngle;
+		angle = firstStageAngle + (portfolioAngle - firstStageAngle) * Math.abs(routeProgress);
+	} else {
+		const stagePosition = Math.max(0, Math.min(
+			capabilitiesLayout.stageAngles.length - 1,
+			Number(store.capabilitiesExperience?.stagePosition) || 0,
+		));
+		const fromIndex = Math.min(Math.floor(stagePosition), capabilitiesLayout.stageAngles.length - 1);
+		const toIndex = Math.min(fromIndex + 1, capabilitiesLayout.stageAngles.length - 1);
+		const localProgress = stagePosition - fromIndex;
+		angle = capabilitiesLayout.stageAngles[fromIndex]
+			+ (capabilitiesLayout.stageAngles[toIndex] - capabilitiesLayout.stageAngles[fromIndex])
+			* localProgress;
+	}
 	stickArcGlowToAngle(angle);
 	return angle;
 }
@@ -114,9 +150,12 @@ export function buildSiteArcGpuState(viewportW, viewportH, isMobile = false) {
 	const { centerY, radius, angleStart, angleEnd } = arcGeo;
 	centerX -= getSiteArcShift();
 
-	const navItemAngles = navStates.map((_, index) => (
-		getCyclicItemRelativeDeg(index, focusDeg, ringGapDeg, navStates.length) * DEG + arcGeo.rotationRad
-	));
+	const capabilitiesLayout = resolveSiteArcCapabilityStages(navStates, {
+		focusDeg,
+		ringGapDeg,
+		rotationRad: arcGeo.rotationRad,
+	});
+	const navItemAngles = capabilitiesLayout.routeAngles;
 	const labelPositions = getSiteArcStepPositionsFromAngles(
 		navItemAngles,
 		centerX,
@@ -129,7 +168,10 @@ export function buildSiteArcGpuState(viewportW, viewportH, isMobile = false) {
 		Math.abs(getCyclicItemRelativeDeg(index, focusDeg, ringGapDeg, navStates.length))
 		<= internal.fadeEndDeg + wedgePadDeg
 	));
-	const lineCutoutAngles = navItemAngles.filter((_, index) => inWedgeMask[index]);
+	const lineCutoutAngles = [
+		...navItemAngles.filter((_, index) => inWedgeMask[index]),
+		...capabilitiesLayout.extraNodes.map((node) => node.angle),
+	];
 	const { outer: markerOuterR, mid: nodeMidR, inner: nodeInnerR } = resolveNodeMarkerRadii(
 		internal,
 		isMobile,
@@ -143,7 +185,16 @@ export function buildSiteArcGpuState(viewportW, viewportH, isMobile = false) {
 	);
 
 	const activeNavIndex = arcProjects.activeNavIndex;
-	const activeAngle = activeNavIndex >= 0 ? labelPositions[activeNavIndex]?.angle : null;
+	const capabilityStageProgress = Math.max(0, Math.min(
+		capabilitiesLayout.stageAngles.length - 1,
+		Number(store.capabilitiesExperience?.stagePosition) || 0,
+	));
+	const activeAngle = activeNavIndex === capabilitiesLayout.capabilitiesIndex
+		&& capabilitiesLayout.stageAngles.length > 0
+		? capabilitiesLayout.stageAngles[0]
+			+ (capabilitiesLayout.stageAngles[1] - capabilitiesLayout.stageAngles[0])
+			* capabilityStageProgress
+		: activeNavIndex >= 0 ? labelPositions[activeNavIndex]?.angle : null;
 	if (!carouselMotion) {
 		syncSiteArcSelectSequence({
 			activeIndex: activeNavIndex,
@@ -153,10 +204,16 @@ export function buildSiteArcGpuState(viewportW, viewportH, isMobile = false) {
 		});
 	}
 
-	const glowCenterAngleRad = resolveSiteScrollGlowAngle(
+	let glowCenterAngleRad = resolveSiteScrollGlowAngle(
 		labelPositions,
 		carouselMotion,
 		getArcGlowCenterAngleRad(),
+	);
+	glowCenterAngleRad = resolveCapabilitiesGlowAngle(
+		capabilitiesLayout,
+		labelPositions,
+		carousel,
+		glowCenterAngleRad,
 	);
 	const glowStrength = 1;
 	const cfg = siteArcConfig;
@@ -164,6 +221,8 @@ export function buildSiteArcGpuState(viewportW, viewportH, isMobile = false) {
 
 	const nodeAngles = [];
 	const nodeHighlights = [];
+	const nodeRadiusScales = [];
+	const nodeOpacities = [];
 	const n = Math.min(SITE_ARC_MAX_NODES, navStates.length);
 	for (let i = 0; i < n; i += 1) {
 		const pos = labelPositions[i];
@@ -177,6 +236,20 @@ export function buildSiteArcGpuState(viewportW, viewportH, isMobile = false) {
 		// Glow proximity owns brightness so the old circle fades while the next
 		// one brightens. A hard active boost caused a one-frame hand-off at commit.
 		nodeHighlights.push(hl);
+		nodeRadiusScales.push(capabilitiesLayout.routeRadiusScales[i] ?? 1);
+		nodeOpacities.push(1);
+	}
+	for (const node of capabilitiesLayout.extraNodes) {
+		if (nodeAngles.length >= SITE_ARC_MAX_NODES) break;
+		if (node.angle < angleStart || node.angle > angleEnd) continue;
+		nodeAngles.push(node.angle);
+		nodeHighlights.push(
+			glowCenterAngleRad != null
+				? getNodeArcGlowHighlight(node.angle, glowCenterAngleRad, cfg, glowStrength)
+				: 0,
+		);
+		nodeRadiusScales.push(node.radiusScale);
+		nodeOpacities.push(node.opacity);
 	}
 
 	return {
@@ -214,6 +287,8 @@ export function buildSiteArcGpuState(viewportW, viewportH, isMobile = false) {
 		introOpacity,
 		nodeAngles,
 		nodeHighlights,
+		nodeRadiusScales,
+		nodeOpacities,
 	};
 }
 

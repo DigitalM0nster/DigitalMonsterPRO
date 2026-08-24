@@ -22,7 +22,6 @@ import Cursor from "@/components/Cursor/Cursor.jsx";
 import { useLocation } from "react-router-dom";
 import CaseStudyPanelHudOverlay from "@/pages/portfolio/ui/CaseStudyCanvas/CaseStudyPanelHudOverlay.jsx";
 import AboutExperienceHost from "@/pages/about/AboutExperienceHost.jsx";
-import AboutStageRailOverlay from "@/pages/about/AboutStageRailOverlay.jsx";
 import CapabilitiesExperienceHost from "@/pages/capabilities/CapabilitiesExperienceHost.jsx";
 import CaseGalleryScrollHint from "@/pages/portfolio/components/CaseGalleryScrollHint/CaseGalleryScrollHint.jsx";
 import { store } from "@/app/store.jsx";
@@ -70,11 +69,15 @@ export default function MainContent() {
 
 	useEffect(() => {
 		let active = true;
-		Promise.allSettled([preloadHtmlRoutes(), prefetchSoundDesign()]).then(() => {
-			if (active) {
-				setRouteAssetsReady(true);
-			}
-		});
+		Promise.all([preloadHtmlRoutes(), prefetchSoundDesign()])
+			.then(() => {
+				if (active) {
+					setRouteAssetsReady(true);
+				}
+			})
+			.catch((error) => {
+				console.error("[preloader] route asset preload failed; Start remains locked", error);
+			});
 		return () => {
 			active = false;
 		};
@@ -182,7 +185,6 @@ export default function MainContent() {
 			{startApp && !isDemoLab && <SiteArcNavigator />}
 			{startApp && !isDemoLab && <SiteTopHud startApp={startApp} />}
 			{startApp && !isDemoLab && <CaseStudyPanelHudOverlay />}
-			{startApp && !isDemoLab && <AboutStageRailOverlay />}
 			{startApp && !isDemoLab && <CaseGalleryScrollHint />}
 			{!isDemoLab && loaderMounted && <LoaderComponent startApp={startApp} setStartApp={setStartApp} rendered={rendered} />}
 			{SHOW_CUSTOM_CURSOR && <Cursor startApp={startApp} />}

@@ -1,0 +1,43 @@
+{
+  "capturedAt": "2026-08-14",
+  "scope": "GATE 2 correction pass 4 assertion-only evidence",
+  "productionFileChanged": "src/three/scenes/capabilities/spatialCity/spatialCityRoadGeometry.js",
+  "positive": {
+    "valid": true,
+    "topRadiusX": 0.17,
+    "topRadiusZ": 0.17,
+    "bottomRadiusX": 0.17,
+    "bottomRadiusZ": 0.17,
+    "centerX": -0.62,
+    "centerZ": 0.05,
+    "yRange": [0, 0.095]
+  },
+  "negativeMutationMatrix": [
+    { "mutation": "scale.x=0.16, scale.z=0.17", "valid": false, "failedFields": ["topRadiusX", "bottomRadiusX"] },
+    { "mutation": "scale.x=0.17, scale.z=0.16", "valid": false, "failedFields": ["topRadiusZ", "bottomRadiusZ"] },
+    { "mutation": "position.x shifted", "valid": false, "failedFields": ["centerX"] },
+    { "mutation": "position.z shifted", "valid": false, "failedFields": ["centerZ"] },
+    { "mutation": "radiusTop changed", "valid": false, "failedFields": ["topRadiusX", "topRadiusZ"] },
+    { "mutation": "radiusBottom changed", "valid": false, "failedFields": ["bottomRadiusX", "bottomRadiusZ"] },
+    { "mutation": "geometry height changed", "valid": false, "failedFields": ["yMin", "yMax"] },
+    { "mutation": "position.y shifted", "valid": false, "failedFields": ["yMin", "yMax"] }
+  ],
+  "guardValid": true,
+  "invariants": {
+    "extentCount": 108,
+    "physicalCenterlinesMapped": "39/39",
+    "footprintConflicts": 0,
+    "minimumClearance": 0.0435196714,
+    "building6Top2Clearance": 0.1873593361,
+    "frozenRows": 45,
+    "frozenRowsSha256": "56f8f9534957e889f2afba3bc335f40bc1a2a1c7ca2641ded68042ca75c439d2",
+    "roadGraph": { "nodes": 27, "edges": 30, "segments": 198, "unexpectedCrossings": 0 },
+    "scopedTotal": { "drawCalls": 16, "triangles": 6632 }
+  },
+  "checks": { "targetedEslint": "PASS", "productionBuild": "PASS" },
+  "visualEvidenceReused": [
+    "gate2-correction3-city-exact-1920x945-dpr1.png",
+    "gate2-correction3-road-oblique-1920x945-dpr1.png"
+  ],
+  "browserOrServerStarted": false
+}

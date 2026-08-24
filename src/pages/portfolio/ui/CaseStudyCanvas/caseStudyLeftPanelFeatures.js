@@ -8,12 +8,15 @@ function getVisibleFeatures(features, cfg) {
 }
 
 function featureTypography(cfg) {
+	const showNumbers = cfg.featureShowNumbers !== false;
+
 	return {
+		showNumbers,
 		glyphSize: cfg.traitListGlyphSize ?? 46,
 		topSize: cfg.traitListTopSize ?? 12,
 		bottomSize: cfg.traitListBottomSize ?? 11,
 		rowPadY: cfg.traitListRowPadY ?? 16,
-		glyphColW: cfg.traitListGlyphColW ?? 52,
+		glyphColW: showNumbers ? (cfg.traitListGlyphColW ?? 52) : 0,
 		textGap: cfg.traitListTextGap ?? 3,
 	};
 }
@@ -45,7 +48,8 @@ function measureFeatureTextBlock(ctx, feature, textW, typo) {
 
 function measureFeatureRowHeight(ctx, feature, textW, typo) {
 	const { textBlockH } = measureFeatureTextBlock(ctx, feature, textW, typo);
-	return Math.max(typo.glyphSize, textBlockH) + typo.rowPadY * 2;
+	const contentHeight = typo.showNumbers ? Math.max(typo.glyphSize, textBlockH) : textBlockH;
+	return contentHeight + typo.rowPadY * 2;
 }
 
 /**
@@ -98,14 +102,16 @@ export function drawFeaturesBlock(ctx, x, y, innerW, features, theme, cfg) {
 		}
 
 		const { topH, textBlockH } = measureFeatureTextBlock(ctx, item, textW, typo);
-		const rowContentH = Math.max(typo.glyphSize, textBlockH);
+		const rowContentH = typo.showNumbers ? Math.max(typo.glyphSize, textBlockH) : textBlockH;
 		const rowH = rowContentH + typo.rowPadY * 2;
 		const blockY = rowTop + typo.rowPadY + (rowContentH - textBlockH) / 2;
-		const glyphY = rowTop + typo.rowPadY + (rowContentH - typo.glyphSize) / 2;
 
-		ctx.font = `300 ${typo.glyphSize}px ${CASE_STUDY_BODY_FONT}`;
-		ctx.fillStyle = theme.cyan;
-		ctx.fillText(String(index + 1), x, glyphY);
+		if (typo.showNumbers) {
+			const glyphY = rowTop + typo.rowPadY + (rowContentH - typo.glyphSize) / 2;
+			ctx.font = `300 ${typo.glyphSize}px ${CASE_STUDY_BODY_FONT}`;
+			ctx.fillStyle = theme.cyan;
+			ctx.fillText(String(index + 1), x, glyphY);
+		}
 
 		ctx.font = `400 ${typo.topSize}px ${CASE_STUDY_BODY_FONT}`;
 		ctx.fillStyle = theme.cyan;

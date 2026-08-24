@@ -1,0 +1,151 @@
+{
+  "gate": "GATE 3",
+  "pass": "correction-3",
+  "status": "PASS",
+  "capturedAt": "2026-08-14",
+  "runtime": {
+    "route": "/capabilities/spatial-matrix",
+    "viewport": [1920, 945],
+    "devicePixelRatio": 1,
+    "canvas": {
+      "drawingBuffer": [3840, 1890],
+      "client": [1920, 945]
+    },
+    "webgl": "WebGL2",
+    "consoleErrors": [],
+    "consoleWarnings": [
+      "Existing Three.js useLegacyLights deprecation warning"
+    ]
+  },
+  "projectionLedger": {
+    "method": "four-corner projection, shoelace polygon area, Sutherland-Hodgman clip to 1920x945",
+    "unclippedQuadAreaPx2": 1051298.451,
+    "clippedVisibleAreaPx2": 550913.988,
+    "visibleRatioPercent": 52.4032,
+    "facingFaces": {
+      "visible": 232,
+      "partiallyClipped": 9,
+      "fullyOffscreen": 53,
+      "behindNearPlane": 0
+    },
+    "negativeTests": {
+      "nearEdgeTrueAreaPx2": 60,
+      "nearEdgeAabbProxyAreaPx2": 360156.014,
+      "nearEdgeProxyRatioOver100": true,
+      "whollyOffscreenSourceAreaPx2": 14000,
+      "whollyOffscreenClippedAreaPx2": 0,
+      "partialSourceAreaPx2": 40000,
+      "partialClippedAreaPx2": 20000,
+      "partialRatio": 0.5,
+      "regressionSourceWeight": 113,
+      "regressionVisibleWeight": 1,
+      "allPass": true
+    }
+  },
+  "cadenceParity": {
+    "sectionPauseScale": 1.85,
+    "detailedCenterMullionScale": 0.72,
+    "groupedOuterMullionScale": 1.4,
+    "groupedOuterSpandrelScale": 1.35,
+    "groupedInternalMullionScale": 0.58,
+    "groupedInternalSpandrelScale": 0.42,
+    "detailedCadencePercent": 74.596,
+    "groupedCadencePercent": 73.358,
+    "detailedFrameOnlyPercent": 31.236,
+    "groupedFrameOnlyPercent": 38.965,
+    "shaderCpuParity": true
+  },
+  "projectedQa": {
+    "detailed": {
+      "litPercent": 28.866,
+      "darkPercent": 71.134,
+      "visibleLitCoveragePercent": 2.993,
+      "neutralPercent": 95.197,
+      "warmPercent": 4.353,
+      "coolPercent": 0.450
+    },
+    "grouped": {
+      "litPercent": 30.838,
+      "darkPercent": 69.162,
+      "visibleLitCoveragePercent": 3.180,
+      "neutralPercent": 95.894,
+      "warmPercent": 3.172,
+      "coolPercent": 0.935
+    },
+    "darkGlassCoveragePercent": 46.064,
+    "cellPixelRangeFront": [0.742, 18.565],
+    "cellPixelRangeSide": [0.744, 18.599],
+    "allAcceptanceTargetsPass": true
+  },
+  "facadeAudit": {
+    "facadeParts": 147,
+    "orientations": 294,
+    "physicalFaceDirections": 588,
+    "cells": 4674,
+    "apertureRectChecks": 16515,
+    "incompleteGroupedCellsMasked": 519,
+    "edgeClips": 0,
+    "edgeOverlaps": 0,
+    "edgeStretches": 0,
+    "continuityCases": 7686,
+    "continuityFailures": 0,
+    "mainOrientationsAtLeast2x2": 134,
+    "mainOrientationsTotal": 134,
+    "selectedTowerGrid": [4, 23],
+    "familiesWithFrontSideDivergenceAtLeast20Percent": 5,
+    "familyTotal": 6,
+    "perWindowMeshes": 0,
+    "perWindowLights": 0,
+    "perWindowTextures": 0
+  },
+  "budgetsAndInvariants": {
+    "architectureAndRoadDrawCalls": 16,
+    "architectureAndRoadTriangles": 6632,
+    "masterplanSha256": "56f8f9534957e889f2afba3bc335f40bc1a2a1c7ca2641ded68042ca75c439d2",
+    "roadExtents": 108,
+    "graph": {
+      "nodes": 27,
+      "edges": 30,
+      "centerlines": 39,
+      "segments": 198,
+      "unexpectedCrossings": 0
+    },
+    "protectedHighwayUnchanged": true,
+    "protectedCraneUnchanged": true,
+    "globalChromeUnchanged": true,
+    "allWarmLifecyclePreserved": true
+  },
+  "checks": {
+    "projectionAndCadenceValidators": "PASS",
+    "facadeAndFrozenValidators": "PASS",
+    "targetedEslint": "PASS",
+    "productionBuild": "PASS",
+    "performanceNote": "Correction-3 same-environment 10-second hardware rAF probe completed; no measurable regression against correction-1 75.003 FPS."
+  },
+  "performanceProbe": {
+    "environment": "isolated headless Chrome, WebGL2, ANGLE NVIDIA GeForce RTX 3070 Ti, D3D11",
+    "durationMs": 9999.1,
+    "frames": 750,
+    "averageFps": 75.0067506075547,
+    "p95FrameMs": 13.400000000001455,
+    "framesOver25Ms": 0,
+    "comparisonCorrection1AverageFps": 75.00300012000481,
+    "consoleErrors": [],
+    "warnings": "Existing useLegacyLights deprecation and pre-existing non-fatal HUD shader X4000 compiler warnings only; no facade program error."
+  },
+  "evidence": {
+    "canonicalStill": "gate3-correction3-facade-distant-1920x945-dpr1.png",
+    "centralCloseup": "gate3-correction3-facade-closeup-central.png",
+    "rearCloseup": "gate3-correction3-facade-closeup-rear.png",
+    "officeEdgeCloseup": "gate3-correction3-family-edge-closeup-office.png",
+    "civicEdgeCloseup": "gate3-correction3-family-edge-closeup-civic.png",
+    "obliqueAfterMotion": "gate3-correction3-facade-oblique-after-motion-1920x945-dpr1.png",
+    "returnCanonical": "gate3-correction3-facade-return-canonical-1920x945-dpr1.png",
+    "animatedMotion": "gate3-correction3-facade-slow-orbit-16s-960x473.webp",
+    "animatedMotionFrames": 60,
+    "motionDurationMs": 16351,
+    "springReturnDurationMs": 4506,
+    "fullResolutionMotionFramePrefix": "gate3-correction3-motion-frame-",
+    "fullResolutionMotionFrameCount": 10
+  }
+}

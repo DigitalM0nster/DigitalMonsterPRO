@@ -4,17 +4,21 @@ import { store } from "@/app/store.jsx";
 import { CAPABILITIES, getCapabilityBySlug } from "@/pages/capabilities/data/capabilities.js";
 import { usePageStateClasses } from "@/app/context/RouteTransitionContext.jsx";
 import { requestMmk1ReturnToOverview } from "./mmk1SceneBridge.js";
+import SignalFieldFormHud from "./components/SignalFieldFormHud/SignalFieldFormHud.jsx";
 import styles from "./CapabilitiesPage.module.scss";
 
 export default function CapabilitiesPage() {
 	const { "*": nestedPath = "" } = useParams();
 	const slug = nestedPath.split("/").filter(Boolean)[0] ?? CAPABILITIES[0].id;
-	const active = getCapabilityBySlug(slug);
 	const pageClassName = usePageStateClasses("capabilities");
 	const experience = useSnapshot(store.capabilitiesExperience);
+	const active = getCapabilityBySlug(experience.activeStageId || slug);
 
 	return (
 		<div className={`${pageClassName} ${styles.page}`} data-capability-id={active.id}>
+			<SignalFieldFormHud
+				visible={active.id === "signal-field" && experience.active && !experience.investigating}
+			/>
 			<button
 				type="button"
 				className={`${styles.overviewReturn} ${experience.investigating ? styles.visible : ""}`}

@@ -129,6 +129,7 @@ export class Mmk1CameraHotspots {
 		this.projected = new THREE.Vector3();
 		this.clampedProjected = new THREE.Vector3();
 		this.markerWorldPosition = new THREE.Vector3();
+		this.orbitTarget = new THREE.Vector3();
 		this.anchorWorldPosition = new THREE.Vector3();
 		this.anchorObject = null;
 		this.hovered = null;
@@ -187,6 +188,19 @@ export class Mmk1CameraHotspots {
 		this.camera.updateProjectionMatrix();
 		this.camera.updateMatrixWorld(true);
 		this._layoutMarkers(this.camera);
+	}
+
+	getOrbitTarget(target = this.orbitTarget) {
+		if (!this.selectedId || this.selectedId === "__overview__") {
+			return null;
+		}
+		const marker = this.markers.find((item) => item.name === this.selectedId);
+		if (!marker) {
+			return null;
+		}
+		this._syncBoundAnchors();
+		this.group.updateWorldMatrix(true, false);
+		return target.copy(marker.userData.anchor).applyMatrix4(this.group.matrixWorld);
 	}
 
 	/** Convert calibrated world anchors once, then inherit crane transforms. */

@@ -51,6 +51,8 @@ uniform float uIntroOpacity;
 uniform float uNodeCount;
 uniform float uNodeAngles[${SITE_ARC_MAX_NODES}];
 uniform float uNodeHighlight[${SITE_ARC_MAX_NODES}];
+uniform float uNodeRadiusScale[${SITE_ARC_MAX_NODES}];
+uniform float uNodeOpacity[${SITE_ARC_MAX_NODES}];
 
 float angularFade(float angle) {
 	float inset = uFadeInset;
@@ -128,6 +130,8 @@ void main() {
 	float nodeCut = 0.0;
 	float nearestHighlight = 0.0;
 	float nearestNodeDist = 1e5;
+	float nearestNodeScale = 1.0;
+	float nearestNodeOpacity = 0.0;
 	int count = int(uNodeCount + 0.5);
 	float cutPad = halfTrack + 1.5;
 	for (int i = 0; i < ${SITE_ARC_MAX_NODES}; i++) {
@@ -135,15 +139,22 @@ void main() {
 			break;
 		}
 		float na = uNodeAngles[i];
+		float nodeScale = max(0.05, uNodeRadiusScale[i]);
+		float nodeOpacity = clamp(uNodeOpacity[i], 0.0, 1.0);
 		vec2 nodePos = uCenterPx + uRadiusPx * vec2(cos(na), sin(na));
 		float nodeDist = length(px - nodePos);
-		float cutR = uNodeRadiusPx + cutPad;
+		float cutR = uNodeRadiusPx * nodeScale + cutPad;
 		if (nodeDist < cutR) {
-			nodeCut = max(nodeCut, 1.0 - smoothstep(cutR - 0.8, cutR, nodeDist));
+			nodeCut = max(
+				nodeCut,
+				(1.0 - smoothstep(cutR - 0.8, cutR, nodeDist)) * nodeOpacity
+			);
 		}
-		if (nodeDist < nearestNodeDist) {
+		if (nodeOpacity > 0.01 && nodeDist < nearestNodeDist) {
 			nearestNodeDist = nodeDist;
 			nearestHighlight = uNodeHighlight[i];
+			nearestNodeScale = nodeScale;
+			nearestNodeOpacity = nodeOpacity;
 		}
 	}
 	float trackKeep = 1.0 - nodeCut;
@@ -177,15 +188,19 @@ void main() {
 	}
 
 	// Nodes
-	if (nearestNodeDist < uNodeRadiusPx + uInnerBloomBlur * 8.0) {
+	float activeNodeRadius = uNodeRadiusPx * nearestNodeScale;
+	float activeNodeMidRadius = uNodeMidRadiusPx * nearestNodeScale;
+	float activeNodeInnerRadius = max(1.0, uNodeInnerRadiusPx * nearestNodeScale);
+	if (nearestNodeOpacity > 0.01 && nearestNodeDist < activeNodeRadius + uInnerBloomBlur * 8.0) {
 		float hl = clamp(nearestHighlight, 0.0, 1.0);
 		float strokeW = max(0.3, halfTrack * 0.9);
-		float ringDist = abs(nearestNodeDist - uNodeRadiusPx);
+		float ringDist = abs(nearestNodeDist - activeNodeRadius);
+		float nodeFade = fade * nearestNodeOpacity;
 
 		// Active: Canvas drawArcInnerCoreGlow — haze / mid / hot
 		if (hl > 0.05 && uInnerBloomBlur > 0.01 && uInnerBloomStrength > 0.01) {
-			float intensity = min(1.0, (uInnerBloomStrength * 0.5) * hl) * fade;
-			float coreR = max(0.8, uNodeInnerRadiusPx);
+			float intensity = min(1.0, (uInnerBloomStrength * 0.5) * hl) * nodeFade;
+			float coreR = activeNodeInnerRadius;
 			float hazeR = coreR + uInnerBloomBlur * 7.0;
 			float midR = coreR + uInnerBloomBlur * 2.4;
 			float hotR = max(coreR * 1.35, coreR + uInnerBloomBlur * 0.45);
@@ -238,22 +253,22 @@ void main() {
 			float softR = strokeBloom(ringDist, bBlur * 1.65);
 			float coreRb = strokeBloom(ringDist, bBlur * 0.75);
 			vec3 ringCol = mix(uTrackColor, uActiveColor, hl);
-			add += ringCol * (softR * bStr * 0.55 * fade * hl);
-			add += ringCol * (coreRb * bStr * fade * hl);
+			add += ringCol * (softR * bStr * 0.55 * nodeFade * hl);
+			add += ringCol * (coreRb * bStr * nodeFade * hl);
 		}
 
 		// Thin hollow outer ring
 		float ring = hairline(ringDist, strokeW);
 		vec3 outerCol = mix(uTrackColor, uActiveColor, hl);
-		float outerA = mix(uTrackOpacity, uActiveOpacity, hl) * fade;
+		float outerA = mix(uTrackOpacity, uActiveOpacity, hl) * nodeFade;
 		add += outerCol * (ring * outerA);
 
-		float mid = 1.0 - smoothstep(uNodeMidRadiusPx - 0.4, uNodeMidRadiusPx + 0.35, nearestNodeDist);
-		float inner = 1.0 - smoothstep(uNodeInnerRadiusPx - 0.3, uNodeInnerRadiusPx + 0.35, nearestNodeDist);
+		float mid = 1.0 - smoothstep(activeNodeMidRadius - 0.4, activeNodeMidRadius + 0.35, nearestNodeDist);
+		float inner = 1.0 - smoothstep(activeNodeInnerRadius - 0.3, activeNodeInnerRadius + 0.35, nearestNodeDist);
 		float midDisk = mid * (1.0 - inner);
-		add += uTrackColor * (midDisk * uNodeMidOpacity * uTrackOpacity * fade);
+		add += uTrackColor * (midDisk * uNodeMidOpacity * uTrackOpacity * nodeFade);
 
-		float innerA = mix(uTrackOpacity, uActiveOpacity, hl) * fade;
+		float innerA = mix(uTrackOpacity, uActiveOpacity, hl) * nodeFade;
 		vec3 innerCol = hl > 0.55 ? vec3(1.0) : mix(uTrackColor, uActiveColor, hl);
 		add += innerCol * (inner * innerA);
 	}

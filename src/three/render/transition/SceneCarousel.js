@@ -1151,15 +1151,19 @@ export class SceneCarousel {
 		this._aboutBoundaryDrive = false;
 		this._capabilitiesBoundaryDrive = false;
 		const fromId = this.currentId;
-		const enteringAbout = this.nextId === "about";
+		const enteringStoryPage = this.nextId === "about" || this.nextId === "capabilities";
 		// Single overflow source: leftover past +1 before post-commit clamp.
 		const rawLeftover = this.progressTarget - CAROUSEL_PROGRESS_SEGMENT_END;
-		const boundaryOverflowProgress = enteringAbout ? Math.max(0, Math.min(CAROUSEL_PROGRESS_TARGET_MAX - 1, rawLeftover)) : 0;
+		const boundaryOverflowProgress = enteringStoryPage
+			? Math.max(0, Math.min(CAROUSEL_PROGRESS_TARGET_MAX - 1, rawLeftover))
+			: 0;
 		this.previousId = this.currentId;
 		this.currentId = this.nextId;
 		this.nextId = nextInCycle(this.currentId);
-		// About owns interior spring — transfer leftover into story, zero ring target.
-		this.progressTarget = enteringAbout ? 0 : clampPostCommitProgressTarget(rawLeftover);
+		// About and Capabilities own interior springs. Transfer post-commit wheel
+		// overflow into that story only; leaving it on the ring as well disables the
+		// internal hex compositor while its stage scene continues to advance.
+		this.progressTarget = enteringStoryPage ? 0 : clampPostCommitProgressTarget(rawLeftover);
 		this.progress = 0;
 		this.scrollIntent = null;
 		this._onCommit?.({
@@ -1175,14 +1179,16 @@ export class SceneCarousel {
 		this._aboutBoundaryDrive = false;
 		this._capabilitiesBoundaryDrive = false;
 		const fromId = this.currentId;
-		const enteringAbout = this.previousId === "about";
+		const enteringStoryPage = this.previousId === "about" || this.previousId === "capabilities";
 		// Mirror forward: leftover past −1 before post-commit clamp.
 		const rawLeftover = this.progressTarget - CAROUSEL_PROGRESS_SEGMENT_BACK_END;
-		const boundaryOverflowProgress = enteringAbout ? Math.min(0, Math.max(CAROUSEL_PROGRESS_TARGET_MIN + 1, rawLeftover)) : 0;
+		const boundaryOverflowProgress = enteringStoryPage
+			? Math.min(0, Math.max(CAROUSEL_PROGRESS_TARGET_MIN + 1, rawLeftover))
+			: 0;
 		this.nextId = this.currentId;
 		this.currentId = this.previousId;
 		this.previousId = prevInCycle(this.currentId);
-		this.progressTarget = enteringAbout ? 0 : clampPostCommitProgressTarget(rawLeftover);
+		this.progressTarget = enteringStoryPage ? 0 : clampPostCommitProgressTarget(rawLeftover);
 		this.progress = 0;
 		this.scrollIntent = null;
 		this._onCommit?.({

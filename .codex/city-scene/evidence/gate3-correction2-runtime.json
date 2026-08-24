@@ -1,0 +1,136 @@
+{
+  "gate": "GATE 3",
+  "pass": "correction-2",
+  "status": "independent-re-review",
+  "capturedAt": "2026-08-14",
+  "runtime": {
+    "route": "/capabilities/spatial-matrix",
+    "viewport": [1920, 945],
+    "devicePixelRatio": 1,
+    "canvas": {
+      "drawingBuffer": [3840, 1890],
+      "client": [1920, 945]
+    },
+    "webgl": "WebGL2",
+    "consoleErrors": [],
+    "consoleWarnings": [
+      "Existing Three.js useLegacyLights deprecation warning"
+    ]
+  },
+  "frozenQa": {
+    "cameraPosition": [11.9, 7.35, 14.3],
+    "cameraTarget": [-1.35, -0.62, -0.2],
+    "fov": 39,
+    "seed": "0xD1617A1",
+    "masterplanSha256": "56f8f9534957e889f2afba3bc335f40bc1a2a1c7ca2641ded68042ca75c439d2"
+  },
+  "facadeAudit": {
+    "buildingsCovered": 45,
+    "buildingTotal": 45,
+    "facadeBatches": 3,
+    "facadeParts": 147,
+    "orientations": 294,
+    "physicalFaceDirections": 588,
+    "cells": 4674,
+    "apertureRectChecks": 16515,
+    "incompleteGroupedCellsMasked": 519,
+    "edgeClips": 0,
+    "edgeOverlaps": 0,
+    "edgeStretches": 0,
+    "continuityCases": 7686,
+    "continuityFailures": 0,
+    "interpolatedHashThresholds": 0,
+    "mainOrientationsAtLeast2x2": 134,
+    "mainOrientationsTotal": 134,
+    "selectedTowerGrid": [4, 23],
+    "officeCivicDominantFrontBayRange": [4, 8],
+    "familiesWithFrontSideDivergenceAtLeast20Percent": 5,
+    "familyTotal": 6,
+    "instancedAttributes": 7,
+    "perWindowMeshes": 0,
+    "perWindowLights": 0,
+    "perWindowTextures": 0,
+    "textureUniforms": 0
+  },
+  "projectedQa": {
+    "cellPixelRangeFront": [0.742, 28.602],
+    "cellPixelRangeSide": [0.744, 25.866],
+    "detailed": {
+      "litPercent": 29.456,
+      "darkPercent": 70.544,
+      "visibleLitCoveragePercent": 2.951,
+      "neutralPercent": 95.533,
+      "warmPercent": 4.086,
+      "coolPercent": 0.381
+    },
+    "grouped": {
+      "litPercent": 29.078,
+      "darkPercent": 70.922,
+      "visibleLitCoveragePercent": 2.904,
+      "neutralPercent": 96.858,
+      "warmPercent": 2.382,
+      "coolPercent": 0.760
+    },
+    "darkGlassCoveragePercent": 46.691,
+    "cadenceCoveragePercent": 73.245,
+    "allAcceptanceTargetsPass": true
+  },
+  "lod": {
+    "strategy": "derivative screen-cell",
+    "groupedBelowPixelsPerCell": 1.4,
+    "detailedAbovePixelsPerCell": 3.0,
+    "endpointColourClassification": "independent grouped and detailed RGB-energy endpoints",
+    "blend": "linear endpoint contribution mix only",
+    "timeDependentNoise": false
+  },
+  "budgetsAndInvariants": {
+    "architectureAndRoadDrawCalls": 16,
+    "architectureAndRoadTriangles": 6632,
+    "roadExtents": 108,
+    "roadConflicts": 0,
+    "minimumSignedClearance": 0.04351967138168539,
+    "graph": {
+      "nodes": 27,
+      "edges": 30,
+      "centerlines": 39,
+      "segments": 198,
+      "unexpectedCrossings": 0
+    },
+    "protectedHighwayUnchanged": true,
+    "protectedCraneUnchanged": true,
+    "globalChromeUnchanged": true,
+    "allWarmLifecyclePreserved": true
+  },
+  "checks": {
+    "facadeValidators": "PASS",
+    "roadAndFrozenValidators": "PASS",
+    "targetedEslint": "PASS",
+    "productionBuild": "PASS",
+    "newPerformanceProbe": "NOT RUN; correction-1 same-environment probe remains the comparison baseline and geometry/draw budgets are unchanged"
+  },
+  "evidence": {
+    "canonicalStill": "gate3-correction2-facade-distant-1920x945-dpr1.png",
+    "centralCloseup": "gate3-correction2-facade-closeup-central.png",
+    "rearCloseup": "gate3-correction2-facade-closeup-rear.png",
+    "officeEdgeCloseup": "gate3-correction2-family-edge-closeup-office.png",
+    "civicEdgeCloseup": "gate3-correction2-family-edge-closeup-civic.png",
+    "obliqueAfterMotion": "gate3-correction2-facade-oblique-after-motion-1920x945-dpr1.png",
+    "returnCanonical": "gate3-correction2-facade-return-canonical-1920x945-dpr1.png",
+    "animatedMotion": "gate3-correction2-facade-slow-orbit-14s-960x473.webp",
+    "animatedMotionFrames": 60,
+    "motionDurationMs": 14195,
+    "springReturnDurationMs": 4502,
+    "fullResolutionMotionFrames": [
+      "gate3-correction2-motion-frame-010pct.png",
+      "gate3-correction2-motion-frame-020pct.png",
+      "gate3-correction2-motion-frame-030pct.png",
+      "gate3-correction2-motion-frame-040pct.png",
+      "gate3-correction2-motion-frame-050pct.png",
+      "gate3-correction2-motion-frame-060pct.png",
+      "gate3-correction2-motion-frame-070pct.png",
+      "gate3-correction2-motion-frame-080pct.png",
+      "gate3-correction2-motion-frame-090pct.png",
+      "gate3-correction2-motion-frame-100pct.png"
+    ]
+  }
+}

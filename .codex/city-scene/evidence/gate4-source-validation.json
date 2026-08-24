@@ -1,0 +1,151 @@
+{
+  "gate": "GATE4",
+  "correctionPass": 8,
+  "techVerdict": "PASS",
+  "source": {
+    "productionChanged": ["src/three/scenes/capabilities/spatialCity/spatialCityTraffic.js"],
+    "smokeHelper": ".codex-build-check/spatialCityTrafficProbe.js",
+    "functionSourceContractMatches": 0,
+    "frozenFootprintHash": "56f8f9534957e889f2afba3bc335f40bc1a2a1c7ca2641ded68042ca75c439d2",
+    "highwayFragments": 620
+  },
+  "capabilityBoundary": {
+    "minificationSafe": true,
+    "sourceInspectionUsed": false,
+    "privateProductionAndQaCapabilitiesDistinct": true,
+    "productionWrapperArity": 3,
+    "productionWrapperAcceptsPolicy": false,
+    "productionWrapperRejectsExtraArguments": true,
+    "qaHarnessSeparateFromRuntime": true,
+    "ownerRejectsMissingWrongOrMismatchedCapability": true
+  },
+  "productionCoverage": {
+    "fragments": 20,
+    "routes": 14,
+    "entryApproaches": 4,
+    "exitChoices": 4
+  },
+  "simulation45": {
+    "valid": true,
+    "trips": 28,
+    "exitUsage": [3, 5, 11, 7],
+    "minDirectionalGap": 0.20000000000005183,
+    "maxWaitSeconds": 5.599999999999985,
+    "maxReservationSeconds": 1.599999999999909,
+    "reservationGrants": 121,
+    "fifoViolations": 0,
+    "productionCapabilityDecisions": 4357,
+    "testCapabilityDecisions": 0,
+    "qaHarnessCalls": 0,
+    "capabilityViolations": 0,
+    "stalled": [],
+    "starved": []
+  },
+  "simulation120": {
+    "valid": true,
+    "trips": 98,
+    "exitUsage": [10, 21, 30, 21],
+    "minDirectionalGap": 0.20000000000001153,
+    "maxWaitSeconds": 5.599999999999985,
+    "maxReservationSeconds": 1.599999999999909,
+    "reservationGrants": 362,
+    "fifoViolations": 0,
+    "productionCapabilityDecisions": 9292,
+    "testCapabilityDecisions": 0,
+    "qaHarnessCalls": 0,
+    "capabilityViolations": 0,
+    "stalled": [],
+    "starved": []
+  },
+  "constructedAcceptance": {
+    "realBlockedExit": true,
+    "blockedOwner": -1,
+    "ownerAfterClear": 1,
+    "fifoDerivedWinners": [
+      {"stateId": 5, "ticket": 7},
+      {"stateId": 12, "ticket": 2}
+    ],
+    "negativeMutationsCaught": [
+      "scheduler-gap-0.2-to-0.05",
+      "unconditional-roundabout-exit-detector",
+      "state-id-five-or-single-eligible",
+      "maximum-ticket-wins",
+      "production-wrapper-extra-policy-argument",
+      "direct-owner-missing-capability",
+      "test-capability-on-production-boundary",
+      "runtime-uses-qa-reservation-harness"
+    ]
+  },
+  "projection": {
+    "valid": true,
+    "viewport": [1920, 945],
+    "visibleSpawns": 0,
+    "visibleDespawns": 0,
+    "lengthPixels": [7.0000007598238305, 7.000137893447898],
+    "corePixels": [1.0000000355405818, 1.0000004513812333],
+    "haloPixels": [2.7000006995456256, 2.7000088845621995]
+  },
+  "fogVisibility": {
+    "terminalStart": 0.86,
+    "terminalEnd": 1,
+    "discardAlpha": 0.002,
+    "discardContribution": 0.002,
+    "fullFogCoreAlpha": 0,
+    "fullFogHaloAlpha": 0,
+    "invalidFogHiddenEndpoints": 0,
+    "residualFogMutationCaught": true
+  },
+  "routeVisibility": {
+    "visibleRouteIndexes": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
+    "missingRouteIndexes": [],
+    "unexpectedRouteIndexes": [],
+    "route13OffscreenMutationCaught": true,
+    "fourRoutesOnlyMutationCaught": true
+  },
+  "graph": {
+    "nodes": 27,
+    "edges": 30,
+    "centerlines": 39,
+    "segments": 198,
+    "routes": 14,
+    "roundaboutRoutes": 10,
+    "exitChoices": 4,
+    "conflictZones": 9,
+    "tangentJoins": 20,
+    "cornerChecks": 504,
+    "violations": 0
+  },
+  "renderer": {
+    "instancedDrawCalls": 2,
+    "triangles": 80,
+    "perFragmentObjects": 0,
+    "normalDebugAllocations": 0,
+    "scopedDrawCalls": 18,
+    "scopedTriangles": 6712,
+    "frontSidePreserved": true,
+    "positiveInstanceWinding": true,
+    "actualInstanceMatrixDeterminant": 0.002945080168006476,
+    "cardinalAndObliqueBasisDeterminants": [1, 1, 1],
+    "legacyMirroredWindingMutationCaught": true
+  },
+  "minifiedArtifactSmoke": {
+    "valid": true,
+    "factoryValidatorsExecuted": true,
+    "systemCreated": true,
+    "children": 2,
+    "simulation45": true,
+    "simulation120": true,
+    "adversarial": true,
+    "projection": true,
+    "runtimeBoundary45": true,
+    "runtimeBoundary120": true
+  },
+  "checks": {
+    "targetedEslint": "PASS",
+    "viteProductionBuild": "PASS",
+    "independentMinifiedArtifactSmoke": "PASS",
+    "browser": "PASS_CAPTURED",
+    "performance": "PASS_15_SECOND_RUNTIME_PROBE",
+    "techPass8": "PASS"
+  }
+}

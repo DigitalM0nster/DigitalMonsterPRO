@@ -12,7 +12,11 @@ let routePreloadPromise = null;
 /** Loads the JS and CSS for every route while the loader is still visible. */
 export function preloadHtmlRoutes() {
 	if (!routePreloadPromise) {
-		routePreloadPromise = Promise.allSettled(Object.values(routeModuleLoaders).map((load) => load()));
+		routePreloadPromise = Promise.all(Object.values(routeModuleLoaders).map((load) => load()))
+			.catch((error) => {
+				routePreloadPromise = null;
+				throw error;
+			});
 	}
 	return routePreloadPromise;
 }

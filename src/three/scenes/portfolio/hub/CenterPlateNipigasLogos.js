@@ -80,15 +80,11 @@ export class CenterPlateNipigasLogos {
 
 	async _loadAll() {
 		const loader = new THREE.TextureLoader();
-		const results = await Promise.allSettled(projectsData.map((project, index) => loader.loadAsync(project.hubLogo).then((texture) => ({ index, texture }))));
+		const results = await Promise.all(projectsData.map((project, index) => (
+			loader.loadAsync(project.hubLogo).then((texture) => ({ index, texture }))
+		)));
 
-		for (const result of results) {
-			if (result.status !== "fulfilled") {
-				console.warn("[HubPlateLogos] logo load failed", result.reason);
-				continue;
-			}
-
-			const { index, texture } = result.value;
+		for (const { index, texture } of results) {
 			texture.colorSpace = THREE.SRGBColorSpace;
 			this.textures.set(index, texture);
 			this.disposables.push(texture);
@@ -96,7 +92,7 @@ export class CenterPlateNipigasLogos {
 
 		if (this.textures.size === 0) {
 			console.error("[HubPlateLogos] no project logos loaded");
-			return;
+			return false;
 		}
 
 		this._buildInstances();

@@ -23,11 +23,12 @@ import {
 } from "@/three/render/transition/siteNavigationProgressOwner.js";
 import { publishSiteRouteTransition } from "@/three/render/transition/siteTransitionIntent.js";
 import { isSceneDevToolsWheelTarget } from "@/three/dev/sceneDevPanelUtils.js";
-import { CAPABILITIES as states } from "./data/capabilities.js";
-import mmk1TextStates from "@/pages/portfolio/projects/mmk1/states.js";
-import lightTrailsHudProject from "./lightTrails/lightTrailsHudProject.js";
+import {
+	CAPABILITIES as states,
+	CAPABILITY_SCENE_VARIANTS,
+} from "./data/capabilities.js";
+import { getCapabilityHudProject } from "./data/capabilityHudProjects.js";
 import { setStageProgressState } from "@/pages/portfolio/core/stageProgress.js";
-import { setCasePanelHudEnterProgress } from "@/pages/portfolio/core/casePanelHudBridge.js";
 import {
 	resetCapabilitiesInternalHex,
 	setCapabilitiesInternalHexProgress,
@@ -37,23 +38,14 @@ import {
 	requestSiteArcScrollRepaint,
 } from "@/pages/portfolio/core/caseStudyAnimationFrame.js";
 
-// Story stops are capability indices. Two capabilities have one internal
-// segment (0 -> 1); the next segment is already the route boundary.
+// Story stops are capability indices. The segment after the fifth capability
+// is the route boundary to About.
 const STORY_MAX = Math.max(1, states.length - 1);
-const CAPABILITY_STAGE_INTERVALS = Math.max(1, states.length - 1);
-const CAPABILITIES_WHEEL_STRENGTH = 1.5;
-const CAPABILITIES_SPRING_RATES = {
-	returnSmooth: 0.7,
-	advanceSmooth: 0.7,
-	retreatSmooth: 0.7,
-	finalMul: 6,
-};
-const CAPABILITIES_PROGRESS_SMOOTH = 2.2;
-const CAPABILITIES_PROGRESS_CHASE_FINAL_SMOOTH_MUL = 1.35;
 const WHEEL_IDLE_MS = 180;
 const LINE_HEIGHT_PX = 16;
 const MAX_WHEEL_VIEWPORT_RATIO = 0.9;
 const TARGET_REST_EPS = 0.00005;
+const STAGE_IDENTITY_EPS = 0.000001;
 const STORY_TARGET_MIN = CAROUSEL_PROGRESS_TARGET_MIN;
 const STORY_TARGET_MAX = STORY_MAX + CAROUSEL_PROGRESS_TARGET_MAX;
 
@@ -78,6 +70,33 @@ function storyToStageIndex(story) {
 	return clamp(Math.floor(visual), 0, states.length - 1);
 }
 
+/**
+ * Keep the currently visible capability as the HUD owner until its hex layer
+ * has fully left the screen. `floor(story)` switches immediately on a backward
+ * move (1 -> 0.99), even though almost the entire second scene is still visible.
+ */
+function resolvePublishedStageIndex(story, storyTarget, publishedIndex) {
+	const visual = clampStoryVisual(story);
+	const visualTarget = clampStoryVisual(storyTarget);
+	const nearestRest = Math.round(visual);
+	if (Math.abs(visual - nearestRest) <= STAGE_IDENTITY_EPS) {
+		return clamp(nearestRest, 0, states.length - 1);
+	}
+	if (visualTarget > visual + STAGE_IDENTITY_EPS) {
+		return Math.max(
+			publishedIndex,
+			clamp(Math.floor(visual + STAGE_IDENTITY_EPS), 0, states.length - 1),
+		);
+	}
+	if (visualTarget < visual - STAGE_IDENTITY_EPS) {
+		return Math.min(
+			publishedIndex,
+			clamp(Math.ceil(visual - STAGE_IDENTITY_EPS), 0, states.length - 1),
+		);
+	}
+	return publishedIndex;
+}
+
 function storyToStageLocal(story) {
 	const visual = clampStoryVisual(story);
 	if (visual >= STORY_MAX - 1e-9) return 1;
@@ -91,8 +110,10 @@ function getPixelsPerStoryUnit(storyTarget, deltaPixels) {
 	if (isEdge || leavesBackward || leavesForward) {
 		return 1 / CAROUSEL_WHEEL_PROGRESS_FACTOR;
 	}
-	return CAPABILITY_STAGE_INTERVALS
-		/ (CAROUSEL_WHEEL_PROGRESS_FACTOR * CAPABILITIES_WHEEL_STRENGTH);
+	// Each internal capability transition uses the same wheel distance as an
+	// ordinary route-to-route carousel segment. The story still uses About's
+	// continuous spring, but adding more stages must not make every stage slower.
+	return 1 / CAROUSEL_WHEEL_PROGRESS_FACTOR;
 }
 
 function applyStoryTargetRest(storyTarget, delta) {
@@ -109,12 +130,11 @@ function applyStoryTargetRest(storyTarget, delta) {
 	let local = story - segment;
 	if (local <= TARGET_REST_EPS) return segment;
 	if (local >= 1 - TARGET_REST_EPS) return Math.min(STORY_MAX, segment + 1);
-	local = applyLocalSegmentTargetRest(local, delta, CAPABILITIES_SPRING_RATES);
+	local = applyLocalSegmentTargetRest(local, delta);
 	return clamp(segment + local, 0, STORY_TARGET_MAX);
 }
 
 function getStoryChaseConfig(current, target) {
-	const onEdge = current < 0 || current > STORY_MAX || target < 0 || target > STORY_MAX;
 	let local;
 	if (current < 0) local = Math.abs(current);
 	else if (current >= STORY_MAX) local = current - STORY_MAX;
@@ -122,12 +142,10 @@ function getStoryChaseConfig(current, target) {
 	else if (target > STORY_MAX) local = target - STORY_MAX;
 	else local = storyToStageLocal(current);
 	return {
-		smooth: onEdge ? CAROUSEL_PROGRESS_SMOOTH : CAPABILITIES_PROGRESS_SMOOTH,
+		smooth: CAROUSEL_PROGRESS_SMOOTH,
 		chaseMul: getAbsChaseSmoothMul(local, {
 			threshold: CAROUSEL_PROGRESS_CHASE_FINAL_THRESHOLD,
-			mul: onEdge
-				? CAROUSEL_PROGRESS_CHASE_FINAL_SMOOTH_MUL
-				: CAPABILITIES_PROGRESS_CHASE_FINAL_SMOOTH_MUL,
+			mul: CAROUSEL_PROGRESS_CHASE_FINAL_SMOOTH_MUL,
 		}),
 	};
 }
@@ -185,7 +203,13 @@ function resolveEntryStory() {
 	const fromAbout = !isClickEntry
 		&& store.sceneCarouselLastCommitFromId === "about"
 		&& store.sceneCarouselLastCommitDirection === "backward";
-	const initialStory = fromAbout ? STORY_MAX : 0;
+	const pathname = typeof window !== "undefined"
+		? String(window.location.pathname ?? "").replace(/\/+$/, "")
+		: "";
+	const deepLinkIndex = states.findIndex((state) => state.path === pathname);
+	const initialStory = fromAbout
+		? STORY_MAX
+		: Math.max(0, deepLinkIndex);
 	const overflow = !isClickEntry ? Number(store.sceneCarouselLastCommitBoundaryOverflow ?? 0) : 0;
 	const initialTarget = Number.isFinite(overflow) && Math.abs(overflow) > 1e-6
 		? clampStoryTarget(initialStory + overflow)
@@ -210,10 +234,8 @@ function createRuntime() {
 	let disposed = false;
 	let transitionPublished = false;
 	let scrollIntent = null;
-	let inputBurstAnchor = null;
-	let inputBurstDirection = 0;
-	let inputBurstAt = 0;
-	let publishedStageId = states[storyToStageIndex(current)]?.id ?? null;
+	let publishedStageIndex = storyToStageIndex(current);
+	let publishedStageId = states[publishedStageIndex]?.id ?? null;
 
 	const ownsInput = () => {
 		const carousel = getSceneCarousel();
@@ -223,14 +245,13 @@ function createRuntime() {
 	const publish = () => {
 		const visualCurrent = clampStoryVisual(current);
 		const visualTarget = clampStoryVisual(target);
-		const stageIndex = storyToStageIndex(visualCurrent);
+		const stageIndex = resolvePublishedStageIndex(
+			visualCurrent,
+			visualTarget,
+			publishedStageIndex,
+		);
 		const nextStageId = states[stageIndex]?.id ?? states[0]?.id ?? null;
 		const stageChanged = nextStageId !== publishedStageId;
-		// Hide the shared HUD before publishing the target identity. Otherwise the
-		// prepared target texture can inherit the previous idle-null reveal for a frame.
-		if (stageChanged && nextStageId === "light-trails") {
-			setCasePanelHudEnterProgress(0);
-		}
 		const capabilityProgress = visualCurrent / STORY_MAX;
 		const capabilityProgressTarget = visualTarget / STORY_MAX;
 		store.capabilitiesExperience.active = true;
@@ -241,21 +262,21 @@ function createRuntime() {
 		store.capabilitiesExperience.progress = capabilityProgress;
 		store.capabilitiesExperience.progressTarget = capabilityProgressTarget;
 		store.capabilitiesExperience.stagePosition = Math.min(states.length - 1, visualCurrent);
-		setCapabilitiesInternalHexProgress(visualCurrent);
+		setCapabilitiesInternalHexProgress(
+			visualCurrent,
+			CAPABILITY_SCENE_VARIANTS,
+			visualTarget,
+		);
 
 		// The capability owns one stable primary text. Scene interactions may
 		// explicitly replace it later, but page scroll never walks MMK-1 case copy.
-		const activeCapability = states[stageIndex];
-		const isLightTrails = activeCapability?.id === "light-trails";
+		const activeProject = getCapabilityHudProject(nextStageId);
 		if (stageChanged) {
+			publishedStageIndex = stageIndex;
 			publishedStageId = nextStageId;
 		}
-		const activeTextState = isLightTrails
-			? lightTrailsHudProject.states[0]
-			: mmk1TextStates[0];
-		store.portfolioExperience.slug = isLightTrails
-			? lightTrailsHudProject.config.slug
-			: "mmk1";
+		const activeTextState = activeProject.states[0];
+		store.portfolioExperience.slug = activeProject.config.slug;
 		store.portfolioExperience.activeStateIndex = 0;
 		store.portfolioExperience.activeStateId = activeTextState?.id ?? null;
 		store.portfolioExperience.storyProgress = visualCurrent;
@@ -355,8 +376,6 @@ function createRuntime() {
 		if (snapTimerId) clearTimeout(snapTimerId);
 		snapTimerId = window.setTimeout(() => {
 			snapTimerId = 0;
-			inputBurstAnchor = null;
-			inputBurstDirection = 0;
 			if (ownsInput()) startAnimation();
 		}, WHEEL_IDLE_MS);
 	};
@@ -364,24 +383,10 @@ function createRuntime() {
 	const applyInputPixels = (deltaPixels) => {
 		if (!ownsInput() || !Number.isFinite(deltaPixels) || deltaPixels === 0) return false;
 		const direction = deltaPixels > 0 ? 1 : -1;
-		const now = performance.now();
-		const beginsBurst = inputBurstAnchor == null
-			|| inputBurstDirection !== direction
-			|| now - inputBurstAt > WHEEL_IDLE_MS;
-		if (beginsBurst) {
-			const interiorTarget = clamp(target, STORY_TARGET_MIN, STORY_TARGET_MAX);
-			inputBurstAnchor = direction > 0
-				? Math.floor(interiorTarget + TARGET_REST_EPS)
-				: Math.ceil(interiorTarget - TARGET_REST_EPS);
-			inputBurstDirection = direction;
-		}
-		inputBurstAt = now;
 		scrollIntent = direction > 0 ? "forward" : "backward";
-		const rawTarget = target + deltaPixels / getPixelsPerStoryUnit(target, deltaPixels);
-		const burstBoundary = clampStoryTarget(inputBurstAnchor + direction);
-		target = direction > 0
-			? Math.min(clampStoryTarget(rawTarget), burstBoundary)
-			: Math.max(clampStoryTarget(rawTarget), burstBoundary);
+		target = clampStoryTarget(
+			target + deltaPixels / getPixelsPerStoryUnit(target, deltaPixels),
+		);
 		publish();
 		startAnimation();
 		scheduleIdle();
@@ -390,8 +395,6 @@ function createRuntime() {
 
 	const jumpToStory = (story) => {
 		scrollIntent = null;
-		inputBurstAnchor = null;
-		inputBurstDirection = 0;
 		getSceneCarousel().clearCapabilitiesBoundaryDrive();
 		current = clamp(story, 0, STORY_MAX);
 		target = current;
@@ -437,8 +440,6 @@ function createRuntime() {
 
 	const onTouchStart = (event) => {
 		if (!ownsInput() || event.touches.length !== 1) return;
-		inputBurstAnchor = null;
-		inputBurstDirection = 0;
 		touchId = event.touches[0].identifier;
 		touchY = event.touches[0].clientY;
 	};

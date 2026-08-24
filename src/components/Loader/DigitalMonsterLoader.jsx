@@ -1,16 +1,20 @@
 /* eslint-disable react/prop-types */
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { DefaultLoadingManager } from "three";
 import { preloadSoundDesign, playLoaderStartClickSound, playStartAppSound } from "@/sounds/soundDesign.js";
 import { preloadHexTransitionSound } from "@/sounds/hexTransitionSound.js";
 import { preloadUnderwaterSound } from "@/sounds/underwaterSound.js";
 import { rewarmCasePanelHudGpuForLocale } from "@/pages/portfolio/ui/CaseStudyCanvas/warmCasePanelHudUnderCurtain.js";
 import { rewarmAboutPanelHudGpuForLocale } from "@/pages/about/warmAboutPanelHudUnderCurtain.js";
-import { isDevFastPreloader } from "@/functions/devFastPreloader.js";
 import { store } from "@/app/store.jsx";
 
 const SHOW_LEGACY_LOADER = false;
-const DEV_FAST_PRELOADER = isDevFastPreloader();
+const TICK_MS = 80;
+const TICK_SEC = TICK_MS / 1000;
+const MAX_TICK_DT_SEC = 0.25;
+const MAX_DISPLAY_RATE_PER_SEC = 8;
+const MIN_DISPLAY_RATE_PER_SEC = 0.65;
+const CONTINUOUS_TARGET_RATE_PER_SEC = 0.45;
 
 function readBootstrapNumber(value, fallback = 0) {
 	const next = Number(value);
@@ -50,14 +54,6 @@ export default function DigitalMonsterLoader(props) {
 	renderedRef.current = props.rendered;
 	startAppRef.current = props.startApp;
 	removeLoaderRef.current = removeLoader;
-
-	// Cap dt: a long background tab must not apply hours of fake progress in one tick.
-	const TICK_MS = DEV_FAST_PRELOADER ? 40 : 80;
-	const TICK_SEC = TICK_MS / 1000;
-	const MAX_TICK_DT_SEC = 0.25;
-	const MAX_DISPLAY_RATE_PER_SEC = DEV_FAST_PRELOADER ? 40 : 8;
-	const MIN_DISPLAY_RATE_PER_SEC = DEV_FAST_PRELOADER ? 8 : 0.65;
-	const CONTINUOUS_TARGET_RATE_PER_SEC = DEV_FAST_PRELOADER ? 12 : 0.45;
 
 	useEffect(() => {
 		let active = true;
@@ -177,24 +173,24 @@ export default function DigitalMonsterLoader(props) {
 		}
 	};
 
-	const clearProgressInterval = () => {
+	const clearProgressInterval = useCallback(() => {
 		if (intervalIdRef.current !== null) {
 			clearInterval(intervalIdRef.current);
 			intervalIdRef.current = null;
 		}
-	};
+	}, []);
 
-	const stopLoadingProgress = () => {
+	const stopLoadingProgress = useCallback(() => {
 		progressStoppedRef.current = true;
 		clearProgressInterval();
-	};
+	}, [clearProgressInterval]);
 
 	// Останавливаем тикер при старте приложения или скрытии HUD.
 	useEffect(() => {
 		if (props.startApp || removeLoader) {
 			stopLoadingProgress();
 		}
-	}, [props.startApp, removeLoader]);
+	}, [props.startApp, removeLoader, stopLoadingProgress]);
 
 	// Прогресс только на прелоадере: один интервал, refs вместо deps — без перезапуска при rendered/fallbackReady.
 	useEffect(() => {
@@ -269,7 +265,7 @@ export default function DigitalMonsterLoader(props) {
 			clearProgressInterval();
 			document.removeEventListener("visibilitychange", onVisibilityChange);
 		};
-	}, []);
+	}, [clearProgressInterval, stopLoadingProgress]);
 
 	const showLoadingProgress = !props.startApp && !removeLoader;
 	/** Bar/snake visually filled — set once from the snake rAF (not from stepped %). */
@@ -441,24 +437,19 @@ export default function DigitalMonsterLoader(props) {
 		store.soundsActive = true;
 		playLoaderStartClickSound();
 		playStartAppSound();
-		if (DEV_FAST_PRELOADER) {
-			// Curtain HUD warm was skipped — don't block Start on locale rewarm.
-			startingRef.current = false;
-			void startApplication();
-			return;
-		}
 		// GPU HUD textures were warmed for the default locale under the curtain —
 		// swap to the chosen locale before the curtain opens (chunked, still under loader).
 		void Promise.all([
 			rewarmCasePanelHudGpuForLocale(locale),
 			rewarmAboutPanelHudGpuForLocale(locale),
 		])
-			.catch((error) => {
-				console.warn("[loader] HUD locale rewarm failed", error);
-			})
-			.finally(() => {
+			.then(() => {
 				startingRef.current = false;
 				void startApplication();
+			})
+			.catch((error) => {
+				startingRef.current = false;
+				console.error("[loader] HUD locale rewarm failed; Start remains locked", error);
 			});
 	};
 

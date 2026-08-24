@@ -1,0 +1,48 @@
+{
+  "capturedAt": "2026-08-14",
+  "path": "/capabilities/spatial-matrix",
+  "viewport": { "width": 1920, "height": 945, "dpr": 1 },
+  "rendererCanvas": { "width": 3840, "height": 1890, "clientWidth": 1920, "clientHeight": 945 },
+  "webgl2": true,
+  "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 3070 Ti (0x00002482) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+  "cityHudVisible": false,
+  "consoleErrors": [],
+  "fiveSecondDeliveryProbe": {
+    "frames": 375,
+    "averageFps": 75.00600048003842,
+    "p95FrameMs": 13.400000000001455,
+    "over25Ratio": 0
+  },
+  "architecture": {
+    "authoredBuildings": 45,
+    "acceptedBuildings": 45,
+    "familyCounts": {
+      "podium-tower": 4,
+      "stepped-residential": 7,
+      "elongated-office": 6,
+      "vertical-rib-tower": 6,
+      "low-civic-commercial": 17,
+      "articulated-corner-top": 5
+    },
+    "scopedDrawCallEstimate": 15,
+    "scopedTriangleEstimate": 6640
+  },
+  "roadGraph": {
+    "valid": true,
+    "errors": [],
+    "nodeCount": 27,
+    "edgeCount": 30,
+    "junctionCount": 9,
+    "roundaboutCount": 1,
+    "roundaboutConnectionCount": 4,
+    "centerlineCount": 39
+  },
+  "footprint": {
+    "segmentsChecked": 198,
+    "minimumSignedClearance": 0.05292,
+    "requiredEpsilon": 0.035,
+    "conflicts": 0,
+    "valid": true
+  },
+  "checks": { "targetedEslint": "PASS", "productionBuild": "PASS" }
+}

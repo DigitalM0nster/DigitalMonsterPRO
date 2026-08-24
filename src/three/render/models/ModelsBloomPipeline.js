@@ -10,6 +10,44 @@ const BLOOM_RADIUS_MAX = 1.2;
 const inputScene = new THREE.Scene();
 const inputCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 
+function createFiniteBloomInputMaterial() {
+	return new THREE.ShaderMaterial({
+		uniforms: {
+			inputMap: { value: null },
+		},
+		vertexShader: /* glsl */ `
+varying vec2 vUv;
+void main() {
+	vUv = uv;
+	gl_Position = vec4(position.xy, 0.0, 1.0);
+}
+`,
+		fragmentShader: /* glsl */ `
+uniform sampler2D inputMap;
+varying vec2 vUv;
+
+void main() {
+	vec4 sampled = texture2D(inputMap, vUv);
+	bvec4 isNan = notEqual(sampled, sampled);
+	bvec4 outsideHalfFloat = greaterThan(abs(sampled), vec4(65504.0));
+	if (any(isNan) || any(outsideHalfFloat)) {
+		sampled = vec4(0.0);
+	}
+	// A non-finite HDR texel poisons the mip chain and appears as a black tile.
+	// Keep bloom input finite before any downsample or blur pass can spread it.
+	gl_FragColor = vec4(
+		clamp(sampled.rgb, vec3(0.0), vec3(64.0)),
+		clamp(sampled.a, 0.0, 1.0)
+	);
+}
+`,
+		depthTest: false,
+		depthWrite: false,
+		toneMapped: false,
+		transparent: true,
+	});
+}
+
 function mapBloomRadiusToKernelSize(radius) {
 	const t = (radius - BLOOM_RADIUS_MIN) / (BLOOM_RADIUS_MAX - BLOOM_RADIUS_MIN);
 	const index = Math.round(Math.max(0, Math.min(1, t)) * KernelSize.HUGE);
@@ -38,14 +76,7 @@ export class ModelsBloomPipeline {
 		});
 		this.inputMesh = new THREE.Mesh(
 			new THREE.PlaneGeometry(2, 2),
-			new THREE.MeshBasicMaterial({
-				depthTest: false,
-				depthWrite: false,
-				toneMapped: false,
-				transparent: true,
-				// Семплируем linear HDR RT без повторного tone mapping.
-				color: new THREE.Color(1, 1, 1),
-			}),
+			createFiniteBloomInputMaterial(),
 		);
 		inputScene.add(this.inputMesh);
 		this.bloomEffect = null;
@@ -149,10 +180,9 @@ export class ModelsBloomPipeline {
 			return null;
 		}
 
-		const material = this.inputMesh.material;
-		if (material.map !== inputTexture) {
-			material.map = inputTexture;
-			material.needsUpdate = true;
+		const inputUniform = this.inputMesh.material.uniforms.inputMap;
+		if (inputUniform.value !== inputTexture) {
+			inputUniform.value = inputTexture;
 		}
 
 		const reveal = Math.max(0, Math.min(1, options.reveal ?? 1));

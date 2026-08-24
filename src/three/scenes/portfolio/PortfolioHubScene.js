@@ -520,7 +520,13 @@ export class PortfolioHubScene {
 			this._syncScreenTitleVisibility();
 		});
 
-		return Promise.allSettled([this.centerPlateLogos.readyPromise, labelsReady, detailsReady, innerPanelsReady, screenTitleReady]);
+		return Promise.all([this.centerPlateLogos.readyPromise, labelsReady, detailsReady, innerPanelsReady, screenTitleReady])
+			.then(([logosReady]) => {
+				if (logosReady !== true) {
+					throw new Error("Portfolio hub logos were not prepared");
+				}
+				return true;
+			});
 	}
 
 	_getScreenTitleVisibility() {
@@ -962,7 +968,7 @@ export class PortfolioHubScene {
 	 */
 	_playProjectsListReenterOnly() {
 		this._clearHubEnterDelayTimer();
-		this.screenTitle?.stashProjectsHiddenForDormant?.();
+		this.screenTitle?.stashProjectsHiddenForDormant?.({ preserveFocus: true });
 		this._lastHudTitleVisibility = 0;
 		this.screenTitle?.setVisibility(0);
 		this._scheduleEnterChromeSpread();
@@ -1000,7 +1006,9 @@ export class PortfolioHubScene {
 				if (this._hubLifecycle === "dormant") {
 					return;
 				}
-				commitPortfolioHubFocusIndex(appStore, 0);
+				if ((appStore.portfolioHubFocusIndex ?? -1) < 0) {
+					commitPortfolioHubFocusIndex(appStore, 0);
+				}
 				void this.plateProjectLabels?.playPendingLocaleReveal?.(portfolioHubPlatesConfig);
 				void this.plateDetailsButtons?.playPendingLocaleReveal?.(portfolioHubPlatesConfig);
 				this._scheduleProjectsIntro();

@@ -4,6 +4,7 @@
  * upload GPU textures onto each case scene’s panelHud, keep them for the session.
  */
 import { getAllPortfolioProjects } from "@/pages/portfolio/core/projectRegistry.js";
+import { getAllCapabilityHudProjects } from "@/pages/capabilities/data/capabilityHudProjects.js";
 import { buildCaseStudyFrameData } from "@/pages/portfolio/core/caseStudyFrameData.js";
 import { resolveSceneId } from "@/three/scenes/resolveSceneId.js";
 import { SITE_LOCALES, normalizeSiteLocale } from "@/functions/siteLocale.js";
@@ -29,6 +30,21 @@ const cache = new Map();
 let warmSceneManager = null;
 /** @type {import('three').WebGLRenderer | null} */
 let warmRenderer = null;
+
+function getAllWarmHudProjects() {
+	const unique = new Map();
+	for (const project of [
+		...getAllPortfolioProjects(),
+		...getAllCapabilityHudProjects(),
+	]) {
+		if (!project?.config?.caseStudy?.renderTextInScene) {
+			continue;
+		}
+		const key = project.config.slug ?? project.config.id ?? project.config.route;
+		unique.set(key, project);
+	}
+	return [...unique.values()];
+}
 
 /**
  * @typedef {{
@@ -266,9 +282,7 @@ export async function warmCasePanelHudUnderCurtain({ sceneManager, renderer }) {
 
 	const viewportW = Math.max(1, window.innerWidth);
 	const viewportH = Math.max(1, window.innerHeight);
-	const projects = getAllPortfolioProjects().filter((project) => (
-		Boolean(project?.config?.caseStudy?.renderTextInScene)
-	));
+	const projects = getAllWarmHudProjects();
 	if (projects.length === 0) {
 		return;
 	}
@@ -281,17 +295,13 @@ export async function warmCasePanelHudUnderCurtain({ sceneManager, renderer }) {
 				return;
 			}
 			await yieldToNextPaint();
-			try {
-				const entry = paintProjectEntry(project, locale, viewportW, viewportH);
-				if (!entry) {
-					continue;
-				}
-				cacheProjectEntry(project, locale, viewportW, viewportH, entry);
-				if (locale === activeLocale) {
-					uploadEntryToScene(sceneManager, renderer, project, entry);
-				}
-			} catch (error) {
-				console.warn("[casePanelHud] warm paint failed", project?.config?.route, locale, error);
+			const entry = paintProjectEntry(project, locale, viewportW, viewportH);
+			if (!entry) {
+				throw new Error(`[casePanelHud] warm paint produced no entry for ${project?.config?.route} (${locale})`);
+			}
+			cacheProjectEntry(project, locale, viewportW, viewportH, entry);
+			if (locale === activeLocale) {
+				uploadEntryToScene(sceneManager, renderer, project, entry);
 			}
 		}
 	}
@@ -311,9 +321,7 @@ export async function rewarmCasePanelHudGpuForLocale(locale) {
 	const siteLocale = normalizeSiteLocale(locale);
 	const viewportW = Math.max(1, window.innerWidth);
 	const viewportH = Math.max(1, window.innerHeight);
-	const projects = getAllPortfolioProjects().filter((project) => (
-		Boolean(project?.config?.caseStudy?.renderTextInScene)
-	));
+	const projects = getAllWarmHudProjects();
 
 	await ensureCaseStudyCanvasFonts();
 
@@ -325,15 +333,11 @@ export async function rewarmCasePanelHudGpuForLocale(locale) {
 		const key = cacheKey(project.config.route, siteLocale, viewportW, viewportH);
 		let entry = cache.get(key);
 		if (!entry) {
-			try {
-				entry = paintProjectEntry(project, siteLocale, viewportW, viewportH);
-				if (entry) {
-					cacheProjectEntry(project, siteLocale, viewportW, viewportH, entry);
-				}
-			} catch (error) {
-				console.warn("[casePanelHud] locale rewarm paint failed", project?.config?.route, error);
-				continue;
+			entry = paintProjectEntry(project, siteLocale, viewportW, viewportH);
+			if (!entry) {
+				throw new Error(`[casePanelHud] locale rewarm produced no entry for ${project?.config?.route}`);
 			}
+			cacheProjectEntry(project, siteLocale, viewportW, viewportH, entry);
 		}
 		if (entry) {
 			uploadEntryToScene(warmSceneManager, warmRenderer, project, entry);
@@ -359,6 +363,14 @@ export function adoptWarmCasePanelHud(route, locale, viewportW, viewportH) {
 		}
 	}
 	return null;
+}
+
+/**
+ * Read-only lookup for capability hex composition. These canvases are painted
+ * and GPU-warmed under the preloader; internal scene wipes only rebind them.
+ */
+export function getWarmCasePanelHud(route, locale, viewportW, viewportH) {
+	return adoptWarmCasePanelHud(route, locale, viewportW, viewportH);
 }
 
 export function clearWarmCasePanelHudCache() {

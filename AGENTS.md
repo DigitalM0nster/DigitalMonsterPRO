@@ -44,10 +44,6 @@ The product model is:
 
 Canonical warm entry: `DigitalMonsterThreeApp._prepareApplication` (waits scene `readyPromise`s → optional late resource prepare → `warmupPrograms` → `_warmupRenderPipeline`). Loader Start unlocks only after this path signals ready (`setRendered` / `threeReady`), plus HTML route preload.
 
-### TEMP — DEV fast preloader (remove later)
-
-**TODO(remove):** `src/app/config/devFlags.js` → `DEV_FAST_PRELOADER = true` skips full scene/hex/HUD warm in Vite DEV so Start unlocks faster. Prod is unaffected. To test real warm in DEV: set the flag `false`, or open with `?fullWarm=1`. Delete the flag + `src/functions/devFastPreloader.js` wiring when no longer needed.
-
 ### Warm checklist (must complete under curtain before Start is honest)
 
 Treat Start as blocked until these exist and are compiled/drawn at least once where applicable:

@@ -15,7 +15,7 @@ import { BelkaScene } from "./portfolio/case6/BelkaScene.js";
 import { Mmk1CapabilityScene } from "./capabilities/mmk1/Mmk1CapabilityScene.js";
 import { AboutScene } from "./about/AboutScene.js";
 import { ContactsScene } from "./contacts/ContactsScene.js";
-import { SceneDragYawController } from "./interaction/SceneDragYawController.js";
+import { SceneDragOrbitController } from "./interaction/SceneDragOrbitController.js";
 
 function createLayerRenderTarget(renderer, width, height, gfx) {
 	const dpr = renderer.getPixelRatio();
@@ -61,7 +61,7 @@ export class SceneManager {
 		this._caseMixPreviewId = null;
 		/** Cached case panel HUD meshes — avoid scanning all scenes twice per frame. */
 		this._casePanelHuds = null;
-		this.sceneDragYaw = new SceneDragYawController(this.store);
+		this.sceneDragOrbit = new SceneDragOrbitController();
 		this.routeState = {
 			currentPage: "/",
 			teleportPage: "/",
@@ -84,8 +84,15 @@ export class SceneManager {
 		}
 
 		this.ready = false;
-		const sceneReadyPromises = [...this.scenes.values()].map((scene) => scene.readyPromise).filter((promise) => promise && typeof promise.then === "function");
-		this.readyPromise = Promise.allSettled(sceneReadyPromises).then((results) => {
+		const sceneReadyPromises = [...this.scenes.entries()]
+			.filter(([, scene]) => scene.readyPromise && typeof scene.readyPromise.then === "function")
+			.map(([sceneId, scene]) => Promise.resolve(scene.readyPromise).then((result) => {
+				if (result === false) {
+					throw new Error(`[SceneManager] ${sceneId} reported an unsuccessful prepare`);
+				}
+				return result;
+			}));
+		this.readyPromise = Promise.all(sceneReadyPromises).then((results) => {
 			this.ready = true;
 			return results;
 		});
@@ -108,34 +115,67 @@ export class SceneManager {
 	 * Neighbors stay live for render/reverse, but must not steal the other band.
 	 * @returns {string | null}
 	 */
-	_resolveInteractiveSceneId(carousel, carouselHub) {
+	_resolveInteractiveSceneContext(carousel, carouselHub) {
 		if (this.getPointerBlocked()) {
-			return null;
+			return { sceneId: null, orbitSceneId: null, capabilityVariant: null };
+		}
+
+		const pointer = this.getViewportPointer() ?? this.getPointer();
+		const yNormFromTop = yNormFromTopFromNdcY(pointer?.y ?? 0);
+		const internalCapabilities = getCapabilitiesInternalHexState();
+		if (
+			carousel.currentId === "capabilities"
+			&& internalCapabilities.transitioning
+			&& carousel.getMixProgress() <= 0.0001
+			&& !carousel.isInteractionLocked()
+		) {
+			const sourceVariant = internalCapabilities.sourceVariant;
+			const targetVariant = internalCapabilities.targetVariant;
+			const owner = resolveHexHitOwnerSceneId({
+				yNormFromTop,
+				mixProgress: internalCapabilities.progress,
+				revealFromTop: false,
+				sourceId: `capabilities:${sourceVariant}`,
+				targetId: `capabilities:${targetVariant}`,
+			});
+			const capabilityVariant = owner?.startsWith("capabilities:")
+				? owner.slice("capabilities:".length)
+				: sourceVariant;
+			return {
+				sceneId: "capabilities",
+				orbitSceneId: `capabilities:${capabilityVariant}`,
+				capabilityVariant,
+			};
 		}
 
 		const { sourceId, targetId } = carousel.getMixSourceTargetIds();
 		const mixProgress = getHexShaderProgress();
 
 		if (mixProgress > 0.001) {
-			const pointer = this.getViewportPointer() ?? this.getPointer();
-			return resolveHexHitOwnerSceneId({
-				yNormFromTop: yNormFromTopFromNdcY(pointer?.y ?? 0),
+			const sceneId = resolveHexHitOwnerSceneId({
+				yNormFromTop,
 				mixProgress,
 				revealFromTop: getHexRevealFromTop(),
 				sourceId,
 				targetId,
 			});
+			return { sceneId, orbitSceneId: sceneId, capabilityVariant: null };
 		}
 
 		// Hex click just started (progress≈0) or awaitingRoute edge: full screen = source.
 		if (carousel.isInteractionLocked()) {
-			return sourceId ?? carousel.currentId;
+			const sceneId = sourceId ?? carousel.currentId;
+			return { sceneId, orbitSceneId: sceneId, capabilityVariant: null };
 		}
 
 		if (carouselHub) {
-			return carousel.currentId;
+			return {
+				sceneId: carousel.currentId,
+				orbitSceneId: carousel.currentId,
+				capabilityVariant: null,
+			};
 		}
-		return this.activeId;
+		return { sceneId: this.activeId, orbitSceneId: this.activeId, capabilityVariant: null };
 	}
 
 	/** @param {boolean} acceptsPointer */
@@ -305,7 +345,7 @@ export class SceneManager {
 					sceneObj.applyCamera?.(this.camera, frame);
 					this.renderer.compile(scene, this.camera);
 				} catch (error) {
-					console.warn(`[SceneManager] shader warm-up failed for ${id}`, error);
+					throw new Error(`[SceneManager] shader warm-up failed for ${id}`, { cause: error });
 				} finally {
 					for (const object of temporarilyVisible) {
 						object.visible = false;
@@ -326,9 +366,8 @@ export class SceneManager {
 
 	getBloomRevealForSceneId(sceneId) {
 		// Internal capability variants render through the same prepared scene and
-		// bloom pipeline. `capabilitiesLightTrails` is only a mix-layer identity;
-		// treating it as a missing scene faded bloom to zero during the hex wipe.
-		const resolvedSceneId = sceneId === "capabilitiesLightTrails"
+		// bloom pipeline. Their suffixed ids are mix-layer identities only.
+		const resolvedSceneId = sceneId?.startsWith("capabilities:")
 			? "capabilities"
 			: sceneId;
 		const scene = this.scenes.get(resolvedSceneId);
@@ -420,7 +459,7 @@ export class SceneManager {
 	 * @param {"a"|"b"} [mixSlot]
 	 * @returns {THREE.Texture | null}
 	 */
-	warmupSceneDraw(sceneId, mixSlot = "b") {
+	warmupSceneDraw(sceneId, mixSlot = "b", renderOptions = {}) {
 		const sceneObj = this.scenes.get(sceneId);
 		const target = this._getMixLayerRenderTarget(sceneId, mixSlot);
 		if (!sceneObj || !target || this._isContextLost()) {
@@ -430,7 +469,7 @@ export class SceneManager {
 		const warmToken = sceneObj.beginWarmupDraw?.() ?? null;
 		try {
 			this._warmupSceneUpdate(sceneId, sceneObj);
-			return this._renderSceneLayer(sceneId, target, { force: true });
+			return this._renderSceneLayer(sceneId, target, { ...renderOptions, force: true });
 		} finally {
 			sceneObj.endWarmupDraw?.(warmToken);
 		}
@@ -442,9 +481,10 @@ export class SceneManager {
 	 * @param {string} sceneId
 	 * @param {"a"|"b"} mixSlot
 	 * @param {() => Promise<void>} yieldFn
+	 * @param {{ capabilityVariant?: string }} [renderOptions]
 	 * @returns {Promise<THREE.Texture | null>}
 	 */
-	async warmupSceneDrawChunked(sceneId, mixSlot, yieldFn) {
+	async warmupSceneDrawChunked(sceneId, mixSlot, yieldFn, renderOptions = {}) {
 		const sceneObj = this.scenes.get(sceneId);
 		const target = this._getMixLayerRenderTarget(sceneId, mixSlot);
 		if (!sceneObj || !target || this._isContextLost()) {
@@ -458,7 +498,7 @@ export class SceneManager {
 			if (this.disposed || this._isContextLost()) {
 				return null;
 			}
-			return this._renderSceneLayer(sceneId, target, { force: true });
+			return this._renderSceneLayer(sceneId, target, { ...renderOptions, force: true });
 		} finally {
 			sceneObj.endWarmupDraw?.(warmToken);
 		}
@@ -491,25 +531,36 @@ export class SceneManager {
 		const carouselHub = this.isCarouselHubActive();
 		const carousel = getSceneCarousel();
 		const carouselActiveIds = carouselHub ? this._getCarouselActiveIdSet() : null;
-		const interactiveId = this._resolveInteractiveSceneId(carousel, carouselHub);
-		this.sceneDragYaw.update(delta, {
-			sceneId: interactiveId,
+		const interaction = this._resolveInteractiveSceneContext(carousel, carouselHub);
+		const interactiveId = interaction.sceneId;
+		const interactiveScene = interactiveId ? this.scenes.get(interactiveId) : null;
+		this.sceneDragOrbit.update(delta, {
+			sceneId: interaction.orbitSceneId,
 			pointer: frame.visualPointer,
 			pointerDown: frame.pointerDown,
 			enabled: Boolean(
 				interactiveId
-				&& this.scenes.has(interactiveId)
-				&& !frame.pointerBlocked
-				&& !carousel.isInteractionLocked()
-				&& getHexShaderProgress() <= 0.001
+					&& interactiveScene?.isDragOrbitEnabled?.(
+						frame,
+						interaction.capabilityVariant,
+					) === true
+					&& !frame.pointerBlocked
+					&& !carousel.isInteractionLocked()
+					&& (
+						getHexShaderProgress() <= 0.001
+						|| interaction.capabilityVariant != null
+					)
 			),
 		});
-		const dragBlocksScenePointer = this.sceneDragYaw.isBlockingScenePointer();
+		const dragBlocksScenePointer = this.sceneDragOrbit.isBlockingScenePointer();
 
 		for (const [id, scene] of this.scenes.entries()) {
 			const isActive = scene === this.getActiveScene();
 			const inCarousel = carouselActiveIds?.has(id) ?? false;
 			const acceptsPointer = id === interactiveId && !dragBlocksScenePointer;
+			const capabilityInteractionFrame = id === "capabilities"
+				? { ...frame, capabilityInteractionVariant: interaction.capabilityVariant }
+				: frame;
 			const pointerState = {
 				pointerDown: acceptsPointer ? frame.pointerDown : false,
 				pointerBlocked: !acceptsPointer || frame.pointerBlocked,
@@ -517,7 +568,7 @@ export class SceneManager {
 
 			if (carouselHub) {
 				if (inCarousel) {
-					const sceneFrame = this._withInteractionFrame(this._withSceneProgressFrame(frame, id, carousel), acceptsPointer);
+					const sceneFrame = this._withInteractionFrame(this._withSceneProgressFrame(capabilityInteractionFrame, id, carousel), acceptsPointer);
 					scene.setPointerState?.(pointerState);
 					scene.update?.(delta, sceneFrame);
 				} else if (scene.shouldKeepUpdating?.()) {
@@ -530,7 +581,7 @@ export class SceneManager {
 
 			if (isActive || scene.shouldKeepUpdating?.()) {
 				scene.setPointerState?.(pointerState);
-				scene.update?.(delta, this._withInteractionFrame(frame, acceptsPointer));
+				scene.update?.(delta, this._withInteractionFrame(capabilityInteractionFrame, acceptsPointer));
 			}
 		}
 	}
@@ -603,21 +654,31 @@ export class SceneManager {
 			&& carousel.getMixProgress() <= 0.0001
 			&& !carousel.isInteractionLocked()
 		) {
+			const sourceVariant = internalCapabilities.sourceVariant;
+			const targetVariant = internalCapabilities.targetVariant;
+			const publishedVariant = this.scenes.get("capabilities")
+				?.getPublishedCapabilityRenderVariant?.();
 			const sourceModels = this._renderSceneLayer(
 				"capabilities",
 				this._getMixLayerRenderTarget("capabilities", "a"),
-				{ capabilityVariant: "mmk1" },
+				{ capabilityVariant: sourceVariant },
 			);
 			const targetModels = this._renderSceneLayer(
 				"capabilities",
 				this._getMixLayerRenderTarget("capabilities", "b"),
-				{ capabilityVariant: "lightTrails" },
+				{ capabilityVariant: targetVariant },
 			);
 			return {
 				sourceId: "capabilities",
-				targetId: "capabilitiesLightTrails",
+				targetId: `capabilities:${targetVariant}`,
+				sourceCapabilityVariant: sourceVariant,
+				targetCapabilityVariant: targetVariant,
 				sourceModels,
 				targetModels,
+				internalCapabilitiesMix: true,
+				internalCapabilitiesHudLayer: publishedVariant === targetVariant
+					? "target"
+					: "source",
 			};
 		}
 		const { sourceId, targetId } = carousel.getMixSourceTargetIds();
@@ -625,12 +686,14 @@ export class SceneManager {
 		const skipIdleTarget = hexProgress <= 0.0001 || options.skipIdleTargetLayer === true;
 		// Ring scroll has no click-hex lifecycle to wake a dormant capability
 		// target. Select and prepare the exact variant before its first real RT draw:
-		// portfolio -> capabilities shows 01/MMK-1, about -> capabilities shows 02.
+		// portfolio -> capabilities shows stage 01, about -> capabilities shows 05.
 		const targetCapabilityVariant =
 			targetId === "capabilities"
 			&& !carousel.isHexNavigationActive()
 			&& hexProgress > 0.0001
-				? (sourceId === "about" ? "lightTrails" : "mmk1")
+				? sourceId === "about"
+					? this.scenes.get("capabilities")?.getLastCapabilityRenderVariant?.()
+					: this.scenes.get("capabilities")?.getFirstCapabilityRenderVariant?.()
 				: null;
 		if (targetCapabilityVariant) {
 			this.scenes.get("capabilities")?.prepareCarouselMixTarget?.({
@@ -650,6 +713,7 @@ export class SceneManager {
 		return {
 			sourceId,
 			targetId,
+			targetCapabilityVariant,
 			sourceModels,
 			targetModels,
 		};
@@ -691,7 +755,20 @@ export class SceneManager {
 			return null;
 		}
 
-		if (!options.force && sceneObj.shouldRender?.() === false) {
+		const capabilityLayer = sceneId === "capabilities";
+		if (capabilityLayer) {
+			// Capability worlds share one Three.Scene, but only MMK-1 lives under
+			// the case lifecycle root inspected by shouldRender(). Select either the
+			// explicit hex source/target or the published settled world first, and do
+			// not let that unrelated MMK root clear the capability RT.
+			sceneObj.setCapabilityRenderVariant?.(options.capabilityVariant ?? null);
+		}
+
+		if (
+			!options.force
+			&& !capabilityLayer
+			&& sceneObj.shouldRender?.() === false
+		) {
 			const prevTarget = this.renderer.getRenderTarget();
 			const prevAutoClear = this.renderer.autoClear;
 			this.renderer.setRenderTarget(target);
@@ -701,10 +778,6 @@ export class SceneManager {
 			this.renderer.setRenderTarget(prevTarget);
 			this.renderer.autoClear = prevAutoClear;
 			return target.texture;
-		}
-
-		if (sceneId === "capabilities") {
-			sceneObj.setCapabilityRenderVariant?.(options.capabilityVariant ?? null);
 		}
 
 		const threeScene = sceneObj.getScene?.();
@@ -720,8 +793,11 @@ export class SceneManager {
 		const carousel = getSceneCarousel();
 		const layerFrame = this._withSceneProgressFrame(frame, sceneId, carousel);
 		sceneObj.applyCamera?.(this.camera, layerFrame);
-		this.sceneDragYaw.apply(this.camera, sceneId, {
-			capabilityVariant: options.capabilityVariant ?? null,
+		const orbitSceneId = sceneId === "capabilities" && options.capabilityVariant
+			? `capabilities:${options.capabilityVariant}`
+			: sceneId;
+		this.sceneDragOrbit.apply(this.camera, orbitSceneId, {
+			orbitTarget: sceneObj.getDragOrbitTarget?.(this.camera, layerFrame) ?? null,
 		});
 
 		const prevTarget = this.renderer.getRenderTarget();
@@ -774,7 +850,7 @@ export class SceneManager {
 
 	dispose() {
 		this.disposed = true;
-		this.sceneDragYaw?.dispose();
+		this.sceneDragOrbit?.dispose();
 		for (const scene of this.scenes.values()) {
 			scene.dispose?.();
 		}

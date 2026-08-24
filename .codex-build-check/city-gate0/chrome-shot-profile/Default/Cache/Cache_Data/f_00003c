@@ -1,0 +1,216 @@
+import { createHotContext as __vite__createHotContext } from "/@vite/client";import.meta.hot = __vite__createHotContext("/src/components/LeftMenu/LeftMenuGlitchLabel.jsx");const forwardRef = __vite__cjsImport0_react["forwardRef"]; const useImperativeHandle = __vite__cjsImport0_react["useImperativeHandle"]; const useLayoutEffect = __vite__cjsImport0_react["useLayoutEffect"]; const useRef = __vite__cjsImport0_react["useRef"];const _jsxDEV = __vite__cjsImport4_react_jsxDevRuntime["jsxDEV"];import __vite__cjsImport0_react from "/node_modules/.vite/deps/react.js?v=b0b58e53";
+import { getGlitchReplacements } from "/src/components/GlitchText/glitchLetterModel.js";
+import { abortAtenCharSnake, prepareAtenHidden, restoreAtenVisible, runAtenCharSnake } from "/src/components/LeftMenu/atenCharSnakeAnimation.js";
+import "/src/components/LeftMenu/leftMenuGlitchText.scss";
+var _jsxFileName = "C:/websites/develope/DigitalMonsterPRO/src/components/LeftMenu/LeftMenuGlitchLabel.jsx";
+import __vite__cjsImport4_react_jsxDevRuntime from "/node_modules/.vite/deps/react_jsx-dev-runtime.js?v=b0b58e53";
+var _s = $RefreshSig$();
+/** Все glitch-символы буквы — как replacements в hub GlitchSnakeEngine (обычно 3). */
+function getAtenSymbols(letter) {
+	if (letter === " ") {
+		return [];
+	}
+	const chars = getGlitchReplacements(letter).split("").filter((char) => char !== " ");
+	return chars.length > 0 ? chars : ["X", "Y"];
+}
+/** Разбивает текст на слова и пробелы — отдельные inline-block группы как у Aten7. */
+function splitTextSegments(text) {
+	return text.match(/\S+|\s+/g) ?? [];
+}
+function renderCharElement(letter, key) {
+	if (letter === " ") {
+		return /* @__PURE__ */ _jsxDEV("span", {
+			className: "charElement charSpace",
+			"aria-hidden": "true",
+			children: /* @__PURE__ */ _jsxDEV("span", {
+				className: "letter",
+				children: "\xA0"
+			}, void 0, false, {
+				fileName: _jsxFileName,
+				lineNumber: 31,
+				columnNumber: 5
+			}, this)
+		}, key, false, {
+			fileName: _jsxFileName,
+			lineNumber: 30,
+			columnNumber: 4
+		}, this);
+	}
+	const symbols = getAtenSymbols(letter);
+	return /* @__PURE__ */ _jsxDEV("span", {
+		className: "charElement",
+		"aria-hidden": "true",
+		children: [/* @__PURE__ */ _jsxDEV("span", {
+			className: "letter",
+			children: letter
+		}, void 0, false, {
+			fileName: _jsxFileName,
+			lineNumber: 40,
+			columnNumber: 4
+		}, this), symbols.map((symbol, index) => /* @__PURE__ */ _jsxDEV("span", {
+			className: "symbol",
+			children: symbol
+		}, index, false, {
+			fileName: _jsxFileName,
+			lineNumber: 42,
+			columnNumber: 5
+		}, this))]
+	}, key, true, {
+		fileName: _jsxFileName,
+		lineNumber: 39,
+		columnNumber: 3
+	}, this);
+}
+function renderCharBlock(text) {
+	const segments = splitTextSegments(text);
+	let charIndex = 0;
+	return segments.map((segment, segmentIndex) => {
+		if (/^\s+$/.test(segment)) {
+			return /* @__PURE__ */ _jsxDEV("span", {
+				className: "charWord charWordSpace",
+				children: segment.split("").map((space) => renderCharElement(space, `c-${charIndex++}`))
+			}, `space-${segmentIndex}`, false, {
+				fileName: _jsxFileName,
+				lineNumber: 57,
+				columnNumber: 5
+			}, this);
+		}
+		return /* @__PURE__ */ _jsxDEV("span", {
+			className: "charWord",
+			children: segment.split("").map((letter) => renderCharElement(letter, `c-${charIndex++}`))
+		}, `word-${segmentIndex}`, false, {
+			fileName: _jsxFileName,
+			lineNumber: 64,
+			columnNumber: 4
+		}, this);
+	});
+}
+/** Подпись пункта меню — разметка и анимация как char__wrapper у Aten7 timeline. */
+const LeftMenuGlitchLabel = _s(forwardRef(_c = _s(function LeftMenuGlitchLabel({ text, active = false, isDisplayed = false, reverse = false }, ref) {
+	_s();
+	const rootRef = useRef(null);
+	const activeRef = useRef(active);
+	const isDisplayedRef = useRef(isDisplayed);
+	activeRef.current = active;
+	isDisplayedRef.current = isDisplayed;
+	useLayoutEffect(() => {
+		// Hidden labels: skip Aten rebuild/hide pass on locale (home hitch).
+		// Do NOT depend on active/isDisplayed — pointer-leave clears .active while
+		// disappear snake is still running; prepareAtenHidden would wipe it instantly
+		// (only the current-page item kept .active and looked correct).
+		if (!activeRef.current && !isDisplayedRef.current) {
+			return;
+		}
+		prepareAtenHidden(rootRef.current);
+	}, [text]);
+	useImperativeHandle(ref, () => ({
+		playAppear(options = {}) {
+			// Locale may have updated while hidden without prepareAtenHidden.
+			prepareAtenHidden(rootRef.current);
+			return runAtenCharSnake(rootRef.current, "appear", {
+				...options,
+				reverseOrder: reverse
+			});
+		},
+		playDisappear(options = {}) {
+			return runAtenCharSnake(rootRef.current, "disappear", {
+				...options,
+				reverseOrder: reverse
+			});
+		},
+		playHover(options = {}) {
+			return runAtenCharSnake(rootRef.current, "hover", {
+				...options,
+				reverseOrder: reverse
+			});
+		},
+		cancelAndHide() {
+			const root = rootRef.current;
+			if (!root) {
+				return;
+			}
+			abortAtenCharSnake(root);
+			prepareAtenHidden(root);
+		},
+		prepareHidden() {
+			const root = rootRef.current;
+			if (!root) {
+				return;
+			}
+			abortAtenCharSnake(root);
+			prepareAtenHidden(root);
+		},
+		restoreVisible() {
+			restoreAtenVisible(rootRef.current);
+		},
+		getContentWidth() {
+			return rootRef.current?.querySelector(".charProxy")?.scrollWidth ?? 0;
+		}
+	}), [reverse]);
+	return /* @__PURE__ */ _jsxDEV("span", {
+		ref: rootRef,
+		className: [
+			"leftMenuGlitchLabel",
+			"charWrapper",
+			active && "active",
+			isDisplayed && "isDisplayed"
+		].filter(Boolean).join(" "),
+		children: [/* @__PURE__ */ _jsxDEV("span", {
+			className: "char",
+			"aria-hidden": "true",
+			children: /* @__PURE__ */ _jsxDEV("span", {
+				className: "charBlock",
+				children: renderCharBlock(text)
+			}, void 0, false, {
+				fileName: _jsxFileName,
+				lineNumber: 146,
+				columnNumber: 5
+			}, this)
+		}, void 0, false, {
+			fileName: _jsxFileName,
+			lineNumber: 145,
+			columnNumber: 4
+		}, this), /* @__PURE__ */ _jsxDEV("span", {
+			className: "charProxy",
+			"aria-hidden": "true",
+			children: text
+		}, void 0, false, {
+			fileName: _jsxFileName,
+			lineNumber: 148,
+			columnNumber: 4
+		}, this)]
+	}, void 0, true, {
+		fileName: _jsxFileName,
+		lineNumber: 134,
+		columnNumber: 3
+	}, this);
+}, "v7t/rfsYzmV6Wzh0ywlenkHcX3Q=")), "v7t/rfsYzmV6Wzh0ywlenkHcX3Q=");
+_c2 = LeftMenuGlitchLabel;
+export default LeftMenuGlitchLabel;
+var _c, _c2;
+$RefreshReg$(_c, "LeftMenuGlitchLabel$forwardRef");
+$RefreshReg$(_c2, "LeftMenuGlitchLabel");
+import * as RefreshRuntime from "/@react-refresh";
+const inWebWorker = typeof WorkerGlobalScope !== 'undefined' && self instanceof WorkerGlobalScope;
+import * as __vite_react_currentExports from "/src/components/LeftMenu/LeftMenuGlitchLabel.jsx";
+if (import.meta.hot && !inWebWorker) {
+  if (!window.$RefreshReg$) {
+    throw new Error(
+      "@vitejs/plugin-react can't detect preamble. Something is wrong."
+    );
+  }
+
+  const currentExports = __vite_react_currentExports;
+  queueMicrotask(() => {
+    RefreshRuntime.registerExportsForReactRefresh("C:/websites/develope/DigitalMonsterPRO/src/components/LeftMenu/LeftMenuGlitchLabel.jsx", currentExports);
+    import.meta.hot.accept((nextExports) => {
+      if (!nextExports) return;
+      const invalidateMessage = RefreshRuntime.validateRefreshBoundaryAndEnqueueUpdate("C:/websites/develope/DigitalMonsterPRO/src/components/LeftMenu/LeftMenuGlitchLabel.jsx", currentExports, nextExports);
+      if (invalidateMessage) import.meta.hot.invalidate(invalidateMessage);
+    });
+  });
+}
+function $RefreshReg$(type, id) { return RefreshRuntime.register(type, "C:/websites/develope/DigitalMonsterPRO/src/components/LeftMenu/LeftMenuGlitchLabel.jsx" + ' ' + id); }
+function $RefreshSig$() { return RefreshRuntime.createSignatureFunctionForTransform(); }
+
+//# sourceMappingURL=data:application/json;base64,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QyxNQUFNO0lBQ1Y7R0FDRDtHQUNBLG1CQUFtQixJQUFJO0dBQ3ZCLGtCQUFrQixJQUFJO0VBQ3ZCO0VBQ0EsZ0JBQWdCO0dBQ2YsTUFBTSxPQUFPLFFBQVE7R0FDckIsSUFBSSxDQUFDLE1BQU07SUFDVjtHQUNEO0dBQ0EsbUJBQW1CLElBQUk7R0FDdkIsa0JBQWtCLElBQUk7RUFDdkI7RUFDQSxpQkFBaUI7R0FDaEIsbUJBQW1CLFFBQVEsT0FBTztFQUNuQztFQUNBLGtCQUFrQjtHQUNqQixPQUFPLFFBQVEsU0FBUyxjQUFjLFlBQVksR0FBRyxlQUFlO0VBQ3JFO0NBQ0QsSUFDQSxDQUFDLE9BQU8sQ0FDVDtDQUVBLE9BQ0Msd0JBQUMsUUFBRDtFQUNDLEtBQUs7RUFDTCxXQUFXO0dBQ1Y7R0FDQTtHQUNBLFVBQVU7R0FDVixlQUFlO0VBQ2hCLEVBQ0UsT0FBTyxPQUFPLEVBQ2QsS0FBSyxHQUFHO1lBVFgsQ0FXQyx3QkFBQyxRQUFEO0dBQU0sV0FBVTtHQUFPLGVBQVk7YUFDbEMsd0JBQUMsUUFBRDtJQUFNLFdBQVU7Y0FBYSxnQkFBZ0IsSUFBSTtHQUFROzs7OztFQUNwRDs7OztZQUNOLHdCQUFDLFFBQUQ7R0FBTSxXQUFVO0dBQVksZUFBWTthQUN0QztFQUNJOzs7O1VBQ0Q7Ozs7OztBQUVSLGtDQUFDOztBQUVELGVBQWUiLCJuYW1lcyI6W10sInNvdXJjZXMiOlsiTGVmdE1lbnVHbGl0Y2hMYWJlbC5qc3giXSwidmVyc2lvbiI6Mywic291cmNlc0NvbnRlbnQiOlsiaW1wb3J0IHsgZm9yd2FyZFJlZiwgdXNlSW1wZXJhdGl2ZUhhbmRsZSwgdXNlTGF5b3V0RWZmZWN0LCB1c2VSZWYgfSBmcm9tIFwicmVhY3RcIjtcbmltcG9ydCB7IGdldEdsaXRjaFJlcGxhY2VtZW50cyB9IGZyb20gXCJAL2NvbXBvbmVudHMvR2xpdGNoVGV4dC9nbGl0Y2hMZXR0ZXJNb2RlbC5qc1wiO1xuaW1wb3J0IHtcblx0YWJvcnRBdGVuQ2hhclNuYWtlLFxuXHRwcmVwYXJlQXRlbkhpZGRlbixcblx0cmVzdG9yZUF0ZW5WaXNpYmxlLFxuXHRydW5BdGVuQ2hhclNuYWtlLFxufSBmcm9tIFwiLi9hdGVuQ2hhclNuYWtlQW5pbWF0aW9uLmpzXCI7XG5pbXBvcnQgXCIuL2xlZnRNZW51R2xpdGNoVGV4dC5zY3NzXCI7XG5cbi8qKiDQktGB0LUgZ2xpdGNoLdGB0LjQvNCy0L7Qu9GLINCx0YPQutCy0Ysg4oCUINC60LDQuiByZXBsYWNlbWVudHMg0LIgaHViIEdsaXRjaFNuYWtlRW5naW5lICjQvtCx0YvRh9C90L4gMykuICovXG5mdW5jdGlvbiBnZXRBdGVuU3ltYm9scyhsZXR0ZXIpIHtcblx0aWYgKGxldHRlciA9PT0gXCIgXCIpIHtcblx0XHRyZXR1cm4gW107XG5cdH1cblx0Y29uc3QgY2hhcnMgPSBnZXRHbGl0Y2hSZXBsYWNlbWVudHMobGV0dGVyKVxuXHRcdC5zcGxpdChcIlwiKVxuXHRcdC5maWx0ZXIoKGNoYXIpID0+IGNoYXIgIT09IFwiIFwiKTtcblx0cmV0dXJuIGNoYXJzLmxlbmd0aCA+IDAgPyBjaGFycyA6IFtcIlhcIiwgXCJZXCJdO1xufVxuXG4vKiog0KDQsNC30LHQuNCy0LDQtdGCINGC0LXQutGB0YIg0L3QsCDRgdC70L7QstCwINC4INC/0YDQvtCx0LXQu9GLIOKAlCDQvtGC0LTQtdC70YzQvdGL0LUgaW5saW5lLWJsb2NrINCz0YDRg9C/0L/RiyDQutCw0Log0YMgQXRlbjcuICovXG5mdW5jdGlvbiBzcGxpdFRleHRTZWdtZW50cyh0ZXh0KSB7XG5cdHJldHVybiB0ZXh0Lm1hdGNoKC9cXFMrfFxccysvZykgPz8gW107XG59XG5cbmZ1bmN0aW9uIHJlbmRlckNoYXJFbGVtZW50KGxldHRlciwga2V5KSB7XG5cdGlmIChsZXR0ZXIgPT09IFwiIFwiKSB7XG5cdFx0cmV0dXJuIChcblx0XHRcdDxzcGFuIGtleT17a2V5fSBjbGFzc05hbWU9XCJjaGFyRWxlbWVudCBjaGFyU3BhY2VcIiBhcmlhLWhpZGRlbj1cInRydWVcIj5cblx0XHRcdFx0PHNwYW4gY2xhc3NOYW1lPVwibGV0dGVyXCI+Jm5ic3A7PC9zcGFuPlxuXHRcdFx0PC9zcGFuPlxuXHRcdCk7XG5cdH1cblxuXHRjb25zdCBzeW1ib2xzID0gZ2V0QXRlblN5bWJvbHMobGV0dGVyKTtcblxuXHRyZXR1cm4gKFxuXHRcdDxzcGFuIGtleT17a2V5fSBjbGFzc05hbWU9XCJjaGFyRWxlbWVudFwiIGFyaWEtaGlkZGVuPVwidHJ1ZVwiPlxuXHRcdFx0PHNwYW4gY2xhc3NOYW1lPVwibGV0dGVyXCI+e2xldHRlcn08L3NwYW4+XG5cdFx0XHR7c3ltYm9scy5tYXAoKHN5bWJvbCwgaW5kZXgpID0+IChcblx0XHRcdFx0PHNwYW4ga2V5PXtpbmRleH0gY2xhc3NOYW1lPVwic3ltYm9sXCI+XG5cdFx0XHRcdFx0e3N5bWJvbH1cblx0XHRcdFx0PC9zcGFuPlxuXHRcdFx0KSl9XG5cdFx0PC9zcGFuPlxuXHQpO1xufVxuXG5mdW5jdGlvbiByZW5kZXJDaGFyQmxvY2sodGV4dCkge1xuXHRjb25zdCBzZWdtZW50cyA9IHNwbGl0VGV4dFNlZ21lbnRzKHRleHQpO1xuXHRsZXQgY2hhckluZGV4ID0gMDtcblxuXHRyZXR1cm4gc2VnbWVudHMubWFwKChzZWdtZW50LCBzZWdtZW50SW5kZXgpID0+IHtcblx0XHRpZiAoL15cXHMrJC8udGVzdChzZWdtZW50KSkge1xuXHRcdFx0cmV0dXJuIChcblx0XHRcdFx0PHNwYW4ga2V5PXtgc3BhY2UtJHtzZWdtZW50SW5kZXh9YH0gY2xhc3NOYW1lPVwiY2hhcldvcmQgY2hhcldvcmRTcGFjZVwiPlxuXHRcdFx0XHRcdHtzZWdtZW50LnNwbGl0KFwiXCIpLm1hcCgoc3BhY2UpID0+IHJlbmRlckNoYXJFbGVtZW50KHNwYWNlLCBgYy0ke2NoYXJJbmRleCsrfWApKX1cblx0XHRcdFx0PC9zcGFuPlxuXHRcdFx0KTtcblx0XHR9XG5cblx0XHRyZXR1cm4gKFxuXHRcdFx0PHNwYW4ga2V5PXtgd29yZC0ke3NlZ21lbnRJbmRleH1gfSBjbGFzc05hbWU9XCJjaGFyV29yZFwiPlxuXHRcdFx0XHR7c2VnbWVudC5zcGxpdChcIlwiKS5tYXAoKGxldHRlcikgPT4gcmVuZGVyQ2hhckVsZW1lbnQobGV0dGVyLCBgYy0ke2NoYXJJbmRleCsrfWApKX1cblx0XHRcdDwvc3Bhbj5cblx0XHQpO1xuXHR9KTtcbn1cblxuLyoqINCf0L7QtNC/0LjRgdGMINC/0YPQvdC60YLQsCDQvNC10L3RjiDigJQg0YDQsNC30LzQtdGC0LrQsCDQuCDQsNC90LjQvNCw0YbQuNGPINC60LDQuiBjaGFyX193cmFwcGVyINGDIEF0ZW43IHRpbWVsaW5lLiAqL1xuY29uc3QgTGVmdE1lbnVHbGl0Y2hMYWJlbCA9IGZvcndhcmRSZWYoZnVuY3Rpb24gTGVmdE1lbnVHbGl0Y2hMYWJlbChcblx0eyB0ZXh0LCBhY3RpdmUgPSBmYWxzZSwgaXNEaXNwbGF5ZWQgPSBmYWxzZSwgcmV2ZXJzZSA9IGZhbHNlIH0sXG5cdHJlZixcbikge1xuXHRjb25zdCByb290UmVmID0gdXNlUmVmKG51bGwpO1xuXHRjb25zdCBhY3RpdmVSZWYgPSB1c2VSZWYoYWN0aXZlKTtcblx0Y29uc3QgaXNEaXNwbGF5ZWRSZWYgPSB1c2VSZWYoaXNEaXNwbGF5ZWQpO1xuXHRhY3RpdmVSZWYuY3VycmVudCA9IGFjdGl2ZTtcblx0aXNEaXNwbGF5ZWRSZWYuY3VycmVudCA9IGlzRGlzcGxheWVkO1xuXG5cdHVzZUxheW91dEVmZmVjdCgoKSA9PiB7XG5cdFx0Ly8gSGlkZGVuIGxhYmVsczogc2tpcCBBdGVuIHJlYnVpbGQvaGlkZSBwYXNzIG9uIGxvY2FsZSAoaG9tZSBoaXRjaCkuXG5cdFx0Ly8gRG8gTk9UIGRlcGVuZCBvbiBhY3RpdmUvaXNEaXNwbGF5ZWQg4oCUIHBvaW50ZXItbGVhdmUgY2xlYXJzIC5hY3RpdmUgd2hpbGVcblx0XHQvLyBkaXNhcHBlYXIgc25ha2UgaXMgc3RpbGwgcnVubmluZzsgcHJlcGFyZUF0ZW5IaWRkZW4gd291bGQgd2lwZSBpdCBpbnN0YW50bHlcblx0XHQvLyAob25seSB0aGUgY3VycmVudC1wYWdlIGl0ZW0ga2VwdCAuYWN0aXZlIGFuZCBsb29rZWQgY29ycmVjdCkuXG5cdFx0aWYgKCFhY3RpdmVSZWYuY3VycmVudCAmJiAhaXNEaXNwbGF5ZWRSZWYuY3VycmVudCkge1xuXHRcdFx0cmV0dXJuO1xuXHRcdH1cblx0XHRwcmVwYXJlQXRlbkhpZGRlbihyb290UmVmLmN1cnJlbnQpO1xuXHR9LCBbdGV4dF0pO1xuXG5cdHVzZUltcGVyYXRpdmVIYW5kbGUoXG5cdFx0cmVmLFxuXHRcdCgpID0+ICh7XG5cdFx0XHRwbGF5QXBwZWFyKG9wdGlvbnMgPSB7fSkge1xuXHRcdFx0XHQvLyBMb2NhbGUgbWF5IGhhdmUgdXBkYXRlZCB3aGlsZSBoaWRkZW4gd2l0aG91dCBwcmVwYXJlQXRlbkhpZGRlbi5cblx0XHRcdFx0cHJlcGFyZUF0ZW5IaWRkZW4ocm9vdFJlZi5jdXJyZW50KTtcblx0XHRcdFx0cmV0dXJuIHJ1bkF0ZW5DaGFyU25ha2Uocm9vdFJlZi5jdXJyZW50LCBcImFwcGVhclwiLCB7IC4uLm9wdGlvbnMsIHJldmVyc2VPcmRlcjogcmV2ZXJzZSB9KTtcblx0XHRcdH0sXG5cdFx0XHRwbGF5RGlzYXBwZWFyKG9wdGlvbnMgPSB7fSkge1xuXHRcdFx0XHRyZXR1cm4gcnVuQXRlbkNoYXJTbmFrZShyb290UmVmLmN1cnJlbnQsIFwiZGlzYXBwZWFyXCIsIHsgLi4ub3B0aW9ucywgcmV2ZXJzZU9yZGVyOiByZXZlcnNlIH0pO1xuXHRcdFx0fSxcblx0XHRcdHBsYXlIb3ZlcihvcHRpb25zID0ge30pIHtcblx0XHRcdFx0cmV0dXJuIHJ1bkF0ZW5DaGFyU25ha2Uocm9vdFJlZi5jdXJyZW50LCBcImhvdmVyXCIsIHsgLi4ub3B0aW9ucywgcmV2ZXJzZU9yZGVyOiByZXZlcnNlIH0pO1xuXHRcdFx0fSxcblx0XHRcdGNhbmNlbEFuZEhpZGUoKSB7XG5cdFx0XHRcdGNvbnN0IHJvb3QgPSByb290UmVmLmN1cnJlbnQ7XG5cdFx0XHRcdGlmICghcm9vdCkge1xuXHRcdFx0XHRcdHJldHVybjtcblx0XHRcdFx0fVxuXHRcdFx0XHRhYm9ydEF0ZW5DaGFyU25ha2Uocm9vdCk7XG5cdFx0XHRcdHByZXBhcmVBdGVuSGlkZGVuKHJvb3QpO1xuXHRcdFx0fSxcblx0XHRcdHByZXBhcmVIaWRkZW4oKSB7XG5cdFx0XHRcdGNvbnN0IHJvb3QgPSByb290UmVmLmN1cnJlbnQ7XG5cdFx0XHRcdGlmICghcm9vdCkge1xuXHRcdFx0XHRcdHJldHVybjtcblx0XHRcdFx0fVxuXHRcdFx0XHRhYm9ydEF0ZW5DaGFyU25ha2Uocm9vdCk7XG5cdFx0XHRcdHByZXBhcmVBdGVuSGlkZGVuKHJvb3QpO1xuXHRcdFx0fSxcblx0XHRcdHJlc3RvcmVWaXNpYmxlKCkge1xuXHRcdFx0XHRyZXN0b3JlQXRlblZpc2libGUocm9vdFJlZi5jdXJyZW50KTtcblx0XHRcdH0sXG5cdFx0XHRnZXRDb250ZW50V2lkdGgoKSB7XG5cdFx0XHRcdHJldHVybiByb290UmVmLmN1cnJlbnQ/LnF1ZXJ5U2VsZWN0b3IoXCIuY2hhclByb3h5XCIpPy5zY3JvbGxXaWR0aCA/PyAwO1xuXHRcdFx0fSxcblx0XHR9KSxcblx0XHRbcmV2ZXJzZV0sXG5cdCk7XG5cblx0cmV0dXJuIChcblx0XHQ8c3BhblxuXHRcdFx0cmVmPXtyb290UmVmfVxuXHRcdFx0Y2xhc3NOYW1lPXtbXG5cdFx0XHRcdFwibGVmdE1lbnVHbGl0Y2hMYWJlbFwiLFxuXHRcdFx0XHRcImNoYXJXcmFwcGVyXCIsXG5cdFx0XHRcdGFjdGl2ZSAmJiBcImFjdGl2ZVwiLFxuXHRcdFx0XHRpc0Rpc3BsYXllZCAmJiBcImlzRGlzcGxheWVkXCIsXG5cdFx0XHRdXG5cdFx0XHRcdC5maWx0ZXIoQm9vbGVhbilcblx0XHRcdFx0LmpvaW4oXCIgXCIpfVxuXHRcdD5cblx0XHRcdDxzcGFuIGNsYXNzTmFtZT1cImNoYXJcIiBhcmlhLWhpZGRlbj1cInRydWVcIj5cblx0XHRcdFx0PHNwYW4gY2xhc3NOYW1lPVwiY2hhckJsb2NrXCI+e3JlbmRlckNoYXJCbG9jayh0ZXh0KX08L3NwYW4+XG5cdFx0XHQ8L3NwYW4+XG5cdFx0XHQ8c3BhbiBjbGFzc05hbWU9XCJjaGFyUHJveHlcIiBhcmlhLWhpZGRlbj1cInRydWVcIj5cblx0XHRcdFx0e3RleHR9XG5cdFx0XHQ8L3NwYW4+XG5cdFx0PC9zcGFuPlxuXHQpO1xufSk7XG5cbmV4cG9ydCBkZWZhdWx0IExlZnRNZW51R2xpdGNoTGFiZWw7XG4iXX0=

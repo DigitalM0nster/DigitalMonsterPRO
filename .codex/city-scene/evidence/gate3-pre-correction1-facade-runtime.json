@@ -1,0 +1,98 @@
+{
+  "capturedAt": "2026-08-14",
+  "path": "/capabilities/spatial-matrix",
+  "viewport": { "width": 1920, "height": 945, "dpr": 1 },
+  "rendererCanvas": { "width": 3840, "height": 1890, "clientWidth": 1920, "clientHeight": 945 },
+  "webgl2": true,
+  "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 3070 Ti (0x00002482) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+  "consoleErrors": [],
+  "consoleWarnings": ["existing THREE.WebGLRenderer.useLegacyLights deprecation only"],
+  "fiveSecondDeliveryProbe": {
+    "frames": 374,
+    "averageFps": 74.80448826929614,
+    "p95FrameMs": 13.400000000001455,
+    "over25Ratio": 0.00267379679144385
+  },
+  "motionEvidence": {
+    "videoDurationMs": 17160,
+    "sequenceDurationMs": 15220,
+    "video": "gate3-facade-slow-camera-17s-1920x945-dpr1.webm",
+    "sequenceFrames": [
+      "gate3-motion-frame-25pct.png",
+      "gate3-motion-frame-50pct.png",
+      "gate3-motion-frame-75pct.png",
+      "gate3-motion-frame-100pct.png"
+    ]
+  },
+  "facade": {
+    "materialOwner": "spatialCityFacadeMaterial.js",
+    "legacyActiveExpandBuildingSpecs": 0,
+    "legacyActiveCreateBuildingMaterial": 0,
+    "legacyActiveSpatialCityBuildings": 0,
+    "facadeBatchCount": 3,
+    "facadeDrawCallEstimate": 3,
+    "facadeBuildingCount": 45,
+    "facadePartCount": 147,
+    "facadePartCounts": { "podiums": 45, "mainVolumes": 67, "setbacks": 35 },
+    "attributeCount": 7,
+    "perWindowMeshCount": 0,
+    "perWindowLightCount": 0,
+    "windowTextureCount": 0,
+    "edgeWindowStretchCount": 0,
+    "floorPitchRange": [0.245, 0.29],
+    "frontBayPitchRange": [0.255, 0.36],
+    "sideBayPitchRange": [0.32, 0.41],
+    "centeredMarginRange": [0.07019, 0.10465],
+    "lod": {
+      "normalizedNear": 18,
+      "normalizedFar": 34,
+      "derivativeNear": 0.55,
+      "derivativeFar": 1.1,
+      "smoothstepOnly": true,
+      "timeDependent": false
+    },
+    "aperture": {
+      "detailedFullCellWidthRange": [0.38, 0.48],
+      "detailedFullCellHeight": 0.23,
+      "groupedFullGroupedCell": [0.28, 0.1],
+      "groupedRelativeToBaseCell": [0.56, 0.2],
+      "aaHalfSizeCapRatio": 0.78
+    },
+    "lighting": {
+      "groupedLitDensity": 0.22,
+      "groupedEnergy": 0.24,
+      "warmThreshold": 0.97,
+      "coolThreshold": 0.996,
+      "stableDiscreteIdsOnly": true,
+      "blinking": false
+    },
+    "coverageValidation": "PASS"
+  },
+  "budgets": {
+    "architecture": { "drawCalls": 10, "triangles": 4152 },
+    "roads": { "drawCalls": 6, "triangles": 2480 },
+    "scopedTotal": { "drawCalls": 16, "triangles": 6632 },
+    "gate2Delta": { "drawCalls": 0, "triangles": 0 }
+  },
+  "frozenInvariants": {
+    "masterplanRows": 45,
+    "rowsSha256": "56f8f9534957e889f2afba3bc335f40bc1a2a1c7ca2641ded68042ca75c439d2",
+    "roadExtentCount": 108,
+    "footprintConflicts": 0,
+    "minimumClearance": 0.04351967138168539,
+    "roadGraph": { "nodes": 27, "edges": 30, "centerlines": 39, "segments": 198, "unexpectedCrossings": 0 }
+  },
+  "lifecycle": {
+    "preparedBeforeStart": true,
+    "retainedUntilTeardown": true,
+    "postStartFacadeAllocations": 0,
+    "timeUniform": false,
+    "warmupCompatible": true
+  },
+  "checks": {
+    "facadeCoverageResourceValidator": "PASS",
+    "roadGraphExtentClearanceValidators": "PASS",
+    "targetedEslint": "PASS",
+    "productionBuild": "PASS"
+  }
+}

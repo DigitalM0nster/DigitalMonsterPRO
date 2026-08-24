@@ -1,0 +1,54 @@
+{
+  "capturedAt": "2026-08-14",
+  "path": "/capabilities/spatial-matrix",
+  "viewport": { "width": 1920, "height": 945, "dpr": 1 },
+  "rendererCanvas": { "width": 3840, "height": 1890, "clientWidth": 1920, "clientHeight": 945 },
+  "webgl2": true,
+  "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 3070 Ti (0x00002482) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+  "cityHudVisible": false,
+  "consoleErrors": [],
+  "fiveSecondDeliveryProbe": {
+    "frames": 375,
+    "averageFps": 75.00600048003842,
+    "p95FrameMs": 13.400000000001455,
+    "over25Ratio": 0
+  },
+  "frozenFootprintsRestored": [
+    { "x": 0.25, "z": 1.25 },
+    { "x": -1.55, "z": -1.35 }
+  ],
+  "legacyTopologyMatches": 0,
+  "footprint": {
+    "authored": 45,
+    "accepted": 45,
+    "minimumSignedClearance": 0.0435196714,
+    "requiredEpsilon": 0.035,
+    "conflicts": 0
+  },
+  "roadGraph": {
+    "valid": true,
+    "nodeCount": 27,
+    "edgeCount": 30,
+    "centerlineCount": 39,
+    "segmentCount": 198,
+    "edgeSegmentCount": 30,
+    "connectorSegmentCount": 96,
+    "circulationSegmentCount": 72,
+    "unexpectedCrossings": 0,
+    "entryTangencies": "4/4",
+    "exitTangencies": "4/4",
+    "circulationAttachments": "8/8",
+    "approachJoins": "8/8",
+    "roundaboutConnections": 4,
+    "physicalEntryConnectors": 4,
+    "physicalExitConnectors": 4
+  },
+  "architecture": {
+    "familyCounts": [4, 7, 6, 6, 17, 5],
+    "drawCalls": 10,
+    "triangles": 4152
+  },
+  "roads": { "drawCalls": 6, "triangles": 3280 },
+  "scopedTotal": { "drawCalls": 16, "triangles": 7432 },
+  "checks": { "targetedEslint": "PASS", "productionBuild": "PASS" }
+}

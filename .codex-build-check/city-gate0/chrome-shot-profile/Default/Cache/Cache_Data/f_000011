@@ -1,0 +1,152 @@
+import { createHotContext as __vite__createHotContext } from "/@vite/client";import.meta.hot = __vite__createHotContext("/src/pages/portfolio/ui/CaseStudyCanvas/CaseStudyPanelHudOverlay.jsx");const useCallback = __vite__cjsImport0_react["useCallback"]; const useMemo = __vite__cjsImport0_react["useMemo"];const _jsxDEV = __vite__cjsImport11_react_jsxDevRuntime["jsxDEV"];import __vite__cjsImport0_react from "/node_modules/.vite/deps/react.js?v=b0b58e53";
+import { useSnapshot } from "/node_modules/.vite/deps/valtio.js?v=b0b58e53";
+import { getProjectByRoute } from "/src/pages/portfolio/core/projectRegistry.js";
+import { PortfolioProjectProvider } from "/src/pages/portfolio/core/PortfolioProjectContext.jsx";
+import { useCaseStudyMobileViewport } from "/src/pages/portfolio/core/useCaseStudyMobileViewport.js";
+import { navigateCaseStudyToState } from "/src/pages/portfolio/core/navigateCaseStudyState.js";
+import { useRouteTransitionContext } from "/src/app/context/RouteTransitionContext.jsx";
+import { store } from "/src/app/store.jsx";
+import { resolveSceneId } from "/src/three/scenes/resolveSceneId.js";
+import { getCapabilityHudProject } from "/src/pages/capabilities/data/capabilityHudProjects.js";
+import CaseStudyPanelHudPainter from "/src/pages/portfolio/ui/CaseStudyCanvas/CaseStudyPanelHudPainter.jsx";
+var _jsxFileName = "C:/websites/develope/DigitalMonsterPRO/src/pages/portfolio/ui/CaseStudyCanvas/CaseStudyPanelHudOverlay.jsx";
+import __vite__cjsImport11_react_jsxDevRuntime from "/node_modules/.vite/deps/react_jsx-dev-runtime.js?v=b0b58e53";
+var _s = $RefreshSig$();
+/**
+* Site-level case HUD host (like LeftMenu / SiteTopHud).
+* One React tree across all case routes — chrome/snake survive case→case without remount.
+* Visible only when the resolved Three scene owns a legacy panelHud. Hub-plate
+* case routes render their HUD on the plate and intentionally skip this host.
+*/
+export default function CaseStudyPanelHudOverlay() {
+	_s();
+	const { displayPathname } = useRouteTransitionContext();
+	const sceneId = useMemo(() => resolveSceneId(displayPathname), [displayPathname]);
+	const capabilityExperience = useSnapshot(store.capabilitiesExperience);
+	const capabilityStageId = capabilityExperience.activeStageId;
+	const project = useMemo(() => sceneId === "capabilities" ? getCapabilityHudProject(capabilityStageId) : getProjectByRoute(displayPathname), [
+		capabilityStageId,
+		displayPathname,
+		sceneId
+	]);
+	// Subscribe only to content identity — never stageProgress/scroll.
+	// Those update every spring tick; WebGL HUD reads them via getStageProgress().
+	// Tracking them here re-rendered the whole left painter at scroll FPS (CPU spike).
+	const experience = useSnapshot(store.portfolioExperience);
+	const openedCase = useSnapshot(store).openedCase;
+	const experienceSlug = experience.slug;
+	const experienceStateIndex = experience.activeStateIndex;
+	const experienceStateId = experience.activeStateId;
+	const experienceInvestigating = experience.isInvestigating;
+	const experienceHotspotId = experience.investigationHotspotId;
+	const renderTextInScene = Boolean(project?.config.caseStudy?.renderTextInScene);
+	const isMobileLayout = useCaseStudyMobileViewport(renderTextInScene);
+	const goToState = useCallback((stateId) => {
+		if (!project) {
+			return;
+		}
+		navigateCaseStudyToState({
+			project,
+			stateId,
+			fromIndex: store.portfolioExperience.activeStateIndex ?? 0,
+			useClickMosaic: true
+		});
+	}, [project]);
+	const contextValue = useMemo(() => {
+		if (!project) {
+			return null;
+		}
+		const slugMatches = experienceSlug === project.config.slug;
+		const rawIndex = slugMatches ? Number(experienceStateIndex) || 0 : 0;
+		// New case / slug mismatch: always stage 1 until experience catches up.
+		const activeStateIndex = slugMatches ? Math.max(0, Math.min(project.states.length - 1, rawIndex)) : 0;
+		const activeState = project.states[activeStateIndex];
+		const activeStateId = slugMatches && experienceStateId || activeState?.id || "";
+		return {
+			activeStateId,
+			activeStateIndex,
+			activeState,
+			// Scroll/stage mix is GPU-only — do not mirror per-frame values into React.
+			scrollProgress: 0,
+			stageProgress: 0,
+			stageProgressTarget: 0,
+			investigationHotspotId: slugMatches ? experienceHotspotId : null,
+			activeHotspot: null,
+			isInvestigating: slugMatches ? Boolean(experienceInvestigating) : false,
+			visibleHotspots: [],
+			goToState,
+			enterInvestigation: () => {},
+			leaveInvestigation: () => {}
+		};
+	}, [
+		experienceHotspotId,
+		experienceInvestigating,
+		experienceSlug,
+		experienceStateId,
+		experienceStateIndex,
+		goToState,
+		project
+	]);
+	// Current case routes are rendered by PortfolioHubScene: their panel, gallery
+	// and locale snake live directly on HubPlateInnerPanels. Mounting the legacy
+	// fullscreen HUD here would still repaint/upload its large canvases during a
+	// locale switch even though PortfolioHubScene has no panelHud to display them.
+	const isCapabilityHud = sceneId === "capabilities";
+	const sceneOwnsLegacyPanelHud = sceneId.startsWith("case") || isCapabilityHud;
+	if (!sceneOwnsLegacyPanelHud || !openedCase && !isCapabilityHud || !project || !renderTextInScene || isMobileLayout || !contextValue) {
+		return null;
+	}
+	return /* @__PURE__ */ _jsxDEV(PortfolioProjectProvider, {
+		project,
+		value: contextValue,
+		children: /* @__PURE__ */ _jsxDEV(CaseStudyPanelHudPainter, {
+			hideProjectNavigation: isCapabilityHud,
+			hideStageRail: isCapabilityHud,
+			skipPanelIntro: isCapabilityHud
+		}, void 0, false, {
+			fileName: _jsxFileName,
+			lineNumber: 104,
+			columnNumber: 4
+		}, this)
+	}, void 0, false, {
+		fileName: _jsxFileName,
+		lineNumber: 103,
+		columnNumber: 3
+	}, this);
+}
+_s(CaseStudyPanelHudOverlay, "aDm9CdAvujr44ZSSI9az0K2/wDA=", false, function() {
+	return [
+		useRouteTransitionContext,
+		useSnapshot,
+		useSnapshot,
+		useSnapshot,
+		useCaseStudyMobileViewport
+	];
+});
+_c = CaseStudyPanelHudOverlay;
+var _c;
+$RefreshReg$(_c, "CaseStudyPanelHudOverlay");
+import * as RefreshRuntime from "/@react-refresh";
+const inWebWorker = typeof WorkerGlobalScope !== 'undefined' && self instanceof WorkerGlobalScope;
+import * as __vite_react_currentExports from "/src/pages/portfolio/ui/CaseStudyCanvas/CaseStudyPanelHudOverlay.jsx";
+if (import.meta.hot && !inWebWorker) {
+  if (!window.$RefreshReg$) {
+    throw new Error(
+      "@vitejs/plugin-react can't detect preamble. Something is wrong."
+    );
+  }
+
+  const currentExports = __vite_react_currentExports;
+  queueMicrotask(() => {
+    RefreshRuntime.registerExportsForReactRefresh("C:/websites/develope/DigitalMonsterPRO/src/pages/portfolio/ui/CaseStudyCanvas/CaseStudyPanelHudOverlay.jsx", currentExports);
+    import.meta.hot.accept((nextExports) => {
+      if (!nextExports) return;
+      const invalidateMessage = RefreshRuntime.validateRefreshBoundaryAndEnqueueUpdate("C:/websites/develope/DigitalMonsterPRO/src/pages/portfolio/ui/CaseStudyCanvas/CaseStudyPanelHudOverlay.jsx", currentExports, nextExports);
+      if (invalidateMessage) import.meta.hot.invalidate(invalidateMessage);
+    });
+  });
+}
+function $RefreshReg$(type, id) { return RefreshRuntime.register(type, "C:/websites/develope/DigitalMonsterPRO/src/pages/portfolio/ui/CaseStudyCanvas/CaseStudyPanelHudOverlay.jsx" + ' ' + id); }
+function $RefreshSig$() { return RefreshRuntime.createSignatureFunctionForTransform(); }
+
+//# sourceMappingURL=data:application/json;base64,eyJtYXBwaW5ncyI6IkFBQUEsU0FBUyxhQUFhLGVBQWU7QUFDckMsU0FBUyxtQkFBbUI7QUFDNUIsU0FBUyx5QkFBeUI7QUFDbEMsU0FBUyxnQ0FBZ0M7QUFDekMsU0FBUyxrQ0FBa0M7QUFDM0MsU0FBUyxnQ0FBZ0M7QUFDekMsU0FBUyxpQ0FBaUM7QUFDMUMsU0FBUyxhQUFhO0FBQ3RCLFNBQVMsc0JBQXNCO0FBQy9CLFNBQVMsK0JBQStCO0FBQ3hDLE9BQU8sOEJBQThCOzs7Ozs7Ozs7O0FBUXJDLGVBQWUsU0FBUywyQkFBMkI7O0NBQ2xELE1BQU0sRUFBRSxvQkFBb0IsMEJBQTBCO0NBQ3RELE1BQU0sVUFBVSxjQUFjLGVBQWUsZUFBZSxHQUFHLENBQUMsZUFBZSxDQUFDO0NBQ2hGLE1BQU0sdUJBQXVCLFlBQVksTUFBTSxzQkFBc0I7Q0FDckUsTUFBTSxvQkFBb0IscUJBQXFCO0NBQy9DLE1BQU0sVUFBVSxjQUNmLFlBQVksaUJBQ1Qsd0JBQXdCLGlCQUFpQixJQUN6QyxrQkFBa0IsZUFBZSxHQUNsQztFQUFDO0VBQW1CO0VBQWlCO0NBQU8sQ0FBQzs7OztDQUloRCxNQUFNLGFBQWEsWUFBWSxNQUFNLG1CQUFtQjtDQUN4RCxNQUFNLGFBQWEsWUFBWSxLQUFLLEVBQUU7Q0FDdEMsTUFBTSxpQkFBaUIsV0FBVztDQUNsQyxNQUFNLHVCQUF1QixXQUFXO0NBQ3hDLE1BQU0sb0JBQW9CLFdBQVc7Q0FDckMsTUFBTSwwQkFBMEIsV0FBVztDQUMzQyxNQUFNLHNCQUFzQixXQUFXO0NBQ3ZDLE1BQU0sb0JBQW9CLFFBQVEsU0FBUyxPQUFPLFdBQVcsaUJBQWlCO0NBQzlFLE1BQU0saUJBQWlCLDJCQUEyQixpQkFBaUI7Q0FFbkUsTUFBTSxZQUFZLGFBQ2hCLFlBQVk7RUFDWixJQUFJLENBQUMsU0FBUztHQUNiO0VBQ0Q7RUFDQSx5QkFBeUI7R0FDeEI7R0FDQTtHQUNBLFdBQVcsTUFBTSxvQkFBb0Isb0JBQW9CO0dBQ3pELGdCQUFnQjtFQUNqQixDQUFDO0NBQ0YsR0FDQSxDQUFDLE9BQU8sQ0FDVDtDQUVBLE1BQU0sZUFBZSxjQUFjO0VBQ2xDLElBQUksQ0FBQyxTQUFTO0dBQ2IsT0FBTztFQUNSO0VBQ0EsTUFBTSxjQUFjLG1CQUFtQixRQUFRLE9BQU87RUFDdEQsTUFBTSxXQUFXLGNBQWMsT0FBTyxvQkFBb0IsS0FBSyxJQUFJOztFQUVuRSxNQUFNLG1CQUFtQixjQUFjLEtBQUssSUFBSSxHQUFHLEtBQUssSUFBSSxRQUFRLE9BQU8sU0FBUyxHQUFHLFFBQVEsQ0FBQyxJQUFJO0VBQ3BHLE1BQU0sY0FBYyxRQUFRLE9BQU87RUFDbkMsTUFBTSxnQkFBaUIsZUFBZSxxQkFBc0IsYUFBYSxNQUFNO0VBQy9FLE9BQU87R0FDTjtHQUNBO0dBQ0E7O0dBRUEsZ0JBQWdCO0dBQ2hCLGVBQWU7R0FDZixxQkFBcUI7R0FDckIsd0JBQXdCLGNBQWMsc0JBQXNCO0dBQzVELGVBQWU7R0FDZixpQkFBaUIsY0FBYyxRQUFRLHVCQUF1QixJQUFJO0dBQ2xFLGlCQUFpQixDQUFDO0dBQ2xCO0dBQ0EsMEJBQTBCLENBQUM7R0FDM0IsMEJBQTBCLENBQUM7RUFDNUI7Q0FDRCxHQUFHO0VBQUM7RUFBcUI7RUFBeUI7RUFBZ0I7RUFBbUI7RUFBc0I7RUFBVztDQUFPLENBQUM7Ozs7O0NBTTlILE1BQU0sa0JBQWtCLFlBQVk7Q0FDcEMsTUFBTSwwQkFBMEIsUUFBUSxXQUFXLE1BQU0sS0FBSztDQUM5RCxJQUNDLENBQUMsMkJBQ0EsQ0FBQyxjQUFjLENBQUMsbUJBQ2pCLENBQUMsV0FDRCxDQUFDLHFCQUNELGtCQUNBLENBQUMsY0FDQTtFQUNELE9BQU87Q0FDUjtDQUVBLE9BQ0Msd0JBQUMsMEJBQUQ7RUFBbUM7RUFBUyxPQUFPO1lBQ2xELHdCQUFDLDBCQUFEO0dBQ0MsdUJBQXVCO0dBQ3ZCLGVBQWU7R0FDZixnQkFBZ0I7RUFDaEI7Ozs7O0NBQ3dCOzs7OztBQUU1QiIsIm5hbWVzIjpbXSwic291cmNlcyI6WyJDYXNlU3R1ZHlQYW5lbEh1ZE92ZXJsYXkuanN4Il0sInZlcnNpb24iOjMsInNvdXJjZXNDb250ZW50IjpbImltcG9ydCB7IHVzZUNhbGxiYWNrLCB1c2VNZW1vIH0gZnJvbSBcInJlYWN0XCI7XG5pbXBvcnQgeyB1c2VTbmFwc2hvdCB9IGZyb20gXCJ2YWx0aW9cIjtcbmltcG9ydCB7IGdldFByb2plY3RCeVJvdXRlIH0gZnJvbSBcIkAvcGFnZXMvcG9ydGZvbGlvL2NvcmUvcHJvamVjdFJlZ2lzdHJ5LmpzXCI7XG5pbXBvcnQgeyBQb3J0Zm9saW9Qcm9qZWN0UHJvdmlkZXIgfSBmcm9tIFwiQC9wYWdlcy9wb3J0Zm9saW8vY29yZS9Qb3J0Zm9saW9Qcm9qZWN0Q29udGV4dC5qc3hcIjtcbmltcG9ydCB7IHVzZUNhc2VTdHVkeU1vYmlsZVZpZXdwb3J0IH0gZnJvbSBcIkAvcGFnZXMvcG9ydGZvbGlvL2NvcmUvdXNlQ2FzZVN0dWR5TW9iaWxlVmlld3BvcnQuanNcIjtcbmltcG9ydCB7IG5hdmlnYXRlQ2FzZVN0dWR5VG9TdGF0ZSB9IGZyb20gXCJAL3BhZ2VzL3BvcnRmb2xpby9jb3JlL25hdmlnYXRlQ2FzZVN0dWR5U3RhdGUuanNcIjtcbmltcG9ydCB7IHVzZVJvdXRlVHJhbnNpdGlvbkNvbnRleHQgfSBmcm9tIFwiQC9hcHAvY29udGV4dC9Sb3V0ZVRyYW5zaXRpb25Db250ZXh0LmpzeFwiO1xuaW1wb3J0IHsgc3RvcmUgfSBmcm9tIFwiQC9hcHAvc3RvcmUuanN4XCI7XG5pbXBvcnQgeyByZXNvbHZlU2NlbmVJZCB9IGZyb20gXCJAL3RocmVlL3NjZW5lcy9yZXNvbHZlU2NlbmVJZC5qc1wiO1xuaW1wb3J0IHsgZ2V0Q2FwYWJpbGl0eUh1ZFByb2plY3QgfSBmcm9tIFwiQC9wYWdlcy9jYXBhYmlsaXRpZXMvZGF0YS9jYXBhYmlsaXR5SHVkUHJvamVjdHMuanNcIjtcbmltcG9ydCBDYXNlU3R1ZHlQYW5lbEh1ZFBhaW50ZXIgZnJvbSBcIi4vQ2FzZVN0dWR5UGFuZWxIdWRQYWludGVyLmpzeFwiO1xuXG4vKipcbiAqIFNpdGUtbGV2ZWwgY2FzZSBIVUQgaG9zdCAobGlrZSBMZWZ0TWVudSAvIFNpdGVUb3BIdWQpLlxuICogT25lIFJlYWN0IHRyZWUgYWNyb3NzIGFsbCBjYXNlIHJvdXRlcyDigJQgY2hyb21lL3NuYWtlIHN1cnZpdmUgY2FzZeKGkmNhc2Ugd2l0aG91dCByZW1vdW50LlxuICogVmlzaWJsZSBvbmx5IHdoZW4gdGhlIHJlc29sdmVkIFRocmVlIHNjZW5lIG93bnMgYSBsZWdhY3kgcGFuZWxIdWQuIEh1Yi1wbGF0ZVxuICogY2FzZSByb3V0ZXMgcmVuZGVyIHRoZWlyIEhVRCBvbiB0aGUgcGxhdGUgYW5kIGludGVudGlvbmFsbHkgc2tpcCB0aGlzIGhvc3QuXG4gKi9cbmV4cG9ydCBkZWZhdWx0IGZ1bmN0aW9uIENhc2VTdHVkeVBhbmVsSHVkT3ZlcmxheSgpIHtcblx0Y29uc3QgeyBkaXNwbGF5UGF0aG5hbWUgfSA9IHVzZVJvdXRlVHJhbnNpdGlvbkNvbnRleHQoKTtcblx0Y29uc3Qgc2NlbmVJZCA9IHVzZU1lbW8oKCkgPT4gcmVzb2x2ZVNjZW5lSWQoZGlzcGxheVBhdGhuYW1lKSwgW2Rpc3BsYXlQYXRobmFtZV0pO1xuXHRjb25zdCBjYXBhYmlsaXR5RXhwZXJpZW5jZSA9IHVzZVNuYXBzaG90KHN0b3JlLmNhcGFiaWxpdGllc0V4cGVyaWVuY2UpO1xuXHRjb25zdCBjYXBhYmlsaXR5U3RhZ2VJZCA9IGNhcGFiaWxpdHlFeHBlcmllbmNlLmFjdGl2ZVN0YWdlSWQ7XG5cdGNvbnN0IHByb2plY3QgPSB1c2VNZW1vKCgpID0+IChcblx0XHRzY2VuZUlkID09PSBcImNhcGFiaWxpdGllc1wiXG5cdFx0XHQ/IGdldENhcGFiaWxpdHlIdWRQcm9qZWN0KGNhcGFiaWxpdHlTdGFnZUlkKVxuXHRcdFx0OiBnZXRQcm9qZWN0QnlSb3V0ZShkaXNwbGF5UGF0aG5hbWUpXG5cdCksIFtjYXBhYmlsaXR5U3RhZ2VJZCwgZGlzcGxheVBhdGhuYW1lLCBzY2VuZUlkXSk7XG5cdC8vIFN1YnNjcmliZSBvbmx5IHRvIGNvbnRlbnQgaWRlbnRpdHkg4oCUIG5ldmVyIHN0YWdlUHJvZ3Jlc3Mvc2Nyb2xsLlxuXHQvLyBUaG9zZSB1cGRhdGUgZXZlcnkgc3ByaW5nIHRpY2s7IFdlYkdMIEhVRCByZWFkcyB0aGVtIHZpYSBnZXRTdGFnZVByb2dyZXNzKCkuXG5cdC8vIFRyYWNraW5nIHRoZW0gaGVyZSByZS1yZW5kZXJlZCB0aGUgd2hvbGUgbGVmdCBwYWludGVyIGF0IHNjcm9sbCBGUFMgKENQVSBzcGlrZSkuXG5cdGNvbnN0IGV4cGVyaWVuY2UgPSB1c2VTbmFwc2hvdChzdG9yZS5wb3J0Zm9saW9FeHBlcmllbmNlKTtcblx0Y29uc3Qgb3BlbmVkQ2FzZSA9IHVzZVNuYXBzaG90KHN0b3JlKS5vcGVuZWRDYXNlO1xuXHRjb25zdCBleHBlcmllbmNlU2x1ZyA9IGV4cGVyaWVuY2Uuc2x1Zztcblx0Y29uc3QgZXhwZXJpZW5jZVN0YXRlSW5kZXggPSBleHBlcmllbmNlLmFjdGl2ZVN0YXRlSW5kZXg7XG5cdGNvbnN0IGV4cGVyaWVuY2VTdGF0ZUlkID0gZXhwZXJpZW5jZS5hY3RpdmVTdGF0ZUlkO1xuXHRjb25zdCBleHBlcmllbmNlSW52ZXN0aWdhdGluZyA9IGV4cGVyaWVuY2UuaXNJbnZlc3RpZ2F0aW5nO1xuXHRjb25zdCBleHBlcmllbmNlSG90c3BvdElkID0gZXhwZXJpZW5jZS5pbnZlc3RpZ2F0aW9uSG90c3BvdElkO1xuXHRjb25zdCByZW5kZXJUZXh0SW5TY2VuZSA9IEJvb2xlYW4ocHJvamVjdD8uY29uZmlnLmNhc2VTdHVkeT8ucmVuZGVyVGV4dEluU2NlbmUpO1xuXHRjb25zdCBpc01vYmlsZUxheW91dCA9IHVzZUNhc2VTdHVkeU1vYmlsZVZpZXdwb3J0KHJlbmRlclRleHRJblNjZW5lKTtcblxuXHRjb25zdCBnb1RvU3RhdGUgPSB1c2VDYWxsYmFjayhcblx0XHQoc3RhdGVJZCkgPT4ge1xuXHRcdFx0aWYgKCFwcm9qZWN0KSB7XG5cdFx0XHRcdHJldHVybjtcblx0XHRcdH1cblx0XHRcdG5hdmlnYXRlQ2FzZVN0dWR5VG9TdGF0ZSh7XG5cdFx0XHRcdHByb2plY3QsXG5cdFx0XHRcdHN0YXRlSWQsXG5cdFx0XHRcdGZyb21JbmRleDogc3RvcmUucG9ydGZvbGlvRXhwZXJpZW5jZS5hY3RpdmVTdGF0ZUluZGV4ID8/IDAsXG5cdFx0XHRcdHVzZUNsaWNrTW9zYWljOiB0cnVlLFxuXHRcdFx0fSk7XG5cdFx0fSxcblx0XHRbcHJvamVjdF0sXG5cdCk7XG5cblx0Y29uc3QgY29udGV4dFZhbHVlID0gdXNlTWVtbygoKSA9PiB7XG5cdFx0aWYgKCFwcm9qZWN0KSB7XG5cdFx0XHRyZXR1cm4gbnVsbDtcblx0XHR9XG5cdFx0Y29uc3Qgc2x1Z01hdGNoZXMgPSBleHBlcmllbmNlU2x1ZyA9PT0gcHJvamVjdC5jb25maWcuc2x1Zztcblx0XHRjb25zdCByYXdJbmRleCA9IHNsdWdNYXRjaGVzID8gTnVtYmVyKGV4cGVyaWVuY2VTdGF0ZUluZGV4KSB8fCAwIDogMDtcblx0XHQvLyBOZXcgY2FzZSAvIHNsdWcgbWlzbWF0Y2g6IGFsd2F5cyBzdGFnZSAxIHVudGlsIGV4cGVyaWVuY2UgY2F0Y2hlcyB1cC5cblx0XHRjb25zdCBhY3RpdmVTdGF0ZUluZGV4ID0gc2x1Z01hdGNoZXMgPyBNYXRoLm1heCgwLCBNYXRoLm1pbihwcm9qZWN0LnN0YXRlcy5sZW5ndGggLSAxLCByYXdJbmRleCkpIDogMDtcblx0XHRjb25zdCBhY3RpdmVTdGF0ZSA9IHByb2plY3Quc3RhdGVzW2FjdGl2ZVN0YXRlSW5kZXhdO1xuXHRcdGNvbnN0IGFjdGl2ZVN0YXRlSWQgPSAoc2x1Z01hdGNoZXMgJiYgZXhwZXJpZW5jZVN0YXRlSWQpIHx8IGFjdGl2ZVN0YXRlPy5pZCB8fCBcIlwiO1xuXHRcdHJldHVybiB7XG5cdFx0XHRhY3RpdmVTdGF0ZUlkLFxuXHRcdFx0YWN0aXZlU3RhdGVJbmRleCxcblx0XHRcdGFjdGl2ZVN0YXRlLFxuXHRcdFx0Ly8gU2Nyb2xsL3N0YWdlIG1peCBpcyBHUFUtb25seSDigJQgZG8gbm90IG1pcnJvciBwZXItZnJhbWUgdmFsdWVzIGludG8gUmVhY3QuXG5cdFx0XHRzY3JvbGxQcm9ncmVzczogMCxcblx0XHRcdHN0YWdlUHJvZ3Jlc3M6IDAsXG5cdFx0XHRzdGFnZVByb2dyZXNzVGFyZ2V0OiAwLFxuXHRcdFx0aW52ZXN0aWdhdGlvbkhvdHNwb3RJZDogc2x1Z01hdGNoZXMgPyBleHBlcmllbmNlSG90c3BvdElkIDogbnVsbCxcblx0XHRcdGFjdGl2ZUhvdHNwb3Q6IG51bGwsXG5cdFx0XHRpc0ludmVzdGlnYXRpbmc6IHNsdWdNYXRjaGVzID8gQm9vbGVhbihleHBlcmllbmNlSW52ZXN0aWdhdGluZykgOiBmYWxzZSxcblx0XHRcdHZpc2libGVIb3RzcG90czogW10sXG5cdFx0XHRnb1RvU3RhdGUsXG5cdFx0XHRlbnRlckludmVzdGlnYXRpb246ICgpID0+IHt9LFxuXHRcdFx0bGVhdmVJbnZlc3RpZ2F0aW9uOiAoKSA9PiB7fSxcblx0XHR9O1xuXHR9LCBbZXhwZXJpZW5jZUhvdHNwb3RJZCwgZXhwZXJpZW5jZUludmVzdGlnYXRpbmcsIGV4cGVyaWVuY2VTbHVnLCBleHBlcmllbmNlU3RhdGVJZCwgZXhwZXJpZW5jZVN0YXRlSW5kZXgsIGdvVG9TdGF0ZSwgcHJvamVjdF0pO1xuXG5cdC8vIEN1cnJlbnQgY2FzZSByb3V0ZXMgYXJlIHJlbmRlcmVkIGJ5IFBvcnRmb2xpb0h1YlNjZW5lOiB0aGVpciBwYW5lbCwgZ2FsbGVyeVxuXHQvLyBhbmQgbG9jYWxlIHNuYWtlIGxpdmUgZGlyZWN0bHkgb24gSHViUGxhdGVJbm5lclBhbmVscy4gTW91bnRpbmcgdGhlIGxlZ2FjeVxuXHQvLyBmdWxsc2NyZWVuIEhVRCBoZXJlIHdvdWxkIHN0aWxsIHJlcGFpbnQvdXBsb2FkIGl0cyBsYXJnZSBjYW52YXNlcyBkdXJpbmcgYVxuXHQvLyBsb2NhbGUgc3dpdGNoIGV2ZW4gdGhvdWdoIFBvcnRmb2xpb0h1YlNjZW5lIGhhcyBubyBwYW5lbEh1ZCB0byBkaXNwbGF5IHRoZW0uXG5cdGNvbnN0IGlzQ2FwYWJpbGl0eUh1ZCA9IHNjZW5lSWQgPT09IFwiY2FwYWJpbGl0aWVzXCI7XG5cdGNvbnN0IHNjZW5lT3duc0xlZ2FjeVBhbmVsSHVkID0gc2NlbmVJZC5zdGFydHNXaXRoKFwiY2FzZVwiKSB8fCBpc0NhcGFiaWxpdHlIdWQ7XG5cdGlmIChcblx0XHQhc2NlbmVPd25zTGVnYWN5UGFuZWxIdWQgfHxcblx0XHQoIW9wZW5lZENhc2UgJiYgIWlzQ2FwYWJpbGl0eUh1ZCkgfHxcblx0XHQhcHJvamVjdCB8fFxuXHRcdCFyZW5kZXJUZXh0SW5TY2VuZSB8fFxuXHRcdGlzTW9iaWxlTGF5b3V0IHx8XG5cdFx0IWNvbnRleHRWYWx1ZVxuXHQpIHtcblx0XHRyZXR1cm4gbnVsbDtcblx0fVxuXG5cdHJldHVybiAoXG5cdFx0PFBvcnRmb2xpb1Byb2plY3RQcm92aWRlciBwcm9qZWN0PXtwcm9qZWN0fSB2YWx1ZT17Y29udGV4dFZhbHVlfT5cblx0XHRcdDxDYXNlU3R1ZHlQYW5lbEh1ZFBhaW50ZXJcblx0XHRcdFx0aGlkZVByb2plY3ROYXZpZ2F0aW9uPXtpc0NhcGFiaWxpdHlIdWR9XG5cdFx0XHRcdGhpZGVTdGFnZVJhaWw9e2lzQ2FwYWJpbGl0eUh1ZH1cblx0XHRcdFx0c2tpcFBhbmVsSW50cm89e2lzQ2FwYWJpbGl0eUh1ZH1cblx0XHRcdC8+XG5cdFx0PC9Qb3J0Zm9saW9Qcm9qZWN0UHJvdmlkZXI+XG5cdCk7XG59XG4iXX0=

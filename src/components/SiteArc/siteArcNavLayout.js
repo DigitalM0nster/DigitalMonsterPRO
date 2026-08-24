@@ -28,8 +28,8 @@ import { getSiteArcShift, setSiteArcShiftTarget } from "./siteArcPositionMotion.
 import { setSiteArcFocusFromScroll } from "./siteArcFocusMotion.js";
 import { resolveSiteArcCarouselMotion } from "./siteArcCarouselMotion.js";
 import { getSceneCarousel } from "@/three/render/transition/carouselPage.js";
+import { resolveSiteArcCapabilityStages } from "./siteArcCapabilityStages.js";
 
-const DEG = Math.PI / 180;
 const INDEX_FONT_PX = 10;
 const TITLE_FONT_PX = 9;
 const TITLE_LINE_H = TITLE_FONT_PX * 1.15;
@@ -175,9 +175,12 @@ export function buildSiteArcNavLayout(viewportW, viewportH, isMobile = false) {
 	let { centerX } = arcGeo;
 	const { centerY, radius, angleStart, angleEnd } = arcGeo;
 
-	const navItemAngles = navStates.map((_, index) => (
-		getCyclicItemRelativeDeg(index, focusDeg, ringGapDeg, navStates.length) * DEG + arcGeo.rotationRad
-	));
+	const capabilitiesLayout = resolveSiteArcCapabilityStages(navStates, {
+		focusDeg,
+		ringGapDeg,
+		rotationRad: arcGeo.rotationRad,
+	});
+	const navItemAngles = capabilitiesLayout.routeAngles;
 
 	const labelGap = isMobile ? 10 : internal.labelGapRight;
 	const wedgePadDeg = 6;
@@ -214,7 +217,16 @@ export function buildSiteArcNavLayout(viewportW, viewportH, isMobile = false) {
 	);
 
 	const activeNavIndex = arcProjects.activeNavIndex;
-	const activeAngle = activeNavIndex >= 0 ? labelPositions[activeNavIndex]?.angle : null;
+	const capabilityStageProgress = Math.max(0, Math.min(
+		capabilitiesLayout.stageAngles.length - 1,
+		Number(store.capabilitiesExperience?.stagePosition) || 0,
+	));
+	const activeAngle = activeNavIndex === capabilitiesLayout.capabilitiesIndex
+		&& capabilitiesLayout.stageAngles.length > 0
+		? capabilitiesLayout.stageAngles[0]
+			+ (capabilitiesLayout.stageAngles[1] - capabilitiesLayout.stageAngles[0])
+			* capabilityStageProgress
+		: activeNavIndex >= 0 ? labelPositions[activeNavIndex]?.angle : null;
 	if (!carouselMotion) {
 		syncSiteArcSelectSequence({
 			activeIndex: activeNavIndex,

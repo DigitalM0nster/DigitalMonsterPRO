@@ -1,0 +1,205 @@
+const stateCopy = {
+	state_01: {
+		en: {
+			pathTitle: "ABOUT THE PROJECT",
+			title: "AUTOMOTIVE CLIMATE\nAS ONE SYSTEM",
+			descriptionParagraphs: ["Holod V Auto brings together sales, installation and repair of climate equipment for passenger cars, trucks and special-purpose vehicles.", "We combined a catalogue, vehicle selection, service areas and useful content into one platform, keeping the journey from a problem to the right equipment and an enquiry in a single context."],
+			traits: [
+				{
+					label: "year",
+					value: "2026"
+				},
+				{
+					label: "format",
+					value: "catalogue and service"
+				},
+				{
+					label: "platform",
+					value: "Next.js"
+				}
+			]
+		},
+		zh: {
+			pathTitle: "项目介绍",
+			title: "将汽车气候设备\n整合为统一系统",
+			descriptionParagraphs: ["Holod V Auto 提供乘用车、卡车与特种车辆气候设备的销售、安装和维修服务。", "平台将商品目录、车型匹配、服务项目和专业内容整合在一起，让用户从需求出发，连续完成设备选择与咨询。"],
+			traits: [
+				{
+					label: "年份",
+					value: "2026"
+				},
+				{
+					label: "形式",
+					value: "目录与服务"
+				},
+				{
+					label: "平台",
+					value: "Next.js"
+				}
+			]
+		}
+	},
+	state_02: {
+		en: {
+			pathTitle: "VISUAL LANGUAGE",
+			title: "TECHNICAL CLARITY\nBUILT ON CONTRAST",
+			descriptionParagraphs: ["Black, white and signal red form a bold, recognisable system. Condensed display type creates pace, while light catalogue surfaces keep dense data readable.", "Dark presentation sections and precise product cards are connected by fine lines, geometric layers and restrained navigation states."],
+			features: [
+				{
+					title: "Signal red",
+					subtitle: "actions and navigation"
+				},
+				{
+					title: "Contrasting type",
+					subtitle: "fast content hierarchy"
+				},
+				{
+					title: "Light catalogue fields",
+					subtitle: "precise data display"
+				}
+			]
+		},
+		zh: {
+			pathTitle: "视觉语言",
+			title: "以强烈对比\n建立技术感",
+			descriptionParagraphs: ["黑、白与信号红构成鲜明的识别系统。窄体大标题带来节奏，明亮的目录界面则保证大量数据清晰可读。", "深色展示区与严谨的商品卡片通过细线、几何层次和克制的导航状态连接起来。"],
+			features: [
+				{
+					title: "信号红",
+					subtitle: "关键操作与导航"
+				},
+				{
+					title: "对比字体",
+					subtitle: "快速内容层级"
+				},
+				{
+					title: "明亮目录",
+					subtitle: "准确呈现数据"
+				}
+			]
+		}
+	},
+	state_03: {
+		en: {
+			pathTitle: "CATALOGUE & MATCHING",
+			title: "FROM VEHICLE TYPE\nTO A SPECIFIC PRODUCT",
+			descriptionParagraphs: ["The catalogue covers air conditioners, heaters, refrigerators, compressors and components. Its nested structure moves quickly from a direction to the required product group.", "Vehicle type, make and model work together with filters, search, product cards and the basket. Availability, price and compatibility stay in one flow."],
+			features: [
+				{
+					title: "Vehicle matching",
+					subtitle: "type, make and model"
+				},
+				{
+					title: "Layered catalogue",
+					subtitle: "categories and components"
+				},
+				{
+					title: "Cards and basket",
+					subtitle: "price, stock and order"
+				}
+			]
+		},
+		zh: {
+			pathTitle: "目录与匹配",
+			title: "从车辆类型\n直达具体商品",
+			descriptionParagraphs: ["目录覆盖空调、加热器、车载冰箱、压缩机及零部件。多级结构帮助用户快速进入所需商品组。", "车辆类型、品牌和车型选择与筛选、搜索、商品卡片和购物车协同工作，在同一流程中呈现库存、价格和兼容性。"],
+			features: [
+				{
+					title: "车型匹配",
+					subtitle: "类型、品牌和车型"
+				},
+				{
+					title: "多级目录",
+					subtitle: "分类与零部件"
+				},
+				{
+					title: "卡片与购物车",
+					subtitle: "价格、库存与订单"
+				}
+			]
+		}
+	},
+	state_04: {
+		en: {
+			pathTitle: "CONTENT & SERVICES",
+			title: "MORE THAN A STORE —\nA WORKING PLATFORM",
+			descriptionParagraphs: ["The website presents company services, expertise, useful articles, contacts and partnership terms. The commercial catalogue remains connected to real installation and repair work.", "Content sections build trust and let the team develop the project without changing its core user logic."],
+			features: [
+				{
+					title: "Services",
+					subtitle: "installation, diagnostics and repair"
+				},
+				{
+					title: "Useful content",
+					subtitle: "professional guidance"
+				},
+				{
+					title: "Partnership and contacts",
+					subtitle: "direct enquiry paths"
+				}
+			]
+		},
+		zh: {
+			pathTitle: "内容与服务",
+			title: "不仅是商店，\n更是业务平台",
+			descriptionParagraphs: ["网站展示公司服务、专业方法、实用文章、联系方式和合作条件，使商品目录与真实安装和维修业务保持连接。", "内容板块建立信任，也让团队能够在不改变核心用户逻辑的情况下持续发展项目。"],
+			features: [
+				{
+					title: "服务",
+					subtitle: "安装、诊断与维修"
+				},
+				{
+					title: "专业内容",
+					subtitle: "实用指导"
+				},
+				{
+					title: "合作与联系",
+					subtitle: "直接咨询路径"
+				}
+			]
+		}
+	},
+	state_05: {
+		en: {
+			pathTitle: "PROJECT ENGINEERING",
+			title: "A CATALOGUE BUILT\nTO KEEP GROWING",
+			descriptionParagraphs: ["The project is built with Next.js, React and TypeScript. The server layer, Prisma and PostgreSQL connect catalogue data, administration, prices and user flows.", "Responsive architecture preserves real mobile screens: the catalogue does not crop a desktop layout but restructures navigation, filters and cards for a vertical flow."],
+			features: [
+				{
+					title: "Next.js + React",
+					subtitle: "one full-stack foundation"
+				},
+				{
+					title: "TypeScript",
+					subtitle: "data and UI contracts"
+				},
+				{
+					title: "Responsive UI",
+					subtitle: "purpose-built mobile flows"
+				}
+			]
+		},
+		zh: {
+			pathTitle: "项目工程",
+			title: "面向持续增长的\n商品目录",
+			descriptionParagraphs: ["项目基于 Next.js、React 和 TypeScript。服务器层、Prisma 与 PostgreSQL 连接目录数据、后台管理、价格和用户流程。", "响应式架构保留真正的移动端界面：目录不是裁切桌面布局，而是为纵向场景重新组织导航、筛选和商品卡片。"],
+			features: [
+				{
+					title: "Next.js + React",
+					subtitle: "统一全栈基础"
+				},
+				{
+					title: "TypeScript",
+					subtitle: "数据与界面契约"
+				},
+				{
+					title: "响应式界面",
+					subtitle: "独立移动端流程"
+				}
+			]
+		}
+	}
+};
+export default stateCopy;
+
+//# sourceMappingURL=data:application/json;base64,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VUFBVTtJQUFVO0lBQzNDO0tBQUUsT0FBTztLQUFTLFVBQVU7SUFBVTtHQUN2QztFQUNEO0NBQ0Q7QUFDRDtBQUVBLGVBQWUiLCJuYW1lcyI6W10sInNvdXJjZXMiOlsic3RhdGVDb3B5LmpzIl0sInZlcnNpb24iOjMsInNvdXJjZXNDb250ZW50IjpbImNvbnN0IHN0YXRlQ29weSA9IHtcblx0c3RhdGVfMDE6IHtcblx0XHRlbjoge1xuXHRcdFx0cGF0aFRpdGxlOiBcIkFCT1VUIFRIRSBQUk9KRUNUXCIsXG5cdFx0XHR0aXRsZTogXCJBVVRPTU9USVZFIENMSU1BVEVcXG5BUyBPTkUgU1lTVEVNXCIsXG5cdFx0XHRkZXNjcmlwdGlvblBhcmFncmFwaHM6IFtcblx0XHRcdFx0XCJIb2xvZCBWIEF1dG8gYnJpbmdzIHRvZ2V0aGVyIHNhbGVzLCBpbnN0YWxsYXRpb24gYW5kIHJlcGFpciBvZiBjbGltYXRlIGVxdWlwbWVudCBmb3IgcGFzc2VuZ2VyIGNhcnMsIHRydWNrcyBhbmQgc3BlY2lhbC1wdXJwb3NlIHZlaGljbGVzLlwiLFxuXHRcdFx0XHRcIldlIGNvbWJpbmVkIGEgY2F0YWxvZ3VlLCB2ZWhpY2xlIHNlbGVjdGlvbiwgc2VydmljZSBhcmVhcyBhbmQgdXNlZnVsIGNvbnRlbnQgaW50byBvbmUgcGxhdGZvcm0sIGtlZXBpbmcgdGhlIGpvdXJuZXkgZnJvbSBhIHByb2JsZW0gdG8gdGhlIHJpZ2h0IGVxdWlwbWVudCBhbmQgYW4gZW5xdWlyeSBpbiBhIHNpbmdsZSBjb250ZXh0LlwiLFxuXHRcdFx0XSxcblx0XHRcdHRyYWl0czogW1xuXHRcdFx0XHR7IGxhYmVsOiBcInllYXJcIiwgdmFsdWU6IFwiMjAyNlwiIH0sXG5cdFx0XHRcdHsgbGFiZWw6IFwiZm9ybWF0XCIsIHZhbHVlOiBcImNhdGFsb2d1ZSBhbmQgc2VydmljZVwiIH0sXG5cdFx0XHRcdHsgbGFiZWw6IFwicGxhdGZvcm1cIiwgdmFsdWU6IFwiTmV4dC5qc1wiIH0sXG5cdFx0XHRdLFxuXHRcdH0sXG5cdFx0emg6IHtcblx0XHRcdHBhdGhUaXRsZTogXCLpobnnm67ku4vnu41cIixcblx0XHRcdHRpdGxlOiBcIuWwhuaxvei9puawlOWAmeiuvuWkh1xcbuaVtOWQiOS4uue7n+S4gOezu+e7n1wiLFxuXHRcdFx0ZGVzY3JpcHRpb25QYXJhZ3JhcGhzOiBbXG5cdFx0XHRcdFwiSG9sb2QgViBBdXRvIOaPkOS+m+S5mOeUqOi9puOAgeWNoei9puS4jueJueenjei9pui+huawlOWAmeiuvuWkh+eahOmUgOWUruOAgeWuieijheWSjOe7tOS/ruacjeWKoeOAglwiLFxuXHRcdFx0XHRcIuW5s+WPsOWwhuWVhuWTgeebruW9leOAgei9puWei+WMuemFjeOAgeacjeWKoemhueebruWSjOS4k+S4muWGheWuueaVtOWQiOWcqOS4gOi1t++8jOiuqeeUqOaIt+S7jumcgOaxguWHuuWPke+8jOi/nue7reWujOaIkOiuvuWkh+mAieaLqeS4juWSqOivouOAglwiLFxuXHRcdFx0XSxcblx0XHRcdHRyYWl0czogW1xuXHRcdFx0XHR7IGxhYmVsOiBcIuW5tOS7vVwiLCB2YWx1ZTogXCIyMDI2XCIgfSxcblx0XHRcdFx0eyBsYWJlbDogXCLlvaLlvI9cIiwgdmFsdWU6IFwi55uu5b2V5LiO5pyN5YqhXCIgfSxcblx0XHRcdFx0eyBsYWJlbDogXCLlubPlj7BcIiwgdmFsdWU6IFwiTmV4dC5qc1wiIH0sXG5cdFx0XHRdLFxuXHRcdH0sXG5cdH0sXG5cdHN0YXRlXzAyOiB7XG5cdFx0ZW46IHtcblx0XHRcdHBhdGhUaXRsZTogXCJWSVNVQUwgTEFOR1VBR0VcIixcblx0XHRcdHRpdGxlOiBcIlRFQ0hOSUNBTCBDTEFSSVRZXFxuQlVJTFQgT04gQ09OVFJBU1RcIixcblx0XHRcdGRlc2NyaXB0aW9uUGFyYWdyYXBoczogW1xuXHRcdFx0XHRcIkJsYWNrLCB3aGl0ZSBhbmQgc2lnbmFsIHJlZCBmb3JtIGEgYm9sZCwgcmVjb2duaXNhYmxlIHN5c3RlbS4gQ29uZGVuc2VkIGRpc3BsYXkgdHlwZSBjcmVhdGVzIHBhY2UsIHdoaWxlIGxpZ2h0IGNhdGFsb2d1ZSBzdXJmYWNlcyBrZWVwIGRlbnNlIGRhdGEgcmVhZGFibGUuXCIsXG5cdFx0XHRcdFwiRGFyayBwcmVzZW50YXRpb24gc2VjdGlvbnMgYW5kIHByZWNpc2UgcHJvZHVjdCBjYXJkcyBhcmUgY29ubmVjdGVkIGJ5IGZpbmUgbGluZXMsIGdlb21ldHJpYyBsYXllcnMgYW5kIHJlc3RyYWluZWQgbmF2aWdhdGlvbiBzdGF0ZXMuXCIsXG5cdFx0XHRdLFxuXHRcdFx0ZmVhdHVyZXM6IFtcblx0XHRcdFx0eyB0aXRsZTogXCJTaWduYWwgcmVkXCIsIHN1YnRpdGxlOiBcImFjdGlvbnMgYW5kIG5hdmlnYXRpb25cIiB9LFxuXHRcdFx0XHR7IHRpdGxlOiBcIkNvbnRyYXN0aW5nIHR5cGVcIiwgc3VidGl0bGU6IFwiZmFzdCBjb250ZW50IGhpZXJhcmNoeVwiIH0sXG5cdFx0XHRcdHsgdGl0bGU6IFwiTGlnaHQgY2F0YWxvZ3VlIGZpZWxkc1wiLCBzdWJ0aXRsZTogXCJwcmVjaXNlIGRhdGEgZGlzcGxheVwiIH0sXG5cdFx0XHRdLFxuXHRcdH0sXG5cdFx0emg6IHtcblx0XHRcdHBhdGhUaXRsZTogXCLop4bop4nor63oqIBcIixcblx0XHRcdHRpdGxlOiBcIuS7peW8uueDiOWvueavlFxcbuW7uueri+aKgOacr+aEn1wiLFxuXHRcdFx0ZGVzY3JpcHRpb25QYXJhZ3JhcGhzOiBbXG5cdFx0XHRcdFwi6buR44CB55m95LiO5L+h5Y+357qi5p6E5oiQ6bKc5piO55qE6K+G5Yir57O757uf44CC56qE5L2T5aSn5qCH6aKY5bim5p2l6IqC5aWP77yM5piO5Lqu55qE55uu5b2V55WM6Z2i5YiZ5L+d6K+B5aSn6YeP5pWw5o2u5riF5pmw5Y+v6K+744CCXCIsXG5cdFx0XHRcdFwi5rex6Imy5bGV56S65Yy65LiO5Lil6LCo55qE5ZWG5ZOB5Y2h54mH6YCa6L+H57uG57q/44CB5Yeg5L2V5bGC5qyh5ZKM5YWL5Yi255qE5a+86Iiq54q25oCB6L+e5o6l6LW35p2l44CCXCIsXG5cdFx0XHRdLFxuXHRcdFx0ZmVhdHVyZXM6IFtcblx0XHRcdFx0eyB0aXRsZTogXCLkv6Hlj7fnuqJcIiwgc3VidGl0bGU6IFwi5YWz6ZSu5pON5L2c5LiO5a+86IiqXCIgfSxcblx0XHRcdFx0eyB0aXRsZTogXCLlr7nmr5TlrZfkvZNcIiwgc3VidGl0bGU6IFwi5b+r6YCf5YaF5a655bGC57qnXCIgfSxcblx0XHRcdFx0eyB0aXRsZTogXCLmmI7kuq7nm67lvZVcIiwgc3VidGl0bGU6IFwi5YeG56Gu5ZGI546w5pWw5o2uXCIgfSxcblx0XHRcdF0sXG5cdFx0fSxcblx0fSxcblx0c3RhdGVfMDM6IHtcblx0XHRlbjoge1xuXHRcdFx0cGF0aFRpdGxlOiBcIkNBVEFMT0dVRSAmIE1BVENISU5HXCIsXG5cdFx0XHR0aXRsZTogXCJGUk9NIFZFSElDTEUgVFlQRVxcblRPIEEgU1BFQ0lGSUMgUFJPRFVDVFwiLFxuXHRcdFx0ZGVzY3JpcHRpb25QYXJhZ3JhcGhzOiBbXG5cdFx0XHRcdFwiVGhlIGNhdGFsb2d1ZSBjb3ZlcnMgYWlyIGNvbmRpdGlvbmVycywgaGVhdGVycywgcmVmcmlnZXJhdG9ycywgY29tcHJlc3NvcnMgYW5kIGNvbXBvbmVudHMuIEl0cyBuZXN0ZWQgc3RydWN0dXJlIG1vdmVzIHF1aWNrbHkgZnJvbSBhIGRpcmVjdGlvbiB0byB0aGUgcmVxdWlyZWQgcHJvZHVjdCBncm91cC5cIixcblx0XHRcdFx0XCJWZWhpY2xlIHR5cGUsIG1ha2UgYW5kIG1vZGVsIHdvcmsgdG9nZXRoZXIgd2l0aCBmaWx0ZXJzLCBzZWFyY2gsIHByb2R1Y3QgY2FyZHMgYW5kIHRoZSBiYXNrZXQuIEF2YWlsYWJpbGl0eSwgcHJpY2UgYW5kIGNvbXBhdGliaWxpdHkgc3RheSBpbiBvbmUgZmxvdy5cIixcblx0XHRcdF0sXG5cdFx0XHRmZWF0dXJlczogW1xuXHRcdFx0XHR7IHRpdGxlOiBcIlZlaGljbGUgbWF0Y2hpbmdcIiwgc3VidGl0bGU6IFwidHlwZSwgbWFrZSBhbmQgbW9kZWxcIiB9LFxuXHRcdFx0XHR7IHRpdGxlOiBcIkxheWVyZWQgY2F0YWxvZ3VlXCIsIHN1YnRpdGxlOiBcImNhdGVnb3JpZXMgYW5kIGNvbXBvbmVudHNcIiB9LFxuXHRcdFx0XHR7IHRpdGxlOiBcIkNhcmRzIGFuZCBiYXNrZXRcIiwgc3VidGl0bGU6IFwicHJpY2UsIHN0b2NrIGFuZCBvcmRlclwiIH0sXG5cdFx0XHRdLFxuXHRcdH0sXG5cdFx0emg6IHtcblx0XHRcdHBhdGhUaXRsZTogXCLnm67lvZXkuI7ljLnphY1cIixcblx0XHRcdHRpdGxlOiBcIuS7jui9pui+huexu+Wei1xcbuebtOi+vuWFt+S9k+WVhuWTgVwiLFxuXHRcdFx0ZGVzY3JpcHRpb25QYXJhZ3JhcGhzOiBbXG5cdFx0XHRcdFwi55uu5b2V6KaG55uW56m66LCD44CB5Yqg54Ot5Zmo44CB6L2m6L295Yaw566x44CB5Y6L57yp5py65Y+K6Zu26YOo5Lu244CC5aSa57qn57uT5p6E5biu5Yqp55So5oi35b+r6YCf6L+b5YWl5omA6ZyA5ZWG5ZOB57uE44CCXCIsXG5cdFx0XHRcdFwi6L2m6L6G57G75Z6L44CB5ZOB54mM5ZKM6L2m5Z6L6YCJ5oup5LiO562b6YCJ44CB5pCc57Si44CB5ZWG5ZOB5Y2h54mH5ZKM6LSt54mp6L2m5Y2P5ZCM5bel5L2c77yM5Zyo5ZCM5LiA5rWB56iL5Lit5ZGI546w5bqT5a2Y44CB5Lu35qC85ZKM5YW85a655oCn44CCXCIsXG5cdFx0XHRdLFxuXHRcdFx0ZmVhdHVyZXM6IFtcblx0XHRcdFx0eyB0aXRsZTogXCLovablnovljLnphY1cIiwgc3VidGl0bGU6IFwi57G75Z6L44CB5ZOB54mM5ZKM6L2m5Z6LXCIgfSxcblx0XHRcdFx0eyB0aXRsZTogXCLlpJrnuqfnm67lvZVcIiwgc3VidGl0bGU6IFwi5YiG57G75LiO6Zu26YOo5Lu2XCIgfSxcblx0XHRcdFx0eyB0aXRsZTogXCLljaHniYfkuI7otK3nianovaZcIiwgc3VidGl0bGU6IFwi5Lu35qC844CB5bqT5a2Y5LiO6K6i5Y2VXCIgfSxcblx0XHRcdF0sXG5cdFx0fSxcblx0fSxcblx0c3RhdGVfMDQ6IHtcblx0XHRlbjoge1xuXHRcdFx0cGF0aFRpdGxlOiBcIkNPTlRFTlQgJiBTRVJWSUNFU1wiLFxuXHRcdFx0dGl0bGU6IFwiTU9SRSBUSEFOIEEgU1RPUkUg4oCUXFxuQSBXT1JLSU5HIFBMQVRGT1JNXCIsXG5cdFx0XHRkZXNjcmlwdGlvblBhcmFncmFwaHM6IFtcblx0XHRcdFx0XCJUaGUgd2Vic2l0ZSBwcmVzZW50cyBjb21wYW55IHNlcnZpY2VzLCBleHBlcnRpc2UsIHVzZWZ1bCBhcnRpY2xlcywgY29udGFjdHMgYW5kIHBhcnRuZXJzaGlwIHRlcm1zLiBUaGUgY29tbWVyY2lhbCBjYXRhbG9ndWUgcmVtYWlucyBjb25uZWN0ZWQgdG8gcmVhbCBpbnN0YWxsYXRpb24gYW5kIHJlcGFpciB3b3JrLlwiLFxuXHRcdFx0XHRcIkNvbnRlbnQgc2VjdGlvbnMgYnVpbGQgdHJ1c3QgYW5kIGxldCB0aGUgdGVhbSBkZXZlbG9wIHRoZSBwcm9qZWN0IHdpdGhvdXQgY2hhbmdpbmcgaXRzIGNvcmUgdXNlciBsb2dpYy5cIixcblx0XHRcdF0sXG5cdFx0XHRmZWF0dXJlczogW1xuXHRcdFx0XHR7IHRpdGxlOiBcIlNlcnZpY2VzXCIsIHN1YnRpdGxlOiBcImluc3RhbGxhdGlvbiwgZGlhZ25vc3RpY3MgYW5kIHJlcGFpclwiIH0sXG5cdFx0XHRcdHsgdGl0bGU6IFwiVXNlZnVsIGNvbnRlbnRcIiwgc3VidGl0bGU6IFwicHJvZmVzc2lvbmFsIGd1aWRhbmNlXCIgfSxcblx0XHRcdFx0eyB0aXRsZTogXCJQYXJ0bmVyc2hpcCBhbmQgY29udGFjdHNcIiwgc3VidGl0bGU6IFwiZGlyZWN0IGVucXVpcnkgcGF0aHNcIiB9LFxuXHRcdFx0XSxcblx0XHR9LFxuXHRcdHpoOiB7XG5cdFx0XHRwYXRoVGl0bGU6IFwi5YaF5a655LiO5pyN5YqhXCIsXG5cdFx0XHR0aXRsZTogXCLkuI3ku4XmmK/llYblupfvvIxcXG7mm7TmmK/kuJrliqHlubPlj7BcIixcblx0XHRcdGRlc2NyaXB0aW9uUGFyYWdyYXBoczogW1xuXHRcdFx0XHRcIue9keermeWxleekuuWFrOWPuOacjeWKoeOAgeS4k+S4muaWueazleOAgeWunueUqOaWh+eroOOAgeiBlOezu+aWueW8j+WSjOWQiOS9nOadoeS7tu+8jOS9v+WVhuWTgeebruW9leS4juecn+WunuWuieijheWSjOe7tOS/ruS4muWKoeS/neaMgei/nuaOpeOAglwiLFxuXHRcdFx0XHRcIuWGheWuueadv+Wdl+W7uueri+S/oeS7u++8jOS5n+iuqeWboumYn+iDveWkn+WcqOS4jeaUueWPmOaguOW/g+eUqOaIt+mAu+i+keeahOaDheWGteS4i+aMgee7reWPkeWxlemhueebruOAglwiLFxuXHRcdFx0XSxcblx0XHRcdGZlYXR1cmVzOiBbXG5cdFx0XHRcdHsgdGl0bGU6IFwi5pyN5YqhXCIsIHN1YnRpdGxlOiBcIuWuieijheOAgeiviuaWreS4jue7tOS/rlwiIH0sXG5cdFx0XHRcdHsgdGl0bGU6IFwi5LiT5Lia5YaF5a65XCIsIHN1YnRpdGxlOiBcIuWunueUqOaMh+WvvFwiIH0sXG5cdFx0XHRcdHsgdGl0bGU6IFwi5ZCI5L2c5LiO6IGU57O7XCIsIHN1YnRpdGxlOiBcIuebtOaOpeWSqOivoui3r+W+hFwiIH0sXG5cdFx0XHRdLFxuXHRcdH0sXG5cdH0sXG5cdHN0YXRlXzA1OiB7XG5cdFx0ZW46IHtcblx0XHRcdHBhdGhUaXRsZTogXCJQUk9KRUNUIEVOR0lORUVSSU5HXCIsXG5cdFx0XHR0aXRsZTogXCJBIENBVEFMT0dVRSBCVUlMVFxcblRPIEtFRVAgR1JPV0lOR1wiLFxuXHRcdFx0ZGVzY3JpcHRpb25QYXJhZ3JhcGhzOiBbXG5cdFx0XHRcdFwiVGhlIHByb2plY3QgaXMgYnVpbHQgd2l0aCBOZXh0LmpzLCBSZWFjdCBhbmQgVHlwZVNjcmlwdC4gVGhlIHNlcnZlciBsYXllciwgUHJpc21hIGFuZCBQb3N0Z3JlU1FMIGNvbm5lY3QgY2F0YWxvZ3VlIGRhdGEsIGFkbWluaXN0cmF0aW9uLCBwcmljZXMgYW5kIHVzZXIgZmxvd3MuXCIsXG5cdFx0XHRcdFwiUmVzcG9uc2l2ZSBhcmNoaXRlY3R1cmUgcHJlc2VydmVzIHJlYWwgbW9iaWxlIHNjcmVlbnM6IHRoZSBjYXRhbG9ndWUgZG9lcyBub3QgY3JvcCBhIGRlc2t0b3AgbGF5b3V0IGJ1dCByZXN0cnVjdHVyZXMgbmF2aWdhdGlvbiwgZmlsdGVycyBhbmQgY2FyZHMgZm9yIGEgdmVydGljYWwgZmxvdy5cIixcblx0XHRcdF0sXG5cdFx0XHRmZWF0dXJlczogW1xuXHRcdFx0XHR7IHRpdGxlOiBcIk5leHQuanMgKyBSZWFjdFwiLCBzdWJ0aXRsZTogXCJvbmUgZnVsbC1zdGFjayBmb3VuZGF0aW9uXCIgfSxcblx0XHRcdFx0eyB0aXRsZTogXCJUeXBlU2NyaXB0XCIsIHN1YnRpdGxlOiBcImRhdGEgYW5kIFVJIGNvbnRyYWN0c1wiIH0sXG5cdFx0XHRcdHsgdGl0bGU6IFwiUmVzcG9uc2l2ZSBVSVwiLCBzdWJ0aXRsZTogXCJwdXJwb3NlLWJ1aWx0IG1vYmlsZSBmbG93c1wiIH0sXG5cdFx0XHRdLFxuXHRcdH0sXG5cdFx0emg6IHtcblx0XHRcdHBhdGhUaXRsZTogXCLpobnnm67lt6XnqItcIixcblx0XHRcdHRpdGxlOiBcIumdouWQkeaMgee7reWinumVv+eahFxcbuWVhuWTgeebruW9lVwiLFxuXHRcdFx0ZGVzY3JpcHRpb25QYXJhZ3JhcGhzOiBbXG5cdFx0XHRcdFwi6aG555uu5Z+65LqOIE5leHQuanPjgIFSZWFjdCDlkowgVHlwZVNjcmlwdOOAguacjeWKoeWZqOWxguOAgVByaXNtYSDkuI4gUG9zdGdyZVNRTCDov57mjqXnm67lvZXmlbDmja7jgIHlkI7lj7DnrqHnkIbjgIHku7fmoLzlkoznlKjmiLfmtYHnqIvjgIJcIixcblx0XHRcdFx0XCLlk43lupTlvI/mnrbmnoTkv53nlZnnnJ/mraPnmoTnp7vliqjnq6/nlYzpnaLvvJrnm67lvZXkuI3mmK/oo4HliIfmoYzpnaLluIPlsYDvvIzogIzmmK/kuLrnurXlkJHlnLrmma/ph43mlrDnu4Tnu4flr7zoiKrjgIHnrZvpgInlkozllYblk4HljaHniYfjgIJcIixcblx0XHRcdF0sXG5cdFx0XHRmZWF0dXJlczogW1xuXHRcdFx0XHR7IHRpdGxlOiBcIk5leHQuanMgKyBSZWFjdFwiLCBzdWJ0aXRsZTogXCLnu5/kuIDlhajmoIjln7rnoYBcIiB9LFxuXHRcdFx0XHR7IHRpdGxlOiBcIlR5cGVTY3JpcHRcIiwgc3VidGl0bGU6IFwi5pWw5o2u5LiO55WM6Z2i5aWR57qmXCIgfSxcblx0XHRcdFx0eyB0aXRsZTogXCLlk43lupTlvI/nlYzpnaJcIiwgc3VidGl0bGU6IFwi54us56uL56e75Yqo56uv5rWB56iLXCIgfSxcblx0XHRcdF0sXG5cdFx0fSxcblx0fSxcbn07XG5cbmV4cG9ydCBkZWZhdWx0IHN0YXRlQ29weTtcbiJdfQ==

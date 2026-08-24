@@ -1,14 +1,13 @@
 import { useCallback, useMemo } from "react";
 import { useSnapshot } from "valtio";
-import { getProjectByRoute, getProjectBySlug } from "@/pages/portfolio/core/projectRegistry.js";
+import { getProjectByRoute } from "@/pages/portfolio/core/projectRegistry.js";
 import { PortfolioProjectProvider } from "@/pages/portfolio/core/PortfolioProjectContext.jsx";
 import { useCaseStudyMobileViewport } from "@/pages/portfolio/core/useCaseStudyMobileViewport.js";
 import { navigateCaseStudyToState } from "@/pages/portfolio/core/navigateCaseStudyState.js";
 import { useRouteTransitionContext } from "@/app/context/RouteTransitionContext.jsx";
 import { store } from "@/app/store.jsx";
 import { resolveSceneId } from "@/three/scenes/resolveSceneId.js";
-import { CAPABILITIES } from "@/pages/capabilities/data/capabilities.js";
-import lightTrailsHudProject from "@/pages/capabilities/lightTrails/lightTrailsHudProject.js";
+import { getCapabilityHudProject } from "@/pages/capabilities/data/capabilityHudProjects.js";
 import CaseStudyPanelHudPainter from "./CaseStudyPanelHudPainter.jsx";
 
 /**
@@ -24,9 +23,7 @@ export default function CaseStudyPanelHudOverlay() {
 	const capabilityStageId = capabilityExperience.activeStageId;
 	const project = useMemo(() => (
 		sceneId === "capabilities"
-			? capabilityStageId === "light-trails"
-				? lightTrailsHudProject
-				: getProjectBySlug("mmk1")
+			? getCapabilityHudProject(capabilityStageId)
 			: getProjectByRoute(displayPathname)
 	), [capabilityStageId, displayPathname, sceneId]);
 	// Subscribe only to content identity — never stageProgress/scroll.
@@ -106,13 +103,8 @@ export default function CaseStudyPanelHudOverlay() {
 		<PortfolioProjectProvider project={project} value={contextValue}>
 			<CaseStudyPanelHudPainter
 				hideProjectNavigation={isCapabilityHud}
-				keepStageRailVisible={isCapabilityHud}
-				// MMK-1 keeps its established idle HUD. The second capability
-				// changes the prepared content only after the internal hex settles,
-				// then reveals it with the existing GPU mosaic enter.
-				skipPanelIntro={isCapabilityHud && capabilityStageId !== "light-trails"}
-				stageRailStates={isCapabilityHud ? CAPABILITIES : null}
-				stageRailInteractive={!isCapabilityHud}
+				hideStageRail={isCapabilityHud}
+				skipPanelIntro={isCapabilityHud}
 			/>
 		</PortfolioProjectProvider>
 	);

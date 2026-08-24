@@ -1,0 +1,368 @@
+.hud {
+	--hud-accent: 150, 119, 255;
+	--hud-cyan: 70, 210, 255;
+	position: absolute;
+	z-index: 32;
+	left: 58%;
+	bottom: clamp(28px, 4.2vh, 56px);
+	width: clamp(510px, 40vw, 640px);
+	padding: 10px 14px 8px;
+	color: rgba(230, 244, 255, 0.88);
+	font-family: "ManifoldExtended", "MazzardM", sans-serif;
+	pointer-events: none;
+	opacity: 0;
+	filter: blur(5px);
+	transform: translate3d(-50%, 22px, 0) scale(0.97);
+	transition:
+		opacity 420ms ease,
+		filter 480ms ease,
+		transform 720ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.hud::before,
+.hud::after {
+	content: "";
+	position: absolute;
+	pointer-events: none;
+}
+
+.hud::before {
+	inset: 0;
+	border: 1px solid rgba(var(--hud-cyan), 0.11);
+	background:
+		linear-gradient(100deg, rgba(4, 13, 28, 0.52), rgba(15, 10, 37, 0.23) 48%, rgba(3, 16, 29, 0.42)),
+		radial-gradient(circle at calc((var(--selected-index) + 0.5) * 25%) 55%, rgba(var(--hud-accent), 0.12), transparent 19%);
+	clip-path: polygon(12px 0, calc(100% - 30px) 0, 100% 22px, 100% calc(100% - 8px), calc(100% - 8px) 100%, 24px 100%, 0 calc(100% - 17px), 0 12px);
+	box-shadow:
+		inset 0 0 30px rgba(44, 162, 255, 0.025),
+		0 16px 44px rgba(0, 0, 0, 0.18);
+	backdrop-filter: blur(12px) saturate(1.12);
+}
+
+.hud::after {
+	left: 19px;
+	right: 19px;
+	top: 0;
+	height: 1px;
+	background: linear-gradient(90deg, transparent, rgba(var(--hud-cyan), 0.45), rgba(var(--hud-accent), 0.7), transparent);
+	box-shadow: 0 0 9px rgba(var(--hud-accent), 0.55);
+}
+
+.visible {
+	pointer-events: auto;
+	opacity: 1;
+	filter: none;
+	transform: translate3d(-50%, 0, 0) scale(1);
+}
+
+.header,
+.footer {
+	position: relative;
+	z-index: 2;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	text-transform: uppercase;
+	letter-spacing: 0.18em;
+}
+
+.header {
+	padding: 0 4px 7px;
+	font-size: 7px;
+}
+
+.systemName {
+	color: rgba(201, 226, 242, 0.44);
+}
+
+.status {
+	display: inline-flex;
+	align-items: center;
+	gap: 7px;
+	color: rgba(164, 213, 239, 0.58);
+}
+
+.status i {
+	width: 4px;
+	height: 4px;
+	border-radius: 50%;
+	background: rgb(var(--hud-cyan));
+	box-shadow: 0 0 8px rgba(var(--hud-cyan), 0.9);
+}
+
+[data-morphing="true"] .status i {
+	background: rgb(var(--hud-accent));
+	box-shadow: 0 0 11px rgba(var(--hud-accent), 1);
+	animation: statusPulse 680ms ease-in-out infinite alternate;
+}
+
+.selectorTrack {
+	position: relative;
+	z-index: 2;
+	display: grid;
+	grid-template-columns: repeat(4, minmax(0, 1fr));
+	min-height: 78px;
+}
+
+.baseRail,
+.energyRail {
+	position: absolute;
+	z-index: 0;
+	left: 7.5%;
+	right: 7.5%;
+	top: 29px;
+	height: 1px;
+	pointer-events: none;
+}
+
+.baseRail {
+	background: linear-gradient(90deg, transparent, rgba(110, 189, 229, 0.19) 8%, rgba(121, 162, 204, 0.2) 92%, transparent);
+}
+
+.energyRail {
+	right: auto;
+	width: calc(85% * var(--morph-progress));
+	background: linear-gradient(90deg, transparent, rgba(var(--hud-cyan), 0.64), rgba(var(--hud-accent), 0.92));
+	box-shadow: 0 0 8px rgba(var(--hud-accent), 0.5);
+	transition: width 90ms linear;
+}
+
+.focusLens {
+	position: absolute;
+	z-index: 1;
+	left: calc((var(--selected-index) + 0.5) * 25%);
+	top: 6px;
+	width: 51px;
+	height: 51px;
+	border: 1px solid rgba(var(--hud-accent), 0.3);
+	border-radius: 50%;
+	transform: translateX(-50%);
+	box-shadow:
+		0 0 16px rgba(var(--hud-accent), 0.12),
+		inset 0 0 13px rgba(var(--hud-cyan), 0.07);
+	transition: left 820ms cubic-bezier(0.16, 1, 0.3, 1);
+	pointer-events: none;
+}
+
+.focusLens::before,
+.focusLens::after {
+	content: "";
+	position: absolute;
+	border-radius: 50%;
+}
+
+.focusLens::before {
+	inset: 5px;
+	border: 1px dashed rgba(var(--hud-cyan), 0.32);
+	animation: lensSpin 9s linear infinite;
+}
+
+.focusLens::after {
+	inset: -5px;
+	border-top: 1px solid rgba(213, 244, 255, 0.8);
+	border-right: 1px solid transparent;
+	transform: rotate(-32deg);
+}
+
+.focusLens > span {
+	position: absolute;
+	inset: 50%;
+	border-radius: 50%;
+	box-shadow: 0 0 22px 8px rgba(var(--hud-accent), 0.22);
+}
+
+.formButton {
+	position: relative;
+	z-index: 3;
+	display: flex;
+	min-width: 0;
+	min-height: 76px;
+	align-items: center;
+	justify-content: flex-start;
+	gap: 7px;
+	padding: 0 4px;
+	border: 0;
+	color: rgba(185, 215, 232, 0.45);
+	background: transparent;
+	font: inherit;
+	cursor: pointer;
+	transition: color 260ms ease;
+}
+
+.formButton:focus-visible {
+	outline: none;
+}
+
+.formButton:focus-visible .glyphShell {
+	filter: drop-shadow(0 0 7px rgba(var(--hud-cyan), 0.52));
+}
+
+.glyphShell {
+	position: relative;
+	display: grid;
+	width: 46px;
+	height: 54px;
+	flex: 0 0 46px;
+	place-items: center;
+}
+
+.glyphShell::before {
+	content: "";
+	position: absolute;
+	left: 50%;
+	top: 27px;
+	width: 4px;
+	height: 4px;
+	border-radius: 50%;
+	background: rgba(109, 194, 235, 0.42);
+	box-shadow: 0 0 6px rgba(var(--hud-cyan), 0.35);
+	transform: translate(-50%, -50%);
+	transition:
+		background 260ms ease,
+		box-shadow 260ms ease,
+		transform 420ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.glyphShell svg {
+	position: relative;
+	z-index: 2;
+	width: 38px;
+	height: 38px;
+	fill: none;
+	stroke: currentColor;
+	stroke-width: 0.8;
+	stroke-linecap: round;
+	stroke-linejoin: round;
+	transition:
+		filter 260ms ease,
+		transform 500ms cubic-bezier(0.16, 1, 0.3, 1),
+		stroke-width 260ms ease;
+}
+
+.glyphCore {
+	position: absolute;
+	left: 50%;
+	top: 50%;
+	width: 24px;
+	height: 24px;
+	border-radius: 50%;
+	background: radial-gradient(circle, rgba(var(--hud-accent), 0.13), transparent 67%);
+	opacity: 0;
+	transform: translate(-50%, -50%) scale(0.5);
+	transition: opacity 260ms ease, transform 520ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.formMeta {
+	display: grid;
+	min-width: 0;
+	gap: 4px;
+	text-align: left;
+	text-transform: uppercase;
+}
+
+.formMeta small {
+	font-size: 6px;
+	letter-spacing: 0.15em;
+	opacity: 0.48;
+}
+
+.formMeta strong {
+	max-width: 64px;
+	overflow: hidden;
+	font-size: clamp(6px, 0.5vw, 9px);
+	font-weight: 400;
+	letter-spacing: 0.08em;
+	text-overflow: ellipsis;
+}
+
+.formButton:hover,
+.formButton[aria-pressed="true"] {
+	color: rgba(226, 247, 255, 0.92);
+}
+
+.formButton:hover .glyphShell::before,
+.formButton[aria-pressed="true"] .glyphShell::before {
+	background: #e2fbff;
+	box-shadow: 0 0 11px rgba(var(--hud-cyan), 1), 0 0 22px rgba(var(--hud-accent), 0.68);
+	transform: translate(-50%, -50%) scale(1.35);
+}
+
+.formButton:hover .glyphShell svg,
+.formButton[aria-pressed="true"] .glyphShell svg {
+	filter: drop-shadow(0 0 5px rgba(var(--hud-cyan), 0.62));
+	stroke-width: 1;
+	transform: scale(1.06);
+}
+
+.formButton[aria-pressed="true"] .glyphCore {
+	opacity: 1;
+	transform: translate(-50%, -50%) scale(1.2);
+}
+
+.footer {
+	min-height: 12px;
+	padding: 1px 4px 0;
+	color: rgba(124, 190, 222, 0.44);
+	font-size: 6px;
+}
+
+.hint {
+	color: rgba(184, 214, 232, 0.36);
+}
+
+@keyframes lensSpin {
+	to { transform: rotate(360deg); }
+}
+
+@keyframes statusPulse {
+	to { opacity: 0.28; transform: scale(0.72); }
+}
+
+@media (max-width: 1100px) {
+	.hud {
+		left: 56%;
+		width: clamp(390px, 44vw, 500px);
+	}
+
+	.formMeta strong {
+		font-size: 7px;
+	}
+}
+
+@media (max-width: 767px) {
+	.hud {
+		left: 50%;
+		bottom: 72px;
+		width: min(430px, calc(100vw - 80px));
+		padding-inline: 9px;
+	}
+
+	.formButton {
+		justify-content: center;
+		padding-inline: 1px;
+	}
+
+	.formMeta {
+		display: none;
+	}
+
+	.glyphShell {
+		width: 42px;
+		flex-basis: 42px;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.hud,
+	.focusLens,
+	.energyRail,
+	.glyphShell svg,
+	.glyphCore {
+		transition-duration: 1ms;
+	}
+
+	.focusLens::before,
+	[data-morphing="true"] .status i {
+		animation: none;
+	}
+}

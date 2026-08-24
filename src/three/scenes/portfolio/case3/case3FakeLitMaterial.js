@@ -108,16 +108,20 @@ varying vec3 vNormal;
 varying vec3 vViewDir;
 varying vec3 vWorldPosition;
 
+vec3 safeNormalize(vec3 value) {
+	return value * inversesqrt(max(dot(value, value), 0.00001));
+}
+
 float stableHash(vec3 value) {
 	vec3 cell = floor(value);
 	return fract(sin(dot(cell, vec3(127.1, 311.7, 74.7))) * 43758.5453123);
 }
 
 void main() {
-	vec3 n = normalize(vNormal);
-	vec3 v = normalize(vViewDir);
-	vec3 keyDir = normalize(uKeyDir);
-	vec3 fillDir = normalize(uFillDir);
+	vec3 n = safeNormalize(vNormal);
+	vec3 v = safeNormalize(vViewDir);
+	vec3 keyDir = safeNormalize(uKeyDir);
+	vec3 fillDir = safeNormalize(uFillDir);
 	float roughness = clamp(uRoughness, 0.0, 1.0);
 
 	// Object-stable breakup: it follows the steel instead of swimming with the camera.
@@ -136,7 +140,7 @@ void main() {
 	// The ambient floor is intentionally preserved: no view angle may turn a face black.
 	vec3 lit = wornSteel * (uAmbient + key * uKeyStrength + fill * uFillStrength);
 
-	float fresnel = 1.0 - max(dot(n, v), 0.0);
+	float fresnel = clamp(1.0 - clamp(dot(n, v), 0.0, 1.0), 0.0, 1.0);
 	float rim = pow(fresnel, uRimPower) * uRimStrength * mix(1.0, 0.84, roughness);
 	lit += uRimColor * rim;
 

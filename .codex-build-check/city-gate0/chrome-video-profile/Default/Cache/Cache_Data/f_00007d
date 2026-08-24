@@ -1,0 +1,205 @@
+const stateCopy = {
+	state_01: {
+		en: {
+			pathTitle: "ABOUT THE PROJECT",
+			title: "ARCHITECTURE\nPEOPLE TRUST",
+			descriptionParagraphs: ["For HUBARCH we developed a portfolio website that presents the architectural studio through realized spaces, services and professional expertise.", "The brief was twofold: help visitors assess the level of the work, and give the studio team the ability to manage projects and publications themselves through WordPress."],
+			traits: [
+				{
+					label: "year",
+					value: "2025"
+				},
+				{
+					label: "timeline",
+					value: "3 months"
+				},
+				{
+					label: "role",
+					value: "frontend and backend"
+				}
+			]
+		},
+		zh: {
+			pathTitle: "项目介绍",
+			title: "值得信赖的\n建筑表达",
+			descriptionParagraphs: ["我们为HUBARCH开发了作品集网站，通过已实现的空间、服务与专业能力呈现建筑工作室。", "任务是双重的：帮助访客评估作品水准，同时让工作室团队可通过WordPress自行管理项目与发布内容。"],
+			traits: [
+				{
+					label: "年份",
+					value: "2025"
+				},
+				{
+					label: "周期",
+					value: "3个月"
+				},
+				{
+					label: "角色",
+					value: "前端与后端"
+				}
+			]
+		}
+	},
+	state_02: {
+		en: {
+			pathTitle: "VISUAL LANGUAGE",
+			title: "SPACE\nSPEAKS FOR ITSELF",
+			descriptionParagraphs: ["In an architectural portfolio, photography becomes the main material. The interface supports scale, light, texture and spatial detail without competing with them.", "An editorial grid, large images and restrained typography create a calm context for projects of very different character."],
+			features: [
+				{
+					title: "Large photography",
+					subtitle: "the foundation of the story"
+				},
+				{
+					title: "Editorial grid",
+					subtitle: "order in the content"
+				},
+				{
+					title: "Restrained typography",
+					subtitle: "a neutral frame"
+				}
+			]
+		},
+		zh: {
+			pathTitle: "视觉语言",
+			title: "空间\n自会发声",
+			descriptionParagraphs: ["在建筑作品集中，摄影成为主要材料。界面支撑尺度、光线、质感与空间细节，而不与之竞争。", "编辑式网格、大幅图像与克制的字体，为不同气质的项目创造平静语境。"],
+			features: [
+				{
+					title: "大幅摄影",
+					subtitle: "叙事基础"
+				},
+				{
+					title: "编辑式网格",
+					subtitle: "内容秩序"
+				},
+				{
+					title: "克制字体",
+					subtitle: "中性边框"
+				}
+			]
+		}
+	},
+	state_03: {
+		en: {
+			pathTitle: "INTERACTIVE EXPERIENCE",
+			title: "A PATH FROM THE BUILDING\nTO ITS DETAILS",
+			descriptionParagraphs: ["Users move from a general catalog to a detailed project story: the brief, planning solutions, materials, team and awards.", "The site does not use specialized 3D/BIM navigation. Interaction is built around sequential content viewing and clear transitions between sections."],
+			features: [
+				{
+					title: "Project catalog",
+					subtitle: "an overview of the work"
+				},
+				{
+					title: "Detail page",
+					subtitle: "the story of the building"
+				},
+				{
+					title: "RU and EN",
+					subtitle: "two content versions"
+				}
+			]
+		},
+		zh: {
+			pathTitle: "互动体验",
+			title: "从项目整体\n到细节",
+			descriptionParagraphs: ["用户从总览目录进入项目详述：任务、平面方案、材料、团队与奖项。", "网站不使用专门的3D/BIM导航。互动围绕内容的连续浏览与分区之间的清晰转场展开。"],
+			features: [
+				{
+					title: "项目目录",
+					subtitle: "作品总览"
+				},
+				{
+					title: "详情页",
+					subtitle: "项目故事"
+				},
+				{
+					title: "RU与EN",
+					subtitle: "两套内容版本"
+				}
+			]
+		}
+	},
+	state_04: {
+		en: {
+			pathTitle: "CONTENT PLATFORM",
+			title: "PROJECTS, SERVICES\nAND EXPERTISE",
+			descriptionParagraphs: ["The portfolio is complemented by service pages, FAQ, publications and contact forms. That turns the site from a gallery into a full presentation platform for the studio.", "The structure of project pages supports a large volume of data: description, services, team, specifications, awards and photography."],
+			features: [
+				{
+					title: "Projects",
+					subtitle: "detailed stories"
+				},
+				{
+					title: "Services and FAQ",
+					subtitle: "answers before contact"
+				},
+				{
+					title: "Media",
+					subtitle: "publications and expertise"
+				}
+			]
+		},
+		zh: {
+			pathTitle: "内容平台",
+			title: "项目、服务\n与专业能力",
+			descriptionParagraphs: ["作品集辅以服务页、FAQ、发布内容与联系表单。这使网站从画廊转变为工作室完整的展示平台。", "项目页结构支持大量数据：描述、服务、团队、参数、奖项与影像资料。"],
+			features: [
+				{
+					title: "项目",
+					subtitle: "详尽故事"
+				},
+				{
+					title: "服务与FAQ",
+					subtitle: "联系前的答案"
+				},
+				{
+					title: "媒体",
+					subtitle: "发布与专业内容"
+				}
+			]
+		}
+	},
+	state_05: {
+		en: {
+			pathTitle: "PROJECT ENGINEERING",
+			title: "REACT ON THE OUTSIDE,\nWORDPRESS WITHIN",
+			descriptionParagraphs: ["The user interface is built with React, while WordPress manages projects and other content.", "Over three months we assembled the frontend and the admin side so an expressive public showcase would remain convenient for daily updates."],
+			features: [
+				{
+					title: "React",
+					subtitle: "user interface"
+				},
+				{
+					title: "WordPress",
+					subtitle: "content management"
+				},
+				{
+					title: "Content model",
+					subtitle: "projects, services and publications"
+				}
+			]
+		},
+		zh: {
+			pathTitle: "项目工程",
+			title: "外层React，\n内层WordPress",
+			descriptionParagraphs: ["用户界面采用React实现，WordPress负责管理项目及其他内容。", "三个月内我们完成了前端与管理端，使富有表现力的公开展示仍便于日常更新。"],
+			features: [
+				{
+					title: "React",
+					subtitle: "用户界面"
+				},
+				{
+					title: "WordPress",
+					subtitle: "内容管理"
+				},
+				{
+					title: "Content model",
+					subtitle: "项目、服务与发布"
+				}
+			]
+		}
+	}
+};
+export default stateCopy;
+
+//# sourceMappingURL=data:application/json;base64,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O0lBQU87SUFDdkM7S0FBRSxPQUFPO0tBQWlCLFVBQVU7SUFBVztHQUNoRDtFQUNEO0NBQ0Q7QUFDRDtBQUVBLGVBQWUiLCJuYW1lcyI6W10sInNvdXJjZXMiOlsic3RhdGVDb3B5LmpzIl0sInZlcnNpb24iOjMsInNvdXJjZXNDb250ZW50IjpbImNvbnN0IHN0YXRlQ29weSA9IHtcblx0c3RhdGVfMDE6IHtcblx0XHRlbjoge1xuXHRcdFx0cGF0aFRpdGxlOiBcIkFCT1VUIFRIRSBQUk9KRUNUXCIsXG5cdFx0XHR0aXRsZTogXCJBUkNISVRFQ1RVUkVcXG5QRU9QTEUgVFJVU1RcIixcblx0XHRcdGRlc2NyaXB0aW9uUGFyYWdyYXBoczogW1xuXHRcdFx0XHRcIkZvciBIVUJBUkNIIHdlIGRldmVsb3BlZCBhIHBvcnRmb2xpbyB3ZWJzaXRlIHRoYXQgcHJlc2VudHMgdGhlIGFyY2hpdGVjdHVyYWwgc3R1ZGlvIHRocm91Z2ggcmVhbGl6ZWQgc3BhY2VzLCBzZXJ2aWNlcyBhbmQgcHJvZmVzc2lvbmFsIGV4cGVydGlzZS5cIixcblx0XHRcdFx0XCJUaGUgYnJpZWYgd2FzIHR3b2ZvbGQ6IGhlbHAgdmlzaXRvcnMgYXNzZXNzIHRoZSBsZXZlbCBvZiB0aGUgd29yaywgYW5kIGdpdmUgdGhlIHN0dWRpbyB0ZWFtIHRoZSBhYmlsaXR5IHRvIG1hbmFnZSBwcm9qZWN0cyBhbmQgcHVibGljYXRpb25zIHRoZW1zZWx2ZXMgdGhyb3VnaCBXb3JkUHJlc3MuXCIsXG5cdFx0XHRdLFxuXHRcdFx0dHJhaXRzOiBbXG5cdFx0XHRcdHsgbGFiZWw6IFwieWVhclwiLCB2YWx1ZTogXCIyMDI1XCIgfSxcblx0XHRcdFx0eyBsYWJlbDogXCJ0aW1lbGluZVwiLCB2YWx1ZTogXCIzIG1vbnRoc1wiIH0sXG5cdFx0XHRcdHsgbGFiZWw6IFwicm9sZVwiLCB2YWx1ZTogXCJmcm9udGVuZCBhbmQgYmFja2VuZFwiIH0sXG5cdFx0XHRdLFxuXHRcdH0sXG5cdFx0emg6IHtcblx0XHRcdHBhdGhUaXRsZTogXCLpobnnm67ku4vnu41cIixcblx0XHRcdHRpdGxlOiBcIuWAvOW+l+S/oei1lueahFxcbuW7uuetkeihqOi+vlwiLFxuXHRcdFx0ZGVzY3JpcHRpb25QYXJhZ3JhcGhzOiBbXG5cdFx0XHRcdFwi5oiR5Lus5Li6SFVCQVJDSOW8gOWPkeS6huS9nOWTgembhue9keerme+8jOmAmui/h+W3suWunueOsOeahOepuumXtOOAgeacjeWKoeS4juS4k+S4muiDveWKm+WRiOeOsOW7uuetkeW3peS9nOWupOOAglwiLFxuXHRcdFx0XHRcIuS7u+WKoeaYr+WPjOmHjeeahO+8muW4ruWKqeiuv+WuouivhOS8sOS9nOWTgeawtOWHhu+8jOWQjOaXtuiuqeW3peS9nOWupOWboumYn+WPr+mAmui/h1dvcmRQcmVzc+iHquihjOeuoeeQhumhueebruS4juWPkeW4g+WGheWuueOAglwiLFxuXHRcdFx0XSxcblx0XHRcdHRyYWl0czogW1xuXHRcdFx0XHR7IGxhYmVsOiBcIuW5tOS7vVwiLCB2YWx1ZTogXCIyMDI1XCIgfSxcblx0XHRcdFx0eyBsYWJlbDogXCLlkajmnJ9cIiwgdmFsdWU6IFwiM+S4quaciFwiIH0sXG5cdFx0XHRcdHsgbGFiZWw6IFwi6KeS6ImyXCIsIHZhbHVlOiBcIuWJjeerr+S4juWQjuerr1wiIH0sXG5cdFx0XHRdLFxuXHRcdH0sXG5cdH0sXG5cdHN0YXRlXzAyOiB7XG5cdFx0ZW46IHtcblx0XHRcdHBhdGhUaXRsZTogXCJWSVNVQUwgTEFOR1VBR0VcIixcblx0XHRcdHRpdGxlOiBcIlNQQUNFXFxuU1BFQUtTIEZPUiBJVFNFTEZcIixcblx0XHRcdGRlc2NyaXB0aW9uUGFyYWdyYXBoczogW1xuXHRcdFx0XHRcIkluIGFuIGFyY2hpdGVjdHVyYWwgcG9ydGZvbGlvLCBwaG90b2dyYXBoeSBiZWNvbWVzIHRoZSBtYWluIG1hdGVyaWFsLiBUaGUgaW50ZXJmYWNlIHN1cHBvcnRzIHNjYWxlLCBsaWdodCwgdGV4dHVyZSBhbmQgc3BhdGlhbCBkZXRhaWwgd2l0aG91dCBjb21wZXRpbmcgd2l0aCB0aGVtLlwiLFxuXHRcdFx0XHRcIkFuIGVkaXRvcmlhbCBncmlkLCBsYXJnZSBpbWFnZXMgYW5kIHJlc3RyYWluZWQgdHlwb2dyYXBoeSBjcmVhdGUgYSBjYWxtIGNvbnRleHQgZm9yIHByb2plY3RzIG9mIHZlcnkgZGlmZmVyZW50IGNoYXJhY3Rlci5cIixcblx0XHRcdF0sXG5cdFx0XHRmZWF0dXJlczogW1xuXHRcdFx0XHR7IHRpdGxlOiBcIkxhcmdlIHBob3RvZ3JhcGh5XCIsIHN1YnRpdGxlOiBcInRoZSBmb3VuZGF0aW9uIG9mIHRoZSBzdG9yeVwiIH0sXG5cdFx0XHRcdHsgdGl0bGU6IFwiRWRpdG9yaWFsIGdyaWRcIiwgc3VidGl0bGU6IFwib3JkZXIgaW4gdGhlIGNvbnRlbnRcIiB9LFxuXHRcdFx0XHR7IHRpdGxlOiBcIlJlc3RyYWluZWQgdHlwb2dyYXBoeVwiLCBzdWJ0aXRsZTogXCJhIG5ldXRyYWwgZnJhbWVcIiB9LFxuXHRcdFx0XSxcblx0XHR9LFxuXHRcdHpoOiB7XG5cdFx0XHRwYXRoVGl0bGU6IFwi6KeG6KeJ6K+t6KiAXCIsXG5cdFx0XHR0aXRsZTogXCLnqbrpl7RcXG7oh6rkvJrlj5Hlo7BcIixcblx0XHRcdGRlc2NyaXB0aW9uUGFyYWdyYXBoczogW1xuXHRcdFx0XHRcIuWcqOW7uuetkeS9nOWTgembhuS4re+8jOaRhOW9seaIkOS4uuS4u+imgeadkOaWmeOAgueVjOmdouaUr+aSkeWwuuW6puOAgeWFiee6v+OAgei0qOaEn+S4juepuumXtOe7huiKgu+8jOiAjOS4jeS4juS5i+ernuS6ieOAglwiLFxuXHRcdFx0XHRcIue8lui+keW8j+e9keagvOOAgeWkp+W5heWbvuWDj+S4juWFi+WItueahOWtl+S9k++8jOS4uuS4jeWQjOawlOi0qOeahOmhueebruWIm+mAoOW5s+mdmeivreWig+OAglwiLFxuXHRcdFx0XSxcblx0XHRcdGZlYXR1cmVzOiBbXG5cdFx0XHRcdHsgdGl0bGU6IFwi5aSn5bmF5pGE5b2xXCIsIHN1YnRpdGxlOiBcIuWPmeS6i+WfuuehgFwiIH0sXG5cdFx0XHRcdHsgdGl0bGU6IFwi57yW6L6R5byP572R5qC8XCIsIHN1YnRpdGxlOiBcIuWGheWuueenqeW6j1wiIH0sXG5cdFx0XHRcdHsgdGl0bGU6IFwi5YWL5Yi25a2X5L2TXCIsIHN1YnRpdGxlOiBcIuS4reaAp+i+ueahhlwiIH0sXG5cdFx0XHRdLFxuXHRcdH0sXG5cdH0sXG5cdHN0YXRlXzAzOiB7XG5cdFx0ZW46IHtcblx0XHRcdHBhdGhUaXRsZTogXCJJTlRFUkFDVElWRSBFWFBFUklFTkNFXCIsXG5cdFx0XHR0aXRsZTogXCJBIFBBVEggRlJPTSBUSEUgQlVJTERJTkdcXG5UTyBJVFMgREVUQUlMU1wiLFxuXHRcdFx0ZGVzY3JpcHRpb25QYXJhZ3JhcGhzOiBbXG5cdFx0XHRcdFwiVXNlcnMgbW92ZSBmcm9tIGEgZ2VuZXJhbCBjYXRhbG9nIHRvIGEgZGV0YWlsZWQgcHJvamVjdCBzdG9yeTogdGhlIGJyaWVmLCBwbGFubmluZyBzb2x1dGlvbnMsIG1hdGVyaWFscywgdGVhbSBhbmQgYXdhcmRzLlwiLFxuXHRcdFx0XHRcIlRoZSBzaXRlIGRvZXMgbm90IHVzZSBzcGVjaWFsaXplZCAzRC9CSU0gbmF2aWdhdGlvbi4gSW50ZXJhY3Rpb24gaXMgYnVpbHQgYXJvdW5kIHNlcXVlbnRpYWwgY29udGVudCB2aWV3aW5nIGFuZCBjbGVhciB0cmFuc2l0aW9ucyBiZXR3ZWVuIHNlY3Rpb25zLlwiLFxuXHRcdFx0XSxcblx0XHRcdGZlYXR1cmVzOiBbXG5cdFx0XHRcdHsgdGl0bGU6IFwiUHJvamVjdCBjYXRhbG9nXCIsIHN1YnRpdGxlOiBcImFuIG92ZXJ2aWV3IG9mIHRoZSB3b3JrXCIgfSxcblx0XHRcdFx0eyB0aXRsZTogXCJEZXRhaWwgcGFnZVwiLCBzdWJ0aXRsZTogXCJ0aGUgc3Rvcnkgb2YgdGhlIGJ1aWxkaW5nXCIgfSxcblx0XHRcdFx0eyB0aXRsZTogXCJSVSBhbmQgRU5cIiwgc3VidGl0bGU6IFwidHdvIGNvbnRlbnQgdmVyc2lvbnNcIiB9LFxuXHRcdFx0XSxcblx0XHR9LFxuXHRcdHpoOiB7XG5cdFx0XHRwYXRoVGl0bGU6IFwi5LqS5Yqo5L2T6aqMXCIsXG5cdFx0XHR0aXRsZTogXCLku47pobnnm67mlbTkvZNcXG7liLDnu4boioJcIixcblx0XHRcdGRlc2NyaXB0aW9uUGFyYWdyYXBoczogW1xuXHRcdFx0XHRcIueUqOaIt+S7juaAu+iniOebruW9lei/m+WFpemhueebruivpui/sO+8muS7u+WKoeOAgeW5s+mdouaWueahiOOAgeadkOaWmeOAgeWboumYn+S4juWllumhueOAglwiLFxuXHRcdFx0XHRcIue9keermeS4jeS9v+eUqOS4k+mXqOeahDNEL0JJTeWvvOiIquOAguS6kuWKqOWbtOe7leWGheWuueeahOi/nue7rea1j+iniOS4juWIhuWMuuS5i+mXtOeahOa4heaZsOi9rOWcuuWxleW8gOOAglwiLFxuXHRcdFx0XSxcblx0XHRcdGZlYXR1cmVzOiBbXG5cdFx0XHRcdHsgdGl0bGU6IFwi6aG555uu55uu5b2VXCIsIHN1YnRpdGxlOiBcIuS9nOWTgeaAu+iniFwiIH0sXG5cdFx0XHRcdHsgdGl0bGU6IFwi6K+m5oOF6aG1XCIsIHN1YnRpdGxlOiBcIumhueebruaVheS6i1wiIH0sXG5cdFx0XHRcdHsgdGl0bGU6IFwiUlXkuI5FTlwiLCBzdWJ0aXRsZTogXCLkuKTlpZflhoXlrrnniYjmnKxcIiB9LFxuXHRcdFx0XSxcblx0XHR9LFxuXHR9LFxuXHRzdGF0ZV8wNDoge1xuXHRcdGVuOiB7XG5cdFx0XHRwYXRoVGl0bGU6IFwiQ09OVEVOVCBQTEFURk9STVwiLFxuXHRcdFx0dGl0bGU6IFwiUFJPSkVDVFMsIFNFUlZJQ0VTXFxuQU5EIEVYUEVSVElTRVwiLFxuXHRcdFx0ZGVzY3JpcHRpb25QYXJhZ3JhcGhzOiBbXG5cdFx0XHRcdFwiVGhlIHBvcnRmb2xpbyBpcyBjb21wbGVtZW50ZWQgYnkgc2VydmljZSBwYWdlcywgRkFRLCBwdWJsaWNhdGlvbnMgYW5kIGNvbnRhY3QgZm9ybXMuIFRoYXQgdHVybnMgdGhlIHNpdGUgZnJvbSBhIGdhbGxlcnkgaW50byBhIGZ1bGwgcHJlc2VudGF0aW9uIHBsYXRmb3JtIGZvciB0aGUgc3R1ZGlvLlwiLFxuXHRcdFx0XHRcIlRoZSBzdHJ1Y3R1cmUgb2YgcHJvamVjdCBwYWdlcyBzdXBwb3J0cyBhIGxhcmdlIHZvbHVtZSBvZiBkYXRhOiBkZXNjcmlwdGlvbiwgc2VydmljZXMsIHRlYW0sIHNwZWNpZmljYXRpb25zLCBhd2FyZHMgYW5kIHBob3RvZ3JhcGh5LlwiLFxuXHRcdFx0XSxcblx0XHRcdGZlYXR1cmVzOiBbXG5cdFx0XHRcdHsgdGl0bGU6IFwiUHJvamVjdHNcIiwgc3VidGl0bGU6IFwiZGV0YWlsZWQgc3Rvcmllc1wiIH0sXG5cdFx0XHRcdHsgdGl0bGU6IFwiU2VydmljZXMgYW5kIEZBUVwiLCBzdWJ0aXRsZTogXCJhbnN3ZXJzIGJlZm9yZSBjb250YWN0XCIgfSxcblx0XHRcdFx0eyB0aXRsZTogXCJNZWRpYVwiLCBzdWJ0aXRsZTogXCJwdWJsaWNhdGlvbnMgYW5kIGV4cGVydGlzZVwiIH0sXG5cdFx0XHRdLFxuXHRcdH0sXG5cdFx0emg6IHtcblx0XHRcdHBhdGhUaXRsZTogXCLlhoXlrrnlubPlj7BcIixcblx0XHRcdHRpdGxlOiBcIumhueebruOAgeacjeWKoVxcbuS4juS4k+S4muiDveWKm1wiLFxuXHRcdFx0ZGVzY3JpcHRpb25QYXJhZ3JhcGhzOiBbXG5cdFx0XHRcdFwi5L2c5ZOB6ZuG6L6F5Lul5pyN5Yqh6aG144CBRkFR44CB5Y+R5biD5YaF5a655LiO6IGU57O76KGo5Y2V44CC6L+Z5L2/572R56uZ5LuO55S75buK6L2s5Y+Y5Li65bel5L2c5a6k5a6M5pW055qE5bGV56S65bmz5Y+w44CCXCIsXG5cdFx0XHRcdFwi6aG555uu6aG157uT5p6E5pSv5oyB5aSn6YeP5pWw5o2u77ya5o+P6L+w44CB5pyN5Yqh44CB5Zui6Zif44CB5Y+C5pWw44CB5aWW6aG55LiO5b2x5YOP6LWE5paZ44CCXCIsXG5cdFx0XHRdLFxuXHRcdFx0ZmVhdHVyZXM6IFtcblx0XHRcdFx0eyB0aXRsZTogXCLpobnnm65cIiwgc3VidGl0bGU6IFwi6K+m5bC95pWF5LqLXCIgfSxcblx0XHRcdFx0eyB0aXRsZTogXCLmnI3liqHkuI5GQVFcIiwgc3VidGl0bGU6IFwi6IGU57O75YmN55qE562U5qGIXCIgfSxcblx0XHRcdFx0eyB0aXRsZTogXCLlqpLkvZNcIiwgc3VidGl0bGU6IFwi5Y+R5biD5LiO5LiT5Lia5YaF5a65XCIgfSxcblx0XHRcdF0sXG5cdFx0fSxcblx0fSxcblx0c3RhdGVfMDU6IHtcblx0XHRlbjoge1xuXHRcdFx0cGF0aFRpdGxlOiBcIlBST0pFQ1QgRU5HSU5FRVJJTkdcIixcblx0XHRcdHRpdGxlOiBcIlJFQUNUIE9OIFRIRSBPVVRTSURFLFxcbldPUkRQUkVTUyBXSVRISU5cIixcblx0XHRcdGRlc2NyaXB0aW9uUGFyYWdyYXBoczogW1xuXHRcdFx0XHRcIlRoZSB1c2VyIGludGVyZmFjZSBpcyBidWlsdCB3aXRoIFJlYWN0LCB3aGlsZSBXb3JkUHJlc3MgbWFuYWdlcyBwcm9qZWN0cyBhbmQgb3RoZXIgY29udGVudC5cIixcblx0XHRcdFx0XCJPdmVyIHRocmVlIG1vbnRocyB3ZSBhc3NlbWJsZWQgdGhlIGZyb250ZW5kIGFuZCB0aGUgYWRtaW4gc2lkZSBzbyBhbiBleHByZXNzaXZlIHB1YmxpYyBzaG93Y2FzZSB3b3VsZCByZW1haW4gY29udmVuaWVudCBmb3IgZGFpbHkgdXBkYXRlcy5cIixcblx0XHRcdF0sXG5cdFx0XHRmZWF0dXJlczogW1xuXHRcdFx0XHR7IHRpdGxlOiBcIlJlYWN0XCIsIHN1YnRpdGxlOiBcInVzZXIgaW50ZXJmYWNlXCIgfSxcblx0XHRcdFx0eyB0aXRsZTogXCJXb3JkUHJlc3NcIiwgc3VidGl0bGU6IFwiY29udGVudCBtYW5hZ2VtZW50XCIgfSxcblx0XHRcdFx0eyB0aXRsZTogXCJDb250ZW50IG1vZGVsXCIsIHN1YnRpdGxlOiBcInByb2plY3RzLCBzZXJ2aWNlcyBhbmQgcHVibGljYXRpb25zXCIgfSxcblx0XHRcdF0sXG5cdFx0fSxcblx0XHR6aDoge1xuXHRcdFx0cGF0aFRpdGxlOiBcIumhueebruW3peeoi1wiLFxuXHRcdFx0dGl0bGU6IFwi5aSW5bGCUmVhY3TvvIxcXG7lhoXlsYJXb3JkUHJlc3NcIixcblx0XHRcdGRlc2NyaXB0aW9uUGFyYWdyYXBoczogW1xuXHRcdFx0XHRcIueUqOaIt+eVjOmdoumHh+eUqFJlYWN05a6e546w77yMV29yZFByZXNz6LSf6LSj566h55CG6aG555uu5Y+K5YW25LuW5YaF5a6544CCXCIsXG5cdFx0XHRcdFwi5LiJ5Liq5pyI5YaF5oiR5Lus5a6M5oiQ5LqG5YmN56uv5LiO566h55CG56uv77yM5L2/5a+M5pyJ6KGo546w5Yqb55qE5YWs5byA5bGV56S65LuN5L6/5LqO5pel5bi45pu05paw44CCXCIsXG5cdFx0XHRdLFxuXHRcdFx0ZmVhdHVyZXM6IFtcblx0XHRcdFx0eyB0aXRsZTogXCJSZWFjdFwiLCBzdWJ0aXRsZTogXCLnlKjmiLfnlYzpnaJcIiB9LFxuXHRcdFx0XHR7IHRpdGxlOiBcIldvcmRQcmVzc1wiLCBzdWJ0aXRsZTogXCLlhoXlrrnnrqHnkIZcIiB9LFxuXHRcdFx0XHR7IHRpdGxlOiBcIkNvbnRlbnQgbW9kZWxcIiwgc3VidGl0bGU6IFwi6aG555uu44CB5pyN5Yqh5LiO5Y+R5biDXCIgfSxcblx0XHRcdF0sXG5cdFx0fSxcblx0fSxcbn07XG5cbmV4cG9ydCBkZWZhdWx0IHN0YXRlQ29weTtcbiJdfQ==

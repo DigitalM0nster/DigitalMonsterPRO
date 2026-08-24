@@ -1,0 +1,48 @@
+{
+  "gate": "GATE4",
+  "correctionPass": 5,
+  "capture": {
+    "url": "http://127.0.0.1:4184/capabilities/spatial-matrix",
+    "debugUrl": "http://127.0.0.1:4184/capabilities/spatial-matrix?cityTrafficDebug=1",
+    "viewport": [1920, 945],
+    "dpr": 1,
+    "canvas": [3840, 1890, 1920, 945],
+    "webgl2": true,
+    "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 3070 Ti (0x00002482) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+    "isolatedProfile": true,
+    "userBrowserProfileUsed": false,
+    "loopbackOnly": true
+  },
+  "performance15Seconds": {
+    "durationMs": 15003.100000000002,
+    "frames": 1026,
+    "averageFps": 68.38586692083635,
+    "meanFrameMs": 14.622904483430801,
+    "p95FrameMs": 15.10000000000582,
+    "maxFrameMs": 15.700000000004366,
+    "framesOver25Ms": 0
+  },
+  "browserConsole": {
+    "errors": [],
+    "warnings": [
+      "Existing Three.js useLegacyLights deprecation warning",
+      "Existing WebGL shader potentially-uninitialized HUD sampler warnings in isolated headless run"
+    ]
+  },
+  "evidence": {
+    "normalStill": "gate4-city-exact-1920x945-dpr1.png",
+    "debugStill": "gate4-debug-exact-1920x945-dpr1.png",
+    "debugMotion": "gate4-traffic-motion-15s-1920x945-dpr1.webp",
+    "debugMotionContactSheet": "gate4-traffic-motion-contact-sheet.png",
+    "normalMotion": "gate4-normal-traffic-motion-15s-1920x945-dpr1.webp",
+    "normalLocalTrafficCropMotion": "gate4-normal-local-traffic-motion-crop-15s.webp",
+    "normalLocalTrafficContactSheet": "gate4-normal-local-traffic-contact-sheet.png"
+  },
+  "cleanup": {
+    "inAppBrowserTabsClosed": true,
+    "headlessContextClosed": true,
+    "temporaryHeadlessProfileRemoved": true,
+    "loopbackServerStopped": true,
+    "externalDeploymentCreated": false
+  }
+}

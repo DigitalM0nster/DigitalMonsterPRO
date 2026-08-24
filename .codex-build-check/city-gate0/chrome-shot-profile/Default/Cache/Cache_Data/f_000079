@@ -1,0 +1,205 @@
+const stateCopy = {
+	state_01: {
+		en: {
+			pathTitle: "ABOUT THE PROJECT",
+			title: "A MODERN SITE\nFOR CRANE RENTAL",
+			descriptionParagraphs: ["MMK-1 rents tower cranes to construction companies in Moscow and the Moscow Region.", "The brief was to build a website that not only gives users the information they need, but also creates emotion, stays memorable and motivates them to place an order."],
+			traits: [
+				{
+					label: "client",
+					value: "MMK-1"
+				},
+				{
+					label: "development",
+					value: "DigitalMonster"
+				},
+				{
+					label: "year",
+					value: "2023"
+				}
+			]
+		},
+		zh: {
+			pathTitle: "项目介绍",
+			title: "现代化塔吊\n租赁网站",
+			descriptionParagraphs: ["MMK-1为莫斯科及莫斯科州的建筑公司提供塔吊租赁服务。", "项目目标是打造一个不仅能提供所需信息，还能带来情绪共鸣、令人印象深刻并促使用户下单的网站。"],
+			traits: [
+				{
+					label: "客户",
+					value: "MMK-1"
+				},
+				{
+					label: "开发",
+					value: "DigitalMonster"
+				},
+				{
+					label: "年份",
+					value: "2023"
+				}
+			]
+		}
+	},
+	state_02: {
+		en: {
+			pathTitle: "VISUAL LANGUAGE",
+			title: "A CLASSIC BUSINESS\nIN A NEW LIGHT",
+			descriptionParagraphs: ["For MMK-1 we created a distinctive visual system: a logo based on a crane hook and the number 1, the Manifold typeface and an accent orange #FF5000.", "A dark industrial palette and cyan HUD elements convey the technological side of the business while keeping the trust associated with a classic industry."],
+			features: [
+				{
+					title: "MMK-1 logo",
+					subtitle: "hook + the number 1"
+				},
+				{
+					title: "Manifold typeface",
+					subtitle: "geometric industrial graphics"
+				},
+				{
+					title: "Brand colors",
+					subtitle: "#FF5000 · #1C1F2A · cyan HUD"
+				}
+			]
+		},
+		zh: {
+			pathTitle: "视觉语言",
+			title: "传统行业\n焕发新色彩",
+			descriptionParagraphs: ["我们为MMK-1打造了可识别的视觉体系：以吊钩与数字1为基础的标识、Manifold字体，以及强调色橙色#FF5000。", "深色工业调色板与青色HUD元素传达业务的技术感，同时保留传统行业应有的信任感。"],
+			features: [
+				{
+					title: "MMK-1标识",
+					subtitle: "吊钩 + 数字1"
+				},
+				{
+					title: "Manifold字体",
+					subtitle: "几何工业图形"
+				},
+				{
+					title: "品牌色彩",
+					subtitle: "#FF5000 · #1C1F2A · cyan HUD"
+				}
+			]
+		}
+	},
+	state_03: {
+		en: {
+			pathTitle: "INTERACTIVE EXPERIENCE",
+			title: "A 3D CRANE\nFROM THE FIRST SECTION",
+			descriptionParagraphs: ["The main screen is built around an interactive 3D model of a tower crane. From the first frame, users enter a technological scene and immediately sense the company's scale.", "The model responds to cursor movement, highlights key specifications and acts as the central visual anchor of the entire website."],
+			features: [
+				{
+					title: "3D from the first section",
+					subtitle: "wow effect and immersion"
+				},
+				{
+					title: "Cursor response",
+					subtitle: "the model follows movement"
+				},
+				{
+					title: "Technical callouts",
+					subtitle: "outreach, capacity, height"
+				}
+			]
+		},
+		zh: {
+			pathTitle: "互动体验",
+			title: "首屏即见\n3D塔吊",
+			descriptionParagraphs: ["主屏幕围绕互动式塔吊3D模型构建。用户从第一帧就进入技术感场景，并立刻感受到公司的规模。", "模型响应光标移动，高亮关键参数，并作为整个网站的核心视觉锚点。"],
+			features: [
+				{
+					title: "首屏3D",
+					subtitle: "震撼效果与沉浸感"
+				},
+				{
+					title: "光标响应",
+					subtitle: "模型跟随运动"
+				},
+				{
+					title: "技术标注",
+					subtitle: "幅度、起重量、高度"
+				}
+			]
+		}
+	},
+	state_04: {
+		en: {
+			pathTitle: "SITE FEATURES",
+			title: "CHOOSING EQUIPMENT\nMADE SIMPLER",
+			descriptionParagraphs: ["We built an intuitive rental system: filters by key specifications, equipment cards with full information and native integration of additional services.", "Users can not only select a crane, but also see related services right away — everything they need in one place."],
+			features: [
+				{
+					title: "Filter by specifications",
+					subtitle: "fast model selection"
+				},
+				{
+					title: "Equipment cards",
+					subtitle: "maximum useful information"
+				},
+				{
+					title: "Services in the cards",
+					subtitle: "everything needed at once"
+				}
+			]
+		},
+		zh: {
+			pathTitle: "网站功能",
+			title: "选型变得\n更简单",
+			descriptionParagraphs: ["我们打造了直观的租赁系统：按关键参数筛选、信息完整的设备卡片，以及附加服务的原生整合。", "用户不仅可以选择塔吊，还能立刻看到配套服务——所需内容集中在一处。"],
+			features: [
+				{
+					title: "按参数筛选",
+					subtitle: "快速匹配型号"
+				},
+				{
+					title: "设备卡片",
+					subtitle: "最大化实用信息"
+				},
+				{
+					title: "卡片内服务",
+					subtitle: "所需内容一步到位"
+				}
+			]
+		}
+	},
+	state_05: {
+		en: {
+			pathTitle: "PROJECT ENGINEERING",
+			title: "TOWER CRANE RENTAL AT A NEW LEVEL",
+			descriptionParagraphs: ["MMK-1 rents tower cranes in Moscow and the Moscow Region. We built a modern website with 3D visualization and an interactive equipment selection system that conveys the technological character of the client's business and makes choosing equipment simple and clear."],
+			features: [
+				{
+					title: "3D VISUALIZATION FROM THE FIRST SECTION",
+					subtitle: "a 3D crane on the homepage from the first frame"
+				},
+				{
+					title: "INTERACTIVE CRANE FILTER",
+					subtitle: "fast equipment selection by key parameters"
+				},
+				{
+					title: "PROJECT RESPONSIVENESS",
+					subtitle: "comfortable site use on every device"
+				}
+			]
+		},
+		zh: {
+			pathTitle: "项目工程",
+			title: "塔吊租赁体验升级",
+			descriptionParagraphs: ["MMK-1提供莫斯科及莫斯科州的塔吊租赁服务。我们开发了带有3D可视化与互动选型系统的现代网站，既传递客户业务的技术感，也让设备选择更简单、更直观。"],
+			features: [
+				{
+					title: "首屏3D可视化",
+					subtitle: "首页第一帧即呈现3D塔吊"
+				},
+				{
+					title: "互动塔吊筛选",
+					subtitle: "按关键参数快速匹配设备"
+				},
+				{
+					title: "项目自适应",
+					subtitle: "各设备上均可舒适使用"
+				}
+			]
+		}
+	}
+};
+export default stateCopy;
+
+//# sourceMappingURL=data:application/json;base64,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O0lBQzNDO0tBQUUsT0FBTztLQUFTLFVBQVU7SUFBYTtHQUMxQztFQUNEO0NBQ0Q7QUFDRDtBQUVBLGVBQWUiLCJuYW1lcyI6W10sInNvdXJjZXMiOlsic3RhdGVDb3B5LmpzIl0sInZlcnNpb24iOjMsInNvdXJjZXNDb250ZW50IjpbImNvbnN0IHN0YXRlQ29weSA9IHtcblx0c3RhdGVfMDE6IHtcblx0XHRlbjoge1xuXHRcdFx0cGF0aFRpdGxlOiBcIkFCT1VUIFRIRSBQUk9KRUNUXCIsXG5cdFx0XHR0aXRsZTogXCJBIE1PREVSTiBTSVRFXFxuRk9SIENSQU5FIFJFTlRBTFwiLFxuXHRcdFx0ZGVzY3JpcHRpb25QYXJhZ3JhcGhzOiBbXG5cdFx0XHRcdFwiTU1LLTEgcmVudHMgdG93ZXIgY3JhbmVzIHRvIGNvbnN0cnVjdGlvbiBjb21wYW5pZXMgaW4gTW9zY293IGFuZCB0aGUgTW9zY293IFJlZ2lvbi5cIixcblx0XHRcdFx0XCJUaGUgYnJpZWYgd2FzIHRvIGJ1aWxkIGEgd2Vic2l0ZSB0aGF0IG5vdCBvbmx5IGdpdmVzIHVzZXJzIHRoZSBpbmZvcm1hdGlvbiB0aGV5IG5lZWQsIGJ1dCBhbHNvIGNyZWF0ZXMgZW1vdGlvbiwgc3RheXMgbWVtb3JhYmxlIGFuZCBtb3RpdmF0ZXMgdGhlbSB0byBwbGFjZSBhbiBvcmRlci5cIixcblx0XHRcdF0sXG5cdFx0XHR0cmFpdHM6IFtcblx0XHRcdFx0eyBsYWJlbDogXCJjbGllbnRcIiwgdmFsdWU6IFwiTU1LLTFcIiB9LFxuXHRcdFx0XHR7IGxhYmVsOiBcImRldmVsb3BtZW50XCIsIHZhbHVlOiBcIkRpZ2l0YWxNb25zdGVyXCIgfSxcblx0XHRcdFx0eyBsYWJlbDogXCJ5ZWFyXCIsIHZhbHVlOiBcIjIwMjNcIiB9LFxuXHRcdFx0XSxcblx0XHR9LFxuXHRcdHpoOiB7XG5cdFx0XHRwYXRoVGl0bGU6IFwi6aG555uu5LuL57uNXCIsXG5cdFx0XHR0aXRsZTogXCLnjrDku6PljJbloZTlkIpcXG7np5/otYHnvZHnq5lcIixcblx0XHRcdGRlc2NyaXB0aW9uUGFyYWdyYXBoczogW1xuXHRcdFx0XHRcIk1NSy0x5Li66I6r5pav56eR5Y+K6I6r5pav56eR5bee55qE5bu6562R5YWs5Y+45o+Q5L6b5aGU5ZCK56ef6LWB5pyN5Yqh44CCXCIsXG5cdFx0XHRcdFwi6aG555uu55uu5qCH5piv5omT6YCg5LiA5Liq5LiN5LuF6IO95o+Q5L6b5omA6ZyA5L+h5oGv77yM6L+Y6IO95bim5p2l5oOF57uq5YWx6bij44CB5Luk5Lq65Y2w6LGh5rex5Yi75bm25L+D5L2/55So5oi35LiL5Y2V55qE572R56uZ44CCXCIsXG5cdFx0XHRdLFxuXHRcdFx0dHJhaXRzOiBbXG5cdFx0XHRcdHsgbGFiZWw6IFwi5a6i5oi3XCIsIHZhbHVlOiBcIk1NSy0xXCIgfSxcblx0XHRcdFx0eyBsYWJlbDogXCLlvIDlj5FcIiwgdmFsdWU6IFwiRGlnaXRhbE1vbnN0ZXJcIiB9LFxuXHRcdFx0XHR7IGxhYmVsOiBcIuW5tOS7vVwiLCB2YWx1ZTogXCIyMDIzXCIgfSxcblx0XHRcdF0sXG5cdFx0fSxcblx0fSxcblx0c3RhdGVfMDI6IHtcblx0XHRlbjoge1xuXHRcdFx0cGF0aFRpdGxlOiBcIlZJU1VBTCBMQU5HVUFHRVwiLFxuXHRcdFx0dGl0bGU6IFwiQSBDTEFTU0lDIEJVU0lORVNTXFxuSU4gQSBORVcgTElHSFRcIixcblx0XHRcdGRlc2NyaXB0aW9uUGFyYWdyYXBoczogW1xuXHRcdFx0XHRcIkZvciBNTUstMSB3ZSBjcmVhdGVkIGEgZGlzdGluY3RpdmUgdmlzdWFsIHN5c3RlbTogYSBsb2dvIGJhc2VkIG9uIGEgY3JhbmUgaG9vayBhbmQgdGhlIG51bWJlciAxLCB0aGUgTWFuaWZvbGQgdHlwZWZhY2UgYW5kIGFuIGFjY2VudCBvcmFuZ2UgI0ZGNTAwMC5cIixcblx0XHRcdFx0XCJBIGRhcmsgaW5kdXN0cmlhbCBwYWxldHRlIGFuZCBjeWFuIEhVRCBlbGVtZW50cyBjb252ZXkgdGhlIHRlY2hub2xvZ2ljYWwgc2lkZSBvZiB0aGUgYnVzaW5lc3Mgd2hpbGUga2VlcGluZyB0aGUgdHJ1c3QgYXNzb2NpYXRlZCB3aXRoIGEgY2xhc3NpYyBpbmR1c3RyeS5cIixcblx0XHRcdF0sXG5cdFx0XHRmZWF0dXJlczogW1xuXHRcdFx0XHR7IHRpdGxlOiBcIk1NSy0xIGxvZ29cIiwgc3VidGl0bGU6IFwiaG9vayArIHRoZSBudW1iZXIgMVwiIH0sXG5cdFx0XHRcdHsgdGl0bGU6IFwiTWFuaWZvbGQgdHlwZWZhY2VcIiwgc3VidGl0bGU6IFwiZ2VvbWV0cmljIGluZHVzdHJpYWwgZ3JhcGhpY3NcIiB9LFxuXHRcdFx0XHR7IHRpdGxlOiBcIkJyYW5kIGNvbG9yc1wiLCBzdWJ0aXRsZTogXCIjRkY1MDAwIMK3ICMxQzFGMkEgwrcgY3lhbiBIVURcIiB9LFxuXHRcdFx0XSxcblx0XHR9LFxuXHRcdHpoOiB7XG5cdFx0XHRwYXRoVGl0bGU6IFwi6KeG6KeJ6K+t6KiAXCIsXG5cdFx0XHR0aXRsZTogXCLkvKDnu5/ooYzkuJpcXG7nhJXlj5HmlrDoibLlvalcIixcblx0XHRcdGRlc2NyaXB0aW9uUGFyYWdyYXBoczogW1xuXHRcdFx0XHRcIuaIkeS7rOS4uk1NSy0x5omT6YCg5LqG5Y+v6K+G5Yir55qE6KeG6KeJ5L2T57O777ya5Lul5ZCK6ZKp5LiO5pWw5a2XMeS4uuWfuuehgOeahOagh+ivhuOAgU1hbmlmb2xk5a2X5L2T77yM5Lul5Y+K5by66LCD6Imy5qmZ6ImyI0ZGNTAwMOOAglwiLFxuXHRcdFx0XHRcIua3seiJsuW3peS4muiwg+iJsuadv+S4jumdkuiJskhVROWFg+e0oOS8oOi+vuS4muWKoeeahOaKgOacr+aEn++8jOWQjOaXtuS/neeVmeS8oOe7n+ihjOS4muW6lOacieeahOS/oeS7u+aEn+OAglwiLFxuXHRcdFx0XSxcblx0XHRcdGZlYXR1cmVzOiBbXG5cdFx0XHRcdHsgdGl0bGU6IFwiTU1LLTHmoIfor4ZcIiwgc3VidGl0bGU6IFwi5ZCK6ZKpICsg5pWw5a2XMVwiIH0sXG5cdFx0XHRcdHsgdGl0bGU6IFwiTWFuaWZvbGTlrZfkvZNcIiwgc3VidGl0bGU6IFwi5Yeg5L2V5bel5Lia5Zu+5b2iXCIgfSxcblx0XHRcdFx0eyB0aXRsZTogXCLlk4HniYzoibLlvalcIiwgc3VidGl0bGU6IFwiI0ZGNTAwMCDCtyAjMUMxRjJBIMK3IGN5YW4gSFVEXCIgfSxcblx0XHRcdF0sXG5cdFx0fSxcblx0fSxcblx0c3RhdGVfMDM6IHtcblx0XHRlbjoge1xuXHRcdFx0cGF0aFRpdGxlOiBcIklOVEVSQUNUSVZFIEVYUEVSSUVOQ0VcIixcblx0XHRcdHRpdGxlOiBcIkEgM0QgQ1JBTkVcXG5GUk9NIFRIRSBGSVJTVCBTRUNUSU9OXCIsXG5cdFx0XHRkZXNjcmlwdGlvblBhcmFncmFwaHM6IFtcblx0XHRcdFx0XCJUaGUgbWFpbiBzY3JlZW4gaXMgYnVpbHQgYXJvdW5kIGFuIGludGVyYWN0aXZlIDNEIG1vZGVsIG9mIGEgdG93ZXIgY3JhbmUuIEZyb20gdGhlIGZpcnN0IGZyYW1lLCB1c2VycyBlbnRlciBhIHRlY2hub2xvZ2ljYWwgc2NlbmUgYW5kIGltbWVkaWF0ZWx5IHNlbnNlIHRoZSBjb21wYW55J3Mgc2NhbGUuXCIsXG5cdFx0XHRcdFwiVGhlIG1vZGVsIHJlc3BvbmRzIHRvIGN1cnNvciBtb3ZlbWVudCwgaGlnaGxpZ2h0cyBrZXkgc3BlY2lmaWNhdGlvbnMgYW5kIGFjdHMgYXMgdGhlIGNlbnRyYWwgdmlzdWFsIGFuY2hvciBvZiB0aGUgZW50aXJlIHdlYnNpdGUuXCIsXG5cdFx0XHRdLFxuXHRcdFx0ZmVhdHVyZXM6IFtcblx0XHRcdFx0eyB0aXRsZTogXCIzRCBmcm9tIHRoZSBmaXJzdCBzZWN0aW9uXCIsIHN1YnRpdGxlOiBcIndvdyBlZmZlY3QgYW5kIGltbWVyc2lvblwiIH0sXG5cdFx0XHRcdHsgdGl0bGU6IFwiQ3Vyc29yIHJlc3BvbnNlXCIsIHN1YnRpdGxlOiBcInRoZSBtb2RlbCBmb2xsb3dzIG1vdmVtZW50XCIgfSxcblx0XHRcdFx0eyB0aXRsZTogXCJUZWNobmljYWwgY2FsbG91dHNcIiwgc3VidGl0bGU6IFwib3V0cmVhY2gsIGNhcGFjaXR5LCBoZWlnaHRcIiB9LFxuXHRcdFx0XSxcblx0XHR9LFxuXHRcdHpoOiB7XG5cdFx0XHRwYXRoVGl0bGU6IFwi5LqS5Yqo5L2T6aqMXCIsXG5cdFx0XHR0aXRsZTogXCLpppblsY/ljbPop4FcXG4zROWhlOWQilwiLFxuXHRcdFx0ZGVzY3JpcHRpb25QYXJhZ3JhcGhzOiBbXG5cdFx0XHRcdFwi5Li75bGP5bmV5Zu057uV5LqS5Yqo5byP5aGU5ZCKM0TmqKHlnovmnoTlu7rjgILnlKjmiLfku47nrKzkuIDluKflsLHov5vlhaXmioDmnK/mhJ/lnLrmma/vvIzlubbnq4vliLvmhJ/lj5fliLDlhazlj7jnmoTop4TmqKHjgIJcIixcblx0XHRcdFx0XCLmqKHlnovlk43lupTlhYnmoIfnp7vliqjvvIzpq5jkuq7lhbPplK7lj4LmlbDvvIzlubbkvZzkuLrmlbTkuKrnvZHnq5nnmoTmoLjlv4Pop4bop4nplJrngrnjgIJcIixcblx0XHRcdF0sXG5cdFx0XHRmZWF0dXJlczogW1xuXHRcdFx0XHR7IHRpdGxlOiBcIummluWxjzNEXCIsIHN1YnRpdGxlOiBcIumch+aSvOaViOaenOS4juayiea1uOaEn1wiIH0sXG5cdFx0XHRcdHsgdGl0bGU6IFwi5YWJ5qCH5ZON5bqUXCIsIHN1YnRpdGxlOiBcIuaooeWei+i3n+maj+i/kOWKqFwiIH0sXG5cdFx0XHRcdHsgdGl0bGU6IFwi5oqA5pyv5qCH5rOoXCIsIHN1YnRpdGxlOiBcIuW5heW6puOAgei1t+mHjemHj+OAgemrmOW6plwiIH0sXG5cdFx0XHRdLFxuXHRcdH0sXG5cdH0sXG5cdHN0YXRlXzA0OiB7XG5cdFx0ZW46IHtcblx0XHRcdHBhdGhUaXRsZTogXCJTSVRFIEZFQVRVUkVTXCIsXG5cdFx0XHR0aXRsZTogXCJDSE9PU0lORyBFUVVJUE1FTlRcXG5NQURFIFNJTVBMRVJcIixcblx0XHRcdGRlc2NyaXB0aW9uUGFyYWdyYXBoczogW1xuXHRcdFx0XHRcIldlIGJ1aWx0IGFuIGludHVpdGl2ZSByZW50YWwgc3lzdGVtOiBmaWx0ZXJzIGJ5IGtleSBzcGVjaWZpY2F0aW9ucywgZXF1aXBtZW50IGNhcmRzIHdpdGggZnVsbCBpbmZvcm1hdGlvbiBhbmQgbmF0aXZlIGludGVncmF0aW9uIG9mIGFkZGl0aW9uYWwgc2VydmljZXMuXCIsXG5cdFx0XHRcdFwiVXNlcnMgY2FuIG5vdCBvbmx5IHNlbGVjdCBhIGNyYW5lLCBidXQgYWxzbyBzZWUgcmVsYXRlZCBzZXJ2aWNlcyByaWdodCBhd2F5IOKAlCBldmVyeXRoaW5nIHRoZXkgbmVlZCBpbiBvbmUgcGxhY2UuXCIsXG5cdFx0XHRdLFxuXHRcdFx0ZmVhdHVyZXM6IFtcblx0XHRcdFx0eyB0aXRsZTogXCJGaWx0ZXIgYnkgc3BlY2lmaWNhdGlvbnNcIiwgc3VidGl0bGU6IFwiZmFzdCBtb2RlbCBzZWxlY3Rpb25cIiB9LFxuXHRcdFx0XHR7IHRpdGxlOiBcIkVxdWlwbWVudCBjYXJkc1wiLCBzdWJ0aXRsZTogXCJtYXhpbXVtIHVzZWZ1bCBpbmZvcm1hdGlvblwiIH0sXG5cdFx0XHRcdHsgdGl0bGU6IFwiU2VydmljZXMgaW4gdGhlIGNhcmRzXCIsIHN1YnRpdGxlOiBcImV2ZXJ5dGhpbmcgbmVlZGVkIGF0IG9uY2VcIiB9LFxuXHRcdFx0XSxcblx0XHR9LFxuXHRcdHpoOiB7XG5cdFx0XHRwYXRoVGl0bGU6IFwi572R56uZ5Yqf6IO9XCIsXG5cdFx0XHR0aXRsZTogXCLpgInlnovlj5jlvpdcXG7mm7TnroDljZVcIixcblx0XHRcdGRlc2NyaXB0aW9uUGFyYWdyYXBoczogW1xuXHRcdFx0XHRcIuaIkeS7rOaJk+mAoOS6huebtOingueahOenn+i1geezu+e7n++8muaMieWFs+mUruWPguaVsOetm+mAieOAgeS/oeaBr+WujOaVtOeahOiuvuWkh+WNoeeJh++8jOS7peWPiumZhOWKoOacjeWKoeeahOWOn+eUn+aVtOWQiOOAglwiLFxuXHRcdFx0XHRcIueUqOaIt+S4jeS7heWPr+S7pemAieaLqeWhlOWQiu+8jOi/mOiDveeri+WIu+eci+WIsOmFjeWll+acjeWKoeKAlOKAlOaJgOmcgOWGheWuuembhuS4reWcqOS4gOWkhOOAglwiLFxuXHRcdFx0XSxcblx0XHRcdGZlYXR1cmVzOiBbXG5cdFx0XHRcdHsgdGl0bGU6IFwi5oyJ5Y+C5pWw562b6YCJXCIsIHN1YnRpdGxlOiBcIuW/q+mAn+WMuemFjeWei+WPt1wiIH0sXG5cdFx0XHRcdHsgdGl0bGU6IFwi6K6+5aSH5Y2h54mHXCIsIHN1YnRpdGxlOiBcIuacgOWkp+WMluWunueUqOS/oeaBr1wiIH0sXG5cdFx0XHRcdHsgdGl0bGU6IFwi5Y2h54mH5YaF5pyN5YqhXCIsIHN1YnRpdGxlOiBcIuaJgOmcgOWGheWuueS4gOatpeWIsOS9jVwiIH0sXG5cdFx0XHRdLFxuXHRcdH0sXG5cdH0sXG5cdHN0YXRlXzA1OiB7XG5cdFx0ZW46IHtcblx0XHRcdHBhdGhUaXRsZTogXCJQUk9KRUNUIEVOR0lORUVSSU5HXCIsXG5cdFx0XHR0aXRsZTogXCJUT1dFUiBDUkFORSBSRU5UQUwgQVQgQSBORVcgTEVWRUxcIixcblx0XHRcdGRlc2NyaXB0aW9uUGFyYWdyYXBoczogW1xuXHRcdFx0XHRcIk1NSy0xIHJlbnRzIHRvd2VyIGNyYW5lcyBpbiBNb3Njb3cgYW5kIHRoZSBNb3Njb3cgUmVnaW9uLiBXZSBidWlsdCBhIG1vZGVybiB3ZWJzaXRlIHdpdGggM0QgdmlzdWFsaXphdGlvbiBhbmQgYW4gaW50ZXJhY3RpdmUgZXF1aXBtZW50IHNlbGVjdGlvbiBzeXN0ZW0gdGhhdCBjb252ZXlzIHRoZSB0ZWNobm9sb2dpY2FsIGNoYXJhY3RlciBvZiB0aGUgY2xpZW50J3MgYnVzaW5lc3MgYW5kIG1ha2VzIGNob29zaW5nIGVxdWlwbWVudCBzaW1wbGUgYW5kIGNsZWFyLlwiLFxuXHRcdFx0XSxcblx0XHRcdGZlYXR1cmVzOiBbXG5cdFx0XHRcdHsgdGl0bGU6IFwiM0QgVklTVUFMSVpBVElPTiBGUk9NIFRIRSBGSVJTVCBTRUNUSU9OXCIsIHN1YnRpdGxlOiBcImEgM0QgY3JhbmUgb24gdGhlIGhvbWVwYWdlIGZyb20gdGhlIGZpcnN0IGZyYW1lXCIgfSxcblx0XHRcdFx0eyB0aXRsZTogXCJJTlRFUkFDVElWRSBDUkFORSBGSUxURVJcIiwgc3VidGl0bGU6IFwiZmFzdCBlcXVpcG1lbnQgc2VsZWN0aW9uIGJ5IGtleSBwYXJhbWV0ZXJzXCIgfSxcblx0XHRcdFx0eyB0aXRsZTogXCJQUk9KRUNUIFJFU1BPTlNJVkVORVNTXCIsIHN1YnRpdGxlOiBcImNvbWZvcnRhYmxlIHNpdGUgdXNlIG9uIGV2ZXJ5IGRldmljZVwiIH0sXG5cdFx0XHRdLFxuXHRcdH0sXG5cdFx0emg6IHtcblx0XHRcdHBhdGhUaXRsZTogXCLpobnnm67lt6XnqItcIixcblx0XHRcdHRpdGxlOiBcIuWhlOWQiuenn+i1geS9k+mqjOWNh+e6p1wiLFxuXHRcdFx0ZGVzY3JpcHRpb25QYXJhZ3JhcGhzOiBbXG5cdFx0XHRcdFwiTU1LLTHmj5Dkvpvojqvmlq/np5Hlj4rojqvmlq/np5Hlt57nmoTloZTlkIrnp5/otYHmnI3liqHjgILmiJHku6zlvIDlj5HkuobluKbmnIkzROWPr+inhuWMluS4juS6kuWKqOmAieWei+ezu+e7n+eahOeOsOS7o+e9keerme+8jOaXouS8oOmAkuWuouaIt+S4muWKoeeahOaKgOacr+aEn++8jOS5n+iuqeiuvuWkh+mAieaLqeabtOeugOWNleOAgeabtOebtOinguOAglwiLFxuXHRcdFx0XSxcblx0XHRcdGZlYXR1cmVzOiBbXG5cdFx0XHRcdHsgdGl0bGU6IFwi6aaW5bGPM0Tlj6/op4bljJZcIiwgc3VidGl0bGU6IFwi6aaW6aG156ys5LiA5bin5Y2z5ZGI546wM0TloZTlkIpcIiB9LFxuXHRcdFx0XHR7IHRpdGxlOiBcIuS6kuWKqOWhlOWQiuetm+mAiVwiLCBzdWJ0aXRsZTogXCLmjInlhbPplK7lj4LmlbDlv6vpgJ/ljLnphY3orr7lpIdcIiB9LFxuXHRcdFx0XHR7IHRpdGxlOiBcIumhueebruiHqumAguW6lFwiLCBzdWJ0aXRsZTogXCLlkITorr7lpIfkuIrlnYflj6/oiJLpgILkvb/nlKhcIiB9LFxuXHRcdFx0XSxcblx0XHR9LFxuXHR9LFxufTtcblxuZXhwb3J0IGRlZmF1bHQgc3RhdGVDb3B5O1xuIl19

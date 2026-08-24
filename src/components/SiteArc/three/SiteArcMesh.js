@@ -22,6 +22,8 @@ export class SiteArcMesh {
 
 		const nodeAngles = new Float32Array(SITE_ARC_MAX_NODES);
 		const nodeHighlight = new Float32Array(SITE_ARC_MAX_NODES);
+		const nodeRadiusScale = new Float32Array(SITE_ARC_MAX_NODES);
+		const nodeOpacity = new Float32Array(SITE_ARC_MAX_NODES);
 
 		this.material = new THREE.ShaderMaterial({
 			uniforms: {
@@ -64,6 +66,8 @@ export class SiteArcMesh {
 				uNodeCount: { value: 0 },
 				uNodeAngles: { value: nodeAngles },
 				uNodeHighlight: { value: nodeHighlight },
+				uNodeRadiusScale: { value: nodeRadiusScale },
+				uNodeOpacity: { value: nodeOpacity },
 			},
 			vertexShader: siteArcVertexShader,
 			fragmentShader: siteArcFragmentShader,
@@ -168,12 +172,18 @@ export class SiteArcMesh {
 
 		const angles = u.uNodeAngles.value;
 		const highlights = u.uNodeHighlight.value;
+		const radiusScales = u.uNodeRadiusScale.value;
+		const opacities = u.uNodeOpacity.value;
 		angles.fill(0);
 		highlights.fill(0);
+		radiusScales.fill(1);
+		opacities.fill(0);
 		const n = Math.min(SITE_ARC_MAX_NODES, state.nodeAngles.length);
 		for (let i = 0; i < n; i += 1) {
 			angles[i] = flip(state.nodeAngles[i]);
 			highlights[i] = state.nodeHighlights[i] ?? 0;
+			radiusScales[i] = state.nodeRadiusScales?.[i] ?? 1;
+			opacities[i] = state.nodeOpacities?.[i] ?? 1;
 		}
 		u.uNodeCount.value = n;
 	}

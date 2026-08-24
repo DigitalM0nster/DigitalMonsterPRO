@@ -1,0 +1,23 @@
+{
+  "capturedAt": "2026-08-14",
+  "path": "/capabilities/spatial-matrix",
+  "viewport": { "width": 1920, "height": 945, "dpr": 1 },
+  "rendererCanvas": { "width": 3840, "height": 1890, "clientWidth": 1920, "clientHeight": 945 },
+  "webgl2": true,
+  "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 3070 Ti (0x00002482) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+  "cityHudVisible": false,
+  "consoleErrors": [],
+  "validator": {
+    "candidateMasses": 45,
+    "acceptedMasses": 45,
+    "roadSegmentsChecked": 1140,
+    "minimumSignedClearance": 0.045278,
+    "requiredEpsilon": 0.035,
+    "conflicts": 0,
+    "valid": true
+  },
+  "checks": {
+    "targetedEslint": "PASS",
+    "productionBuild": "PASS"
+  }
+}

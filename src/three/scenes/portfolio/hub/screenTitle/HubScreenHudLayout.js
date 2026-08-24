@@ -154,11 +154,23 @@ export class HubScreenHudLayout {
 		return true;
 	}
 
-	stashProjectsHiddenForDormant() {
+	stashProjectsHiddenForDormant({ preserveFocus = false } = {}) {
 		this._clearProjectsExitVisibilityOverride();
 		this._projectsSingleActivePending = false;
 		this._projectsSelectionLocked = false;
-		this.clearActiveProject();
+		if (preserveFocus) {
+			// A live hub returning from its `previous` ring role only needs the DOM
+			// list stashed for its snake-in. Keep the prepared plate/logo focus —
+			// clearing it here restarts the centre-logo reveal after every reverse.
+			this._clearPlateFocusDebounceTimer();
+			this._activeProjectIndex = -1;
+			this._pointerHitIndex = -1;
+			this._pendingPlateFocusIndex = -1;
+			this.projectsColumn.clearActiveProject();
+			store.cursor.projectListHovered = false;
+		} else {
+			this.clearActiveProject();
+		}
 		this._projectsIntroExpectHidden = true;
 		this.projectsColumn.stashLayersHiddenForDormant();
 	}

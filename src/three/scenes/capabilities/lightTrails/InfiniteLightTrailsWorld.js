@@ -648,6 +648,7 @@ export class InfiniteLightTrailsWorld {
 			{ length: MAIN_TRAIL_COUNT },
 			() => new THREE.Vector2(),
 		);
+		this.trailSeedTarget = new THREE.Vector2();
 		this.trailTargetHistories = Array.from(
 			{ length: MAIN_TRAIL_COUNT },
 			() => ({
@@ -679,8 +680,9 @@ export class InfiniteLightTrailsWorld {
 		this._cameraBankQuaternion = new THREE.Quaternion();
 		this._cameraLocalForward = new THREE.Vector3(0, 0, -1);
 		this.inputElement = inputElement;
+		this.interactionEnabled = true;
 		this._onPointerDown = () => {
-			if (!this.renderEnabled) return;
+			if (!this.renderEnabled || !this.interactionEnabled) return;
 			this._pointerWasDown = true;
 			this._triggerClickSpin();
 		};
@@ -720,20 +722,21 @@ export class InfiniteLightTrailsWorld {
 		this.group.visible = this._warming || (this.renderEnabled && this.reveal > 0.001);
 	}
 
-	setRenderEnabled(enabled) {
+	setRenderEnabled(enabled, { preserveMotion = false } = {}) {
 		this.renderEnabled = Boolean(enabled);
-		if (!this.renderEnabled) {
+		if (!this.renderEnabled && !preserveMotion) {
 			this._pointerWasDown = false;
 			this._clickSpinElapsed = -1;
 			this._clickSpinAngle = 0;
 			this.cameraBank = 0;
 			this.cameraBankTarget = 0;
-			for (const history of this.trailTargetHistories) {
-				history.writeIndex = -1;
-				history.count = 0;
-			}
 		}
 		this.group.visible = this._warming || (this.renderEnabled && this.reveal > 0.001);
+	}
+
+	setInteractionEnabled(enabled) {
+		this.interactionEnabled = Boolean(enabled);
+		if (!this.interactionEnabled) this._pointerWasDown = false;
 	}
 
 	_random() {
@@ -766,17 +769,45 @@ export class InfiniteLightTrailsWorld {
 		}
 	}
 
-	_recordTrailTarget(trailIndex, target) {
+	_resolveOrganicTrailTarget(trailIndex, elapsed, mouseOffset, target) {
+		const lineTime = elapsed * 1.44 + this.trailTimeOffsets[trailIndex];
+		const noiseTime = elapsed * 0.1;
+		const noiseX = valueNoise2D(
+			noiseTime + trailIndex * 11.37,
+			noiseTime + trailIndex * 7.13,
+		);
+		const noiseY = valueNoise2D(
+			1337 + elapsed * 0.05 + trailIndex * 5.71,
+			7331 + elapsed * 0.05 + trailIndex * 9.43,
+		);
+		return target.set(
+			mouseOffset.x + Math.sin(lineTime) * 0.064 + noiseX * 0.115,
+			mouseOffset.y + Math.cos(lineTime) * 0.046 + noiseY * 0.042,
+		);
+	}
+
+	_recordTrailTarget(trailIndex, target, mouseOffset) {
 		const history = this.trailTargetHistories[trailIndex];
 		if (history.count === 0) {
 			const historyStep = TRAIL_TAIL_DELAY_SECONDS
 				/ Math.max(1, TRAIL_TARGET_HISTORY_LENGTH - 1);
 			for (let index = 0; index < TRAIL_TARGET_HISTORY_LENGTH; index += 1) {
-				const offset = index * 2;
-				history.positions[offset] = target.x;
-				history.positions[offset + 1] = target.y;
-				history.times[index] = this.elapsed
+				const sampleTime = this.elapsed
 					- (TRAIL_TARGET_HISTORY_LENGTH - 1 - index) * historyStep;
+				this._resolveOrganicTrailTarget(
+					trailIndex,
+					sampleTime,
+					mouseOffset,
+					this.trailSeedTarget,
+				);
+				const offset = index * 2;
+				history.positions[offset] = index === TRAIL_TARGET_HISTORY_LENGTH - 1
+					? target.x
+					: this.trailSeedTarget.x;
+				history.positions[offset + 1] = index === TRAIL_TARGET_HISTORY_LENGTH - 1
+					? target.y
+					: this.trailSeedTarget.y;
+				history.times[index] = sampleTime;
 			}
 			history.writeIndex = TRAIL_TARGET_HISTORY_LENGTH - 1;
 			history.count = TRAIL_TARGET_HISTORY_LENGTH;
@@ -849,22 +880,10 @@ export class InfiniteLightTrailsWorld {
 				dt,
 			);
 
-			const lineTime = this.elapsed * 1.44 + this.trailTimeOffsets[trailIndex];
-			const noiseTime = this.elapsed * 0.1;
-			const noiseX = valueNoise2D(
-				noiseTime + trailIndex * 11.37,
-				noiseTime + trailIndex * 7.13,
-			);
-			const noiseY = valueNoise2D(
-				1337 + this.elapsed * 0.05 + trailIndex * 5.71,
-				7331 + this.elapsed * 0.05 + trailIndex * 9.43,
-			);
-			const targetX = mouseOffset.x
-				+ Math.sin(lineTime) * 0.064
-				+ noiseX * 0.115;
-			const targetY = mouseOffset.y
-				+ Math.cos(lineTime) * 0.046
-				+ noiseY * 0.042;
+			const target = this.trailTargets[trailIndex];
+			this._resolveOrganicTrailTarget(trailIndex, this.elapsed, mouseOffset, target);
+			const targetX = target.x;
+			const targetY = target.y;
 			const spinCos = Math.cos(this._clickSpinAngle);
 			const spinSin = Math.sin(this._clickSpinAngle);
 			// Rotate the live target and add a closed, explicit orbit. The latter
@@ -873,14 +892,13 @@ export class InfiniteLightTrailsWorld {
 			const orbitRadius = 0.44;
 			const orbitX = (spinCos - 1) * orbitRadius;
 			const orbitY = spinSin * orbitRadius;
-			const target = this.trailTargets[trailIndex];
 			target.set(
 				targetX * spinCos - targetY * spinSin + orbitX,
 				targetX * spinSin + targetY * spinCos + orbitY,
 			);
 
 			const chain = this.trailChains[trailIndex];
-			this._recordTrailTarget(trailIndex, target);
+			this._recordTrailTarget(trailIndex, target, mouseOffset);
 			// Every point samples the same target history at a progressively older
 			// time. The tip moves first; the base repeats that exact cursor/orbit path
 			// later instead of losing it through dozens of low-pass filters.
@@ -954,7 +972,7 @@ export class InfiniteLightTrailsWorld {
 			THREE.MathUtils.clamp(pointer.x ?? 0, -1, 1),
 			THREE.MathUtils.clamp(pointer.y ?? 0, -1, 1),
 		);
-		const pointerDown = Boolean(frame?.pointerDown);
+		const pointerDown = this.interactionEnabled && Boolean(frame?.pointerDown);
 		if (pointerDown && !this._pointerWasDown && this.renderEnabled) {
 			this._triggerClickSpin();
 		}

@@ -102,6 +102,7 @@ export class AboutScene {
 		this._backBackSide = null;
 		this._scrollProgress = 0;
 		this._storyProgress = 0;
+		this._dragOrbitTarget = new THREE.Vector3();
 		this._insideLarge = null;
 		this._edgeForParticlesMesh = null;
 		this._edgeRebuildRaf = 0;
@@ -545,6 +546,20 @@ export class AboutScene {
 	_getDefaultCameraPosition() {
 		const cam = this._resolveStageCamera();
 		return new THREE.Vector3(cam.x, cam.y, cam.z);
+	}
+
+	isDragOrbitEnabled() {
+		return true;
+	}
+
+	getDragOrbitTarget(_camera, frame) {
+		const cam = this._resolveStageCamera();
+		const progress = Number.isFinite(frame?.sceneProgress) ? frame.sceneProgress : 0;
+		return this._dragOrbitTarget.set(
+			cam.lookAtX,
+			cam.lookAtY - progress * CAMERA_SCROLL_Y,
+			cam.lookAtZ,
+		);
 	}
 
 	applyCamera(camera, frame) {

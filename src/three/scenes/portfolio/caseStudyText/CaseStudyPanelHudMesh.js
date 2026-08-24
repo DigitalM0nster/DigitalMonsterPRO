@@ -542,22 +542,9 @@ export class CaseStudyPanelHudMesh {
 	}
 
 	/**
-	 * Drop pooled textures whose canvases are no longer in the session set.
-	 * @param {Iterable<HTMLCanvasElement>} keepCanvases
-	 */
-	_pruneTexturePool(keepCanvases) {
-		const keep = new Set(keepCanvases);
-		for (const [canvas, texture] of this._texturePool) {
-			if (keep.has(canvas)) {
-				continue;
-			}
-			texture.dispose();
-			this._texturePool.delete(canvas);
-		}
-	}
-
-	/**
 	 * GPU-upload canvases into the keepAlive pool (no visibility / bind changes).
+	 * Preserve earlier entries: capability variants share one HUD mesh, so each
+	 * prepared scene copy must remain resident for source/target hex composition.
 	 * @param {HTMLCanvasElement[]} canvases
 	 * @param {import('three').WebGLRenderer | null} [renderer]
 	 */
@@ -567,7 +554,6 @@ export class CaseStudyPanelHudMesh {
 			return;
 		}
 		this.keepAliveTextures = true;
-		this._pruneTexturePool(poolCanvases);
 		for (const canvas of poolCanvases) {
 			this._poolTexture(canvas, true, renderer);
 		}
@@ -849,6 +835,23 @@ export class CaseStudyPanelHudMesh {
 			return null;
 		}
 		if (texture.colorSpace !== THREE.NoColorSpace) {
+			texture.colorSpace = THREE.NoColorSpace;
+		}
+		return texture;
+	}
+
+	/**
+	 * Prepared canvas lookup for capability source/target hex layers. Does not
+	 * touch bridge identity or mosaic uniforms.
+	 * @param {HTMLCanvasElement | null | undefined} canvas
+	 * @returns {THREE.Texture | null}
+	 */
+	getWarmCanvasTexture(canvas) {
+		if (!canvas?.width || !canvas?.height) {
+			return null;
+		}
+		const texture = this._poolTexture(canvas, false);
+		if (texture && texture.colorSpace !== THREE.NoColorSpace) {
 			texture.colorSpace = THREE.NoColorSpace;
 		}
 		return texture;

@@ -1,22 +1,27 @@
 import * as THREE from "three";
 import { Case3Scene } from "@/three/scenes/portfolio/case3/Case3Scene.js";
 import { PortfolioFreeCameraController } from "@/three/scenes/portfolio/hub/PortfolioFreeCameraController.js";
-import {
-	getCasePanelHudEnterProgress,
-	setCasePanelHudEnterProgress,
-} from "@/pages/portfolio/core/casePanelHudBridge.js";
 import { setMmk1ReturnToOverviewHandler } from "@/pages/capabilities/mmk1SceneBridge.js";
 import { Mmk1CameraHotspots } from "./Mmk1CameraHotspots.js";
 import { MMK1_CAMERA_HOTSPOT_MOTION } from "./mmk1CameraHotspotsConfig.js";
 import { InfiniteLightTrailsWorld } from "../lightTrails/InfiniteLightTrailsWorld.js";
+import { PlaceholderCapabilityWorld } from "../placeholders/PlaceholderCapabilityWorld.js";
+import { CityModelWorld } from "../city/CityModelWorld.js";
+import {
+	CAPABILITIES,
+	CAPABILITY_SCENE_VARIANTS,
+	getCapabilitySceneVariant,
+} from "@/pages/capabilities/data/capabilities.js";
 
 const clamp01 = (value) => Math.max(0, Math.min(1, value));
+const normalizeCapabilityVariant = (variant) => (
+	CAPABILITY_SCENE_VARIANTS.includes(variant) ? variant : CAPABILITY_SCENE_VARIANTS[0]
+);
 const easeInOutCubic = (value) => {
 	const t = clamp01(value);
 	return t < 0.5 ? 4 * t * t * t : 1 - ((-2 * t + 2) ** 3) / 2;
 };
 
-const HUD_HIDE_DURATION = 0.28;
 const CRANE_MATERIAL_TRANSITION_DURATION = 0.46;
 const CRANE_MATERIAL_NUMERIC_LIMITS = {
 	rimStrength: [0, 4],
@@ -165,9 +170,9 @@ export class Mmk1CapabilityScene extends Case3Scene {
 		};
 		this._activeCraneMaterialProfile = "overview";
 		this._craneMaterialFlight = null;
-		this._hudHideFlight = null;
 		this._frameCamera = null;
 		this._overviewReturnActive = false;
+		this._dragOrbitTarget = new THREE.Vector3();
 		this._capabilityBlend = 0;
 		this._secondCapabilityActive = false;
 		this._capabilityRenderVariant = null;
@@ -176,6 +181,15 @@ export class Mmk1CapabilityScene extends Case3Scene {
 			this.threeScene,
 			renderer.domElement,
 		);
+		this._placeholderWorlds = new Map(
+			CAPABILITIES.slice(2).map((capability) => [
+				capability.sceneVariant,
+				capability.sceneVariant === "spatialMatrix"
+					? new CityModelWorld(this.threeScene, renderer)
+					: new PlaceholderCapabilityWorld(this.threeScene, capability.sceneVariant),
+			]),
+		);
+		this._cityModelWorld = this._placeholderWorlds.get("spatialMatrix") ?? null;
 		this._cameraHotspots = new Mmk1CameraHotspots(this.threeScene, renderer.domElement, {
 			onActivate: (definition) => this._activateHotspot(definition),
 		});
@@ -185,8 +199,13 @@ export class Mmk1CapabilityScene extends Case3Scene {
 					logLabel: "mmk1Camera",
 				})
 			: null;
-		void this.readyPromise.then(() => {
+		const craneReadyPromise = this.readyPromise;
+		this.readyPromise = Promise.all([
+			craneReadyPromise,
+			this._cityModelWorld?.readyPromise ?? Promise.resolve(true),
+		]).then(([craneReady]) => {
 			this._applyCraneMaterialProfile(this._activeCraneMaterialProfile);
+			return craneReady;
 		});
 		this._disposeReturnToOverviewBridge = setMmk1ReturnToOverviewHandler(
 			() => this.returnToOverview(),
@@ -203,13 +222,13 @@ export class Mmk1CapabilityScene extends Case3Scene {
 		this._cameraHotspots?.reset();
 		this._craneRotationFlight = null;
 		this._craneMaterialFlight = null;
-		this._hudHideFlight = null;
 		this._capabilityBlend = 0;
 		this._secondCapabilityActive = false;
 		this._capabilityRenderVariant = null;
 		this._carouselMixTargetPrepared = false;
 		this._lightTrailsWorld?.setReveal(0);
 		this._lightTrailsWorld?.setRenderEnabled(false);
+		for (const world of this._placeholderWorlds.values()) world.setRenderEnabled(false);
 		this.store.capabilitiesExperience.investigating = false;
 		this.store.capabilitiesExperience.activeHotspotId = null;
 		this.store.capabilitiesExperience.progress = 0;
@@ -224,19 +243,33 @@ export class Mmk1CapabilityScene extends Case3Scene {
 		super.resetCarouselState();
 	}
 
-	prepareCarouselMixTarget({ variant = "mmk1" } = {}) {
-		const resolvedVariant = variant === "lightTrails" ? "lightTrails" : "mmk1";
+	prepareCarouselMixTarget({ variant = CAPABILITY_SCENE_VARIANTS[0] } = {}) {
+		const resolvedVariant = normalizeCapabilityVariant(variant);
 		if (this._carouselMixTargetPrepared && this._capabilityRenderVariant === resolvedVariant) {
 			return;
 		}
 		this._carouselMixTargetPrepared = true;
-		this._capabilityBlend = resolvedVariant === "lightTrails" ? 1 : 0;
-		this._secondCapabilityActive = resolvedVariant === "lightTrails";
+		this._capabilityBlend = resolvedVariant === "mmk1" ? 0 : 1;
+		this._secondCapabilityActive = resolvedVariant !== "mmk1";
 		this._capabilityRenderVariant = resolvedVariant;
-		this.root.visible = resolvedVariant === "mmk1";
-		this._lightTrailsWorld?.setReveal(resolvedVariant === "lightTrails" ? 1 : 0);
-		this._lightTrailsWorld?.setRenderEnabled(resolvedVariant === "lightTrails");
+		this._applyCapabilityVariantVisibility(resolvedVariant);
 		super.prepareCarouselMixTarget();
+	}
+
+	getFirstCapabilityRenderVariant() {
+		return CAPABILITY_SCENE_VARIANTS[0];
+	}
+
+	getCapabilityRenderVariants() {
+		return [...CAPABILITY_SCENE_VARIANTS];
+	}
+
+	getLastCapabilityRenderVariant() {
+		return CAPABILITY_SCENE_VARIANTS.at(-1);
+	}
+
+	getPublishedCapabilityRenderVariant() {
+		return getCapabilitySceneVariant(this.store?.capabilitiesExperience?.activeStageId);
 	}
 
 	playEnterAnimation() {
@@ -255,28 +288,8 @@ export class Mmk1CapabilityScene extends Case3Scene {
 		this._startCraneRotationFlight(definition);
 		this._startCraneMaterialFlight("close");
 		this.gridRadar?.trigger?.();
-		this._startHudHide();
 		this.store.capabilitiesExperience.investigating = true;
 		this.store.capabilitiesExperience.activeHotspotId = definition?.id ?? null;
-	}
-
-	_startHudHide() {
-		const current = getCasePanelHudEnterProgress();
-		const from = current == null ? 1 : current;
-		if (from <= 0.001) {
-			setCasePanelHudEnterProgress(0);
-			this._hudHideFlight = null;
-			return;
-		}
-		setCasePanelHudEnterProgress(from);
-		this._hudHideFlight = { elapsed: 0, from, to: 0 };
-	}
-
-	_startHudShow() {
-		const current = getCasePanelHudEnterProgress();
-		const from = current == null ? 0 : current;
-		setCasePanelHudEnterProgress(from);
-		this._hudHideFlight = { elapsed: 0, from, to: 1 };
 	}
 
 	_startCraneRotationFlight(definition) {
@@ -320,8 +333,31 @@ export class Mmk1CapabilityScene extends Case3Scene {
 		this._cameraHotspots?.setPointerState(pointerState);
 	}
 
+	isDragOrbitEnabled(_frame, interactionVariant = null) {
+		const resolvedVariant = interactionVariant
+			? normalizeCapabilityVariant(interactionVariant)
+			: this._resolveCapabilityRenderVariant();
+		return resolvedVariant !== "lightTrails";
+	}
+
+	getDragOrbitTarget(_camera, frame) {
+		if (!this.isDragOrbitEnabled()) {
+			return null;
+		}
+		const placeholder = this._placeholderWorlds.get(this._resolveCapabilityRenderVariant());
+		if (placeholder) return placeholder.getOrbitTarget(this._dragOrbitTarget);
+		return this._cameraHotspots?.getOrbitTarget(this._dragOrbitTarget)
+			?? this.getCameraLookAt(frame, this._dragOrbitTarget);
+	}
+
 	applyCamera(camera, frame) {
-		const lightTrailsVariant = this._resolveCapabilityRenderVariant() === "lightTrails";
+		const resolvedVariant = this._resolveCapabilityRenderVariant();
+		const placeholder = this._placeholderWorlds.get(resolvedVariant);
+		if (placeholder) {
+			placeholder.applyCamera(camera, this.cameraParallax);
+			return;
+		}
+		const lightTrailsVariant = resolvedVariant === "lightTrails";
 		if (!lightTrailsVariant && this._capabilityBlend <= 0.001 && this._freeCamera?.apply(camera)) {
 			this._cameraHotspots?.syncCamera(camera);
 			return;
@@ -339,24 +375,42 @@ export class Mmk1CapabilityScene extends Case3Scene {
 
 	_resolveCapabilityRenderVariant() {
 		if (this._capabilityRenderVariant) return this._capabilityRenderVariant;
-		return this.store?.capabilitiesExperience?.activeStageId === "light-trails"
-			? "lightTrails"
-			: "mmk1";
+		return getCapabilitySceneVariant(this.store?.capabilitiesExperience?.activeStageId);
+	}
+
+	_applyCapabilityVariantVisibility(variant) {
+		const resolvedVariant = normalizeCapabilityVariant(variant);
+		const isMmk1 = resolvedVariant === "mmk1";
+		const isLightTrails = resolvedVariant === "lightTrails";
+		this.root.visible = isMmk1;
+		this._lightTrailsWorld?.setReveal(isLightTrails ? 1 : 0);
+		this._lightTrailsWorld?.setRenderEnabled(isLightTrails, { preserveMotion: true });
+		for (const [worldVariant, world] of this._placeholderWorlds) {
+			world.setRenderEnabled(worldVariant === resolvedVariant);
+		}
+		if (this._cameraHotspots?.group) this._cameraHotspots.group.visible = isMmk1;
 	}
 
 	setCapabilityRenderVariant(variant = null) {
-		this._capabilityRenderVariant = variant === "lightTrails" || variant === "mmk1"
+		this._capabilityRenderVariant = CAPABILITY_SCENE_VARIANTS.includes(variant)
 			? variant
 			: null;
-		const lightTrailsVariant = this._resolveCapabilityRenderVariant() === "lightTrails";
-		this.root.visible = !lightTrailsVariant;
-		this._lightTrailsWorld?.setReveal(1);
-		this._lightTrailsWorld?.setRenderEnabled(lightTrailsVariant);
-		if (this._cameraHotspots?.group) this._cameraHotspots.group.visible = !lightTrailsVariant;
+		this._applyCapabilityVariantVisibility(this._resolveCapabilityRenderVariant());
 	}
 
 	update(delta, frame) {
-		super.update(delta, frame);
+		const interactionVariant = frame?.capabilityInteractionVariant ?? null;
+		const mmkInteractionEnabled = interactionVariant == null || interactionVariant === "mmk1";
+		const mmkFrame = mmkInteractionEnabled
+			? frame
+			: {
+				...frame,
+				pointer: { x: 0, y: 0 },
+				pointerDown: false,
+				pointerBlocked: true,
+				interactionEnabled: false,
+			};
+		super.update(delta, mmkFrame);
 		this._frameCamera = frame?.camera ?? this._frameCamera;
 		const stagePosition = Number(this.store?.capabilitiesExperience?.stagePosition) || 0;
 		this._capabilityBlend = clamp01(stagePosition);
@@ -367,12 +421,34 @@ export class Mmk1CapabilityScene extends Case3Scene {
 			this._overviewReturnActive = false;
 			this._craneRotationFlight = null;
 			this._startCraneMaterialFlight("overview");
-			this._startHudShow();
 			this.store.capabilitiesExperience.investigating = false;
 			this.store.capabilitiesExperience.activeHotspotId = null;
 		}
 		this._secondCapabilityActive = secondCapabilityActive;
-		this._lightTrailsWorld?.update(delta, frame, stagePosition > 0 ? 1 : 0);
+		const stageFrom = Math.max(0, Math.min(CAPABILITIES.length - 1, Math.floor(stagePosition)));
+		const stageTo = Math.max(0, Math.min(CAPABILITIES.length - 1, Math.ceil(stagePosition)));
+		const lightTrailsEngaged = stageFrom <= 1 && stageTo >= 1;
+		this._lightTrailsWorld?.setInteractionEnabled(
+			interactionVariant == null || interactionVariant === "lightTrails",
+		);
+		// Wake motion before the first incoming pass is drawn. The seeded chain is
+		// therefore already curved while the second capability is still entering.
+		this._lightTrailsWorld?.setRenderEnabled(lightTrailsEngaged, { preserveMotion: true });
+		this._lightTrailsWorld?.update(delta, frame, lightTrailsEngaged ? 1 : 0);
+		let placeholderHovered = false;
+		for (let index = 2; index < CAPABILITIES.length; index += 1) {
+			const variant = CAPABILITIES[index].sceneVariant;
+			const interactionOwned = (interactionVariant == null || interactionVariant === variant)
+				&& frame?.interactionEnabled !== false
+				&& !frame?.pointerBlocked;
+			const hovered = this._placeholderWorlds.get(variant)?.update(
+				delta,
+				index === stageFrom || index === stageTo,
+				frame,
+				interactionOwned,
+			) ?? false;
+			placeholderHovered = placeholderHovered || hovered;
+		}
 		if (this._overviewReturnActive) {
 			this.cameraParallax.set(0, 0);
 			if (!this._cameraHotspots?.isReturningToOverview?.()) {
@@ -412,19 +488,6 @@ export class Mmk1CapabilityScene extends Case3Scene {
 			);
 			if (progress >= 1) this._craneMaterialFlight = null;
 		}
-		if (this._hudHideFlight) {
-			this._hudHideFlight.elapsed += Math.max(0, Math.min(delta, 0.05));
-			const progress = clamp01(this._hudHideFlight.elapsed / HUD_HIDE_DURATION);
-			const eased = easeInOutCubic(progress);
-			setCasePanelHudEnterProgress(
-				this._hudHideFlight.from
-				+ (this._hudHideFlight.to - this._hudHideFlight.from) * eased,
-			);
-			if (progress >= 1) {
-				setCasePanelHudEnterProgress(this._hudHideFlight.to);
-				this._hudHideFlight = null;
-			}
-		}
 		if (this._freeCamera?.enabled && frame?.camera) {
 			this._freeCamera.update(delta, frame.camera);
 		}
@@ -432,22 +495,27 @@ export class Mmk1CapabilityScene extends Case3Scene {
 			enabled: Boolean(
 				(this.activePage || this.showCase)
 					&& !this._freeCamera?.enabled
-					&& this._capabilityBlend < 0.999,
+					&& this._capabilityBlend < 0.999
+					&& mmkInteractionEnabled,
 			),
 		}) ?? false;
 		if (this.store?.cursor) {
-			this.store.cursor.caseHovered = hotspotHovered || Boolean(this.pointerInteract?.isHovered?.());
+			this.store.cursor.caseHovered = placeholderHovered
+				|| hotspotHovered
+				|| Boolean(this.pointerInteract?.isHovered?.());
 		}
 	}
 
 	beginWarmupDraw() {
 		const lifecycleToken = super.beginWarmupDraw();
 		this._lightTrailsWorld?.beginWarmupDraw();
+		for (const world of this._placeholderWorlds.values()) world.setRenderEnabled(true);
 		return { lifecycleToken };
 	}
 
 	endWarmupDraw(token) {
 		this._lightTrailsWorld?.endWarmupDraw();
+		this._applyCapabilityVariantVisibility(this._resolveCapabilityRenderVariant());
 		super.endWarmupDraw(token?.lifecycleToken ?? token);
 	}
 
@@ -506,7 +574,6 @@ export class Mmk1CapabilityScene extends Case3Scene {
 		this._cameraHotspots?.startOverviewFlight?.(camera, target);
 		this._startCraneMaterialFlight("overview");
 		this._startCraneRotationFlight(null);
-		this._startHudShow();
 		this.gridRadar?.trigger?.();
 		this.store.capabilitiesExperience.investigating = false;
 		this.store.capabilitiesExperience.activeHotspotId = null;
@@ -600,12 +667,14 @@ export class Mmk1CapabilityScene extends Case3Scene {
 	dispose() {
 		this._craneRotationFlight = null;
 		this._craneMaterialFlight = null;
-		this._hudHideFlight = null;
 		this._frameCamera = null;
 		this._overviewReturnActive = false;
 		this._capabilityRenderVariant = null;
 		this._lightTrailsWorld?.dispose(this.threeScene);
 		this._lightTrailsWorld = null;
+		for (const world of this._placeholderWorlds.values()) world.dispose(this.threeScene);
+		this._placeholderWorlds.clear();
+		this._cityModelWorld = null;
 		this._disposeReturnToOverviewBridge?.();
 		this._disposeReturnToOverviewBridge = null;
 		this._cameraHotspots?.dispose();

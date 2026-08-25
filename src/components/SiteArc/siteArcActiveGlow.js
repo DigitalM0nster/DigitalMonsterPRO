@@ -1,7 +1,5 @@
 import { siteArcActiveLineConfig } from "./siteArcActiveLineConfig.js";
 import {
-	siteArcConfig,
-	siteArcInternals,
 	getActiveBloomGlowColors,
 	getArcLineStrokeStyle,
 	lerpHexColor,
@@ -37,7 +35,7 @@ export function getActiveArcGlowWeight(angle, activeAngle, halfSpanRad, highligh
  *
  * @param {number} nodeAngleRad
  * @param {number} glowCenterAngleRad
- * @param {typeof siteArcConfig} cfg
+ * @param {typeof import('./siteArcConfig.js').siteArcConfig} cfg
  * @param {number} arcGlowStrength
  * @param {typeof siteArcActiveLineConfig} [lineCfg]
  */
@@ -63,8 +61,8 @@ export function getNodeArcGlowHighlight(nodeAngleRad, glowCenterAngleRad, cfg, a
  * @param {{ angleStart: number, angleEnd: number, noFadeMin: number, noFadeMax: number } | null} fadeBounds
  * @param {number} activeAngle
  * @param {number} highlight
- * @param {typeof siteArcConfig} cfg
- * @param {typeof siteArcInternals} internal
+ * @param {typeof import('./siteArcConfig.js').siteArcConfig} cfg
+ * @param {typeof import('./siteArcConfig.js').siteArcInternals} internal
  * @param {typeof siteArcActiveLineConfig} [lineCfg]
  */
 export function strokeArcActiveNodeGlow(

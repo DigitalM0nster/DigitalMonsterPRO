@@ -1,4 +1,4 @@
-import { getSiteCopy } from "@/app/i18n/siteCopy.js";
+import { getLocalizedText } from "@/app/localization/interfaceTranslations.js";
 import {
 	getPortfolioLocale,
 	getPortfolioProjectName,
@@ -175,7 +175,7 @@ export function getHubPlateInnerPanelData(project, locale = getPortfolioLocale()
 	return {
 		title: getPortfolioProjectName(project?.id, locale) || project?.name || "PROJECT",
 		description: data.description
-			? getSiteCopy(data.description, locale)
+			? getLocalizedText(data.description, locale)
 			: project?.hubTagline ?? "",
 		year: data.year ?? "—",
 		type: getPortfolioProjectPlateSecondary(project?.id, locale)
@@ -184,7 +184,7 @@ export function getHubPlateInnerPanelData(project, locale = getPortfolioLocale()
 			|| "DIGITAL PROJECT",
 		url: data.url ?? null,
 		gallery: data.gallery?.length ? data.gallery : project?.hubLogo ? [project.hubLogo] : [],
-		currentProjectLabel: getSiteCopy(CURRENT_PROJECT_COPY, locale),
-		visitSiteLabel: getSiteCopy(VISIT_SITE_COPY, locale),
+		currentProjectLabel: getLocalizedText(CURRENT_PROJECT_COPY, locale),
+		visitSiteLabel: getLocalizedText(VISIT_SITE_COPY, locale),
 	};
 }

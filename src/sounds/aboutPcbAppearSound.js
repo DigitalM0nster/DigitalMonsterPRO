@@ -34,7 +34,6 @@ const SETTLE_LP_HZ = 7200;
 const MIN_MOTION = 0.0006;
 const REST_FADE_MS = 420;
 const RESTART_FADE_MS = 140;
-const CROSSFADE_S = 0.12;
 const GAIN_TIME_CONSTANT = 0.08;
 /** Match ABOUT_PARTICLES.revealStoryStart / revealStoryEnd. */
 const PCB_REVEAL_START = 1.5;

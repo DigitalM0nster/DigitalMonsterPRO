@@ -174,14 +174,7 @@
  * @property {string} route
  * @property {string} title
  * @property {string} [summary]
- * @property {{ primary: string, [key: string]: string }} [models]
- * @property {PortfolioSceneLayout} [scene]
  * @property {{ year?: number | string, type?: string, skills?: string[], accentColor?: string }} [meta]
- * @property {string} [hubLogo]
- * @property {PortfolioVideoPolicy} [mediaPolicy]
- * @property {PortfolioOptionalVideo} [optionalVideo]
- * @property {ProjectContentStatus} [contentStatus]
- * @property {PortfolioLifecycle} [lifecycle]
  * @property {PortfolioCaseStudyUiConfig} [caseStudy]
  */
 
@@ -229,10 +222,6 @@
  * @typedef {Object} PortfolioProjectModule
  * @property {PortfolioProjectConfig} config
  * @property {PortfolioState[]} states
- * @property {HotspotsByState} hotspots
- * @property {PlannedInteractive[]} [plannedInteractives]
- * @property {Record<string, { shortDescription: string, shortFeatures?: PortfolioFeature[], detailsTitle?: string }>} [mobileContent]
- * @property {(context: ProjectSceneContext) => ProjectSceneController} createScene
  */
 
 export {};

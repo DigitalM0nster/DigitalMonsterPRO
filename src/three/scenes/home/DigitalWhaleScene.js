@@ -1039,7 +1039,7 @@ export class DigitalWhaleScene {
 
 		this._wakeCameraWorld.copy(this.cameraPos);
 		this.whaleWake?.update(delta, this.elapsed);
-		this.ambientEffects?.update(delta, this.elapsed, c, {
+		this.ambientEffects?.update(delta, this.elapsed, {
 			deep: this._deepScrollAuto,
 			whale: this._whaleAmbientScrollAuto,
 		});

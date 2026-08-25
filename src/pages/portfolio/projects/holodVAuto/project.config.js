@@ -7,8 +7,6 @@ const projectConfig = {
 	route: "/portfolio/02",
 	title: "ХОЛОД В АВТО",
 	summary: "Каталог и сервисная платформа автомобильного климатического оборудования",
-	hubLogo: "/images/portfolio/holod-v-auto-logo.png",
-	contentStatus: "ready",
 	meta: {
 		year: 2026,
 		type: "ХОЛОД В АВТО / АВТОМОБИЛЬНЫЙ КЛИМАТ",
@@ -28,12 +26,7 @@ const projectConfig = {
 			en: "HOLOD V AUTO / AUTOMOTIVE CLIMATE",
 			zh: "HOLOD V AUTO / 汽车气候系统",
 		},
-		mobileHorizontalSwipe: true,
 		...caseStudyReferencePanelPreset,
-	},
-	mediaPolicy: {
-		maxVideos: 0,
-		defaultLoad: "eager",
 	},
 };
 

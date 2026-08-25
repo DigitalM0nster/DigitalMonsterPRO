@@ -1,5 +1,11 @@
 import * as THREE from "three";
 import { createGLTFLoader } from "@/three/assets/gltfLoader.js";
+import {
+	CITY_WINDOW_MATERIAL_DEFAULTS,
+	createCityLuminousWindowMaterial,
+	replaceCityWindowMaterial,
+} from "./cityLuminousWindowMaterial.js";
+import { CityFogSceneGuide } from "./CityFogSceneGuide.js";
 
 const CITY_MODEL_URL = "/models/posibility5/city.glb";
 const CITY_POSITION = new THREE.Vector3(2.4, -1.35, -0.15);
@@ -47,6 +53,15 @@ export class CityModelWorld {
 		this.cameraPosition = CITY_CAMERA_POSITION.clone();
 		this.cameraLookAt = CITY_CAMERA_LOOK_AT.clone();
 		this.model = null;
+		this.windowMaterial = null;
+		this.sceneFog = scene.fog?.isFogExp2 ? scene.fog : null;
+		this.sceneFogDefaultDensity = this.sceneFog?.density ?? CITY_WINDOW_MATERIAL_DEFAULTS.fogDensity;
+		this.sceneFogDefaultColor = this.sceneFog?.color.clone() ?? new THREE.Color(CITY_WINDOW_MATERIAL_DEFAULTS.fogColor);
+		this.cityFogDensity = CITY_WINDOW_MATERIAL_DEFAULTS.fogDensity;
+		this.cityFogColor = new THREE.Color(CITY_WINDOW_MATERIAL_DEFAULTS.fogColor);
+		this.fogSceneGuide = import.meta.env.DEV
+			? new CityFogSceneGuide(scene, CITY_WINDOW_MATERIAL_DEFAULTS)
+			: null;
 		this.disposed = false;
 
 		const ambientLight = new THREE.AmbientLight(0xffffff, 1.5);
@@ -78,6 +93,17 @@ export class CityModelWorld {
 			throw new Error(`[CityModelWorld] ${CITY_MODEL_URL} contains no renderable geometry`);
 		}
 
+		const windowMaterial = createCityLuminousWindowMaterial();
+		const windowMeshCount = replaceCityWindowMaterial(model, windowMaterial);
+		if (windowMeshCount === 0) {
+			windowMaterial.dispose();
+			disposeModel(model);
+			throw new Error(
+				`[CityModelWorld] ${CITY_MODEL_URL} contains no WindowMaterial meshes`,
+			);
+		}
+		this.windowMaterial = windowMaterial;
+
 		const center = bounds.getCenter(new THREE.Vector3());
 		model.position.x -= center.x;
 		model.position.y -= bounds.min.y;
@@ -105,7 +131,15 @@ export class CityModelWorld {
 	}
 
 	setRenderEnabled(enabled) {
-		this.group.visible = enabled === true;
+		const visible = enabled === true;
+		this.group.visible = visible;
+		if (this.sceneFog) {
+			this.sceneFog.density = visible
+				? this.cityFogDensity
+				: this.sceneFogDefaultDensity;
+			this.sceneFog.color.copy(visible ? this.cityFogColor : this.sceneFogDefaultColor);
+		}
+		this.fogSceneGuide?.setSceneVisible(visible);
 	}
 
 	getOrbitTarget(target = new THREE.Vector3()) {
@@ -120,18 +154,97 @@ export class CityModelWorld {
 		camera.updateProjectionMatrix();
 		camera.lookAt(this.cameraLookAt);
 		camera.updateMatrixWorld(true);
+		this.fogSceneGuide?.updateCamera(camera);
 	}
 
 	update() {
 		return false;
 	}
 
+	getWindowMaterialSettings() {
+		const uniforms = this.windowMaterial?.uniforms;
+		if (!uniforms) return null;
+		return {
+			intensity: uniforms.uIntensity.value,
+			fogColor: `#${uniforms.uFogColor.value.getHexString()}`,
+			fogDensity: uniforms.uFogDensity.value,
+			fogNear: uniforms.uFogNear.value,
+			fogPower: uniforms.uFogPower.value,
+			fogOpacity: uniforms.uFogOpacity.value,
+		};
+	}
+
+	setWindowMaterialSettings(settings = {}) {
+		const uniforms = this.windowMaterial?.uniforms;
+		if (!uniforms) return null;
+		if (settings.intensity != null) {
+			const intensity = Number(settings.intensity);
+			if (!Number.isFinite(intensity)) return null;
+			uniforms.uIntensity.value = THREE.MathUtils.clamp(intensity, 0, 6);
+		}
+		if (settings.fogColor != null) {
+			try {
+				this.cityFogColor.set(settings.fogColor);
+				uniforms.uFogColor.value.copy(this.cityFogColor);
+				if (this.group.visible && this.sceneFog) {
+					this.sceneFog.color.copy(this.cityFogColor);
+				}
+			} catch {
+				return null;
+			}
+		}
+		if (settings.fogDensity != null) {
+			const fogDensity = Number(settings.fogDensity);
+			if (!Number.isFinite(fogDensity)) return null;
+			this.cityFogDensity = THREE.MathUtils.clamp(fogDensity, 0, 0.25);
+			uniforms.uFogDensity.value = this.cityFogDensity;
+			if (this.group.visible && this.sceneFog) {
+				this.sceneFog.density = this.cityFogDensity;
+			}
+		}
+		for (const [key, uniformName, min, max] of [
+			["fogNear", "uFogNear", 0, 80],
+			["fogPower", "uFogPower", 0.1, 6],
+			["fogOpacity", "uFogOpacity", 0, 1],
+		]) {
+			if (settings[key] == null) continue;
+			const value = Number(settings[key]);
+			if (!Number.isFinite(value)) return null;
+			uniforms[uniformName].value = THREE.MathUtils.clamp(value, min, max);
+		}
+		const resolved = this.getWindowMaterialSettings();
+		this.fogSceneGuide?.setProfile(resolved);
+		return resolved;
+	}
+
+	resetWindowMaterialSettings() {
+		return this.setWindowMaterialSettings(CITY_WINDOW_MATERIAL_DEFAULTS);
+	}
+
+	setFogSceneGuideEnabled(enabled) {
+		return this.fogSceneGuide?.setEnabled(enabled) ?? false;
+	}
+
+	isFogSceneGuideEnabled() {
+		return this.fogSceneGuide?.enabled === true;
+	}
+
 	dispose(scene = this.scene) {
 		this.disposed = true;
+		if (this.sceneFog) {
+			this.sceneFog.density = this.sceneFogDefaultDensity;
+			this.sceneFog.color.copy(this.sceneFogDefaultColor);
+		}
 		scene?.remove(this.group);
 		disposeModel(this.model);
 		this.model = null;
+		this.windowMaterial = null;
+		this.fogSceneGuide?.dispose();
+		this.fogSceneGuide = null;
 		this.group.clear();
+		this.sceneFog = null;
+		this.sceneFogDefaultColor = null;
+		this.cityFogColor = null;
 		this.scene = null;
 	}
 }

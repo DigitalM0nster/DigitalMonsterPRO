@@ -7,8 +7,6 @@ const projectConfig = {
 	route: "/portfolio/06",
 	title: "Belka Production",
 	summary: "Корпоративный сайт и портфолио продакшн-студии полного цикла",
-	hubLogo: "/images/portfolio/belka-production/image1.webp",
-	contentStatus: "ready",
 	meta: {
 		year: 2023,
 		type: "СТУДИЯ БЕЛКИ / FULL-CYCLE PRODUCTION",
@@ -28,12 +26,7 @@ const projectConfig = {
 			en: "BELKA PRODUCTION / FULL CYCLE",
 			zh: "BELKA PRODUCTION / 全流程制作",
 		},
-		mobileHorizontalSwipe: true,
 		...caseStudyReferencePanelPreset,
-	},
-	mediaPolicy: {
-		maxVideos: 0,
-		defaultLoad: "onDemand",
 	},
 };
 

@@ -1,5 +1,5 @@
 import { Effect } from "postprocessing"
-import { Uniform, Vector2 } from "three"
+import { Uniform } from "three"
 
 export default class NiceBlurEffect extends Effect {
     constructor(props) {
@@ -12,8 +12,6 @@ export default class NiceBlurEffect extends Effect {
                 ])
             }
         )
-    }
-    update(renderer, inputBuffer, deltaTime) {
     }
 }
 

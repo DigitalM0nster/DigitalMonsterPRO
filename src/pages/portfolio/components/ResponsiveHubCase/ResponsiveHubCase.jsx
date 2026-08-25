@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { subscribe, useSnapshot } from "valtio";
 import { store } from "@/app/store.jsx";
-import { getSiteCopy } from "@/app/i18n/siteCopy.js";
+import { getLocalizedText } from "@/app/localization/interfaceTranslations.js";
 import { normalizeSiteLocale } from "@/functions/siteLocale.js";
 import { commitPortfolioHubCaseRoute } from "@/functions/portfolioHubNavigate.js";
 import {
@@ -214,7 +214,7 @@ export default function ResponsiveHubCase() {
 			data-hub-case-responsive="true"
 			data-canvas-pointer-blocker="true"
 			aria-hidden={!panelVisible}
-			aria-label={`${getSiteCopy(COPY.case, locale)} ${project.id}: ${panelData.title}`}
+			aria-label={`${getLocalizedText(COPY.case, locale)} ${project.id}: ${panelData.title}`}
 		>
 			<article className={styles.casePanel}>
 				<header className={styles.caseHeader}>
@@ -224,14 +224,14 @@ export default function ResponsiveHubCase() {
 						<p className={styles.typeLead}>{panelData.type}</p>
 					</div>
 					<div className={styles.caseNumber}>
-						<span>{getSiteCopy(COPY.case, locale)}</span>
+						<span>{getLocalizedText(COPY.case, locale)}</span>
 						<strong>{project.id}</strong>
 						<small>/ {pad(projectsData.length)}</small>
 					</div>
 					<p className={styles.description}>{panelData.description}</p>
 					<div className={styles.headerActions}>
 						<button type="button" className={styles.allProjectsButton} onClick={handleAllProjects}>
-							<span aria-hidden="true">←</span> {getSiteCopy(COPY.allProjects, locale)}
+							<span aria-hidden="true">←</span> {getLocalizedText(COPY.allProjects, locale)}
 						</button>
 						{panelData.url && (
 							<a className={styles.siteLink} href={panelData.url} target="_blank" rel="noreferrer">
@@ -243,7 +243,7 @@ export default function ResponsiveHubCase() {
 
 				<div className={styles.gallerySection}>
 					<div className={styles.galleryTopline}>
-						<span>{getSiteCopy(COPY.gallery, locale)}</span>
+						<span>{getLocalizedText(COPY.gallery, locale)}</span>
 						<span>{pad(galleryIndex + 1)} / {pad(Math.max(gallery.length, 1))}</span>
 					</div>
 					<div
@@ -282,8 +282,8 @@ export default function ResponsiveHubCase() {
 							))}
 						</div>
 					</div>
-					<nav className={styles.galleryNavigation} aria-label={getSiteCopy(COPY.gallery, locale)}>
-						<button type="button" onClick={() => settleGallery(-1)} disabled={gallery.length <= 1} aria-label={getSiteCopy(COPY.previousImage, locale)}>
+					<nav className={styles.galleryNavigation} aria-label={getLocalizedText(COPY.gallery, locale)}>
+						<button type="button" onClick={() => settleGallery(-1)} disabled={gallery.length <= 1} aria-label={getLocalizedText(COPY.previousImage, locale)}>
 							<span aria-hidden="true">‹</span>
 						</button>
 						<div className={styles.galleryDots}>
@@ -302,7 +302,7 @@ export default function ResponsiveHubCase() {
 								/>
 							))}
 						</div>
-						<button type="button" onClick={() => settleGallery(1)} disabled={gallery.length <= 1} aria-label={getSiteCopy(COPY.nextImage, locale)}>
+						<button type="button" onClick={() => settleGallery(1)} disabled={gallery.length <= 1} aria-label={getLocalizedText(COPY.nextImage, locale)}>
 							<span aria-hidden="true">›</span>
 						</button>
 					</nav>
@@ -310,15 +310,15 @@ export default function ResponsiveHubCase() {
 
 				<footer className={styles.caseFooter}>
 					<dl className={styles.metaList}>
-						<div><dt>{getSiteCopy(COPY.year, locale)}</dt><dd>{panelData.year}</dd></div>
-						<div><dt>{getSiteCopy(COPY.type, locale)}</dt><dd>{panelData.type}</dd></div>
+						<div><dt>{getLocalizedText(COPY.year, locale)}</dt><dd>{panelData.year}</dd></div>
+						<div><dt>{getLocalizedText(COPY.type, locale)}</dt><dd>{panelData.type}</dd></div>
 					</dl>
-					<nav className={styles.projectNavigation} aria-label={getSiteCopy(COPY.allProjects, locale)}>
+					<nav className={styles.projectNavigation} aria-label={getLocalizedText(COPY.allProjects, locale)}>
 						<button type="button" onClick={() => handleProjectChange(-1)}>
-							<span aria-hidden="true">←</span><span>{getSiteCopy(COPY.previousProject, locale)}</span>
+							<span aria-hidden="true">←</span><span>{getLocalizedText(COPY.previousProject, locale)}</span>
 						</button>
 						<button type="button" onClick={() => handleProjectChange(1)}>
-							<span>{getSiteCopy(COPY.nextProject, locale)}</span><span aria-hidden="true">→</span>
+							<span>{getLocalizedText(COPY.nextProject, locale)}</span><span aria-hidden="true">→</span>
 						</button>
 					</nav>
 				</footer>

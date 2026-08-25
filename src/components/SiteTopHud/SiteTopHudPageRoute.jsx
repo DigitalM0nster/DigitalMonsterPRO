@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { TOP_HUD_PAGE_LABEL_COPY } from "@/app/i18n/siteCopy.js";
+import { TOP_HUD_PAGE_LABEL_TRANSLATIONS } from "@/app/localization/interfaceTranslations.js";
 import { normalizeSiteLocale, SITE_LOCALES } from "@/functions/siteLocale.js";
 
 import GlitchBilingualText from "@/components/GlitchText/GlitchBilingualText.jsx";
@@ -380,7 +380,7 @@ export default function SiteTopHudPageRoute({ pathname, locale }) {
 	}, [displayedPathname]);
 
 	const routeAria = useMemo(() => {
-		const label = TOP_HUD_PAGE_LABEL_COPY[normalizedLocale] ?? TOP_HUD_PAGE_LABEL_COPY.ru;
+		const label = TOP_HUD_PAGE_LABEL_TRANSLATIONS[normalizedLocale] ?? TOP_HUD_PAGE_LABEL_TRANSLATIONS.ru;
 		const title = pageTitleTexts[normalizedLocale] ?? pageTitleTexts.ru;
 		const crumb = caseCrumbTexts[normalizedLocale] ?? caseCrumbTexts.ru;
 		return `${label} ${title}${crumb ? ` / ${crumb}` : ""}`;
@@ -389,7 +389,7 @@ export default function SiteTopHudPageRoute({ pathname, locale }) {
 	return (
 		<span className={styles.pageRoute} aria-live="polite" aria-label={routeAria}>
 			<GlitchBilingualText
-				texts={TOP_HUD_PAGE_LABEL_COPY}
+				texts={TOP_HUD_PAGE_LABEL_TRANSLATIONS}
 				locale={normalizedLocale}
 				className={styles.pageLabel}
 				alignEnd

@@ -10,8 +10,8 @@ import { useSceneCarouselNavigation } from "../hooks/useSceneCarouselNavigation.
 import { useHexHistoryNavigation } from "../hooks/useHexHistoryNavigation.js";
 import { RouteTransitionProvider } from "@/app/context/RouteTransitionContext.jsx";
 import "@/styles/media.css";
-import ThreeCanvasHost from "@/three/legacy/r3f/ThreeCanvasHost.jsx";
-import WebGLCanvasErrorBoundary from "@/three/legacy/r3f/WebGLCanvasErrorBoundary.jsx";
+import ThreeCanvasHost from "@/three/app/ThreeCanvasHost.jsx";
+import WebGLCanvasErrorBoundary from "@/three/renderer/WebGLCanvasErrorBoundary.jsx";
 import LeftMenu from "@/components/LeftMenu/LeftMenu.jsx";
 import SiteTopHud from "@/components/SiteTopHud/SiteTopHud.jsx";
 import SiteArcNavigator from "@/components/SiteArc/SiteArcNavigator.jsx";

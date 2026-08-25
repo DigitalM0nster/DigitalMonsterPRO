@@ -2,7 +2,7 @@ import { useMemo } from "react";
 
 import { useStore } from "@/app/store.jsx";
 
-import { getTopHudSoundToggleAria, TOP_HUD_SOUND_LABEL_COPY } from "@/app/i18n/siteCopy.js";
+import { getTopHudSoundToggleAria, TOP_HUD_SOUND_LABEL_TRANSLATIONS } from "@/app/localization/interfaceTranslations.js";
 
 import { toggleSiteSound } from "@/sounds/siteSoundToggle.js";
 
@@ -46,7 +46,7 @@ export default function SiteTopHudSoundScope() {
 		>
 			<span className={styles.soundRoute}>
 				<GlitchBilingualText
-					texts={TOP_HUD_SOUND_LABEL_COPY}
+					texts={TOP_HUD_SOUND_LABEL_TRANSLATIONS}
 					locale={store.siteLocale}
 					className={styles.soundLabel}
 					alignEnd

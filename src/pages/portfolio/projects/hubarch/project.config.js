@@ -7,8 +7,6 @@ const projectConfig = {
 	route: "/portfolio/07",
 	title: "HUBARCH",
 	summary: "Архитектурное портфолио на React с управлением контентом через WordPress",
-	hubLogo: "/images/portfolio/hubarch/image1.webp",
-	contentStatus: "ready",
 	meta: {
 		year: 2025,
 		type: "HUBARCH / АРХИТЕКТУРА И ИНТЕРЬЕРЫ",
@@ -28,12 +26,7 @@ const projectConfig = {
 			en: "HUBARCH / ARCHITECTURE & INTERIORS",
 			zh: "HUBARCH / 建筑与室内设计",
 		},
-		mobileHorizontalSwipe: true,
 		...caseStudyReferencePanelPreset,
-	},
-	mediaPolicy: {
-		maxVideos: 0,
-		defaultLoad: "onDemand",
 	},
 };
 

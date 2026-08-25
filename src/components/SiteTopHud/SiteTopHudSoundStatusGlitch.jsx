@@ -12,7 +12,7 @@ import {
 
 } from "@/components/GlitchText/glitchSnakeAnimation.js";
 
-import { getTopHudSoundStatus } from "@/app/i18n/siteCopy.js";
+import { getTopHudSoundStatus } from "@/app/localization/interfaceTranslations.js";
 
 import { notifySoundStatusSnakeSettled } from "@/sounds/siteSoundToggle.js";
 

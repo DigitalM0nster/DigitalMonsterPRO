@@ -23,7 +23,7 @@ src/
 - Keep page-specific components, data, hooks and styles inside their `pages/<route>` folder.
 - Keep a shared component and its local modules in one `components/<ComponentName>` folder.
 - `SiteArc` is a single site-wide component owned by `src/components/SiteArc`; portfolio may provide navigation data, but must not own the arc implementation.
-- The current imperative Three.js app is canonical. Old R3F code is isolated under `src/three/legacy/r3f` until it is deleted or migrated.
+- The current imperative Three.js app is canonical. Legacy R3F code has been removed; do not reintroduce a second scene owner.
 - Do not keep generated `.css` or `.css.map` beside SCSS sources.
 
 ## Site transition continuity (binding)
@@ -120,7 +120,7 @@ When `caseStudy.renderTextInScene` is enabled (e.g. Nipigas):
 Page-to-page scroll feel is defined by `progressTarget` + spring rest to `0`/`1` (threshold `0.5`) and `progress` chasing target with exp decay. **Do not** replace this with idle hard-snaps to anchors.
 
 - **Reference (read before changing scroll feel):** [`src/three/render/transition/CAROUSEL_SCROLL_SPRING.md`](src/three/render/transition/CAROUSEL_SCROLL_SPRING.md)
-- **Implementation:** `SceneCarousel.js` — About stages reuse the same shape in `useAboutExperience.js` (softer rates allowed, same structure).
+- **Implementation:** `SceneCarousel.js` — About stages reuse the same shape in `aboutExperienceRuntime.js` (softer rates allowed, same structure).
 - **Dormant / reset (all ring pages: home, portfolioHub, about, contacts):**
   - Ring dormant is **next-only** — `isRingDormantReason` / `RING_DORMANT_REASONS` in `sceneLifecycle.js`.
   - Becoming `next` at rest (not on the `current→next` commit frame); then when `progress` → `0` while already `next` (peek/cancel or deferred after backward leave).

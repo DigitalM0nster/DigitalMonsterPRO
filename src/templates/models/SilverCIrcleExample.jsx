@@ -70,7 +70,7 @@ export default function SilverCIrcleExample() {
     mipmapBlur: true,
 }
 
-  useFrame((smth, delta, smth2) => {
+  useFrame((state, delta) => {
     myRef1.current.rotation.z += delta * 1
   })
 

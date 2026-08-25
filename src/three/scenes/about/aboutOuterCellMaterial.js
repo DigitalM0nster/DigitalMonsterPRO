@@ -5,55 +5,6 @@ import {
 	createAboutDissolveUniforms,
 } from "./aboutDissolveShader.js";
 
-const _box = new THREE.Box3();
-const _size = new THREE.Vector3();
-const _seamLocal = new THREE.Vector3();
-const _normal = new THREE.Vector3();
-
-/**
- * Bake per-vertex `aRib` as seam mask:
- *   1 = end-cap between adjacent OUTER_cell plates (where microchips draw)
- *   0 = top/bottom plate + long inner/outer walls (clean)
- *
- * Seam ≈ normal along the longest local AABB axis (narrow cross-section
- * faces that point into the gaps between plates).
- */
-export function bakeOuterCellRibAttribute(mesh, _modelRoot = null) {
-	const geom = mesh?.geometry;
-	if (!geom?.attributes?.normal) return;
-
-	mesh.updateWorldMatrix(true, false);
-	if (!geom.boundingBox) geom.computeBoundingBox();
-	_box.copy(geom.boundingBox);
-	_box.getSize(_size);
-
-	/** Longest AABB axis → end-cap / seam normal. */
-	if (_size.x >= _size.y && _size.x >= _size.z) _seamLocal.set(1, 0, 0);
-	else if (_size.y >= _size.x && _size.y >= _size.z) _seamLocal.set(0, 1, 0);
-	else _seamLocal.set(0, 0, 1);
-
-	const normals = geom.getAttribute("normal");
-	const rib = new Float32Array(normals.count);
-	let seamCount = 0;
-	for (let i = 0; i < normals.count; i += 1) {
-		_normal.set(normals.getX(i), normals.getY(i), normals.getZ(i)).normalize();
-		const seamAlign = Math.abs(_normal.dot(_seamLocal));
-		const isSeam = seamAlign >= 0.55;
-		rib[i] = isSeam ? 1 : 0;
-		if (isSeam) seamCount += 1;
-	}
-
-	/**
-	 * Degenerate meshes: if almost nothing (or everything) marked seam, flip.
-	 */
-	if (seamCount < normals.count * 0.02 || seamCount > normals.count * 0.78) {
-		for (let i = 0; i < rib.length; i += 1) rib[i] = 1 - rib[i];
-	}
-
-	geom.setAttribute("aRib", new THREE.BufferAttribute(rib, 1));
-	geom.userData.aboutRibBaked = true;
-}
-
 /**
  * OUTER_cell body / OuterCellSeam materials.
  * @param {{ fibersMode?: "always" | "never" | "attrib" }} [cfg]

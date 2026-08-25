@@ -18,7 +18,7 @@ export const DEV_PANEL_HOTKEY_HINTS = [
 	{ key: "7", label: "Case Arc" },
 	{ key: "8", label: "Liquid BG" },
 	{ key: "9", label: "Stage Rail" },
-	{ key: "0", label: "MMK-1 Camera" },
+	{ key: "0", label: "Capabilities / City" },
 ];
 export function formatDevPanelHotkeyHints() {
 	return DEV_PANEL_HOTKEY_HINTS.map(({ key, label }) => `${key} — ${label}`).join(" · ");

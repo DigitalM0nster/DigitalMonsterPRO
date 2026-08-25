@@ -130,7 +130,6 @@ export function drawSiteArcDebug(ctx, geo, canvasWidth, canvasHeight) {
 		return;
 	}
 
-	const internal = siteArcInternals;
 	const vw = geo.viewportWidth;
 	const cx = geo.centerX;
 	const cy = geo.centerY;

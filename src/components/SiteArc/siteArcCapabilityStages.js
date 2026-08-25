@@ -4,10 +4,10 @@ const CAPABILITY_STAGE_GAP_RAD = 6.5 * (Math.PI / 180);
 const CAPABILITY_NODE_SCALE = 0.5;
 const DEG = Math.PI / 180;
 
-export const SITE_ARC_CAPABILITY_STAGE_COUNT = 5;
+export const SITE_ARC_CAPABILITY_STAGE_COUNT = 4;
 
 /**
- * Capabilities permanently occupy five compact nodes below Portfolio. Keeping
+ * Capabilities permanently occupy four compact nodes below Portfolio. Keeping
  * this geometry static avoids a route-dependent layout shift in the site arc.
  */
 export function resolveSiteArcCapabilityStages(navStates, {

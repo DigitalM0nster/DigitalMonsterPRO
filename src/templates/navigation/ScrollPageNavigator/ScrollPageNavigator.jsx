@@ -2,7 +2,7 @@ import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useSta
 import { useLocation } from "react-router-dom";
 import { store, useStore } from "@/app/store.jsx";
 import { useRouteTransitionContext } from "@/app/context/RouteTransitionContext.jsx";
-import { getNavItemLabel, getNavPortfolioCasesMarker } from "@/app/i18n/siteCopy.js";
+import { getNavItemLabel, getNavPortfolioCasesMarker } from "@/app/localization/interfaceTranslations.js";
 import { normalizeSiteLocale } from "@/functions/siteLocale.js";
 import { requestHexNavigation, getHexPendingPath } from "@/functions/hexNavigation.js";
 import { isPortfolioCasePath, projectsData } from "@/three/scenes/portfolio/hub/projectsData.js";

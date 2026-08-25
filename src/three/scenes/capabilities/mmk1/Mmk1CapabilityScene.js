@@ -5,7 +5,7 @@ import { setMmk1ReturnToOverviewHandler } from "@/pages/capabilities/mmk1SceneBr
 import { Mmk1CameraHotspots } from "./Mmk1CameraHotspots.js";
 import { MMK1_CAMERA_HOTSPOT_MOTION } from "./mmk1CameraHotspotsConfig.js";
 import { InfiniteLightTrailsWorld } from "../lightTrails/InfiniteLightTrailsWorld.js";
-import { PlaceholderCapabilityWorld } from "../placeholders/PlaceholderCapabilityWorld.js";
+import { SyntheticCoreWorld } from "../placeholders/SyntheticCoreWorld.js";
 import { CityModelWorld } from "../city/CityModelWorld.js";
 import {
 	CAPABILITIES,
@@ -186,7 +186,7 @@ export class Mmk1CapabilityScene extends Case3Scene {
 				capability.sceneVariant,
 				capability.sceneVariant === "spatialMatrix"
 					? new CityModelWorld(this.threeScene, renderer)
-					: new PlaceholderCapabilityWorld(this.threeScene, capability.sceneVariant),
+					: new SyntheticCoreWorld(this.threeScene),
 			]),
 		);
 		this._cityModelWorld = this._placeholderWorlds.get("spatialMatrix") ?? null;
@@ -662,6 +662,26 @@ export class Mmk1CapabilityScene extends Case3Scene {
 
 	resetHotspotLineThickness() {
 		return this._cameraHotspots?.setLineThickness?.(1.5) ?? null;
+	}
+
+	getCityWindowMaterialSettings() {
+		return this._cityModelWorld?.getWindowMaterialSettings?.() ?? null;
+	}
+
+	setCityWindowMaterialSettings(settings = {}) {
+		return this._cityModelWorld?.setWindowMaterialSettings?.(settings) ?? null;
+	}
+
+	resetCityWindowMaterialSettings() {
+		return this._cityModelWorld?.resetWindowMaterialSettings?.() ?? null;
+	}
+
+	setCityFogSceneGuideEnabled(enabled) {
+		return this._cityModelWorld?.setFogSceneGuideEnabled?.(enabled) ?? false;
+	}
+
+	isCityFogSceneGuideEnabled() {
+		return this._cityModelWorld?.isFogSceneGuideEnabled?.() === true;
 	}
 
 	dispose() {

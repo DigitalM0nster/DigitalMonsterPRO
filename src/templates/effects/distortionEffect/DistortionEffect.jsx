@@ -1,8 +1,8 @@
 import { Effect } from "postprocessing"
-import { Uniform, Vector2 } from "three"
+import { Uniform } from "three"
 
 export default class DistortionEffect extends Effect {
-    constructor(props) {
+    constructor() {
         super(
             'DistortionEffect',
             fragmentShader,

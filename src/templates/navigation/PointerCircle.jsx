@@ -1,6 +1,5 @@
-import { useRef, useEffect, useState } from "react";
-import { addEffect, useFrame, useThree } from "@react-three/fiber";
-import * as THREE from 'three'
+import { useRef, useEffect } from "react";
+import { addEffect } from "@react-three/fiber";
 import { useStore } from "@/app/store.jsx";
 
 export default function PointerCircle() {
@@ -14,7 +13,6 @@ export default function PointerCircle() {
             let pointerCircleCenterCoord = pointerCircleCenter.current.getBoundingClientRect()
             let pointerCircleBackPointBackCoord = pointerCircleBackPoint.current.getBoundingClientRect()
             let distance = Math.hypot(cursorX - pointerCircleBackPointBackCoord.x, cursorY - pointerCircleBackPointBackCoord.y)
-            let currentDistance = Math.hypot(cursorX - pointerCircleCenterCoord.x, cursorY - pointerCircleCenterCoord.y)
             pointerCircleCenterCoord = pointerCircleCenter.current.getBoundingClientRect()
     
             if (distance < distanceStatic) {

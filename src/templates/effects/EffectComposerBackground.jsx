@@ -2,9 +2,8 @@ import { EffectComposer } from '@react-three/postprocessing'
 import { useRef } from 'react'
 import { useControls } from 'leva'
 import CanvasBlurEffectComponent from './canvasBlurEffect/CanvasBlurEffectComponent.jsx'
-import { useFrame } from '@react-three/fiber'
 
-export default function EffectComposerBlur(props) {
+export default function EffectComposerBlur() {
     const blurRef = useRef()
     const canvasBlurSetting = useControls('setting', {
         blurPower: {
@@ -32,17 +31,6 @@ export default function EffectComposerBlur(props) {
             step: 0.0001,
         },
     })
-
-    const cursorPositions = {
-        x: 0,
-        y: 0
-    }
-
-    useFrame(({ mouse }) => {
-        cursorPositions.x = (mouse.x + 1) / 2;
-        cursorPositions.y = (mouse.y + 1) / 2;
-    });
-
 
     return <>
 

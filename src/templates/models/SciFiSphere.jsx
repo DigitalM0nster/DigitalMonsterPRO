@@ -1,27 +1,22 @@
-import { useAnimations, useFBX, useGLTF } from "@react-three/drei"
-import { extend, useFrame } from "@react-three/fiber"
+import { useFBX } from "@react-three/drei"
 import { useEffect } from "react"
 
-export default function SciFiSphere(props) {
+export default function SciFiSphere() {
 
-    const SciFiSphere = useFBX('/models/FBX/sci-fiSphere.fbx')
-    console.log(SciFiSphere)
+    const model = useFBX('/models/FBX/sci-fiSphere.fbx')
     useEffect(() => {
-        SciFiSphere.children[7].visible = false // Куб вокруг
-        SciFiSphere.children[6].visible = false // Пол
-        SciFiSphere.children[5].visible = false // Камера
-        SciFiSphere.children[4].visible = false // большая сердцевина
-        SciFiSphere.children[3].visible = false // lightinside2
-        SciFiSphere.children[2].visible = true // железки
-        SciFiSphere.children[1].visible = false // lightinside
-        SciFiSphere.children[0].visible = true // сердцевинка
-    })
-
-    useFrame((smth, delta, smth2) => {
-    })
+        model.children[7].visible = false // Куб вокруг
+        model.children[6].visible = false // Пол
+        model.children[5].visible = false // Камера
+        model.children[4].visible = false // большая сердцевина
+        model.children[3].visible = false // lightinside2
+        model.children[2].visible = true // железки
+        model.children[1].visible = false // lightinside
+        model.children[0].visible = true // сердцевинка
+    }, [model])
 
 
     return <>
-    <primitive object={SciFiSphere} scale={0.02} position={[0, 0, 0]} />
+    <primitive object={model} scale={0.02} position={[0, 0, 0]} />
     </>
 }

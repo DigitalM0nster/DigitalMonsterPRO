@@ -205,7 +205,7 @@ function getFixedBottomLineWidth(markers) {
 	return markers.bottomLineWidth > 0 ? markers.bottomLineWidth : 300;
 }
 
-function resolveFadeRuler(layouts, ctx, labelCfg, markers, textX) {
+function resolveFadeRuler(layouts, markers) {
 	let fadeRuler = null;
 	const lineWidth = getFixedBottomLineWidth(markers);
 
@@ -378,8 +378,8 @@ function drawLabelDecorations(ctx, segments, labelCfg, canvasWidth, canvasHeight
 	const secondaryColor = labelCfg.secondaryColor ?? DEFAULT_SECONDARY_COLOR;
 	const markers = resolveMarkerSettings(labelCfg);
 	const textX = markers.textX;
-	const { layouts, topPad, bottomPad } = getLabelLineLayouts(segments, labelCfg, canvasWidth, canvasHeight);
-	const fadeRuler = resolveFadeRuler(layouts, measureCtx, labelCfg, markers, textX);
+	const { layouts } = getLabelLineLayouts(segments, labelCfg, canvasWidth, canvasHeight);
+	const fadeRuler = resolveFadeRuler(layouts, markers);
 
 	drawRowMarkers(ctx, layouts, accentColor, secondaryColor, markers);
 
@@ -527,7 +527,7 @@ function measureCanvasExtents(ctx, segments, labelCfg) {
 		maxRight = Math.max(maxRight, textX + lineWidth);
 	}
 
-	const fadeRuler = resolveFadeRuler(layouts, ctx, labelCfg, markers, textX);
+	const fadeRuler = resolveFadeRuler(layouts, markers);
 	if (fadeRuler) {
 		const lineEnd = textX + markers.bottomDotOffsetX + markers.bottomLineStartGap + fadeRuler.width;
 		maxRight = Math.max(maxRight, lineEnd);
@@ -806,7 +806,7 @@ function paintPrimaryLabelCanvas(ctx, segments, labelCfg, canvasWidth, canvasHei
 
 	const styledLines = buildStyledLines(ctx, segments, labelCfg);
 	const layouts = layoutStyledLines(styledLines, labelCfg, canvasHeight, { topPad, bottomPad });
-	const fadeRuler = resolveFadeRuler(layouts, ctx, labelCfg, markers, textX);
+	const fadeRuler = resolveFadeRuler(layouts, markers);
 
 	drawRowMarkers(ctx, layouts, accentColor, secondaryColor, markers);
 

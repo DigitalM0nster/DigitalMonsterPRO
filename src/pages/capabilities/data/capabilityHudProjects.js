@@ -12,25 +12,6 @@ const TEMPLATE_COPY = {
 			"Геометрия и текст используются как шаблон. Их можно заменить финальным контентом без изменения внутренней навигации страницы.",
 		],
 	},
-	"signal-field": {
-		pathTitle: "ГЕНЕРАТОР / ЦИФРОВЫЕ АРТЕФАКТЫ",
-		title: "ЧАСТИЦЫ СОБИРАЮТ\nУЗНАВАЕМЫЕ ФОРМЫ",
-		descriptionParagraphs: [
-			"Восемнадцать тысяч частиц последовательно собирают рельефную планету, квантовый тор-реактор, структуру ДНК и огранённый кристалл.",
-			"Каждая форма создаётся отдельным процедурным генератором, поэтому любой артефакт можно заменить или детально доработать независимо от остальных.",
-		],
-		localizedCopy: {
-			en: {
-				pathTitle: "GENERATOR / DIGITAL ARTIFACTS",
-				title: "PARTICLES ASSEMBLE\nRECOGNIZABLE FORMS",
-				descriptionParagraphs: [
-					"Eighteen thousand particles assemble a relief planet, a quantum torus reactor, a DNA structure and a faceted energy crystal.",
-					"Each form has an independent procedural generator, so any artifact can be replaced or refined without rebuilding the morphing system.",
-				],
-				traits: [],
-			},
-		},
-	},
 	"spatial-matrix": {
 		pathTitle: "ГОРОДСКАЯ СРЕДА / АРХИТЕКТУРНАЯ МОДЕЛЬ",
 		title: "АРХИТЕКТУРНАЯ\n3D-МОДЕЛЬ",
@@ -66,7 +47,7 @@ function createTemplateProject(capabilityId, index) {
 				title: capability.title.toUpperCase(),
 				descriptionParagraphs: [
 					"This temporary scene reserves the structure and navigation slot for the future capability.",
-					"Its geometry, copy and interaction can be replaced without rebuilding the five-stage experience.",
+					"Its geometry, text and interaction can be replaced without rebuilding the capability experience.",
 				],
 				traits: [],
 			},
@@ -101,8 +82,7 @@ const projects = new Map([
 	["mmk1", mmk1Project],
 	["light-trails", lightTrailsHudProject],
 	["synthetic-core", createTemplateProject("synthetic-core", 2)],
-	["signal-field", createTemplateProject("signal-field", 3)],
-	["spatial-matrix", createTemplateProject("spatial-matrix", 4)],
+	["spatial-matrix", createTemplateProject("spatial-matrix", 3)],
 ]);
 
 export function getCapabilityHudProject(capabilityId) {

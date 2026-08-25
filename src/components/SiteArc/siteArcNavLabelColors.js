@@ -1,4 +1,3 @@
-import { getArcLineStrokeStyle } from "./siteArcConfig.js";
 import { blendArcNavLabelColor, siteArcTrailLineConfig } from "./siteArcTrailLineConfig.js";
 
 /**

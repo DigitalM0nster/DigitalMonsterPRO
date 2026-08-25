@@ -333,7 +333,7 @@ export function createAmbientEffects() {
 			replaceDisposable(prevDeepGeo, deepOcean.geometry);
 			replaceDisposable(prevWhaleGeo, whaleAmbient.geometry);
 		},
-		update(delta, elapsed, config = digitalWhaleConfig, scrollPhases = {}) {
+		update(delta, elapsed, scrollPhases = {}) {
 			deepOcean.update(elapsed, scrollPhases.deep ?? 0);
 			whaleAmbient.update(elapsed, scrollPhases.whale ?? 0);
 		},

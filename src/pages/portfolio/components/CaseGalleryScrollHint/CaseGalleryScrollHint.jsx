@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useSnapshot } from "valtio";
 import { store } from "@/app/store.jsx";
-import { getSiteCopy } from "@/app/i18n/siteCopy.js";
+import { getLocalizedText } from "@/app/localization/interfaceTranslations.js";
 import { normalizeSiteLocale } from "@/functions/siteLocale.js";
 import { subscribeSiteRouteTransition } from "@/three/render/transition/siteTransitionIntent.js";
 import styles from "./CaseGalleryScrollHint.module.scss";
@@ -47,7 +47,7 @@ export default function CaseGalleryScrollHint() {
 				<rect x="1" y="1" width="16" height="27" rx="8" />
 				<path className={styles.wheel} d="M9 6v6" />
 			</svg>
-			<span>{getSiteCopy(COPY, locale)}</span>
+			<span>{getLocalizedText(COPY, locale)}</span>
 			<svg className={styles.arrow} viewBox="0 0 10 18" aria-hidden="true">
 				<path d="M5 0v15M1 11l4 4 4-4" />
 			</svg>

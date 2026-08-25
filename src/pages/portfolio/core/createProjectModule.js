@@ -1,12 +1,10 @@
 /**
- * Сборка модуля проекта из четырёх конфигов.
+ * Сборка project-модуля из используемых config и states.
  * @param {import('./types.js').PortfolioProjectConfig} config
  * @param {import('./types.js').PortfolioState[]} states
- * @param {import('./types.js').HotspotsByState} hotspots
- * @param {(ctx: import('./types.js').ProjectSceneContext) => import('./types.js').ProjectSceneController} createScene
  * @returns {import('./types.js').PortfolioProjectModule}
  */
-export function createProjectModule(config, states, hotspots, createScene) {
+export function createProjectModule(config, states) {
 	if (!config?.slug) {
 		throw new Error("createProjectModule: config.slug обязателен");
 	}
@@ -25,7 +23,5 @@ export function createProjectModule(config, states, hotspots, createScene) {
 	return {
 		config,
 		states,
-		hotspots: hotspots ?? {},
-		createScene,
 	};
 }

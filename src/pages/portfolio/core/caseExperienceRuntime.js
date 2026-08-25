@@ -541,8 +541,7 @@ function createCaseExperienceRuntime({ project, commitStageStep, allowCaseLeave 
 
 		publish();
 		const stageLocal = store.portfolioExperience.stageProgress;
-		const stageLocalTarget = store.portfolioExperience.stageProgressTarget;
-		updateCaseStudyTextTransitionSound(dt, stageLocal, stageLocalTarget);
+		updateCaseStudyTextTransitionSound(dt, stageLocal);
 		const desiredHudStage = storyToStageIndex(clampStoryVisual(current));
 		const hudCatchingUp = lastPublishedStage >= 0 && (
 			lastPublishedStage !== desiredHudStage
@@ -747,7 +746,6 @@ function createCaseExperienceRuntime({ project, commitStageStep, allowCaseLeave 
 			updateCaseStudyTextTransitionSound(
 				delta,
 				store.portfolioExperience.stageProgress,
-				store.portfolioExperience.stageProgressTarget,
 			);
 		},
 		commit: () => {

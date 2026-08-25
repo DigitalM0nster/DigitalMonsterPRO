@@ -37,13 +37,3 @@ export function getProjectByRoute(pathname) {
 export function getAllPortfolioProjects() {
 	return ALL_PROJECTS.slice();
 }
-
-/**
- * Hotspots активного state.
- * @param {import('./types.js').PortfolioProjectModule} project
- * @param {string} stateId
- * @returns {import('./types.js').PortfolioHotspot[]}
- */
-export function getHotspotsForState(project, stateId) {
-	return project.hotspots[stateId] ?? [];
-}

@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
-import { getSiteCopy } from "@/app/i18n/siteCopy.js";
+import { getLocalizedText } from "@/app/localization/interfaceTranslations.js";
 import { playGlitchTextSound } from "@/sounds/soundDesign.js";
 import { getHeroGlitchSnakeRunOptions } from "@/three/scenes/home/heroText/heroTextGlitchConfig.js";
 import { SITE_MAIN_COLOR, siteMainRgba } from "@/app/config/siteMainColor.js";
@@ -426,7 +426,7 @@ function getInnerPanelLocalizedLines(
 ) {
 	const data = getHubPlateInnerPanelData(project, locale);
 	const copy = Object.fromEntries(
-		Object.entries(INNER_PANEL_COPY).map(([key, value]) => [key, getSiteCopy(value, locale)]),
+		Object.entries(INNER_PANEL_COPY).map(([key, value]) => [key, getLocalizedText(value, locale)]),
 	);
 	const measureCanvas = document.createElement("canvas");
 	const ctx = measureCanvas.getContext("2d");

@@ -49,7 +49,7 @@ carousel.setOnCommit(({ fromId, toId, direction, boundaryOverflowProgress, navig
 	store.sceneCarouselLastCommitDirection = direction;
 	store.sceneCarouselLastCommitBoundaryOverflow = boundaryOverflowProgress;
 	// Prepare the nested capability owner before publishing the route commit.
-	// About -> Capabilities enters at story end (the fifth capability); if the
+	// About -> Capabilities enters at the final capability; if the
 	// arc sees the new route first, its still-stale stagePosition points at 01
 	// for one frame and the glow visibly snaps 01 -> 05.
 	if (toId === "capabilities") {

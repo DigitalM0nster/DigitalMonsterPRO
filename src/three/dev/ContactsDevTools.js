@@ -5,9 +5,7 @@ import {
 	CONTACTS_HOLOGRAM_LIVE_KEYS,
 	CONTACTS_HOLOGRAM_SHAPE_KEYS,
 	contactsCameraTune,
-	contactsCameraTuneDefaults,
 	contactsHologramTune,
-	contactsHologramTuneDefaults,
 	resetContactsCameraTune,
 	resetContactsHologramTune,
 } from "../scenes/contacts/contactsSceneConfig.js";

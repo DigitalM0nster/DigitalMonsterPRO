@@ -6,7 +6,6 @@ import {
 	syncHubScreenWhiteTextGlowStep,
 } from "./hubScreenWhiteTextMaterial.js";
 import {
-	applyHubScreenSnakeBloomUniform,
 	applyHubScreenSnakeUniforms,
 	createHubScreenSnakeTextMaterial,
 	syncHubScreenSnakeTexture,

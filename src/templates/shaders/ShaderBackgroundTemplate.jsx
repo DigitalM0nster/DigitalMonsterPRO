@@ -2,9 +2,9 @@ import { shaderMaterial } from "@react-three/drei"
 import { extend, useFrame } from "@react-three/fiber"
 
 
-export default function ShaderBackgroundTemplate(props) {
+export default function ShaderBackgroundTemplate() {
     let deltaTime = null
-    useFrame((smth, delta, smth2)=> {
+    useFrame((state, delta)=> {
         deltaTime += delta
     })
 

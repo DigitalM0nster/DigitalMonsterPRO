@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { subscribe } from "valtio";
 import { store } from "@/app/store.jsx";
-import { HERO_SCROLL_HINT_COPY } from "@/app/i18n/siteCopy.js";
+import { HERO_SCROLL_HINT_TRANSLATIONS } from "@/app/localization/interfaceTranslations.js";
 import { normalizeSiteLocale } from "@/functions/siteLocale.js";
 import { shouldAnimateSiteLocaleForRingScene } from "@/functions/siteLocaleSwitch.js";
 import { resolveHeroScrollHintPosition } from "./heroTextLayout.js";
@@ -307,7 +307,7 @@ export class HeroScrollHintMesh {
 			uppercase: false,
 			onRedraw: () => this._draw(),
 		});
-		this.glitchController.setText([HERO_SCROLL_HINT_COPY[this.displayedLocale] ?? HERO_SCROLL_HINT_COPY.ru]);
+		this.glitchController.setText([HERO_SCROLL_HINT_TRANSLATIONS[this.displayedLocale] ?? HERO_SCROLL_HINT_TRANSLATIONS.ru]);
 
 		this.unsubscribe = subscribe(store, () => {
 			const locale = normalizeSiteLocale(store.siteLocale);
@@ -330,7 +330,7 @@ export class HeroScrollHintMesh {
 
 		this.localeSwitching = true;
 		const targetLocale = this.desiredLocale;
-		const targetText = HERO_SCROLL_HINT_COPY[targetLocale] ?? HERO_SCROLL_HINT_COPY.ru;
+		const targetText = HERO_SCROLL_HINT_TRANSLATIONS[targetLocale] ?? HERO_SCROLL_HINT_TRANSLATIONS.ru;
 
 		try {
 			// Same Jura (+ CJK fallback for zh) as hero subtitle — glyphs must be present before snake.

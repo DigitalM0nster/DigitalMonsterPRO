@@ -191,7 +191,7 @@ traits: [
 ## Цепочка вызовов (если интересно)
 
 ```
-CaseStudyCanvasUI.paintPanel
+CaseStudyPanelHudPainter -> paintCaseStudyPanelHud
   → resolveCaseStudyLayout (позиция)
   → drawLeftPanel
   → paintLeftPanelFlow (порядок блоков)

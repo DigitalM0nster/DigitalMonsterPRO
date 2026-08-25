@@ -1,4 +1,3 @@
-import * as THREE from "three";
 import { easing } from "maath";
 import { ROUTE_TRANSITION_ENTER_MS } from "@/app/config/routeTransition.js";
 import { isPortfolioHubPath, isPortfolioCasePath } from "../../scenes/portfolio/hub/projectsData.js";

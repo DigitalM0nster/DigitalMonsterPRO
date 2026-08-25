@@ -298,7 +298,6 @@ function strokeArcSegments(
 		for (let i = 0; i < segmentCount; i += 1) {
 			const a0 = i === 0 ? rangeStart : rangeStart + step * i;
 			const a1 = i === segmentCount - 1 ? rangeEnd : rangeStart + step * (i + 1);
-			const segLen = radius * Math.abs(a1 - a0);
 			const midX0 = cx + radius * Math.cos(a0);
 			const midX1 = cx + radius * Math.cos(a1);
 			const o0 = getArcSegmentOpacity(a0, midX0, viewportWidth, fadeBounds) * baseAlpha;

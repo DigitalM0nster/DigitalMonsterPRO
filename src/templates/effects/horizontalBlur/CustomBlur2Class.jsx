@@ -1,5 +1,5 @@
 import { Effect } from "postprocessing"
-import { Uniform, Vector2, Clock } from "three"
+import { Uniform, Vector2 } from "three"
 
 export default class CustomBlur2 extends Effect {
     constructor(props) {

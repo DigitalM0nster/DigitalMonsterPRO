@@ -1,5 +1,4 @@
 import { LOADER_CURTAIN_HIDE_MS } from "@/app/config/loaderCurtain.js";
-import { ROUTE_TRANSITION_EXIT_MS } from "@/app/config/routeTransition.js";
 
 /**
  * Reveal появления/исчезновения hero-текста на главной.

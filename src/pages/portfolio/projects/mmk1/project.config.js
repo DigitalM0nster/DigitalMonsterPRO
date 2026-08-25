@@ -5,16 +5,6 @@ const projectConfig = {
 	route: "/portfolio/04",
 	title: "MMK-1",
 	summary: "Аренда башенных кранов",
-	hubLogo: "/images/portfolio/case3.webp",
-	models: {
-		primary: "/models/case3/crane1.glb",
-	},
-	scene: {
-		defaultCamera: { position: [0, 1.1, 10.5], lookAt: [1.15, -0.35, 0], fov: 43 },
-		rootOffsetDesktop: [2.25, -2.45, 0],
-		rootOffsetMobile: [0, -2.15, 0],
-		scale: 1,
-	},
 	meta: {
 		year: 2023,
 		type: "ММК-1 / АРЕНДА КРАНОВ",
@@ -37,7 +27,6 @@ const projectConfig = {
 			en: "MMK-1 / CRANE RENTAL",
 			zh: "MMK-1 / 起重机租赁",
 		},
-		mobileHorizontalSwipe: true,
 		panelWidth: { min: 460, max: 560, ratio: 0.27 },
 		contentTopPx: 176,
 		contentBottomInsetPx: 48,
@@ -77,10 +66,6 @@ const projectConfig = {
 			mosaicScatterX: 0,
 			mosaicDelay: 0.75,
 		},
-	},
-	mediaPolicy: {
-		maxVideos: 0,
-		defaultLoad: "onDemand",
 	},
 };
 

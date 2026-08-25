@@ -2,7 +2,7 @@ import { useCallback, useLayoutEffect, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useStore } from "@/app/store.jsx";
 import { useRouteTransitionContext } from "@/app/context/RouteTransitionContext.jsx";
-import { getNavItemLabel } from "@/app/i18n/siteCopy.js";
+import { getNavItemLabel } from "@/app/localization/interfaceTranslations.js";
 import { normalizeSiteLocale } from "@/functions/siteLocale.js";
 import { requestHexNavigation } from "@/functions/hexNavigation.js";
 import SiteArcDomNav from "@/components/SiteArc/SiteArcDomNav.jsx";

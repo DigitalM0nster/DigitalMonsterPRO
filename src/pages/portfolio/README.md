@@ -1,32 +1,12 @@
-# Portfolio Exploration Engine
+# Portfolio
 
-Единый движок интерактивного исследования проектов.
+Production routes use one warmed imperative Three.js application and a small React shell.
 
-## Быстрый старт
+- `PortfolioPage.jsx` owns `/portfolio` and `/portfolio/:case` HTML composition.
+- `components/ResponsiveHubCase` is the responsive case shell mounted by production.
+- `core/projectRegistry.js` owns project content modules.
+- `core/caseExperienceRuntime.js` owns case-stage scroll behavior.
+- `ui/CaseStudyCanvas/CaseStudyPanelHudPainter.jsx` paints live DOM chrome and coordinates the prepared WebGL text HUD.
+- `three/scenes/portfolio` owns the hub and case scene implementations.
 
-```jsx
-import { PortfolioProjectShell } from "@/pages/portfolio";
-
-<PortfolioProjectShell slug="nipigas" />
-```
-
-## Документация
-
-- [Анализ проектов](../../docs/PORTFOLIO_ANALYSIS.md)
-- [Архитектура](../../docs/PORTFOLIO_ARCHITECTURE.md)
-- [UI Layout](../../docs/PORTFOLIO_UI.md)
-- [Чеклист контента](../../docs/PORTFOLIO_CONTENT_CHECKLIST.md)
-
-## Добавление проекта
-
-1. Создать `projects/<slug>/` с 4 конфигами
-2. Зарегистрировать в `core/projectRegistry.js`
-3. Подключить route → `PortfolioProjectShell`
-
-## Статус
-
-- ✅ Типы, реестр, конфиги 01–04
-- ✅ UI: Shell, StatePanel, ExplorationPath (дуга), HotspotLayer, InvestigationPanel
-- ⏳ 3D-bridge для hotspot-позиций
-- ⏳ Миграция legacy Case*ContentBlock
-- ⏳ scene.js — реализация на базе Case*Model
+Add project content in `projects/<slug>/`, register it in `core/projectRegistry.js`, and add or map its scene in `SceneManager.js`. Do not restore the removed `PortfolioProjectShell`, R3F case models, or duplicate case UI.

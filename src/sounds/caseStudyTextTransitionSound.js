@@ -225,7 +225,7 @@ export function preloadCaseStudyTextTransitionSound() {
  * @param {number} progress visual mix 0..1
  * @param {number} [_progressTarget] ignored — scrub follows painted motion only
  */
-export function updateCaseStudyTextTransitionSound(delta, progress, _progressTarget = progress) {
+export function updateCaseStudyTextTransitionSound(delta, progress) {
 	ensureHandlers();
 	const currentProgress = clamp01(progress);
 	if (performance.now() < suppressedUntil || !isPageSoundAllowed() || !isSoundAudible()) {

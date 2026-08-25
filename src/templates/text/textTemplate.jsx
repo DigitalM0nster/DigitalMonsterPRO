@@ -1,10 +1,6 @@
-import { Text, useTexture, MeshTransmissionMaterial } from "@react-three/drei"
+import { Text, MeshTransmissionMaterial } from "@react-three/drei"
 import { useControls } from "leva"
-export default function mainPageModel(props) {
-
-    const texture = useTexture('/images/textTexture.png')
-    const texture1 = useTexture('/images/textTexture1.png')
-    const texture2 = useTexture('/images/textTexture2.png')
+export default function TextTemplate() {
 
     const { ...config } = useControls('gg',{
       backside: false,
@@ -47,11 +43,11 @@ export default function mainPageModel(props) {
     return <>
     <Text font="/fonts/Montserrat-Black.woff" fontSize={1} letterSpacing={1} color="#ffffff" {...textSetting}>
       LAVAWEB
-      <MeshTransmissionMaterial {...config} background={texture2} />
+      <MeshTransmissionMaterial {...config} />
     </Text>
     {/* <mesh>
       <planeGeometry args={[6, 2]}/>
-      <MeshTransmissionMaterial {...config} background={texture2} />
+      <MeshTransmissionMaterial {...config} />
     </mesh> */}
     </>
 }

@@ -2,7 +2,7 @@ import { Effect } from "postprocessing"
 import { Uniform, Vector2 } from "three"
 
 export default class CustomBlur extends Effect {
-    constructor(props) {
+    constructor() {
         super(
             'CustomTransitionEffect',
             fragmentShader,

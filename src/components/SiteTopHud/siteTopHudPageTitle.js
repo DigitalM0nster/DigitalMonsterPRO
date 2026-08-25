@@ -1,4 +1,4 @@
-import { getNavItemLabel } from "@/app/i18n/siteCopy.js";
+import { getNavItemLabel } from "@/app/localization/interfaceTranslations.js";
 import { getPortfolioProjectName } from "@/pages/portfolio/data/portfolioProjectsCopy.js";
 
 const PATH_TO_NAV = {

@@ -27,17 +27,8 @@ export const CAPABILITIES = [
 		sceneVariant: "syntheticCore",
 	},
 	{
-		id: "signal-field",
-		number: "04",
-		path: "/capabilities/signal-field",
-		title: "Генератор артефактов",
-		description: "Светящиеся частицы собирают рельефную планету, квантовый тор-реактор, структуру ДНК и огранённый энергетический кристалл.",
-		interaction: "Управляйте полем",
-		sceneVariant: "signalField",
-	},
-	{
 		id: "spatial-matrix",
-		number: "05",
+		number: "04",
 		path: "/capabilities/spatial-matrix",
 		title: "3D-город",
 		description: "Авторская GLB-модель городской застройки с сохранённой геометрией и материалами.",

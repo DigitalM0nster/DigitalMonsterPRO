@@ -556,7 +556,6 @@ function createAboutExperienceRuntime() {
 			updateCaseStudyTextTransitionSound(
 				dt,
 				resolveAboutPanelHudStoryPair(clampStoryVisual(current)).mix,
-				resolveAboutPanelHudStoryPair(clampStoryVisual(target)).mix,
 			);
 		}
 		if (storyNeedsAnimation(current, target)) {
@@ -824,7 +823,7 @@ function createAboutExperienceRuntime() {
 			updateAboutPcbAppearSound(delta, aboutStoryToPcbReveal(current));
 			if (current >= 0 && current <= STORY_MAX) {
 				const mix = resolveAboutPanelHudStoryPair(clampStoryVisual(current)).mix;
-				updateCaseStudyTextTransitionSound(delta, mix, mix);
+				updateCaseStudyTextTransitionSound(delta, mix);
 			}
 		},
 		commit: () => {

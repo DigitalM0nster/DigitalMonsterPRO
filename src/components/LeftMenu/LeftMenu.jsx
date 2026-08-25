@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useStore } from "@/app/store.jsx";
-import { getNavItemLabel } from "@/app/i18n/siteCopy.js";
+import { getNavItemLabel } from "@/app/localization/interfaceTranslations.js";
 import { normalizeSiteLocale } from "@/functions/siteLocale.js";
 import { playLeftMenuGlitchSound } from "@/sounds/soundDesign.js";
 import { requestHexNavigation } from "@/functions/hexNavigation.js";

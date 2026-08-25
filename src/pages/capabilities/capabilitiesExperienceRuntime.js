@@ -38,7 +38,7 @@ import {
 	requestSiteArcScrollRepaint,
 } from "@/pages/portfolio/core/caseStudyAnimationFrame.js";
 
-// Story stops are capability indices. The segment after the fifth capability
+// Story stops are capability indices. The segment after the last capability
 // is the route boundary to About.
 const STORY_MAX = Math.max(1, states.length - 1);
 const WHEEL_IDLE_MS = 180;

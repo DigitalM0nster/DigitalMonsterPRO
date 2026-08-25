@@ -1,15 +1,9 @@
-import { EffectComposer, Bloom} from '@react-three/postprocessing'
-import { useEffect, useRef } from 'react'
+import { EffectComposer, Bloom } from '@react-three/postprocessing'
+import { useRef } from 'react'
 import { useControls } from 'leva'
 import DistortionEffectComponent from './distortionEffect2/distortionEffectComponent.jsx'
-import { useLocation } from 'react-router-dom'
 
-export default function EffectComposerComponent(props) {
-    const location = useLocation()
-    useEffect(() => {
-        // rerender effect when change route
-    }, [location])
-
+export default function EffectComposerComponent() {
     const bloomRef = useRef()
     const distortionRef = useRef()
 
@@ -59,12 +53,8 @@ export default function EffectComposerComponent(props) {
     })
 
 
-    return <>
-
-    {/* <EffectComposer>
+    return <EffectComposer>
         <DistortionEffectComponent ref={distortionRef} {...setting}/>
         <Bloom {...bloomSetSetting} ref={bloomRef}/>
-    </EffectComposer> */}
-    
-    </>
+    </EffectComposer>
 }

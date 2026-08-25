@@ -226,7 +226,7 @@ export const CASE_STUDY_TITLE_MAX_LINES = 3;
 
 function normalizeHangToken(unit) {
 	return String(unit ?? "")
-		.replace(/^[«"'“‘(\[{«]+/u, "")
+		.replace(/^[«"'“‘([{«]+/u, "")
 		.replace(/[,.;:!?…»"'”’)\]}]+$/u, "")
 		.toLowerCase();
 }

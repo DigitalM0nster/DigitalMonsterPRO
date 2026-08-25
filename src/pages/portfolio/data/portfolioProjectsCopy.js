@@ -1,4 +1,4 @@
-import { getSiteCopy } from "@/app/i18n/siteCopy.js";
+import { getLocalizedText } from "@/app/localization/interfaceTranslations.js";
 import { normalizeSiteLocale } from "@/functions/siteLocale.js";
 import { store } from "@/app/store.jsx";
 
@@ -98,7 +98,7 @@ export function getPortfolioProjectName(projectId, locale = getPortfolioLocale()
 		return "";
 	}
 
-	return getSiteCopy(copy, locale);
+	return getLocalizedText(copy, locale);
 }
 
 /** @param {string} projectId @param {unknown} [locale] */
@@ -108,7 +108,7 @@ export function getPortfolioProjectPlateSecondary(projectId, locale = getPortfol
 		return "";
 	}
 
-	return getSiteCopy(copy, locale);
+	return getLocalizedText(copy, locale);
 }
 
 /** Список проектов на canvas всегда в CAPS (как hero title). */
@@ -118,5 +118,5 @@ export function getPortfolioProjectListUppercase() {
 
 /** @param {unknown} [locale] */
 export function getPortfolioViewCaseButtonLabel(locale = getPortfolioLocale()) {
-	return getSiteCopy(PORTFOLIO_VIEW_CASE_BUTTON_COPY, locale);
+	return getLocalizedText(PORTFOLIO_VIEW_CASE_BUTTON_COPY, locale);
 }

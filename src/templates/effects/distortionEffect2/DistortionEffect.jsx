@@ -1,6 +1,5 @@
 import { Effect } from "postprocessing"
 import { Uniform, Vector2 } from "three"
-import { UniformsUtils } from "three";
 
 export default class DistortionEffect extends Effect {
     constructor(props) {

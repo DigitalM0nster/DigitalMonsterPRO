@@ -8,6 +8,10 @@ import { useRouteTransitionContext } from "@/app/context/RouteTransitionContext.
 import { store } from "@/app/store.jsx";
 import { resolveSceneId } from "@/three/scenes/resolveSceneId.js";
 import { getCapabilityHudProject } from "@/pages/capabilities/data/capabilityHudProjects.js";
+import {
+	getCapabilityBySceneId,
+	isCapabilitySceneId,
+} from "@/pages/capabilities/data/capabilities.js";
 import CaseStudyPanelHudPainter from "./CaseStudyPanelHudPainter.jsx";
 
 /**
@@ -19,13 +23,11 @@ import CaseStudyPanelHudPainter from "./CaseStudyPanelHudPainter.jsx";
 export default function CaseStudyPanelHudOverlay() {
 	const { displayPathname } = useRouteTransitionContext();
 	const sceneId = useMemo(() => resolveSceneId(displayPathname), [displayPathname]);
-	const capabilityExperience = useSnapshot(store.capabilitiesExperience);
-	const capabilityStageId = capabilityExperience.activeStageId;
 	const project = useMemo(() => (
-		sceneId === "capabilities"
-			? getCapabilityHudProject(capabilityStageId)
+		isCapabilitySceneId(sceneId)
+			? getCapabilityHudProject(getCapabilityBySceneId(sceneId)?.id)
 			: getProjectByRoute(displayPathname)
-	), [capabilityStageId, displayPathname, sceneId]);
+	), [displayPathname, sceneId]);
 	// Subscribe only to content identity — never stageProgress/scroll.
 	// Those update every spring tick; WebGL HUD reads them via getStageProgress().
 	// Tracking them here re-rendered the whole left painter at scroll FPS (CPU spike).
@@ -86,7 +88,7 @@ export default function CaseStudyPanelHudOverlay() {
 	// and locale snake live directly on HubPlateInnerPanels. Mounting the legacy
 	// fullscreen HUD here would still repaint/upload its large canvases during a
 	// locale switch even though PortfolioHubScene has no panelHud to display them.
-	const isCapabilityHud = sceneId === "capabilities";
+	const isCapabilityHud = isCapabilitySceneId(sceneId);
 	const sceneOwnsLegacyPanelHud = sceneId.startsWith("case") || isCapabilityHud;
 	if (
 		!sceneOwnsLegacyPanelHud ||

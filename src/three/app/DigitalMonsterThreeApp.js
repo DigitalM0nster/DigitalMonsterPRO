@@ -28,7 +28,10 @@ import { getAboutPanelHudEnterProgress, getAboutPanelHudState } from "@/pages/ab
 import { armAboutPanelHudForRoute } from "@/pages/about/aboutPanelHudStory.js";
 import { getCasePanelHudEnterProgress } from "@/pages/portfolio/core/casePanelHudBridge.js";
 import { getCasePanelHudDisplayedLocale } from "@/pages/portfolio/core/casePanelHudLocaleMix.js";
-import { getCapabilityBySceneVariant } from "@/pages/capabilities/data/capabilities.js";
+import {
+	getCapabilityBySceneId,
+	isCapabilitySceneId,
+} from "@/pages/capabilities/data/capabilities.js";
 import { createSiteArcOverlay, disposeSiteArcOverlay, syncSiteArcOverlay } from "@/components/SiteArc/three/siteArcHost.js";
 import { AboutEpicTextDevTools } from "../dev/AboutEpicTextDevTools.js";
 import { BackgroundLiquidDevTools } from "../dev/BackgroundLiquidDevTools.js";
@@ -185,7 +188,8 @@ export class DigitalMonsterThreeApp {
 			: null;
 		this.mmk1CameraDevTools = import.meta.env.DEV
 			? new Mmk1CameraDevTools({
-					getScene: () => this.sceneManager?.getSceneById?.("capabilities") ?? null,
+					getScene: () => this.sceneManager?.getSceneById?.("capabilities:mmk1") ?? null,
+					getCityScene: () => this.sceneManager?.getSceneById?.("capabilities:spatialMatrix") ?? null,
 					getCamera: () => this.camera,
 				})
 			: null;
@@ -369,40 +373,6 @@ export class DigitalMonsterThreeApp {
 			throw new Error(`[three] allWarm missed real scene draws: ${missingSceneIds.join(", ")}`);
 		}
 
-		// Capabilities owns five worlds inside one Three scene. A generic scene draw
-		// only uploads the currently active world, so every variant is drawn explicitly.
-		const capabilityScene = this.sceneManager.getSceneById("capabilities");
-		const capabilityVariants = capabilityScene?.getCapabilityRenderVariants?.() ?? [];
-		try {
-			for (const capabilityVariant of capabilityVariants) {
-				await breath();
-				const texture = await this.sceneManager.warmupSceneDrawChunked(
-					"capabilities",
-					"a",
-					breath,
-					{ capabilityVariant },
-				);
-				if (!texture) {
-					throw new Error(`[three] allWarm missed capability variant: ${capabilityVariant}`);
-				}
-			}
-
-			for (let index = 0; index < capabilityVariants.length - 1; index += 1) {
-				const warmed = await this._warmHexPair(backgroundTexture, {
-					sourceId: "capabilities",
-					targetId: "capabilities",
-					sourceVariant: capabilityVariants[index],
-					targetVariant: capabilityVariants[index + 1],
-					breath,
-				});
-				if (!warmed) {
-					throw new Error(`[three] allWarm missed capability hex pair: ${capabilityVariants[index]} -> ${capabilityVariants[index + 1]}`);
-				}
-			}
-		} finally {
-			capabilityScene?.setCapabilityRenderVariant?.(null);
-		}
-
 		// Pass 2: home + hub again — first InstancedMesh/ocean frame often still allocates.
 		for (const sceneId of ["home", "portfolioHub"]) {
 			if (this.disposed || !drawnIds.has(sceneId)) {
@@ -439,8 +409,6 @@ export class DigitalMonsterThreeApp {
 	async _warmHexPair(backgroundTexture, {
 		sourceId,
 		targetId,
-		sourceVariant = null,
-		targetVariant = null,
 		breath,
 	}) {
 		if (this.disposed) return false;
@@ -449,7 +417,6 @@ export class DigitalMonsterThreeApp {
 			sourceId,
 			"a",
 			breath,
-			sourceVariant ? { capabilityVariant: sourceVariant } : {},
 		);
 		if (!sourceTex || this.disposed) return false;
 
@@ -458,7 +425,6 @@ export class DigitalMonsterThreeApp {
 			targetId,
 			"b",
 			breath,
-			targetVariant ? { capabilityVariant: targetVariant } : {},
 		);
 		if (!targetTex || this.disposed) return false;
 
@@ -660,13 +626,15 @@ export class DigitalMonsterThreeApp {
 		// treats them as empty plate and replaces with liquid. Bake liquid under models.
 		const involvesAbout = pageA === "/about" || pageB === "/about" || mix.sourceId === "about" || mix.targetId === "about";
 		const involvesPortfolioHub = mix.sourceId === "portfolioHub" || mix.targetId === "portfolioHub";
-		// Internal capability scenes can contain dark, non-emissive surfaces. They
+		const involvesCapabilities = isCapabilitySceneId(mix.sourceId)
+			|| isCapabilitySceneId(mix.targetId);
+		// Capability scenes can contain dark, non-emissive surfaces. They
 		// must stay visible on both sides of the hex wipe instead of passing through
 		// the luminance-key path, which treated those surfaces as an empty black plate.
 		const bakeBackgroundUnderModels = involvesHome
 			|| involvesAbout
 			|| involvesPortfolioHub
-			|| mix.internalCapabilitiesMix === true;
+			|| involvesCapabilities;
 
 		const sharedBackground = this.backgroundPipeline.renderCarouselBackground(delta, bgOptions) ?? this.backgroundPipeline.lastTexture;
 		// Home never uses site liquid — even if the other carousel page already changed.
@@ -687,22 +655,12 @@ export class DigitalMonsterThreeApp {
 		if (bakeBackgroundUnderModels) {
 			const bgA = pageA === "/" ? null : sharedBackground;
 			const bgB = pageB === "/" ? null : sharedBackground;
-			const internalHudOnTarget = mix.internalCapabilitiesMix === true
-				&& mix.internalCapabilitiesHudLayer === "target";
-			const sourceHudSceneId = internalHudOnTarget ? null : mix.sourceId;
-			const targetHudSceneId = internalHudOnTarget ? "capabilities" : mix.targetId;
-			const sourceHudTexture = mix.internalCapabilitiesMix
-				? this._getCapabilityHexOverlayTexture(mix.sourceCapabilityVariant)
-				: this._getHexBakeOverlayTexture(sourceHudSceneId);
-			const targetHudTexture = mix.internalCapabilitiesMix
-				? this._getCapabilityHexOverlayTexture(mix.targetCapabilityVariant)
-				: mix.targetId === "capabilities" && mix.targetCapabilityVariant
-					// Ring entry prepares stage 01 from Portfolio and stage 05 from About
-					// before it becomes active, so its live HUD cannot pass the ordinary
-					// active-scene bake guard yet. Use the matching preloader-warmed copy
-					// to keep text continuous through either hex handoff.
-					? this._getCapabilityHexOverlayTexture(mix.targetCapabilityVariant)
-					: this._getHexBakeOverlayTexture(targetHudSceneId);
+			const sourceHudTexture = isCapabilitySceneId(mix.sourceId)
+				? this._getCapabilityHexOverlayTexture(mix.sourceId)
+				: this._getHexBakeOverlayTexture(mix.sourceId);
+			const targetHudTexture = isCapabilitySceneId(mix.targetId)
+				? this._getCapabilityHexOverlayTexture(mix.targetId)
+				: this._getHexBakeOverlayTexture(mix.targetId);
 			const contentA = this.screenCompositor.compositeToLayerTarget(this.renderer, "a", bgA, mix.sourceModels, grainBlur, sourceHudTexture);
 
 			let contentB = contentA;
@@ -740,7 +698,7 @@ export class DigitalMonsterThreeApp {
 	_getPanelOverlayTextureForScene(sceneId) {
 		// Idle path / non-hex: case left HUD stays screen-overlay (sharp). Arc/chrome DOM
 		// are never baked. Hex leave uses `_getHexBakeOverlayTexture` instead.
-		if (sceneId?.startsWith("case") || sceneId === "capabilities") {
+		if (sceneId?.startsWith("case") || isCapabilitySceneId(sceneId)) {
 			return null;
 		}
 		return this._getSceneOverlayTexture(sceneId);
@@ -756,7 +714,7 @@ export class DigitalMonsterThreeApp {
 		if (sceneId === "about") {
 			return this._getAboutPanelHudHexOverlayTexture();
 		}
-		if (sceneId?.startsWith("case") || sceneId === "capabilities") {
+		if (sceneId?.startsWith("case") || isCapabilitySceneId(sceneId)) {
 			return this._getCasePanelHudHexOverlayTexture(sceneId);
 		}
 		return this._getPanelOverlayTextureForScene(sceneId);
@@ -828,10 +786,10 @@ export class DigitalMonsterThreeApp {
 		return texture;
 	}
 
-	/** Prepared, per-scene capability copy for the corresponding hex layer. */
-	_getCapabilityHexOverlayTexture(capabilityVariant) {
-		const capability = getCapabilityBySceneVariant(capabilityVariant);
-		const hud = this.sceneManager.getCasePanelHudBySceneId("capabilities");
+	/** Prepared capability copy for a route-level hex layer. */
+	_getCapabilityHexOverlayTexture(sceneId) {
+		const capability = getCapabilityBySceneId(sceneId);
+		const hud = this.sceneManager.getCasePanelHudBySceneId(sceneId);
 		if (!capability || !hud) {
 			return null;
 		}
@@ -907,8 +865,8 @@ export class DigitalMonsterThreeApp {
 		const hexProgressLive = this._getHexShaderProgress() > 0.0001;
 		const caseOpen = Boolean(this.store.openedCase);
 		const carousel = getSceneCarousel();
-		const capabilityHudOpen = carousel.currentId === "capabilities"
-			&& this.sceneManager.getActiveSceneId() === "capabilities"
+		const capabilityHudOpen = isCapabilitySceneId(carousel.currentId)
+			&& this.sceneManager.getActiveSceneId() === carousel.currentId
 			&& String(this.currentPage ?? "").startsWith("/capabilities");
 		const caseStyleHudOpen = caseOpen || capabilityHudOpen;
 		// Click lock (`_clickPhase`) arms before progress leaves 0 — treat that as hex-live
@@ -990,8 +948,8 @@ export class DigitalMonsterThreeApp {
 		const carousel = getSceneCarousel();
 		const caseOpen = Boolean(this.store.openedCase);
 		const hexProgress = this._getHexShaderProgress();
-		const capabilityHudOpen = carousel.currentId === "capabilities"
-			&& this.sceneManager.getActiveSceneId() === "capabilities"
+		const capabilityHudOpen = isCapabilitySceneId(carousel.currentId)
+			&& this.sceneManager.getActiveSceneId() === carousel.currentId
 			&& String(this.currentPage ?? "").startsWith("/capabilities");
 
 		if (caseOpen || capabilityHudOpen) {
@@ -1007,7 +965,8 @@ export class DigitalMonsterThreeApp {
 			const activeHud = this.sceneManager.getActiveCasePanelHud();
 			const caseScrollMix = carousel.isCaseBoundaryDrive();
 			const mixIds = carousel.getMixSourceTargetIds?.() ?? {};
-			const capabilityMixParticipant = mixIds.sourceId === "capabilities" || mixIds.targetId === "capabilities";
+			const capabilityMixParticipant = isCapabilitySceneId(mixIds.sourceId)
+				|| isCapabilitySceneId(mixIds.targetId);
 			/** Hex owns the band whenever models are in a live wipe (click or scroll). */
 			const hexOwnsLeftHud = hexProgress > 0.0001 && (
 				(caseOpen && (caseScrollMix || carousel.isHexNavigationActive()))

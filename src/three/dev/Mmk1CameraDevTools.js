@@ -1,10 +1,6 @@
 import { attachDevPanelDrag } from "./devPanelDrag.js";
 import { formatDevPanelHotkeyHints, registerDevPanelHotkey, unregisterDevPanelHotkey } from "./devPanelHotkeys.js";
 import { injectSceneDevToolsStyles } from "./sceneDevPanelUtils.js";
-import {
-	getCityFogAmount,
-	getCityFogEffectiveEnd,
-} from "../scenes/capabilities/city/cityFogProfile.js";
 
 const HOTKEY = "0";
 
@@ -24,6 +20,7 @@ export class Mmk1CameraDevTools {
 		}
 
 		this.getScene = options.getScene ?? (() => null);
+		this.getCityScene = options.getCityScene ?? this.getScene;
 		this.getCamera = options.getCamera ?? (() => null);
 		this.enabled = false;
 		this._lastReadoutAt = 0;
@@ -163,31 +160,6 @@ export class Mmk1CameraDevTools {
 					<input type="range" min="0" max="1" step="0.01" data-city-window-key="fogOpacity" />
 					<input type="number" min="0" max="1" step="0.01" data-city-window-key="fogOpacity" />
 				</div>
-				<label class="fieldToggle">
-					<input type="checkbox" data-city-fog-guides />
-					Show START / curve slices / END directly in the 3D scene
-				</label>
-				<div class="fogProfile">
-					<svg class="fogProfileChart" viewBox="0 0 360 176" role="img" aria-label="Fog amount over camera distance">
-						<line class="fogProfileGrid" x1="34" y1="144" x2="348" y2="144" />
-						<line class="fogProfileGrid" x1="34" y1="18" x2="34" y2="144" />
-						<line class="fogProfileGrid" x1="34" y1="81" x2="348" y2="81" />
-						<line class="fogProfileOpacity" x1="34" x2="348" data-fog-opacity-line />
-						<path class="fogProfileArea" data-fog-area />
-						<path class="fogProfileCurve" data-fog-curve />
-						<line class="fogProfileMarker start" y1="18" y2="144" data-fog-start-line />
-						<line class="fogProfileMarker end" y1="18" y2="144" data-fog-end-line />
-						<text class="fogProfileLabel start" y="12" data-fog-start-label></text>
-						<text class="fogProfileLabel end" y="25" data-fog-end-label></text>
-						<text class="fogProfileLabel" x="34" y="158">0</text>
-						<text class="fogProfileLabel" x="348" y="158" text-anchor="end" data-fog-axis-max></text>
-						<text class="fogProfileLabel" x="31" y="22" text-anchor="end">100%</text>
-						<text class="fogProfileLabel" x="31" y="84" text-anchor="end">50%</text>
-					</svg>
-					<p class="readout"><span class="k">visible span</span><span class="v" data-fog-visible-span>—</span></p>
-					<p class="readout"><span class="k">curve meaning</span><span class="v" data-fog-curve-meaning>—</span></p>
-					<p class="legend">Exponential fog has no hard end. The yellow marker is the effective end where it reaches 99% of its configured opacity.</p>
-				</div>
 				<div class="actions">
 					<button type="button" data-action="copy-city-windows">Copy values</button>
 					<button type="button" data-action="reset-city-windows">Reset windows</button>
@@ -217,19 +189,6 @@ export class Mmk1CameraDevTools {
 		this._hotspotThicknessRange = this._panel.querySelector("[data-hotspot-thickness-range]");
 		this._hotspotThicknessNumber = this._panel.querySelector("[data-hotspot-thickness-number]");
 		this._cityWindowInputs = Array.from(this._panel.querySelectorAll("[data-city-window-key]"));
-		this._cityFogGuidesToggle = this._panel.querySelector("[data-city-fog-guides]");
-		this._cityFogGraph = {
-			area: this._panel.querySelector("[data-fog-area]"),
-			curve: this._panel.querySelector("[data-fog-curve]"),
-			opacityLine: this._panel.querySelector("[data-fog-opacity-line]"),
-			startLine: this._panel.querySelector("[data-fog-start-line]"),
-			endLine: this._panel.querySelector("[data-fog-end-line]"),
-			startLabel: this._panel.querySelector("[data-fog-start-label]"),
-			endLabel: this._panel.querySelector("[data-fog-end-label]"),
-			axisMax: this._panel.querySelector("[data-fog-axis-max]"),
-			visibleSpan: this._panel.querySelector("[data-fog-visible-span]"),
-			curveMeaning: this._panel.querySelector("[data-fog-curve-meaning]"),
-		};
 		this._controlButton = this._panel.querySelector('[data-action="control"]');
 		this._detachPanelDrag = attachDevPanelDrag(this._panel, { id: "mmk1Camera" });
 
@@ -262,10 +221,6 @@ export class Mmk1CameraDevTools {
 				event.currentTarget.value,
 			));
 		}
-		this._cityFogGuidesToggle?.addEventListener("change", () => {
-			this._setCityFogGuidesEnabled(this._cityFogGuidesToggle.checked);
-		});
-
 		registerDevPanelHotkey(HOTKEY, {
 			label: "Capabilities / City",
 			toggle: () => this.toggle(),
@@ -463,7 +418,7 @@ export class Mmk1CameraDevTools {
 	_setCityWindowValue(key, value) {
 		if (!["intensity", "fogColor", "fogDensity", "fogNear", "fogPower", "fogOpacity"].includes(key)) return;
 		if (key === "fogColor" && !/^#[0-9a-fA-F]{6}$/.test(String(value))) return;
-		const settings = this.getScene()?.setCityWindowMaterialSettings?.({ [key]: value });
+		const settings = this.getCityScene()?.setCityWindowMaterialSettings?.({ [key]: value });
 		if (!settings) {
 			this._setStatus("city window material is not ready");
 			return;
@@ -475,7 +430,7 @@ export class Mmk1CameraDevTools {
 		this._setStatus(`city windows ${key} = ${formatted}`);
 	}
 
-	_syncCityWindowControls(settings = this.getScene()?.getCityWindowMaterialSettings?.()) {
+	_syncCityWindowControls(settings = this.getCityScene()?.getCityWindowMaterialSettings?.()) {
 		if (!settings) return;
 		for (const input of this._cityWindowInputs ?? []) {
 			if (document.activeElement === input) continue;
@@ -483,99 +438,10 @@ export class Mmk1CameraDevTools {
 			if (settings[key] == null) continue;
 			input.value = String(settings[key]);
 		}
-		this._syncCityFogGraph(settings);
-	}
-
-	_syncCityFogGraph(settings) {
-		const graph = this._cityFogGraph;
-		if (!graph?.curve || !graph.area) return;
-		const density = Math.max(0, Number(settings.fogDensity) || 0);
-		const near = Math.max(0, Number(settings.fogNear) || 0);
-		const power = Math.max(0.1, Number(settings.fogPower) || 1);
-		const opacity = Math.max(0, Math.min(1, Number(settings.fogOpacity) || 0));
-		const graphKey = `${density}|${near}|${power}|${opacity}`;
-		if (this._lastCityFogGraphKey === graphKey) return;
-		this._lastCityFogGraphKey = graphKey;
-
-		const effectiveEnd = getCityFogEffectiveEnd(settings);
-		const graphMax = Math.min(
-			300,
-			Math.max(80, near + 10, Number.isFinite(effectiveEnd) ? effectiveEnd * 1.12 : 80),
-		);
-		const left = 34;
-		const right = 348;
-		const top = 18;
-		const bottom = 144;
-		const width = right - left;
-		const height = bottom - top;
-		const mapX = (distance) => left + Math.max(0, Math.min(1, distance / graphMax)) * width;
-		const fogAt = (distance) => {
-			return getCityFogAmount(distance, settings);
-		};
-
-		const points = [];
-		for (let index = 0; index <= 96; index += 1) {
-			const distance = graphMax * index / 96;
-			const x = mapX(distance);
-			const y = bottom - fogAt(distance) * height;
-			points.push(`${index === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`);
-		}
-		const curvePath = points.join(" ");
-		graph.curve.setAttribute("d", curvePath);
-		graph.area.setAttribute("d", `${curvePath} L${right},${bottom} L${left},${bottom} Z`);
-
-		const startX = mapX(near);
-		graph.startLine?.setAttribute("x1", startX);
-		graph.startLine?.setAttribute("x2", startX);
-		graph.startLabel?.setAttribute("x", Math.min(right - 74, startX + 4));
-		if (graph.startLabel) graph.startLabel.textContent = `START ${near.toFixed(1)}`;
-
-		const endVisible = Number.isFinite(effectiveEnd);
-		const endX = endVisible ? mapX(effectiveEnd) : right;
-		graph.endLine?.toggleAttribute("hidden", !endVisible);
-		graph.endLine?.setAttribute("x1", endX);
-		graph.endLine?.setAttribute("x2", endX);
-		graph.endLabel?.setAttribute("x", Math.max(left + 90, endX - 4));
-		graph.endLabel?.setAttribute("text-anchor", "end");
-		if (graph.endLabel) {
-			graph.endLabel.textContent = endVisible
-				? `END 99% ${effectiveEnd.toFixed(1)}`
-				: "END — FOG OFF";
-		}
-
-		const opacityY = bottom - opacity * height;
-		graph.opacityLine?.setAttribute("y1", opacityY);
-		graph.opacityLine?.setAttribute("y2", opacityY);
-		if (graph.axisMax) graph.axisMax.textContent = `${graphMax.toFixed(0)} distance`;
-		if (graph.visibleSpan) {
-			graph.visibleSpan.textContent = endVisible
-				? `${near.toFixed(1)} → ${effectiveEnd.toFixed(1)}`
-				: "fog disabled";
-		}
-		if (graph.curveMeaning) {
-			graph.curveMeaning.textContent = power < 0.75
-				? "fast early rise"
-				: power < 1.25
-					? "natural exponential"
-					: power < 2.5
-						? "soft start"
-						: "late steep rise";
-		}
-	}
-
-	_setCityFogGuidesEnabled(enabled) {
-		const active = this.getScene()?.setCityFogSceneGuideEnabled?.(enabled) === true;
-		if (this._cityFogGuidesToggle) this._cityFogGuidesToggle.checked = active;
-		this._setStatus(active ? "city fog guides visible in scene" : "city fog guides hidden");
-	}
-
-	_syncCityFogGuideControl() {
-		if (!this._cityFogGuidesToggle) return;
-		this._cityFogGuidesToggle.checked = this.getScene()?.isCityFogSceneGuideEnabled?.() === true;
 	}
 
 	async _copyCityWindowSettings() {
-		const settings = this.getScene()?.getCityWindowMaterialSettings?.();
+		const settings = this.getCityScene()?.getCityWindowMaterialSettings?.();
 		if (!settings) {
 			this._setStatus("city window material is not ready");
 			return;
@@ -591,7 +457,7 @@ export class Mmk1CameraDevTools {
 	}
 
 	_resetCityWindowSettings() {
-		const settings = this.getScene()?.resetCityWindowMaterialSettings?.();
+		const settings = this.getCityScene()?.resetCityWindowMaterialSettings?.();
 		this._syncCityWindowControls(settings);
 		this._setStatus(settings ? "city window values reset" : "city window material is not ready");
 	}
@@ -631,7 +497,6 @@ export class Mmk1CameraDevTools {
 		this._syncMaterialControls();
 		this._syncHotspotThickness();
 		this._syncCityWindowControls();
-		this._syncCityFogGuideControl();
 		this._syncControlButton();
 		const snapshot = this.getScene()?.getFreeCameraSnapshot?.(this.getCamera());
 		if (!snapshot) {
@@ -654,12 +519,10 @@ export class Mmk1CameraDevTools {
 		this.enabled = enabled;
 		this._panel?.classList.toggle("hidden", !enabled);
 		if (enabled) {
-			this.getScene()?.setCityFogSceneGuideEnabled?.(true);
 			this.update(true);
 			this._setStatus(this.getScene()?.isFreeCameraEnabled?.() ? "control enabled" : "control disabled");
 			return;
 		}
-		this.getScene()?.setCityFogSceneGuideEnabled?.(false);
 		this.getScene()?.setFreeCameraEnabled?.(false, this.getCamera());
 		this._syncControlButton();
 	}

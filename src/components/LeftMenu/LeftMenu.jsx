@@ -15,6 +15,7 @@ import {
 import { MENU_CIRCLE_HOVER_SCALE, MENU_CIRCLE_IDLE_SCALE, MENU_SNAP_OFFSET } from "./leftMenuSnap.js";
 import { MENU_LABEL_APPEAR_MS, MENU_LABEL_DISAPPEAR_MS } from "./leftMenuLabelTimings.js";
 import styles from "./LeftMenu.module.scss";
+import { FIRST_CAPABILITY_PATH } from "@/pages/capabilities/data/capabilities.js";
 
 const NAV_ITEMS = [
 	{ id: "main", path: "/", icon: "home", match: (p) => p === "/" },
@@ -26,7 +27,7 @@ const NAV_ITEMS = [
 	},
 	{
 		id: "capabilities",
-		path: "/capabilities",
+		path: FIRST_CAPABILITY_PATH,
 		icon: "lab_icon",
 		match: (p) => p.startsWith("/capabilities"),
 	},

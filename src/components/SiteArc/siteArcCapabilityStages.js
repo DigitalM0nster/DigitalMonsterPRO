@@ -1,10 +1,20 @@
 import { wrapDegToPeriod } from "./siteArcCycle.js";
+import { CAPABILITIES } from "@/pages/capabilities/data/capabilities.js";
 
 const CAPABILITY_STAGE_GAP_RAD = 6.5 * (Math.PI / 180);
 const CAPABILITY_NODE_SCALE = 0.5;
 const DEG = Math.PI / 180;
 
-export const SITE_ARC_CAPABILITY_STAGE_COUNT = 4;
+export const SITE_ARC_CAPABILITY_STAGE_COUNT = CAPABILITIES.length;
+
+/** Route identity wins over the last published HUD stage during click navigation. */
+export function resolveSiteArcCapabilityStagePosition(carousel, fallback = 0) {
+	const sceneId = carousel?.isHexNavigationActive?.()
+		? carousel.getHexTargetSceneId?.()
+		: carousel?.currentId;
+	const routeIndex = CAPABILITIES.findIndex((capability) => capability.sceneId === sceneId);
+	return routeIndex >= 0 ? routeIndex : fallback;
+}
 
 /**
  * Capabilities permanently occupy four compact nodes below Portfolio. Keeping

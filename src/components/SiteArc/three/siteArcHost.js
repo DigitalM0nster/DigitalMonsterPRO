@@ -34,7 +34,14 @@ import { isSiteArcSessionActive } from "@/components/SiteArc/siteArcSession.js";
 import { isSiteArcNavigationActive } from "@/components/SiteArc/siteArcNavigationSource.js";
 import { SiteArcMesh } from "./SiteArcMesh.js";
 import { SITE_ARC_MAX_NODES } from "./siteArcShader.js";
-import { resolveSiteArcCapabilityStages } from "@/components/SiteArc/siteArcCapabilityStages.js";
+import {
+	resolveSiteArcCapabilityStagePosition,
+	resolveSiteArcCapabilityStages,
+} from "@/components/SiteArc/siteArcCapabilityStages.js";
+import {
+	CAPABILITIES,
+	getCapabilityBySceneId,
+} from "@/pages/capabilities/data/capabilities.js";
 
 const DEG = Math.PI / 180;
 
@@ -54,36 +61,44 @@ function resolveSiteScrollGlowAngle(labelPositions, carouselMotion, fallbackAngl
 }
 
 function resolveCapabilitiesGlowAngle(capabilitiesLayout, labelPositions, carousel, fallbackAngle) {
+	const currentCapability = getCapabilityBySceneId(carousel?.currentId);
 	if (
-		carousel?.currentId !== "capabilities"
+		!currentCapability
 		|| capabilitiesLayout.stageAngles.length === 0
+		|| carousel?.isHexNavigationActive?.()
 	) {
 		return fallbackAngle;
 	}
-	const firstStageAngle = capabilitiesLayout.stageAngles[0];
-	const lastStageAngle = capabilitiesLayout.stageAngles.at(-1);
+	const currentStageIndex = Math.max(
+		0,
+		CAPABILITIES.findIndex((capability) => capability.sceneId === currentCapability.sceneId),
+	);
+	const currentAngle = capabilitiesLayout.stageAngles[currentStageIndex]
+		?? capabilitiesLayout.stageAngles[0];
 	const routeProgress = Math.max(-1, Math.min(1, Number(carousel.progress) || 0));
-	let angle;
-	if (routeProgress > 0.0001) {
-		const aboutIndex = labelPositions.findIndex((_, index) => index > capabilitiesLayout.capabilitiesIndex);
-		const aboutAngle = labelPositions[aboutIndex]?.angle ?? lastStageAngle;
-		angle = lastStageAngle + (aboutAngle - lastStageAngle) * routeProgress;
-	} else if (routeProgress < -0.0001) {
-		const portfolioAngle = labelPositions[capabilitiesLayout.capabilitiesIndex - 1]?.angle
-			?? firstStageAngle;
-		angle = firstStageAngle + (portfolioAngle - firstStageAngle) * Math.abs(routeProgress);
-	} else {
-		const stagePosition = Math.max(0, Math.min(
-			capabilitiesLayout.stageAngles.length - 1,
-			Number(store.capabilitiesExperience?.stagePosition) || 0,
-		));
-		const fromIndex = Math.min(Math.floor(stagePosition), capabilitiesLayout.stageAngles.length - 1);
-		const toIndex = Math.min(fromIndex + 1, capabilitiesLayout.stageAngles.length - 1);
-		const localProgress = stagePosition - fromIndex;
-		angle = capabilitiesLayout.stageAngles[fromIndex]
-			+ (capabilitiesLayout.stageAngles[toIndex] - capabilitiesLayout.stageAngles[fromIndex])
-			* localProgress;
+	if (Math.abs(routeProgress) <= 0.0001) {
+		stickArcGlowToAngle(currentAngle);
+		return currentAngle;
 	}
+
+	const targetSceneId = routeProgress < 0 ? carousel.previousId : carousel.nextId;
+	const targetCapability = getCapabilityBySceneId(targetSceneId);
+	let targetAngle;
+	if (targetCapability) {
+		const targetStageIndex = Math.max(
+			0,
+			CAPABILITIES.findIndex((capability) => capability.sceneId === targetCapability.sceneId),
+		);
+		targetAngle = capabilitiesLayout.stageAngles[targetStageIndex] ?? currentAngle;
+	} else if (routeProgress < 0) {
+		targetAngle = labelPositions[capabilitiesLayout.capabilitiesIndex - 1]?.angle ?? currentAngle;
+	} else {
+		const aboutIndex = labelPositions.findIndex(
+			(_, index) => index > capabilitiesLayout.capabilitiesIndex,
+		);
+		targetAngle = labelPositions[aboutIndex]?.angle ?? currentAngle;
+	}
+	const angle = currentAngle + (targetAngle - currentAngle) * Math.abs(routeProgress);
 	stickArcGlowToAngle(angle);
 	return angle;
 }
@@ -187,7 +202,10 @@ export function buildSiteArcGpuState(viewportW, viewportH, isMobile = false) {
 	const activeNavIndex = arcProjects.activeNavIndex;
 	const capabilityStageProgress = Math.max(0, Math.min(
 		capabilitiesLayout.stageAngles.length - 1,
-		Number(store.capabilitiesExperience?.stagePosition) || 0,
+		resolveSiteArcCapabilityStagePosition(
+			carousel,
+			Number(store.capabilitiesExperience?.stagePosition) || 0,
+		),
 	));
 	const activeAngle = activeNavIndex === capabilitiesLayout.capabilitiesIndex
 		&& capabilitiesLayout.stageAngles.length > 0

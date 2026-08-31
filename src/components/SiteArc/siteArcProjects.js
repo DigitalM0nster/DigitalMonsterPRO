@@ -8,14 +8,19 @@ import { siteArcInternals } from "./siteArcConfig.js";
 import { getSiteArcNavigationSource } from "./siteArcNavigationSource.js";
 import { store } from "@/app/store.jsx";
 import { getSceneCarousel } from "@/three/render/transition/carouselPage.js";
+import { isCapabilitySceneId } from "@/pages/capabilities/data/capabilities.js";
 
 const CAROUSEL_SCENE_TO_SITE_ARC_ID = {
 	home: "main",
 	portfolioHub: "portfolio",
-	capabilities: "capabilities",
 	about: "about",
 	contacts: "contacts",
 };
+
+function carouselSceneToSiteArcId(sceneId) {
+	if (isCapabilitySceneId(sceneId)) return "capabilities";
+	return CAROUSEL_SCENE_TO_SITE_ARC_ID[sceneId] ?? null;
+}
 
 /** Click preview before route commit — glow/labels move immediately. */
 let previewActiveProjectId = null;
@@ -131,13 +136,13 @@ export function resolveSiteArcProjectItems(locale, activeProjectId = null) {
 		// The carousel commit is the visual ownership hand-off. React's
 		// displayPathname intentionally lags during the transition, so using only
 		// source.activeId would start the focus spin late. Read the committed scene
-		// directly for the site ring; capabilities keep their nested-route id.
+		// directly for the site ring; capability route ids group under one label.
 		const carousel = getSceneCarousel();
 		const committedSiteId = siteSource.key === "site"
-			? CAROUSEL_SCENE_TO_SITE_ARC_ID[carousel?.currentId ?? store.sceneCarouselCurrentId]
+			? carouselSceneToSiteArcId(carousel?.currentId ?? store.sceneCarouselCurrentId)
 			: null;
 		const targetSiteId = siteSource.key === "site" && carousel?.isHexNavigationActive?.()
-			? CAROUSEL_SCENE_TO_SITE_ARC_ID[carousel.getHexTargetSceneId?.()]
+			? carouselSceneToSiteArcId(carousel.getHexTargetSceneId?.())
 			: null;
 		const hasItem = (id) => Boolean(id && items.some((item) => item.id === id));
 		const previewConfirmed = Boolean(

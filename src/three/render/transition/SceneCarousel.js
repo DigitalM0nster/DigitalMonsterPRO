@@ -32,9 +32,20 @@ import {
 	needsFastNavigationSettle,
 	resolveLocalSegmentRest,
 } from "./siteNavigationProgressOwner.js";
+import {
+	CAPABILITIES,
+	CAPABILITY_SCENE_IDS,
+	resolveCapabilitySceneId,
+} from "@/pages/capabilities/data/capabilities.js";
 
 /** Бесконечное кольцо: previous ← current → next + scroll progress / progressTarget. */
-export const CAROUSEL_SCENE_IDS = ["home", "portfolioHub", "capabilities", "about", "contacts"];
+export const CAROUSEL_SCENE_IDS = [
+	"home",
+	"portfolioHub",
+	...CAPABILITY_SCENE_IDS,
+	"about",
+	"contacts",
+];
 
 /** Скролл вперёд: target не выше 1.5 (полсегмента overshoot после 1). */
 export const CAROUSEL_PROGRESS_TARGET_MAX = 1.5;
@@ -77,7 +88,7 @@ export const CAROUSEL_PROGRESS_COMMIT_SNAP_ZONE = 0.005;
 export const SCENE_ID_TO_PAGE = {
 	home: "/",
 	portfolioHub: "/portfolio",
-	capabilities: "/capabilities",
+	...Object.fromEntries(CAPABILITIES.map((capability) => [capability.sceneId, capability.path])),
 	about: "/about",
 	contacts: "/contacts",
 };
@@ -90,9 +101,8 @@ export function pageToCarouselSceneId(page) {
 	if (normalized === "/portfolio") {
 		return "portfolioHub";
 	}
-	if (normalized === "/capabilities" || normalized.startsWith("/capabilities/")) {
-		return "capabilities";
-	}
+	const capabilitySceneId = resolveCapabilitySceneId(normalized);
+	if (capabilitySceneId) return capabilitySceneId;
 	if (normalized.startsWith("/about")) {
 		return "about";
 	}
@@ -163,8 +173,6 @@ export class SceneCarousel {
 		this.progressTarget = 0;
 		/** About route-edge overshoot drive — see adoptAboutBoundaryDrive(). */
 		this._aboutBoundaryDrive = false;
-		/** Capabilities internal-story route-edge overshoot drive. */
-		this._capabilitiesBoundaryDrive = false;
 		/**
 		 * Case content-edge scroll mix (caseA↔caseB) — see beginCaseBoundaryDrive().
 		 * Progress-driven hex like the ring; commit swaps case route (not timed click hex).
@@ -859,31 +867,6 @@ export class SceneCarousel {
 	}
 
 	/**
-	 * Capabilities uses the same local-story → ring hand-off as About, while
-	 * keeping a distinct flag so About HUD bake/overlay checks stay exact.
-	 * @param {number} progress
-	 * @param {number} progressTarget
-	 * @param {'forward' | 'backward'} intent
-	 */
-	adoptCapabilitiesBoundaryDrive(progress, progressTarget, intent) {
-		this._capabilitiesBoundaryDrive = true;
-		this.progress = progress;
-		this.progressTarget = clampProgressTarget(progressTarget);
-		this.scrollIntent = intent;
-	}
-
-	clearCapabilitiesBoundaryDrive() {
-		if (!this._capabilitiesBoundaryDrive) {
-			return;
-		}
-		this._capabilitiesBoundaryDrive = false;
-	}
-
-	isCapabilitiesBoundaryDrive() {
-		return this._capabilitiesBoundaryDrive === true;
-	}
-
-	/**
 	 * Case content-edge: scroll-driven hex between two case scenes (not ring neighbors).
 	 * @param {{
 	 *   sourceId: string,
@@ -1023,22 +1006,6 @@ export class SceneCarousel {
 		this._commitForward();
 	}
 
-	/** Capabilities `current` crossed its internal-story route edge. */
-	commitCapabilitiesRouteLeave(direction) {
-		this._capabilitiesBoundaryDrive = false;
-		if (direction === "backward") {
-			this.scrollIntent = "backward";
-			this.progress = Math.min(this.progress, CAROUSEL_PROGRESS_SEGMENT_BACK_END);
-			this.progressTarget = Math.min(this.progressTarget, CAROUSEL_PROGRESS_SEGMENT_BACK_END);
-			this._commitBackward();
-			return;
-		}
-		this.scrollIntent = "forward";
-		this.progress = Math.max(this.progress, CAROUSEL_PROGRESS_SEGMENT_END);
-		this.progressTarget = Math.max(this.progressTarget, CAROUSEL_PROGRESS_SEGMENT_END);
-		this._commitForward();
-	}
-
 	update(delta) {
 		if (!Number.isFinite(delta) || delta <= 0) {
 			return;
@@ -1059,7 +1026,6 @@ export class SceneCarousel {
 		/** About / case-boundary own their spring — do not fight their progress. */
 		if (
 			this._aboutBoundaryDrive
-			|| this._capabilitiesBoundaryDrive
 			|| this._caseBoundaryDrive
 			|| this._caseBoundaryAwaitingRoute
 		) {
@@ -1149,9 +1115,8 @@ export class SceneCarousel {
 
 	_commitForward() {
 		this._aboutBoundaryDrive = false;
-		this._capabilitiesBoundaryDrive = false;
 		const fromId = this.currentId;
-		const enteringStoryPage = this.nextId === "about" || this.nextId === "capabilities";
+		const enteringStoryPage = this.nextId === "about";
 		// Single overflow source: leftover past +1 before post-commit clamp.
 		const rawLeftover = this.progressTarget - CAROUSEL_PROGRESS_SEGMENT_END;
 		const boundaryOverflowProgress = enteringStoryPage
@@ -1160,9 +1125,7 @@ export class SceneCarousel {
 		this.previousId = this.currentId;
 		this.currentId = this.nextId;
 		this.nextId = nextInCycle(this.currentId);
-		// About and Capabilities own interior springs. Transfer post-commit wheel
-		// overflow into that story only; leaving it on the ring as well disables the
-		// internal hex compositor while its stage scene continues to advance.
+		// About owns an interior spring; transfer post-commit wheel overflow to it.
 		this.progressTarget = enteringStoryPage ? 0 : clampPostCommitProgressTarget(rawLeftover);
 		this.progress = 0;
 		this.scrollIntent = null;
@@ -1177,9 +1140,8 @@ export class SceneCarousel {
 
 	_commitBackward() {
 		this._aboutBoundaryDrive = false;
-		this._capabilitiesBoundaryDrive = false;
 		const fromId = this.currentId;
-		const enteringStoryPage = this.previousId === "about" || this.previousId === "capabilities";
+		const enteringStoryPage = this.previousId === "about";
 		// Mirror forward: leftover past −1 before post-commit clamp.
 		const rawLeftover = this.progressTarget - CAROUSEL_PROGRESS_SEGMENT_BACK_END;
 		const boundaryOverflowProgress = enteringStoryPage
@@ -1275,7 +1237,6 @@ export class SceneCarousel {
 		this.progressTarget = 0;
 		this.scrollIntent = null;
 		this._aboutBoundaryDrive = false;
-		this._capabilitiesBoundaryDrive = false;
 		this._initSceneProgressStates();
 	}
 

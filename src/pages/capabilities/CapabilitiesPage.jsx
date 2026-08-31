@@ -1,26 +1,34 @@
-import { useParams } from "react-router-dom";
+import { Navigate, useParams } from "react-router-dom";
 import { useSnapshot } from "valtio";
 import { store } from "@/app/store.jsx";
-import { CAPABILITIES, getCapabilityBySlug } from "@/pages/capabilities/data/capabilities.js";
+import {
+	CAPABILITIES,
+	FIRST_CAPABILITY_PATH,
+	getCapabilityBySlug,
+} from "@/pages/capabilities/data/capabilities.js";
 import { usePageStateClasses } from "@/app/context/RouteTransitionContext.jsx";
 import { requestMmk1ReturnToOverview } from "./mmk1SceneBridge.js";
 import styles from "./CapabilitiesPage.module.scss";
 
 export default function CapabilitiesPage() {
 	const { "*": nestedPath = "" } = useParams();
-	const slug = nestedPath.split("/").filter(Boolean)[0] ?? CAPABILITIES[0].id;
+	const slug = nestedPath.split("/").filter(Boolean)[0] ?? null;
 	const pageClassName = usePageStateClasses("capabilities");
 	const experience = useSnapshot(store.capabilitiesExperience);
-	const active = getCapabilityBySlug(experience.activeStageId || slug);
+	const active = getCapabilityBySlug(slug);
+
+	if (!slug || !CAPABILITIES.some((capability) => capability.id === slug)) {
+		return <Navigate to={FIRST_CAPABILITY_PATH} replace />;
+	}
 
 	return (
 		<div className={`${pageClassName} ${styles.page}`} data-capability-id={active.id}>
 			<button
 				type="button"
-				className={`${styles.overviewReturn} ${experience.investigating ? styles.visible : ""}`}
+				className={`${styles.overviewReturn} ${active.id === "mmk1" && experience.investigating ? styles.visible : ""}`}
 				onClick={requestMmk1ReturnToOverview}
-				aria-hidden={!experience.investigating}
-				tabIndex={experience.investigating ? 0 : -1}
+				aria-hidden={active.id !== "mmk1" || !experience.investigating}
+				tabIndex={active.id === "mmk1" && experience.investigating ? 0 : -1}
 			>
 				<span className={styles.returnGlyph} aria-hidden="true">
 					<svg viewBox="0 0 72 30" focusable="false">

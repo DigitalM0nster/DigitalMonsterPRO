@@ -68,7 +68,7 @@ function createTemplateProject(capabilityId, index) {
 		},
 		caseStudy: {
 			...mmk1Project.config.caseStudy,
-			panelHudRoutes: ["/capabilities", capability.path],
+			panelHudRoutes: [capability.path],
 			panelIntroDelayMs: 90,
 			chapterBase: index + 1,
 			footerLabel: "DIGITALMONSTER / CAPABILITY PROTOTYPE",

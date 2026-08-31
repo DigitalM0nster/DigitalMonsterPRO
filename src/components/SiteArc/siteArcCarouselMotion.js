@@ -4,14 +4,19 @@ import { getSiteArcNavigationSource } from "./siteArcNavigationSource.js";
 import { getSiteArcPreviewProjectId } from "./siteArcProjects.js";
 import { siteArcRuntime } from "./siteArcConfig.js";
 import { shortestDegDelta } from "./siteArcCycle.js";
+import { isCapabilitySceneId } from "@/pages/capabilities/data/capabilities.js";
 
 const CAROUSEL_SCENE_TO_SITE_ARC_ID = {
 	home: "main",
 	portfolioHub: "portfolio",
-	capabilities: "capabilities",
 	about: "about",
 	contacts: "contacts",
 };
+
+function carouselSceneToSiteArcId(sceneId) {
+	if (isCapabilitySceneId(sceneId)) return "capabilities";
+	return CAROUSEL_SCENE_TO_SITE_ARC_ID[sceneId] ?? null;
+}
 
 const ARC_SCROLL_FOLLOW_RATIO = 0.5;
 const PROGRESS_EPSILON = 0.0001;
@@ -55,12 +60,6 @@ function resolveInternalStoryMotion(carousel) {
 			target: Number(store.aboutExperience?.progressTarget) || 0,
 		};
 	}
-	if (carousel?.currentId === "capabilities") {
-		return {
-			progress: Number(store.capabilitiesExperience?.progress) || 0,
-			target: Number(store.capabilitiesExperience?.progressTarget) || 0,
-		};
-	}
 	return null;
 }
 
@@ -86,7 +85,14 @@ export function resolveSiteArcCarouselMotion(navStates, ringGapDeg) {
 		// Scroll moves the ring through half a node gap. On commit the focus owner
 		// must animate the remaining half. A post-commit wheel overflow used to
 		// start the next segment immediately and snap that missing half in one frame.
-		beginCommitFocusHandoff(carouselCurrentId);
+		if (
+			carouselSceneToSiteArcId(carouselCurrentId)
+			!== carouselSceneToSiteArcId(lastCarouselCurrentId)
+		) {
+			beginCommitFocusHandoff(carouselCurrentId);
+		} else {
+			lastCarouselCurrentId = carouselCurrentId;
+		}
 	}
 	if (
 		getSiteArcPreviewProjectId() != null
@@ -96,7 +102,7 @@ export function resolveSiteArcCarouselMotion(navStates, ringGapDeg) {
 		return null;
 	}
 
-	const currentId = CAROUSEL_SCENE_TO_SITE_ARC_ID[carouselCurrentId] ?? source.activeId;
+	const currentId = carouselSceneToSiteArcId(carouselCurrentId) ?? source.activeId;
 	const currentIndex = navStates.findIndex((item) => item.id === currentId);
 	if (currentIndex < 0) {
 		return null;
@@ -104,18 +110,25 @@ export function resolveSiteArcCarouselMotion(navStates, ringGapDeg) {
 
 	const progress = Math.max(-1, Math.min(1, Number(carousel?.progress) || 0));
 	const internal = resolveInternalStoryMotion(carousel);
+	const targetSceneId = progress < 0 ? carousel?.previousId : carousel?.nextId;
+	const targetSiteId = carouselSceneToSiteArcId(targetSceneId);
+	const staysInsideSiteGroup = Math.abs(progress) >= PROGRESS_EPSILON
+		&& targetSiteId === currentId;
 	let direction;
 	let segmentProgress;
 	let focusSegmentProgress;
-	if (progress < -PROGRESS_EPSILON) {
+	if (staysInsideSiteGroup) {
+		direction = 0;
+		segmentProgress = Math.abs(progress);
+		focusSegmentProgress = 0;
+	} else if (progress < -PROGRESS_EPSILON) {
 		// Backward route edge starts at story 0 and follows the previous node.
 		direction = -1;
 		segmentProgress = Math.abs(progress);
 		focusSegmentProgress = segmentProgress;
 	} else if (progress > PROGRESS_EPSILON && internal) {
-		// The internal capability story already moved the orbit through the first
-		// half of the route gap. Its final boundary drives the remaining half with
-		// the same painted progress as the capability -> About hex transition.
+		// About's internal story already moved the orbit through the first half of
+		// the route gap. Its final boundary drives the remaining half.
 		direction = 1;
 		segmentProgress = progress;
 		focusSegmentProgress = 1 + progress;
@@ -135,7 +148,9 @@ export function resolveSiteArcCarouselMotion(navStates, ringGapDeg) {
 		return null;
 	}
 
-	const targetIndex = (currentIndex + direction + navStates.length) % navStates.length;
+	const targetIndex = staysInsideSiteGroup
+		? currentIndex
+		: (currentIndex + direction + navStates.length) % navStates.length;
 	const rawFocusDeg = currentIndex * ringGapDeg
 		+ direction * ringGapDeg * focusSegmentProgress * ARC_SCROLL_FOLLOW_RATIO;
 	const focusDeg = resolveCommitFocus(

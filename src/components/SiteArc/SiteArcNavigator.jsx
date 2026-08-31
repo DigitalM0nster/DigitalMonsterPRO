@@ -7,11 +7,12 @@ import { normalizeSiteLocale } from "@/functions/siteLocale.js";
 import { requestHexNavigation } from "@/functions/hexNavigation.js";
 import SiteArcDomNav from "@/components/SiteArc/SiteArcDomNav.jsx";
 import { setSiteArcNavigationSource } from "@/components/SiteArc/siteArcNavigationSource.js";
+import { FIRST_CAPABILITY_PATH } from "@/pages/capabilities/data/capabilities.js";
 
 const SITE_ITEMS = [
 	{ id: "main", routeNumber: "01", route: "/" },
 	{ id: "portfolio", routeNumber: "02", route: "/portfolio" },
-	{ id: "capabilities", routeNumber: "03", route: "/capabilities" },
+	{ id: "capabilities", routeNumber: "03", route: FIRST_CAPABILITY_PATH },
 	{ id: "about", routeNumber: "04", route: "/about" },
 	{ id: "contacts", routeNumber: "05", route: "/contacts" },
 ];

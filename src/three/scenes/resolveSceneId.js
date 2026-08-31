@@ -1,4 +1,5 @@
 import { projectsData } from "./portfolio/hub/projectsData.js";
+import { resolveCapabilitySceneId } from "@/pages/capabilities/data/capabilities.js";
 
 /**
  * pathname (displayPathname) → id сцены в SceneManager.
@@ -12,9 +13,8 @@ export function resolveSceneId(pathname) {
 		return "portfolioHub";
 	}
 
-	if (pathname === "/capabilities" || pathname.startsWith("/capabilities/")) {
-		return "capabilities";
-	}
+	const capabilitySceneId = resolveCapabilitySceneId(pathname);
+	if (capabilitySceneId) return capabilitySceneId;
 
 	if (pathname.startsWith("/about")) {
 		return "about";

@@ -132,8 +132,8 @@ export const store = proxy({
 		mobileSwipeProgress: 0,
 	},
 	/**
-	 * Page-level capabilities story. A capability is one stage regardless of how
-	 * many prepared text variants or interactive detail states its scene owns.
+	 * Route-level capability identity used by the persistent arc/HUD bridges.
+	 * Motion and route commits are owned by SceneCarousel.
 	 */
 	capabilitiesExperience: {
 		active: false,

@@ -15,7 +15,7 @@ import {
 } from "@/functions/hexNavigation.js";
 import { armAboutPanelHudForRoute } from "@/pages/about/aboutPanelHudStory.js";
 import { startAboutExperienceRuntime } from "@/pages/about/aboutExperienceRuntime.js";
-import { startCapabilitiesExperienceRuntime } from "@/pages/capabilities/capabilitiesExperienceRuntime.js";
+import { syncCapabilityRouteState } from "@/pages/capabilities/capabilityRouteState.js";
 
 const carousel = new SceneCarousel();
 
@@ -48,13 +48,7 @@ carousel.setOnCommit(({ fromId, toId, direction, boundaryOverflowProgress, navig
 	store.sceneCarouselLastCommitFromId = fromId;
 	store.sceneCarouselLastCommitDirection = direction;
 	store.sceneCarouselLastCommitBoundaryOverflow = boundaryOverflowProgress;
-	// Prepare the nested capability owner before publishing the route commit.
-	// About -> Capabilities enters at the final capability; if the
-	// arc sees the new route first, its still-stale stagePosition points at 01
-	// for one frame and the glow visibly snaps 01 -> 05.
-	if (toId === "capabilities") {
-		startCapabilitiesExperienceRuntime();
-	}
+	syncCapabilityRouteState(toId);
 	/**
 	 * Publish currentId immediately (rAF sync in the Three loop is one frame late).
 	 * AboutExperienceHost subscribes and starts wheel ownership in this same turn —

@@ -1,5 +1,6 @@
 import { store } from "@/app/store.jsx";
 import { getSceneCarousel } from "@/three/render/transition/carouselPage.js";
+import { isCapabilitySceneId } from "@/pages/capabilities/data/capabilities.js";
 
 /**
  * Site locale animation ownership:
@@ -10,7 +11,7 @@ import { getSceneCarousel } from "@/three/render/transition/carouselPage.js";
  */
 
 /**
- * @param {string} sceneId ring scene id (home | portfolioHub | capabilities | about | contacts)
+ * @param {string} sceneId ring scene id (home | portfolioHub | capabilities:* | about | contacts)
  */
 export function shouldAnimateSiteLocaleForRingScene(sceneId) {
 	if (store.openedCase) {
@@ -27,7 +28,7 @@ export function shouldAnimateSiteLocaleForCaseChrome() {
 	const id = getSceneCarousel().currentId;
 	// Capabilities deliberately reuse the prepared case left-panel HUD. Give
 	// that mounted panel the same mosaic locale transition as an open case.
-	if (id === "capabilities" && store.capabilitiesExperience?.active) {
+	if (isCapabilitySceneId(id) && store.capabilitiesExperience?.active) {
 		return true;
 	}
 	return typeof id === "string" && id.startsWith("case");

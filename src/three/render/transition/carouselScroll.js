@@ -68,12 +68,10 @@ export function shouldCarouselScrollWheel(ctx, event) {
 	}
 
 	const carousel = getSceneCarousel();
-	// About and Capabilities own multi-stage internal scroll. Their runtimes
-	// explicitly hand only the final overshoot to the ring carousel; allowing
-	// this global listener to consume the same wheel event skips inner stages.
+	// About owns a multi-stage internal story and hands only its edge overshoot
+	// to the ring. Capability pages are ordinary route-level ring scenes.
 	if (
 		carousel.currentId === "about"
-		|| carousel.currentId === "capabilities"
 		|| carousel.isInteractionLocked()
 	) {
 		return false;

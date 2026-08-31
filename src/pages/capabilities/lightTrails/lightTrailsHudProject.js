@@ -48,7 +48,7 @@ const config = {
 	},
 	caseStudy: {
 		...mmk1Project.config.caseStudy,
-		panelHudRoutes: ["/capabilities", "/capabilities/light-trails"],
+		panelHudRoutes: ["/capabilities/light-trails"],
 		panelIntroDelayMs: 90,
 		chapterBase: 2,
 		footerLabel: "DIGITALMONSTER / GENERATIVE EXPERIENCE",

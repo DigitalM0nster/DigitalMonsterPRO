@@ -2,9 +2,8 @@ import * as THREE from "three";
 import { PLACEHOLDER_SCENE_DEFINITIONS } from "./sceneDefinitions.js";
 import { resolveSceneId } from "./resolveSceneId.js";
 import { getSceneCarousel } from "@/three/render/transition/carouselPage.js";
-import { isCarouselRoutePage } from "../render/transition/SceneCarousel.js";
+import { CAROUSEL_SCENE_IDS, isCarouselRoutePage } from "../render/transition/SceneCarousel.js";
 import { getHexRevealFromTop, getHexShaderProgress } from "../render/overlay/hexShaderProgress.js";
-import { getCapabilitiesInternalHexState } from "../render/transition/capabilitiesInternalHex.js";
 import { resolveHexHitOwnerSceneId, yNormFromTopFromNdcY } from "../render/overlay/hexHitOwnership.js";
 import { SceneCarouselLifecycleDispatcher } from "./lifecycle/SceneCarouselLifecycleDispatcher.js";
 import { DigitalWhaleScene } from "./home/DigitalWhaleScene.js";
@@ -13,6 +12,8 @@ import { PortfolioHubScene } from "./portfolio/PortfolioHubScene.js";
 import { Case1Scene } from "./portfolio/case1/Case1Scene.js";
 import { BelkaScene } from "./portfolio/case6/BelkaScene.js";
 import { Mmk1CapabilityScene } from "./capabilities/mmk1/Mmk1CapabilityScene.js";
+import { CapabilityWorldScene } from "./capabilities/CapabilityWorldScene.js";
+import { CAPABILITIES } from "@/pages/capabilities/data/capabilities.js";
 import { AboutScene } from "./about/AboutScene.js";
 import { ContactsScene } from "./contacts/ContactsScene.js";
 import { SceneDragOrbitController } from "./interaction/SceneDragOrbitController.js";
@@ -72,7 +73,13 @@ export class SceneManager {
 		this.scenes.set("home", new DigitalWhaleScene(this.gfx));
 		this.scenes.get("home")?.initHeroText?.(this.renderer);
 		this.scenes.set("portfolioHub", new PortfolioHubScene({ inputElement: this.renderer.domElement }));
-		this.scenes.set("capabilities", new Mmk1CapabilityScene(this.renderer, this.store));
+		this.scenes.set(CAPABILITIES[0].sceneId, new Mmk1CapabilityScene(this.renderer, this.store));
+		for (const capability of CAPABILITIES.slice(1)) {
+			this.scenes.set(
+				capability.sceneId,
+				new CapabilityWorldScene(this.renderer, this.store, capability),
+			);
+		}
 		this.scenes.set("case01", new Case1Scene(this.renderer, this.store));
 		this.scenes.set("case06", new BelkaScene(this.renderer, this.store));
 		this.scenes.set("about", new AboutScene(this.store));
@@ -117,37 +124,11 @@ export class SceneManager {
 	 */
 	_resolveInteractiveSceneContext(carousel, carouselHub) {
 		if (this.getPointerBlocked()) {
-			return { sceneId: null, orbitSceneId: null, capabilityVariant: null };
+			return { sceneId: null, orbitSceneId: null };
 		}
 
 		const pointer = this.getViewportPointer() ?? this.getPointer();
 		const yNormFromTop = yNormFromTopFromNdcY(pointer?.y ?? 0);
-		const internalCapabilities = getCapabilitiesInternalHexState();
-		if (
-			carousel.currentId === "capabilities"
-			&& internalCapabilities.transitioning
-			&& carousel.getMixProgress() <= 0.0001
-			&& !carousel.isInteractionLocked()
-		) {
-			const sourceVariant = internalCapabilities.sourceVariant;
-			const targetVariant = internalCapabilities.targetVariant;
-			const owner = resolveHexHitOwnerSceneId({
-				yNormFromTop,
-				mixProgress: internalCapabilities.progress,
-				revealFromTop: false,
-				sourceId: `capabilities:${sourceVariant}`,
-				targetId: `capabilities:${targetVariant}`,
-			});
-			const capabilityVariant = owner?.startsWith("capabilities:")
-				? owner.slice("capabilities:".length)
-				: sourceVariant;
-			return {
-				sceneId: "capabilities",
-				orbitSceneId: `capabilities:${capabilityVariant}`,
-				capabilityVariant,
-			};
-		}
-
 		const { sourceId, targetId } = carousel.getMixSourceTargetIds();
 		const mixProgress = getHexShaderProgress();
 
@@ -159,23 +140,22 @@ export class SceneManager {
 				sourceId,
 				targetId,
 			});
-			return { sceneId, orbitSceneId: sceneId, capabilityVariant: null };
+			return { sceneId, orbitSceneId: sceneId };
 		}
 
 		// Hex click just started (progress≈0) or awaitingRoute edge: full screen = source.
 		if (carousel.isInteractionLocked()) {
 			const sceneId = sourceId ?? carousel.currentId;
-			return { sceneId, orbitSceneId: sceneId, capabilityVariant: null };
+			return { sceneId, orbitSceneId: sceneId };
 		}
 
 		if (carouselHub) {
 			return {
 				sceneId: carousel.currentId,
 				orbitSceneId: carousel.currentId,
-				capabilityVariant: null,
 			};
 		}
-		return { sceneId: this.activeId, orbitSceneId: this.activeId, capabilityVariant: null };
+		return { sceneId: this.activeId, orbitSceneId: this.activeId };
 	}
 
 	/** @param {boolean} acceptsPointer */
@@ -365,12 +345,7 @@ export class SceneManager {
 	}
 
 	getBloomRevealForSceneId(sceneId) {
-		// Internal capability variants render through the same prepared scene and
-		// bloom pipeline. Their suffixed ids are mix-layer identities only.
-		const resolvedSceneId = sceneId?.startsWith("capabilities:")
-			? "capabilities"
-			: sceneId;
-		const scene = this.scenes.get(resolvedSceneId);
+		const scene = this.scenes.get(sceneId);
 		if (!scene) {
 			return 0;
 		}
@@ -481,7 +456,7 @@ export class SceneManager {
 	 * @param {string} sceneId
 	 * @param {"a"|"b"} mixSlot
 	 * @param {() => Promise<void>} yieldFn
-	 * @param {{ capabilityVariant?: string }} [renderOptions]
+	 * @param {{ force?: boolean }} [renderOptions]
 	 * @returns {Promise<THREE.Texture | null>}
 	 */
 	async warmupSceneDrawChunked(sceneId, mixSlot, yieldFn, renderOptions = {}) {
@@ -517,8 +492,7 @@ export class SceneManager {
 	 */
 	getWarmupDrawSceneIds() {
 		const ids = [...this.scenes.keys()];
-		const ringOrder = ["home", "portfolioHub", "capabilities", "about", "contacts"];
-		const ring = ringOrder.filter((id) => this.scenes.has(id));
+		const ring = CAROUSEL_SCENE_IDS.filter((id) => this.scenes.has(id));
 		const cases = ids.filter((id) => id.startsWith("case"));
 		const rest = ids.filter((id) => !ring.includes(id) && !cases.includes(id));
 		return [...ring, ...cases, ...rest];
@@ -540,16 +514,10 @@ export class SceneManager {
 			pointerDown: frame.pointerDown,
 			enabled: Boolean(
 				interactiveId
-					&& interactiveScene?.isDragOrbitEnabled?.(
-						frame,
-						interaction.capabilityVariant,
-					) === true
+					&& interactiveScene?.isDragOrbitEnabled?.(frame) === true
 					&& !frame.pointerBlocked
 					&& !carousel.isInteractionLocked()
-					&& (
-						getHexShaderProgress() <= 0.001
-						|| interaction.capabilityVariant != null
-					)
+					&& getHexShaderProgress() <= 0.001
 			),
 		});
 		const dragBlocksScenePointer = this.sceneDragOrbit.isBlockingScenePointer();
@@ -558,9 +526,6 @@ export class SceneManager {
 			const isActive = scene === this.getActiveScene();
 			const inCarousel = carouselActiveIds?.has(id) ?? false;
 			const acceptsPointer = id === interactiveId && !dragBlocksScenePointer;
-			const capabilityInteractionFrame = id === "capabilities"
-				? { ...frame, capabilityInteractionVariant: interaction.capabilityVariant }
-				: frame;
 			const pointerState = {
 				pointerDown: acceptsPointer ? frame.pointerDown : false,
 				pointerBlocked: !acceptsPointer || frame.pointerBlocked,
@@ -568,7 +533,7 @@ export class SceneManager {
 
 			if (carouselHub) {
 				if (inCarousel) {
-					const sceneFrame = this._withInteractionFrame(this._withSceneProgressFrame(capabilityInteractionFrame, id, carousel), acceptsPointer);
+					const sceneFrame = this._withInteractionFrame(this._withSceneProgressFrame(frame, id, carousel), acceptsPointer);
 					scene.setPointerState?.(pointerState);
 					scene.update?.(delta, sceneFrame);
 				} else if (scene.shouldKeepUpdating?.()) {
@@ -581,7 +546,7 @@ export class SceneManager {
 
 			if (isActive || scene.shouldKeepUpdating?.()) {
 				scene.setPointerState?.(pointerState);
-				scene.update?.(delta, this._withInteractionFrame(capabilityInteractionFrame, acceptsPointer));
+				scene.update?.(delta, this._withInteractionFrame(frame, acceptsPointer));
 			}
 		}
 	}
@@ -647,73 +612,18 @@ export class SceneManager {
 
 	renderCarouselMix(options = {}) {
 		const carousel = getSceneCarousel();
-		const internalCapabilities = getCapabilitiesInternalHexState();
-		if (
-			carousel.currentId === "capabilities"
-			&& internalCapabilities.transitioning
-			&& carousel.getMixProgress() <= 0.0001
-			&& !carousel.isInteractionLocked()
-		) {
-			const sourceVariant = internalCapabilities.sourceVariant;
-			const targetVariant = internalCapabilities.targetVariant;
-			const publishedVariant = this.scenes.get("capabilities")
-				?.getPublishedCapabilityRenderVariant?.();
-			const sourceModels = this._renderSceneLayer(
-				"capabilities",
-				this._getMixLayerRenderTarget("capabilities", "a"),
-				{ capabilityVariant: sourceVariant },
-			);
-			const targetModels = this._renderSceneLayer(
-				"capabilities",
-				this._getMixLayerRenderTarget("capabilities", "b"),
-				{ capabilityVariant: targetVariant },
-			);
-			return {
-				sourceId: "capabilities",
-				targetId: `capabilities:${targetVariant}`,
-				sourceCapabilityVariant: sourceVariant,
-				targetCapabilityVariant: targetVariant,
-				sourceModels,
-				targetModels,
-				internalCapabilitiesMix: true,
-				internalCapabilitiesHudLayer: publishedVariant === targetVariant
-					? "target"
-					: "source",
-			};
-		}
 		const { sourceId, targetId } = carousel.getMixSourceTargetIds();
 		const hexProgress = options.hexProgress ?? getHexShaderProgress();
 		const skipIdleTarget = hexProgress <= 0.0001 || options.skipIdleTargetLayer === true;
-		// Ring scroll has no click-hex lifecycle to wake a dormant capability
-		// target. Select and prepare the exact variant before its first real RT draw:
-		// portfolio -> capabilities shows stage 01, about -> capabilities shows 05.
-		const targetCapabilityVariant =
-			targetId === "capabilities"
-			&& !carousel.isHexNavigationActive()
-			&& hexProgress > 0.0001
-				? sourceId === "about"
-					? this.scenes.get("capabilities")?.getLastCapabilityRenderVariant?.()
-					: this.scenes.get("capabilities")?.getFirstCapabilityRenderVariant?.()
-				: null;
-		if (targetCapabilityVariant) {
-			this.scenes.get("capabilities")?.prepareCarouselMixTarget?.({
-				variant: targetCapabilityVariant,
-			});
-		}
 
 		const sourceModels = this._renderSceneLayer(sourceId, this._getMixLayerRenderTarget(sourceId, "a"));
 		const targetModels = sourceId === targetId || skipIdleTarget
 			? sourceModels
-			: this._renderSceneLayer(
-				targetId,
-				this._getMixLayerRenderTarget(targetId, "b"),
-				targetCapabilityVariant ? { capabilityVariant: targetCapabilityVariant } : undefined,
-			);
+			: this._renderSceneLayer(targetId, this._getMixLayerRenderTarget(targetId, "b"));
 
 		return {
 			sourceId,
 			targetId,
-			targetCapabilityVariant,
 			sourceModels,
 			targetModels,
 		};
@@ -755,18 +665,12 @@ export class SceneManager {
 			return null;
 		}
 
-		const capabilityLayer = sceneId === "capabilities";
-		if (capabilityLayer) {
-			// Capability worlds share one Three.Scene, but only MMK-1 lives under
-			// the case lifecycle root inspected by shouldRender(). Select either the
-			// explicit hex source/target or the published settled world first, and do
-			// not let that unrelated MMK root clear the capability RT.
-			sceneObj.setCapabilityRenderVariant?.(options.capabilityVariant ?? null);
+		if (sceneId?.startsWith("capabilities:") && sceneObj.shouldRender?.() === false) {
+			sceneObj.prepareCarouselMixTarget?.();
 		}
 
 		if (
 			!options.force
-			&& !capabilityLayer
 			&& sceneObj.shouldRender?.() === false
 		) {
 			const prevTarget = this.renderer.getRenderTarget();
@@ -793,10 +697,7 @@ export class SceneManager {
 		const carousel = getSceneCarousel();
 		const layerFrame = this._withSceneProgressFrame(frame, sceneId, carousel);
 		sceneObj.applyCamera?.(this.camera, layerFrame);
-		const orbitSceneId = sceneId === "capabilities" && options.capabilityVariant
-			? `capabilities:${options.capabilityVariant}`
-			: sceneId;
-		this.sceneDragOrbit.apply(this.camera, orbitSceneId, {
+		this.sceneDragOrbit.apply(this.camera, sceneId, {
 			orbitTarget: sceneObj.getDragOrbitTarget?.(this.camera, layerFrame) ?? null,
 		});
 

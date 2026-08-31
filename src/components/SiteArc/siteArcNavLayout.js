@@ -28,7 +28,10 @@ import { getSiteArcShift, setSiteArcShiftTarget } from "./siteArcPositionMotion.
 import { setSiteArcFocusFromScroll } from "./siteArcFocusMotion.js";
 import { resolveSiteArcCarouselMotion } from "./siteArcCarouselMotion.js";
 import { getSceneCarousel } from "@/three/render/transition/carouselPage.js";
-import { resolveSiteArcCapabilityStages } from "./siteArcCapabilityStages.js";
+import {
+	resolveSiteArcCapabilityStagePosition,
+	resolveSiteArcCapabilityStages,
+} from "./siteArcCapabilityStages.js";
 
 const INDEX_FONT_PX = 10;
 const TITLE_FONT_PX = 9;
@@ -219,7 +222,10 @@ export function buildSiteArcNavLayout(viewportW, viewportH, isMobile = false) {
 	const activeNavIndex = arcProjects.activeNavIndex;
 	const capabilityStageProgress = Math.max(0, Math.min(
 		capabilitiesLayout.stageAngles.length - 1,
-		Number(store.capabilitiesExperience?.stagePosition) || 0,
+		resolveSiteArcCapabilityStagePosition(
+			carousel,
+			Number(store.capabilitiesExperience?.stagePosition) || 0,
+		),
 	));
 	const activeAngle = activeNavIndex === capabilitiesLayout.capabilitiesIndex
 		&& capabilitiesLayout.stageAngles.length > 0

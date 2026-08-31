@@ -4,19 +4,9 @@ import { PortfolioFreeCameraController } from "@/three/scenes/portfolio/hub/Port
 import { setMmk1ReturnToOverviewHandler } from "@/pages/capabilities/mmk1SceneBridge.js";
 import { Mmk1CameraHotspots } from "./Mmk1CameraHotspots.js";
 import { MMK1_CAMERA_HOTSPOT_MOTION } from "./mmk1CameraHotspotsConfig.js";
-import { InfiniteLightTrailsWorld } from "../lightTrails/InfiniteLightTrailsWorld.js";
-import { SyntheticCoreWorld } from "../placeholders/SyntheticCoreWorld.js";
-import { CityModelWorld } from "../city/CityModelWorld.js";
-import {
-	CAPABILITIES,
-	CAPABILITY_SCENE_VARIANTS,
-	getCapabilitySceneVariant,
-} from "@/pages/capabilities/data/capabilities.js";
+import { isRingDormantReason } from "@/three/scenes/lifecycle/sceneLifecycle.js";
 
 const clamp01 = (value) => Math.max(0, Math.min(1, value));
-const normalizeCapabilityVariant = (variant) => (
-	CAPABILITY_SCENE_VARIANTS.includes(variant) ? variant : CAPABILITY_SCENE_VARIANTS[0]
-);
 const easeInOutCubic = (value) => {
 	const t = clamp01(value);
 	return t < 0.5 ? 4 * t * t * t : 1 - ((-2 * t + 2) ** 3) / 2;
@@ -140,7 +130,7 @@ function serializeCraneMaterialConfig(profile, config, activeProfile) {
 
 function isMmk1CapabilityPath(pathname) {
 	const normalized = String(pathname ?? "/").replace(/\/+$/, "") || "/";
-	return normalized === "/capabilities" || normalized.startsWith("/capabilities/");
+	return normalized === "/capabilities" || normalized === "/capabilities/mmk1";
 }
 
 /**
@@ -150,7 +140,7 @@ function isMmk1CapabilityPath(pathname) {
 export class Mmk1CapabilityScene extends Case3Scene {
 	constructor(renderer, store) {
 		super(renderer, store, {
-			sceneId: "capabilities",
+			sceneId: "capabilities:mmk1",
 			matchPage: isMmk1CapabilityPath,
 			createPanelHud: true,
 			panelHudRequiresOpenedCase: false,
@@ -173,23 +163,7 @@ export class Mmk1CapabilityScene extends Case3Scene {
 		this._frameCamera = null;
 		this._overviewReturnActive = false;
 		this._dragOrbitTarget = new THREE.Vector3();
-		this._capabilityBlend = 0;
-		this._secondCapabilityActive = false;
-		this._capabilityRenderVariant = null;
 		this._carouselMixTargetPrepared = false;
-		this._lightTrailsWorld = new InfiniteLightTrailsWorld(
-			this.threeScene,
-			renderer.domElement,
-		);
-		this._placeholderWorlds = new Map(
-			CAPABILITIES.slice(2).map((capability) => [
-				capability.sceneVariant,
-				capability.sceneVariant === "spatialMatrix"
-					? new CityModelWorld(this.threeScene, renderer)
-					: new SyntheticCoreWorld(this.threeScene),
-			]),
-		);
-		this._cityModelWorld = this._placeholderWorlds.get("spatialMatrix") ?? null;
 		this._cameraHotspots = new Mmk1CameraHotspots(this.threeScene, renderer.domElement, {
 			onActivate: (definition) => this._activateHotspot(definition),
 		});
@@ -199,11 +173,7 @@ export class Mmk1CapabilityScene extends Case3Scene {
 					logLabel: "mmk1Camera",
 				})
 			: null;
-		const craneReadyPromise = this.readyPromise;
-		this.readyPromise = Promise.all([
-			craneReadyPromise,
-			this._cityModelWorld?.readyPromise ?? Promise.resolve(true),
-		]).then(([craneReady]) => {
+		this.readyPromise = Promise.resolve(this.readyPromise).then((craneReady) => {
 			this._applyCraneMaterialProfile(this._activeCraneMaterialProfile);
 			return craneReady;
 		});
@@ -217,59 +187,28 @@ export class Mmk1CapabilityScene extends Case3Scene {
 		super.setRouteState(routeState);
 	}
 
-	resetCarouselState() {
+	resetCarouselState(ctx = {}) {
+		if (!isRingDormantReason(ctx.reason)) {
+			return;
+		}
 		this._freeCamera?.setEnabled(false);
 		this._cameraHotspots?.reset();
 		this._craneRotationFlight = null;
 		this._craneMaterialFlight = null;
-		this._capabilityBlend = 0;
-		this._secondCapabilityActive = false;
-		this._capabilityRenderVariant = null;
 		this._carouselMixTargetPrepared = false;
-		this._lightTrailsWorld?.setReveal(0);
-		this._lightTrailsWorld?.setRenderEnabled(false);
-		for (const world of this._placeholderWorlds.values()) world.setRenderEnabled(false);
 		this.store.capabilitiesExperience.investigating = false;
 		this.store.capabilitiesExperience.activeHotspotId = null;
-		this.store.capabilitiesExperience.progress = 0;
-		this.store.capabilitiesExperience.progressTarget = 0;
-		this.store.capabilitiesExperience.storyProgress = 0;
-		this.store.capabilitiesExperience.storyProgressTarget = 0;
-		this.store.capabilitiesExperience.stagePosition = 0;
-		this.store.capabilitiesExperience.activeStageIndex = 0;
-		this.store.capabilitiesExperience.activeStageId = "mmk1";
 		this.setCraneRotationY(this._defaultCraneRotationY);
 		this._applyCraneMaterialProfile("overview");
 		super.resetCarouselState();
 	}
 
-	prepareCarouselMixTarget({ variant = CAPABILITY_SCENE_VARIANTS[0] } = {}) {
-		const resolvedVariant = normalizeCapabilityVariant(variant);
-		if (this._carouselMixTargetPrepared && this._capabilityRenderVariant === resolvedVariant) {
+	prepareCarouselMixTarget() {
+		if (this._carouselMixTargetPrepared) {
 			return;
 		}
 		this._carouselMixTargetPrepared = true;
-		this._capabilityBlend = resolvedVariant === "mmk1" ? 0 : 1;
-		this._secondCapabilityActive = resolvedVariant !== "mmk1";
-		this._capabilityRenderVariant = resolvedVariant;
-		this._applyCapabilityVariantVisibility(resolvedVariant);
 		super.prepareCarouselMixTarget();
-	}
-
-	getFirstCapabilityRenderVariant() {
-		return CAPABILITY_SCENE_VARIANTS[0];
-	}
-
-	getCapabilityRenderVariants() {
-		return [...CAPABILITY_SCENE_VARIANTS];
-	}
-
-	getLastCapabilityRenderVariant() {
-		return CAPABILITY_SCENE_VARIANTS.at(-1);
-	}
-
-	getPublishedCapabilityRenderVariant() {
-		return getCapabilitySceneVariant(this.store?.capabilitiesExperience?.activeStageId);
 	}
 
 	playEnterAnimation() {
@@ -277,7 +216,6 @@ export class Mmk1CapabilityScene extends Case3Scene {
 			// The exact target pose was already visible in the hex layer. Adopt it
 			// as current without replaying the case-style root/camera enter.
 			this._carouselMixTargetPrepared = false;
-			this._capabilityRenderVariant = null;
 			this.setMixPreviewActive(false);
 			return;
 		}
@@ -333,122 +271,36 @@ export class Mmk1CapabilityScene extends Case3Scene {
 		this._cameraHotspots?.setPointerState(pointerState);
 	}
 
-	isDragOrbitEnabled(_frame, interactionVariant = null) {
-		const resolvedVariant = interactionVariant
-			? normalizeCapabilityVariant(interactionVariant)
-			: this._resolveCapabilityRenderVariant();
-		return resolvedVariant !== "lightTrails";
+	isDragOrbitEnabled() {
+		return true;
 	}
 
 	getDragOrbitTarget(_camera, frame) {
-		if (!this.isDragOrbitEnabled()) {
-			return null;
-		}
-		const placeholder = this._placeholderWorlds.get(this._resolveCapabilityRenderVariant());
-		if (placeholder) return placeholder.getOrbitTarget(this._dragOrbitTarget);
 		return this._cameraHotspots?.getOrbitTarget(this._dragOrbitTarget)
 			?? this.getCameraLookAt(frame, this._dragOrbitTarget);
 	}
 
 	applyCamera(camera, frame) {
-		const resolvedVariant = this._resolveCapabilityRenderVariant();
-		const placeholder = this._placeholderWorlds.get(resolvedVariant);
-		if (placeholder) {
-			placeholder.applyCamera(camera, this.cameraParallax);
-			return;
-		}
-		const lightTrailsVariant = resolvedVariant === "lightTrails";
-		if (!lightTrailsVariant && this._capabilityBlend <= 0.001 && this._freeCamera?.apply(camera)) {
+		if (this._freeCamera?.apply(camera)) {
 			this._cameraHotspots?.syncCamera(camera);
 			return;
 		}
-		if (!lightTrailsVariant && this._capabilityBlend <= 0.001 && this._cameraHotspots?.applyCamera(camera, this.cameraParallax)) {
+		if (this._cameraHotspots?.applyCamera(camera, this.cameraParallax)) {
 			this._cameraHotspots.syncCamera(camera);
 			return;
 		}
 		super.applyCamera(camera, frame);
-		this._lightTrailsWorld?.applyCamera(camera, lightTrailsVariant ? 1 : 0);
-		if (!lightTrailsVariant) {
-			this._cameraHotspots?.syncCamera(camera);
-		}
-	}
-
-	_resolveCapabilityRenderVariant() {
-		if (this._capabilityRenderVariant) return this._capabilityRenderVariant;
-		return getCapabilitySceneVariant(this.store?.capabilitiesExperience?.activeStageId);
-	}
-
-	_applyCapabilityVariantVisibility(variant) {
-		const resolvedVariant = normalizeCapabilityVariant(variant);
-		const isMmk1 = resolvedVariant === "mmk1";
-		const isLightTrails = resolvedVariant === "lightTrails";
-		this.root.visible = isMmk1;
-		this._lightTrailsWorld?.setReveal(isLightTrails ? 1 : 0);
-		this._lightTrailsWorld?.setRenderEnabled(isLightTrails, { preserveMotion: true });
-		for (const [worldVariant, world] of this._placeholderWorlds) {
-			world.setRenderEnabled(worldVariant === resolvedVariant);
-		}
-		if (this._cameraHotspots?.group) this._cameraHotspots.group.visible = isMmk1;
-	}
-
-	setCapabilityRenderVariant(variant = null) {
-		this._capabilityRenderVariant = CAPABILITY_SCENE_VARIANTS.includes(variant)
-			? variant
-			: null;
-		this._applyCapabilityVariantVisibility(this._resolveCapabilityRenderVariant());
+		this._cameraHotspots?.syncCamera(camera);
 	}
 
 	update(delta, frame) {
-		const interactionVariant = frame?.capabilityInteractionVariant ?? null;
-		const mmkInteractionEnabled = interactionVariant == null || interactionVariant === "mmk1";
-		const mmkFrame = mmkInteractionEnabled
-			? frame
-			: {
-				...frame,
-				pointer: { x: 0, y: 0 },
-				pointerDown: false,
-				pointerBlocked: true,
-				interactionEnabled: false,
-			};
-		super.update(delta, mmkFrame);
+		// Ring routes may render this scene as previous/next after the HTML route
+		// lifecycle hid the old case root. Wake it as a prepared mix participant.
+		if (!this.showCase && !this._mixPreview) {
+			this.setMixPreviewActive(true);
+		}
+		super.update(delta, frame);
 		this._frameCamera = frame?.camera ?? this._frameCamera;
-		const stagePosition = Number(this.store?.capabilitiesExperience?.stagePosition) || 0;
-		this._capabilityBlend = clamp01(stagePosition);
-		const secondCapabilityActive = this._capabilityBlend >= 0.999;
-		if (secondCapabilityActive && !this._secondCapabilityActive) {
-			this._cameraHotspots?.reset();
-			this._freeCamera?.setEnabled(false);
-			this._overviewReturnActive = false;
-			this._craneRotationFlight = null;
-			this._startCraneMaterialFlight("overview");
-			this.store.capabilitiesExperience.investigating = false;
-			this.store.capabilitiesExperience.activeHotspotId = null;
-		}
-		this._secondCapabilityActive = secondCapabilityActive;
-		const stageFrom = Math.max(0, Math.min(CAPABILITIES.length - 1, Math.floor(stagePosition)));
-		const stageTo = Math.max(0, Math.min(CAPABILITIES.length - 1, Math.ceil(stagePosition)));
-		const lightTrailsEngaged = stageFrom <= 1 && stageTo >= 1;
-		this._lightTrailsWorld?.setInteractionEnabled(
-			interactionVariant == null || interactionVariant === "lightTrails",
-		);
-		// Wake motion before the first incoming pass is drawn. The seeded chain is
-		// therefore already curved while the second capability is still entering.
-		this._lightTrailsWorld?.setRenderEnabled(lightTrailsEngaged, { preserveMotion: true });
-		this._lightTrailsWorld?.update(delta, frame, lightTrailsEngaged ? 1 : 0);
-		let placeholderHovered = false;
-		for (let index = 2; index < CAPABILITIES.length; index += 1) {
-			const variant = CAPABILITIES[index].sceneVariant;
-			const interactionOwned = (interactionVariant == null || interactionVariant === variant)
-				&& frame?.interactionEnabled !== false
-				&& !frame?.pointerBlocked;
-			const hovered = this._placeholderWorlds.get(variant)?.update(
-				delta,
-				index === stageFrom || index === stageTo,
-				frame,
-				interactionOwned,
-			) ?? false;
-			placeholderHovered = placeholderHovered || hovered;
-		}
 		if (this._overviewReturnActive) {
 			this.cameraParallax.set(0, 0);
 			if (!this._cameraHotspots?.isReturningToOverview?.()) {
@@ -495,28 +347,21 @@ export class Mmk1CapabilityScene extends Case3Scene {
 			enabled: Boolean(
 				(this.activePage || this.showCase)
 					&& !this._freeCamera?.enabled
-					&& this._capabilityBlend < 0.999
-					&& mmkInteractionEnabled,
+					&& frame?.interactionEnabled !== false,
 			),
 		}) ?? false;
 		if (this.store?.cursor) {
-			this.store.cursor.caseHovered = placeholderHovered
-				|| hotspotHovered
+			this.store.cursor.caseHovered = hotspotHovered
 				|| Boolean(this.pointerInteract?.isHovered?.());
 		}
 	}
 
 	beginWarmupDraw() {
-		const lifecycleToken = super.beginWarmupDraw();
-		this._lightTrailsWorld?.beginWarmupDraw();
-		for (const world of this._placeholderWorlds.values()) world.setRenderEnabled(true);
-		return { lifecycleToken };
+		return super.beginWarmupDraw();
 	}
 
 	endWarmupDraw(token) {
-		this._lightTrailsWorld?.endWarmupDraw();
-		this._applyCapabilityVariantVisibility(this._resolveCapabilityRenderVariant());
-		super.endWarmupDraw(token?.lifecycleToken ?? token);
+		super.endWarmupDraw(token);
 	}
 
 	isFreeCameraEnabled() {
@@ -664,37 +509,11 @@ export class Mmk1CapabilityScene extends Case3Scene {
 		return this._cameraHotspots?.setLineThickness?.(1.5) ?? null;
 	}
 
-	getCityWindowMaterialSettings() {
-		return this._cityModelWorld?.getWindowMaterialSettings?.() ?? null;
-	}
-
-	setCityWindowMaterialSettings(settings = {}) {
-		return this._cityModelWorld?.setWindowMaterialSettings?.(settings) ?? null;
-	}
-
-	resetCityWindowMaterialSettings() {
-		return this._cityModelWorld?.resetWindowMaterialSettings?.() ?? null;
-	}
-
-	setCityFogSceneGuideEnabled(enabled) {
-		return this._cityModelWorld?.setFogSceneGuideEnabled?.(enabled) ?? false;
-	}
-
-	isCityFogSceneGuideEnabled() {
-		return this._cityModelWorld?.isFogSceneGuideEnabled?.() === true;
-	}
-
 	dispose() {
 		this._craneRotationFlight = null;
 		this._craneMaterialFlight = null;
 		this._frameCamera = null;
 		this._overviewReturnActive = false;
-		this._capabilityRenderVariant = null;
-		this._lightTrailsWorld?.dispose(this.threeScene);
-		this._lightTrailsWorld = null;
-		for (const world of this._placeholderWorlds.values()) world.dispose(this.threeScene);
-		this._placeholderWorlds.clear();
-		this._cityModelWorld = null;
 		this._disposeReturnToOverviewBridge?.();
 		this._disposeReturnToOverviewBridge = null;
 		this._cameraHotspots?.dispose();

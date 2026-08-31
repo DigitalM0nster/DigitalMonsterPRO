@@ -5,17 +5,17 @@ import {
 	createCityLuminousWindowMaterial,
 	replaceCityWindowMaterial,
 } from "./cityLuminousWindowMaterial.js";
-import { CityFogSceneGuide } from "./CityFogSceneGuide.js";
+import { replaceCitySurfaceMaterials } from "./cityBuildingMaterials.js";
 
 const CITY_MODEL_URL = "/models/posibility5/city.glb";
 const CITY_POSITION = new THREE.Vector3(2.4, -1.35, -0.15);
 const CITY_ROTATION_Y = -0.19;
 const CITY_SCALE = 0.9;
-const CITY_CAMERA_POSITION = new THREE.Vector3(11.9, 7.35, 14.3);
-const CITY_CAMERA_LOOK_AT = new THREE.Vector3(-1.35, -0.62, -0.2);
+// Authored world-space camera. Never derive these values from model bounds:
+// moving the model must change the composition instead of moving the camera too.
+const CITY_CAMERA_POSITION = new THREE.Vector3(14.673, 8.097, 14.616);
+const CITY_CAMERA_LOOK_AT = new THREE.Vector3(3.497, 0.646, -0.906);
 const CITY_CAMERA_FOV = 39;
-const CITY_CAMERA_ASPECT = 16 / 9;
-const CITY_CAMERA_VIEW_DIRECTION = new THREE.Vector3(0.72, 0.48, 1).normalize();
 
 function disposeModel(root) {
 	const geometries = new Set();
@@ -59,18 +59,25 @@ export class CityModelWorld {
 		this.sceneFogDefaultColor = this.sceneFog?.color.clone() ?? new THREE.Color(CITY_WINDOW_MATERIAL_DEFAULTS.fogColor);
 		this.cityFogDensity = CITY_WINDOW_MATERIAL_DEFAULTS.fogDensity;
 		this.cityFogColor = new THREE.Color(CITY_WINDOW_MATERIAL_DEFAULTS.fogColor);
-		this.fogSceneGuide = import.meta.env.DEV
-			? new CityFogSceneGuide(scene, CITY_WINDOW_MATERIAL_DEFAULTS)
-			: null;
 		this.disposed = false;
 
-		const ambientLight = new THREE.AmbientLight(0xffffff, 1.5);
+		const ambientLight = new THREE.AmbientLight(0x6f8294, 0.14);
 		ambientLight.name = "CityAmbientLight";
-		const directionalLight = new THREE.DirectionalLight(0xffffff, 4);
+		const directionalLight = new THREE.DirectionalLight(0xb8cddd, 0.82);
 		directionalLight.name = "CityDirectionalLight";
 		directionalLight.position.set(8, 12, 10);
 		directionalLight.target.position.set(0, 2, 0);
-		this.group.add(ambientLight, directionalLight, directionalLight.target);
+		const rimLight = new THREE.DirectionalLight(0x3f718f, 0.16);
+		rimLight.name = "CityRimLight";
+		rimLight.position.set(-9, 5, -7);
+		rimLight.target.position.set(1, 1.5, 0);
+		this.group.add(
+			ambientLight,
+			directionalLight,
+			directionalLight.target,
+			rimLight,
+			rimLight.target,
+		);
 		scene.add(this.group);
 
 		this.readyPromise = this._loadModel();
@@ -93,6 +100,14 @@ export class CityModelWorld {
 			throw new Error(`[CityModelWorld] ${CITY_MODEL_URL} contains no renderable geometry`);
 		}
 
+		const surfaceMeshCount = replaceCitySurfaceMaterials(model);
+		if (surfaceMeshCount === 0) {
+			disposeModel(model);
+			throw new Error(
+				`[CityModelWorld] ${CITY_MODEL_URL} contains no supported building materials`,
+			);
+		}
+
 		const windowMaterial = createCityLuminousWindowMaterial();
 		const windowMeshCount = replaceCityWindowMaterial(model, windowMaterial);
 		if (windowMeshCount === 0) {
@@ -104,30 +119,11 @@ export class CityModelWorld {
 		}
 		this.windowMaterial = windowMaterial;
 
-		const center = bounds.getCenter(new THREE.Vector3());
-		model.position.x -= center.x;
-		model.position.y -= bounds.min.y;
-		model.position.z -= center.z;
-
+		// Preserve the authored GLB transform. Runtime centering would cancel edits
+		// made to the model in Blender and make CITY_POSITION misleading.
 		this.model = model;
 		this.group.add(model);
-		this._frameCameraToModel(model);
 		return true;
-	}
-
-	_frameCameraToModel(model) {
-		this.group.updateMatrixWorld(true);
-		const bounds = new THREE.Box3().setFromObject(model);
-		if (bounds.isEmpty()) return;
-		const center = bounds.getCenter(new THREE.Vector3());
-		const size = bounds.getSize(new THREE.Vector3());
-		const verticalHalfFov = THREE.MathUtils.degToRad(CITY_CAMERA_FOV * 0.5);
-		const horizontalHalfFov = Math.atan(Math.tan(verticalHalfFov) * CITY_CAMERA_ASPECT);
-		const verticalDistance = size.y * 0.5 / Math.tan(verticalHalfFov);
-		const horizontalDistance = size.x * 0.5 / Math.tan(horizontalHalfFov);
-		const distance = Math.max(verticalDistance, horizontalDistance) * 1.28 + size.z * 0.5;
-		this.cameraLookAt.copy(center);
-		this.cameraPosition.copy(center).addScaledVector(CITY_CAMERA_VIEW_DIRECTION, distance);
 	}
 
 	setRenderEnabled(enabled) {
@@ -139,7 +135,6 @@ export class CityModelWorld {
 				: this.sceneFogDefaultDensity;
 			this.sceneFog.color.copy(visible ? this.cityFogColor : this.sceneFogDefaultColor);
 		}
-		this.fogSceneGuide?.setSceneVisible(visible);
 	}
 
 	getOrbitTarget(target = new THREE.Vector3()) {
@@ -154,7 +149,6 @@ export class CityModelWorld {
 		camera.updateProjectionMatrix();
 		camera.lookAt(this.cameraLookAt);
 		camera.updateMatrixWorld(true);
-		this.fogSceneGuide?.updateCamera(camera);
 	}
 
 	update() {
@@ -212,21 +206,11 @@ export class CityModelWorld {
 			if (!Number.isFinite(value)) return null;
 			uniforms[uniformName].value = THREE.MathUtils.clamp(value, min, max);
 		}
-		const resolved = this.getWindowMaterialSettings();
-		this.fogSceneGuide?.setProfile(resolved);
-		return resolved;
+		return this.getWindowMaterialSettings();
 	}
 
 	resetWindowMaterialSettings() {
 		return this.setWindowMaterialSettings(CITY_WINDOW_MATERIAL_DEFAULTS);
-	}
-
-	setFogSceneGuideEnabled(enabled) {
-		return this.fogSceneGuide?.setEnabled(enabled) ?? false;
-	}
-
-	isFogSceneGuideEnabled() {
-		return this.fogSceneGuide?.enabled === true;
 	}
 
 	dispose(scene = this.scene) {
@@ -239,8 +223,6 @@ export class CityModelWorld {
 		disposeModel(this.model);
 		this.model = null;
 		this.windowMaterial = null;
-		this.fogSceneGuide?.dispose();
-		this.fogSceneGuide = null;
 		this.group.clear();
 		this.sceneFog = null;
 		this.sceneFogDefaultColor = null;

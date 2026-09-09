@@ -1,57 +1,76 @@
-# Portfolio films — editorial development
+# Portfolio films — correction after the rejected first cut
 
-The YouTube references establish a craft threshold, not an approved visual style.
-Do not copy their scenes, music, colour palettes or template choreography.
+The user rejected v1 on 2026-09-10: rhythm, music, visuals and inaccurate treatment
+of the original website. **Do not reuse the v1 direction or generated score.**
+The old MP4 identifies the rejected result in the discussion.
 
-## First motion study: Hubarch / «Пространство в движении»
+## What went wrong
 
-An architectural grid becomes a moving editorial system. Photography introduces
-space, the site's Panama typography gives it character, and the composition
-resolves into the real website. The hero, gallery and project material are the
-subject of the film. No device mockups or holographic treatment are baked in:
-the portfolio's Three.js scene already owns that presentation.
+- Whole page screenshots were passed through a photographic cover crop. This
+  removed meaningful interface content, especially in the narrow page cards.
+- The hero was re-typeset with separately measured letters instead of keeping the
+  website's actual shaping, spacing and responsive positioning.
+- Arbitrary image/layout substitutions presented invented compositions as the work.
+- Slogans and interior shots shifted focus away from the user's website design.
+- The procedural score and uniform beat schedule were not an approved direction.
+  Correct video decoding did not establish creative quality.
 
-- 1920 × 1080, 30 fps, 30 seconds, 128 BPM.
-- An original instrumental sketch: four-on-the-floor kick, syncopated bass,
-  stereo percussion, restrained chord stabs, a break and a final return.
-- Cuts and major motion cues sit on musical beats. Several quieter holds allow
-  the interface to be read.
-- Actual Hubarch fonts and project assets come from the local Hubarch repository.
-  The home and gallery were also inspected on https://hubarch.ru/ru.
-- Captured UI stills are clearly distinguished from authored motion: this film
-  is an editorial reconstruction, not a continuous screen recording.
-- This is a first cut for judging direction, not an approved final campaign.
+## Current deliverable: source-fidelity proof
 
-## Other project directions to develop from their real source material
+`output/showreels/hubarch/hubarch-source-proof-v2.mp4` is a short **silent technical
+proof**, not the replacement finished showreel. It captures the real live website:
+homepage image changes, gallery selection and opening the Kirov case.
 
-- Nipigas: a journey through dates and memories; a contemporary pulse with
-  deliberate pauses around historical material, rather than a celebratory dance ad.
-- Ostankino: the signal becomes an image; studio selection, broadcast graphics,
-  architectural scale and a percussive electronic rhythm.
-- MMK-1: lift, weight, precision; crane detail and the real interactive model,
-  product selection and a heavier bass groove.
-- Belka Production: playful editorial cuts, character, expressive colour and
-  syncopated percussion, with its actual case studies driving the story.
-- Globtravlink: routes, discovery and booking decisions; use public interfaces
-  and approved demo content, never private customer/financial records.
-- Universe-travel: destinations and the feeling of departure; more spacious
-  electronic music and a destination-led narrative.
+- Native 1280 × 720 viewport, whole frame retained.
+- Original typography, layout, colours and interactions.
+- No re-typesetting, crop, perspective distortion, invented text or music.
+- Screenshots have variable cadence. They are selected by recorded timestamps for
+  25 fps output, without optical-flow interpolation. This is a fidelity check,
+  not a promise of a final high-frame-rate master.
 
-## Rendering the first cut
+Captures and timing manifests: `output/showreels/hubarch/sources/capture-v2`.
+The rejected authoring implementation was replaced to prevent accidental reuse.
 
-Requires Python with Pillow + NumPy and FFmpeg with libx264 + AAC. No browser
-automation, application dependency or runtime scene change is needed to render.
+## Render
+
+Requires Python with Pillow and FFmpeg with libx264.
 
 ```powershell
-python tools/portfolioMotion/showreel.py --preview --ffmpeg <ffmpeg-path>
-python tools/portfolioMotion/showreel.py --ffmpeg <ffmpeg-path>
+python tools/portfolioMotion/showreel.py --silent --ffmpeg <ffmpeg-path>
 ```
 
-Optional flags: `--hubarch-root`, `--capture-root`, `--output`, `--width`.
-The two captures in `output/showreels/hubarch/sources` are `hubarch-home.png` and
-`hubarch-projects.png`; without them,
-the renderer uses the existing portfolio image assets as a fallback.
+`--music <local-track>` creates a separately named audition after track selection.
+It does not make the provisional visual cuts an approved musical edit. The user
+was asked for one music reference while source fidelity was corrected.
 
-Generated films stay in `output/showreels/hubarch`. They are not yet installed in
-`FilmMedia`: its current single-decoder path must be extended and verified before
-adding several independently scored project videos to the live portfolio.
+## Directed visual study v3
+
+The user accepted v2's fidelity but found it uninteresting. `direction.py` creates
+`hubarch-direction-v3.mp4`: a separate silent direction study, approximately
+11 seconds. It starts with complementary macro shots of the actual Architecture
+and Interiors headings, pulls back to their complete composition, cuts into the
+project selector, follows the native selection, then enters that actual project.
+
+The entire authentic viewport stays one rigid camera plane. Typography, imagery,
+spacing and source colours are never reconstructed. Detail shots deliberately
+use closer framing; wide and concluding shots show the original complete page.
+Camera movement is sampled at 60 fps, without temporal glyph blending or
+optical-flow interpolation. The flat film background matches the site's pixel
+colour. This renderer does not touch the portfolio scene or the accepted v2 proof.
+
+```powershell
+python tools/portfolioMotion/direction.py --ffmpeg <ffmpeg-path>
+```
+
+Requires Pillow and NumPy. Camera motion is rendered at 60 fps; native website
+animation still has the variable cadence of the original screenshots. The board
+and timing manifest are exported alongside the film. Music remains unselected;
+this is a visual direction trial, not a finished music-led showreel.
+
+## Still required
+
+Select music/mood, author a new coherent sequence around the site's interactions,
+establish reliable high-frame-rate capture, review actual motion and audio together,
+then finish the remaining project films. Do not claim the technical proof fulfils
+those creative requirements. No portfolio runtime changes or video replacements
+have been made by this correction.

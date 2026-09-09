@@ -1,0 +1,35 @@
+{
+  "status": "source-fidelity proof; music and creative direction unresolved",
+  "source": "https://hubarch.ru/ru",
+  "capture": "Browser screenshots at recorded wall-clock timestamps",
+  "sampling": "Variable source cadence resampled to 25 fps without pixel interpolation",
+  "viewport": [
+    1280,
+    720
+  ],
+  "duration": 8.68,
+  "shots": [
+    [
+      "home",
+      0.2,
+      2.4
+    ],
+    [
+      "select",
+      0.1,
+      2.4
+    ],
+    [
+      "case",
+      0.95,
+      3.0
+    ],
+    [
+      "case",
+      3.95,
+      0.88
+    ]
+  ],
+  "music": null,
+  "processing": "Temporal cuts only. Every frame retains the entire viewport."
+}

@@ -30,12 +30,15 @@ let warmSceneManager = null;
 /** @type {import('three').WebGLRenderer | null} */
 let warmRenderer = null;
 
-function getAllWarmHudProjects() {
+function getAllWarmHudProjects(sceneManager) {
 	const unique = new Map();
 	for (const project of getAllPortfolioProjects()) {
 		if (!project?.config?.caseStudy?.renderTextInScene) {
 			continue;
 		}
+		// Archived case configs are not live scenes. Capability aliases still warm.
+		if (!getProjectPanelHudRoutes(project).some((route) =>
+			sceneManager?.getSceneById?.(resolveSceneId(route))?.panelHud)) continue;
 		const key = project.config.slug ?? project.config.id ?? project.config.route;
 		unique.set(key, project);
 	}
@@ -273,15 +276,14 @@ export async function warmCasePanelHudUnderCurtain({ sceneManager, renderer }) {
 		return;
 	}
 
-	await ensureCaseStudyCanvasFonts();
-	await yieldToNextPaint();
-
 	const viewportW = Math.max(1, window.innerWidth);
 	const viewportH = Math.max(1, window.innerHeight);
-	const projects = getAllWarmHudProjects();
+	const projects = getAllWarmHudProjects(sceneManager);
 	if (projects.length === 0) {
 		return;
 	}
+	await ensureCaseStudyCanvasFonts();
+	await yieldToNextPaint();
 
 	const activeLocale = normalizeSiteLocale(store.siteLocale);
 
@@ -317,7 +319,8 @@ export async function rewarmCasePanelHudGpuForLocale(locale) {
 	const siteLocale = normalizeSiteLocale(locale);
 	const viewportW = Math.max(1, window.innerWidth);
 	const viewportH = Math.max(1, window.innerHeight);
-	const projects = getAllWarmHudProjects();
+	const projects = getAllWarmHudProjects(warmSceneManager);
+	if (!projects.length) return;
 
 	await ensureCaseStudyCanvasFonts();
 

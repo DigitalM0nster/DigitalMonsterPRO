@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { FBXLoader } from "three/examples/jsm/loaders/FBXLoader.js";
+import { createGLTFLoader } from "@/three/assets/gltfLoader.js";
 
 import { smoothSinePhase } from "../heroCamera.js";
 import { createWhaleParticles } from "./createWhaleParticles.js";
@@ -7,6 +7,7 @@ import { applyWhaleHologram } from "./whaleHologramMaterial.js";
 import { loadFbxQuiet } from "./loadFbxQuiet.js";
 
 export const ANIMATED_WHALE_URL = "/models/allModels/FBX/animated_whale_01.fbx";
+export const HIGH_WHALE_URL = "/models/home/whale-high.glb";
 
 function disposeMaterial(material) {
 	if (!material) {
@@ -74,10 +75,18 @@ export function rebuildWhaleParticles(root, particleMeshes, previousParticles, o
  * @param {{ edgeSpacing?: number, renderMode?: 'particles' | 'hologram' }} [options]
  */
 export async function loadAnimatedWhale(options = {}) {
-	const loader = new FBXLoader();
-	const root = await loadFbxQuiet(loader, ANIMATED_WHALE_URL);
-
 	const renderMode = options.renderMode === "hologram" ? "hologram" : "particles";
+	let root;
+	if (renderMode === "particles") {
+		// Same vertex order, edges, skeleton and SWIM deformation, prepared offline.
+		// Other FBX clips/materials are not used by the high particle presentation.
+		const gltf = await createGLTFLoader().loadAsync(HIGH_WHALE_URL);
+		root = gltf.scene.children[0];
+		root.animations = gltf.animations;
+	} else {
+		const { FBXLoader } = await import("three/examples/jsm/loaders/FBXLoader.js");
+		root = await loadFbxQuiet(new FBXLoader(), ANIMATED_WHALE_URL);
+	}
 
 	let particles = null;
 	let particleMeshes = [];

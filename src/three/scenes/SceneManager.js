@@ -1,4 +1,6 @@
 import * as THREE from "three";
+import { compileSceneChunked } from "../renderer/compileSceneChunked.js";
+import { PreparationScheduler } from "../app/preparationScheduler.js";
 import { PLACEHOLDER_SCENE_DEFINITIONS } from "./sceneDefinitions.js";
 import { resolveSceneId } from "./resolveSceneId.js";
 import { getSceneCarousel } from "@/three/render/transition/carouselPage.js";
@@ -16,6 +18,20 @@ import { AboutScene } from "./about/AboutScene.js";
 import { ContactsScene } from "./contacts/ContactsScene.js";
 import { SceneDragOrbitController } from "./interaction/SceneDragOrbitController.js";
 import { PORTFOLIO_ENABLED } from "@/app/config/routeAvailability.js";
+
+/** Detached reusable decorations must participate before their first live attach. */
+function attachWarmupRoots(sceneObj) {
+	const attached = [];
+	for (const root of sceneObj.getWarmupDetachedRoots?.() ?? []) {
+		if (!root || root.parent) continue;
+		attached.push({ root, visible: root.visible });
+		sceneObj.getScene().add(root);
+		root.visible = true;
+	}
+	return () => {
+		for (const { root, visible } of attached) { root.removeFromParent(); root.visible = visible; }
+	};
+}
 
 function createLayerRenderTarget(renderer, width, height, gfx) {
 	const dpr = renderer.getPixelRatio();
@@ -284,6 +300,9 @@ export class SceneManager {
 
 	/** Компилирует материалы сцен под прелоадером, отдавая браузеру кадр между сценами. */
 	async warmupPrograms(options = {}) {
+		const scheduler = options.scheduler ?? new PreparationScheduler({
+			nextFrame: () => this._yieldWarmupBreath(), cancelled: () => this.disposed,
+		});
 		const onlyIds = Array.isArray(options.sceneIds) && options.sceneIds.length ? new Set(options.sceneIds) : null;
 		const cameraState = {
 			position: this.camera.position.clone(),
@@ -308,7 +327,9 @@ export class SceneManager {
 					continue;
 				}
 
-				await this._yieldWarmupBreath();
+				await scheduler.breath();
+				await sceneObj.prepareResourcesUnderCurtain?.(this.renderer, scheduler);
+				const restoreRoots = attachWarmupRoots(sceneObj);
 
 				// Force-visible so prepare-hidden overlays (hero, case HUD, dormant hub)
 				// still compile under the preloader curtain.
@@ -323,13 +344,14 @@ export class SceneManager {
 				try {
 					const frame = this._withSceneProgressFrame(this.getFrameContext(), id, getSceneCarousel());
 					sceneObj.applyCamera?.(this.camera, frame);
-					this.renderer.compile(scene, this.camera);
+					await compileSceneChunked(this.renderer, scene, this.camera, scheduler, this.layerTargets.a);
 				} catch (error) {
 					throw new Error(`[SceneManager] shader warm-up failed for ${id}`, { cause: error });
 				} finally {
 					for (const object of temporarilyVisible) {
 						object.visible = false;
 					}
+					restoreRoots();
 				}
 			}
 		} finally {
@@ -460,6 +482,7 @@ export class SceneManager {
 	 * @returns {Promise<THREE.Texture | null>}
 	 */
 	async warmupSceneDrawChunked(sceneId, mixSlot, yieldFn, renderOptions = {}) {
+		const { scheduler, ...drawOptions } = renderOptions;
 		const sceneObj = this.scenes.get(sceneId);
 		const target = this._getMixLayerRenderTarget(sceneId, mixSlot);
 		if (!sceneObj || !target || this._isContextLost()) {
@@ -468,12 +491,21 @@ export class SceneManager {
 
 		const warmToken = sceneObj.beginWarmupDraw?.() ?? null;
 		try {
-			this._warmupSceneUpdate(sceneId, sceneObj);
-			await yieldFn();
+			if (scheduler) {
+				await scheduler.run(() => this._warmupSceneUpdate(sceneId, sceneObj));
+			} else {
+				this._warmupSceneUpdate(sceneId, sceneObj);
+				await yieldFn();
+			}
 			if (this.disposed || this._isContextLost()) {
 				return null;
 			}
-			return this._renderSceneLayer(sceneId, target, { ...renderOptions, force: true });
+			const draw = () => {
+				const restoreRoots = attachWarmupRoots(sceneObj);
+				try { return this._renderSceneLayer(sceneId, target, { ...drawOptions, force: true }); }
+				finally { restoreRoots(); }
+			};
+			return scheduler ? await scheduler.run(draw, { gpu: true }) : draw();
 		} finally {
 			sceneObj.endWarmupDraw?.(warmToken);
 		}

@@ -44,19 +44,30 @@ export class FilmMedia {
 			this.video.addEventListener("error", finish);
 		});
 		const film = this.projects.find((project) => project.video);
-		this.video.src = (getGraphicsTier() === "low" ? film?.videoLow ?? film?.video : film?.video) ?? "";
-		this.video.load();
+		if (film) {
+			this.video.src = getGraphicsTier() === "low" ? film.videoLow ?? film.video : film.video;
+			this.video.load();
+		} else this._finishPrepare();
 		const loader = new THREE.TextureLoader();
-		for (const project of this.projects) {
-			const texture = await loader.loadAsync(project.poster);
-			if (this.disposed) { texture.dispose(); return; }
+		// Overlap network/decode for the small published film, but upload serially.
+		// allSettled also owns textures finishing after another request fails.
+		const results = await Promise.allSettled(this.projects.map((project) => loader.loadAsync(project.poster)));
+		const failed = results.find((result) => result.status === "rejected");
+		if (this.disposed || failed) {
+			for (const result of results) if (result.status === "fulfilled") result.value.dispose();
+			this._finishPrepare();
+			if (failed && !this.disposed) throw failed.reason;
+			return;
+		}
+		this.posters = results.map((result) => result.value);
+		for (const texture of this.posters) {
+			await nextFilmPaint();
+			if (this.disposed) return;
 			// All media use one explicit sRGB decode in the film shader, including video.
 			texture.colorSpace = THREE.NoColorSpace;
 			texture.generateMipmaps = false;
 			texture.minFilter = texture.magFilter = THREE.LinearFilter;
-			this.posters.push(texture);
 			renderer.initTexture(texture);
-			await nextFilmPaint();
 		}
 		await ready;
 		if (!this.disposed && this.videoReady) renderer.initTexture(this.videoTexture);

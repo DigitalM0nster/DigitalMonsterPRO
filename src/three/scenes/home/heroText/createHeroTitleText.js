@@ -286,6 +286,9 @@ export function createHeroTitleText(renderer, scene) {
 			scrollHint.dispose();
 		},
 		/** After final screen blit — sharp scroll-hint label overlay. */
+		getWarmupOverlays() {
+			return [scrollHint];
+		},
 		renderScrollHintOverlay(renderer) {
 			scrollHint.renderScreenOverlay(renderer);
 		},

@@ -11,11 +11,12 @@ export const routeModuleLoaders = {
 
 let routePreloadPromise = null;
 
-/** Loads the JS and CSS for every route while the loader is still visible. */
+/** Warm all published routes; the isolated demo is only needed on its deep link. */
 export function preloadHtmlRoutes() {
 	if (!routePreloadPromise) {
 		routePreloadPromise = Promise.all(Object.entries(routeModuleLoaders)
 			.filter(([id]) => id !== "portfolio" || PORTFOLIO_ENABLED)
+			.filter(([id]) => id !== "domDistortDemo" || window.location.pathname === "/demo/distort")
 			.map(([, load]) => load()))
 			.catch((error) => {
 				routePreloadPromise = null;

@@ -1212,6 +1212,16 @@ export class PortfolioHubScene {
 	 * Preloader: force a real plates draw (opacity 1), then restore prior state.
 	 * Dormant hub skips shouldRender — first hex to/from hub would cold-start InstancedMesh.
 	 */
+	getWarmupDetachedRoots() {
+		return [this.centerPlateLogos?.anchor];
+	}
+
+	async prepareResourcesUnderCurtain(renderer, scheduler) {
+		for (const texture of this.centerPlateLogos?.textures.values() ?? []) {
+			await scheduler.run(() => renderer.initTexture(texture), { gpu: true });
+		}
+	}
+
 	beginWarmupDraw() {
 		const token = {
 			showHub: this.showHub,

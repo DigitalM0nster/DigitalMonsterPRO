@@ -1,4 +1,6 @@
 import * as THREE from "three";
+import { PreparationScheduler, resolveFullWarm } from "./preparationScheduler.js";
+import { warmScreenOverlay } from "../renderer/warmScreenOverlay.js";
 import { BackgroundPipeline } from "../render/background/BackgroundPipeline.js";
 import { ScreenCompositor } from "../render/toScreen/ScreenCompositor.js";
 import { updateSiteGrainBlurRadius } from "../render/toScreen/siteGrainBlurRuntime.js";
@@ -40,7 +42,6 @@ import { Mmk1CameraDevTools } from "../dev/Mmk1CameraDevTools.js";
 
 const NO_GRAIN_BLUR = { enabled: false, radius: 0 };
 const CAPABILITY_HUD_SCENES = ["capabilities:syntheticCore", "capabilities:spatialMatrix"];
-const SKIP_ALL_WARM_IN_DEVELOPMENT = import.meta.env.DEV;
 /** Idle home: mix progress ≈ 0 — hex/bloom/composite не нужны. */
 const IDLE_HOME_HEX_EPS = 0.0001;
 const CANVAS_POINTER_BLOCKER_SELECTOR = '[data-canvas-pointer-blocker="true"]';
@@ -52,18 +53,6 @@ function isCanvasPointerBlocked(event) {
 
 function yieldToNextPaint() {
 	return new Promise((resolve) => requestSharedAnimationFrame(() => resolve()));
-}
-
-/**
- * Preloader-friendly yield: two rAFs so the loader chrome can paint after a GPU spike.
- * Use between scene RT draws / hex warm steps — not for tiny uniform tweaks.
- */
-function yieldForPreloaderBreath() {
-	return new Promise((resolve) => {
-		requestSharedAnimationFrame(() => {
-			requestSharedAnimationFrame(() => resolve());
-		});
-	});
 }
 
 /**
@@ -240,6 +229,10 @@ export class DigitalMonsterThreeApp {
 		});
 		this._syncHexShaderProgress();
 		this.onResize();
+		this.fullWarm = resolveFullWarm({ development: import.meta.env.DEV, search: window.location.search });
+		this.preparationScheduler = new PreparationScheduler({
+			nextFrame: yieldToNextPaint, cancelled: () => this.disposed || this._webglLost,
+		});
 		this.preparePromise = this._prepareApplication();
 	}
 
@@ -249,7 +242,7 @@ export class DigitalMonsterThreeApp {
 	 * Start must not unlock before this settles. compile() alone is not enough.
 	 */
 	async _prepareApplication() {
-		if (SKIP_ALL_WARM_IN_DEVELOPMENT) {
+		if (!this.fullWarm) {
 			this.ready = true;
 			void this.sceneManager.readyPromise
 				.then(() => {
@@ -292,9 +285,10 @@ export class DigitalMonsterThreeApp {
 				return false;
 			}
 
-			this.sceneManager.warmupRenderTargets();
+			await this.preparationScheduler.run(() => this.sceneManager.warmupRenderTargets(), { gpu: true });
 
-			await this.sceneManager.warmupPrograms();
+			await this.sceneManager.warmupPrograms({ scheduler: this.preparationScheduler });
+			await this._warmupScreenOverlays();
 			if (this.disposed) {
 				return false;
 			}
@@ -302,11 +296,13 @@ export class DigitalMonsterThreeApp {
 			// Pipeline dry-run after all prepared materials exist (re-run if you add
 			// another late prepare step that creates new ShaderMaterials).
 			await this._warmupRenderPipeline();
-			if (!this.disposed) {
+			if (!this.disposed && !this._webglLost) {
 				this.ready = true;
+				return true;
 			}
-			return true;
+			return false;
 		} catch (error) {
+			if (this.disposed) return false;
 			this.prepareError = error;
 			console.error("[three] allWarm preparation failed; Start remains locked", error);
 			return false;
@@ -314,28 +310,28 @@ export class DigitalMonsterThreeApp {
 	}
 
 	async _warmupRenderPipeline() {
-		await yieldToNextPaint();
-		const backgroundTexture = this.backgroundPipeline.renderCarouselBackground(0) ?? this.backgroundPipeline.lastTexture;
+		const scheduler = this.preparationScheduler;
+		const backgroundTexture = await scheduler.run(() =>
+			this.backgroundPipeline.renderCarouselBackground(0) ?? this.backgroundPipeline.lastTexture, { gpu: true });
 
-		await yieldToNextPaint();
-		const mix = this.sceneManager.renderModelsFrame({ skipIdleTargetLayer: true });
-		const modelsTexture = mix?.sourceModels ?? null;
-		const fullA = this.screenCompositor.compositeToLayerTarget(this.renderer, "a", backgroundTexture, modelsTexture, NO_GRAIN_BLUR);
-
-		await yieldToNextPaint();
-		const fullB = this.screenCompositor.compositeToLayerTarget(this.renderer, "b", backgroundTexture, modelsTexture, NO_GRAIN_BLUR);
-		this.hexGridOverlay.setTextures(fullA, fullB);
-		const hexTexture = this.hexGridOverlay.renderModelsMixToTexture(this.renderer) ?? fullA;
-
-		await yieldToNextPaint();
-		const warmedTexture = this.noPostProcess ? hexTexture : this.modelsPostProcess.applyBloom(hexTexture, 0, 1);
-		this.screenCompositor.drawToScreen(this.renderer, null, warmedTexture ?? hexTexture, NO_GRAIN_BLUR);
-
-		// Contract: every interactive scene + leave hex pair gets a real draw.
+		// The pair pass warms compositor, hex, bloom and final output as separate jobs.
 		await this._warmupAllScenesAndHexPairs(backgroundTexture);
 
-		await yieldToNextPaint();
-		this._renderFrame(0);
+		await scheduler.run(() => this._renderFrame(0), { gpu: true });
+	}
+
+	async _warmupScreenOverlays() {
+		const scheduler = this.preparationScheduler;
+		const camera = this.sceneManager.camera;
+		for (const scene of this.sceneManager.scenes.values()) {
+			for (const overlay of [scene.panelHud, scene.world?.hud, scene._cameraHotspots]) {
+				await warmScreenOverlay(overlay, this.renderer, camera, scheduler);
+			}
+			for (const overlay of scene.heroTitle?.getWarmupOverlays?.() ?? []) {
+				await warmScreenOverlay(overlay, this.renderer, camera, scheduler, [this.sceneManager.layerTargets.a, null], scene.getScene());
+			}
+		}
+		await warmScreenOverlay(this.siteArc, this.renderer, camera, scheduler);
 	}
 
 	/**
@@ -346,7 +342,8 @@ export class DigitalMonsterThreeApp {
 		const sceneIds = this.sceneManager.getWarmupDrawSceneIds();
 		/** @type {Set<string>} */
 		const drawnIds = new Set();
-		const breath = () => yieldForPreloaderBreath();
+		const scheduler = this.preparationScheduler;
+		const breath = () => scheduler.breath();
 
 		// Pass 1: one scene per chunk (update → breath → GPU draw).
 		for (const sceneId of sceneIds) {
@@ -354,7 +351,7 @@ export class DigitalMonsterThreeApp {
 				return;
 			}
 			await breath();
-			const texture = await this.sceneManager.warmupSceneDrawChunked(sceneId, "a", breath);
+			const texture = await this.sceneManager.warmupSceneDrawChunked(sceneId, "a", breath, { scheduler });
 			if (texture) {
 				drawnIds.add(sceneId);
 			}
@@ -370,68 +367,69 @@ export class DigitalMonsterThreeApp {
 				continue;
 			}
 			await breath();
-			await this.sceneManager.warmupSceneDrawChunked(sceneId, "b", breath);
+			await this.sceneManager.warmupSceneDrawChunked(sceneId, "b", breath, { scheduler });
 		}
 
 		const hexPairs = this._resolveWarmupHexPairs(sceneIds);
 		const prevProgress = this.hexGridOverlay.material?.uniforms?.progress?.value ?? 0;
 
-		for (const [sourceId, targetId] of hexPairs) {
-			if (this.disposed) {
-				break;
+		// Slot A is immutable while a source's targets are visited in slot B.
+		// Reuse its composite, not a new full-size RT for every scene or pair.
+		const sourceCache = { id: null, texture: null };
+		try {
+			for (const [sourceId, targetId] of hexPairs) {
+				if (this.disposed) break;
+				if (!drawnIds.has(sourceId) || !drawnIds.has(targetId)) {
+					throw new Error(`[three] allWarm hex pair references an unwarmed scene: ${sourceId} -> ${targetId}`);
+				}
+				const warmed = await this._warmHexPair(backgroundTexture, { sourceId, targetId, breath, sourceCache });
+				if (!warmed) throw new Error(`[three] allWarm missed hex pair: ${sourceId} -> ${targetId}`);
 			}
-			if (!drawnIds.has(sourceId) || !drawnIds.has(targetId)) {
-				continue;
-			}
-
-			const warmed = await this._warmHexPair(backgroundTexture, {
-				sourceId,
-				targetId,
-				breath,
-			});
-			if (!warmed) {
-				throw new Error(`[three] allWarm missed hex pair: ${sourceId} -> ${targetId}`);
-			}
+		} finally {
+			if (!this.disposed) this.hexGridOverlay.setProgress(prevProgress);
 		}
-
-		this.hexGridOverlay.setProgress(prevProgress);
 	}
 
 	async _warmHexPair(backgroundTexture, {
 		sourceId,
 		targetId,
 		breath,
+		sourceCache,
 	}) {
 		if (this.disposed) return false;
-		await breath();
-		const sourceTex = await this.sceneManager.warmupSceneDrawChunked(
-			sourceId,
-			"a",
-			breath,
-		);
-		if (!sourceTex || this.disposed) return false;
+		const scheduler = this.preparationScheduler;
+		if (sourceCache.id !== sourceId) {
+			await breath();
+			const sourceTex = await this.sceneManager.warmupSceneDrawChunked(sourceId, "a", breath, { scheduler });
+			if (!sourceTex || this.disposed) return false;
+			sourceCache.texture = await scheduler.run(() => this.screenCompositor.compositeToLayerTarget(
+				this.renderer, "a", sourceId === "home" ? null : backgroundTexture, sourceTex, NO_GRAIN_BLUR,
+			), { gpu: true });
+			sourceCache.id = sourceId;
+		}
 
 		await breath();
 		const targetTex = await this.sceneManager.warmupSceneDrawChunked(
 			targetId,
 			"b",
 			breath,
+			{ scheduler },
 		);
 		if (!targetTex || this.disposed) return false;
 
-		const bgA = sourceId === "home" ? null : backgroundTexture;
 		const bgB = targetId === "home" ? null : backgroundTexture;
-		await breath();
-		const fullA = this.screenCompositor.compositeToLayerTarget(this.renderer, "a", bgA, sourceTex, NO_GRAIN_BLUR);
-		await breath();
-		const fullB = this.screenCompositor.compositeToLayerTarget(this.renderer, "b", bgB, targetTex, NO_GRAIN_BLUR);
-		await breath();
-		this.hexGridOverlay.setTextures(fullA, fullB);
-		this.hexGridOverlay.setProgress(0.55);
-		const hexTexture = this.hexGridOverlay.renderModelsMixToTexture(this.renderer) ?? fullA;
-		await breath();
-		const warmedTexture = this.noPostProcess ? hexTexture : this.modelsPostProcess.applyBloom(hexTexture, 0, 1);
-		this.screenCompositor.drawToScreen(this.renderer, null, warmedTexture ?? hexTexture, NO_GRAIN_BLUR);
+		const fullA = sourceCache.texture;
+		const fullB = await scheduler.run(() => this.screenCompositor.compositeToLayerTarget(
+			this.renderer, "b", bgB, targetTex, NO_GRAIN_BLUR), { gpu: true });
+		const hexTexture = await scheduler.run(() => {
+			this.hexGridOverlay.setTextures(fullA, fullB);
+			this.hexGridOverlay.setProgress(0.55);
+			return this.hexGridOverlay.renderModelsMixToTexture(this.renderer) ?? fullA;
+		}, { gpu: true });
+		const warmedTexture = this.noPostProcess ? hexTexture : await scheduler.run(() =>
+			this.modelsPostProcess.applyBloom(hexTexture, 0, 1), { gpu: true });
+		await scheduler.run(() => this.screenCompositor.drawToScreen(
+			this.renderer, null, warmedTexture ?? hexTexture, NO_GRAIN_BLUR), { gpu: true });
 		return true;
 	}
 
@@ -1266,6 +1264,12 @@ export class DigitalMonsterThreeApp {
 			this.rafId = requestSharedAnimationFrame(tick);
 
 			const delta = this.clock.getDelta();
+			// Preparation owns renderer/camera exclusively until the Start gesture.
+			// Still tick the clock so the first live frame never receives load time.
+			if (this.fullWarm && !this.startApp) {
+				this._notifyRenderedOnce();
+				return;
+			}
 			const onPortfolioCase = isPortfolioCasePath(this.currentPage) && this.sceneManager.getActiveSceneId() !== "portfolioHub";
 			const adaptiveSkipRender = this.frameSkipper.shouldSkipRender({
 				tier: this.gfxTier,

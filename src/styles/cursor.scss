@@ -391,7 +391,8 @@ $menuFloatTransition: $menuFloatDuration $menuFloatEase;
 		opacity 0.45s ease;
 }
 
-.cursor.menuOnlyCursor.menuAnchorVisible {
+.cursor.menuOnlyCursor.menuAnchorVisible,
+.cursor.menuOnlyCursor.menuRegionVisible {
 	opacity: 1 !important;
 	transition:
 		width $menuFloatTransition,

@@ -1,201 +1,94 @@
 import * as THREE from "three";
-import { applySceneProgressToCamera } from "../utils/applySceneProgressToCamera.js";
-import { computeRouteSceneVisibility } from "../utils/routeSceneVisibility.js";
-import { isRingDormantReason } from "@/three/scenes/lifecycle/sceneLifecycle.js";
-import { store } from "@/app/store.jsx";
-import {
-	CONTACTS_PATH,
-	contactsCameraTune,
-	contactsHologramTune,
-} from "./contactsSceneConfig.js";
-import { createContactsHologram } from "./createContactsHologram.js";
+import { PortfolioHubScene } from "../portfolio/PortfolioHubScene.js";
+import { store as appStore } from "@/app/store.jsx";
+import { CONTACTS_HUB_PROJECTS } from "@/pages/contacts/contactsChannels.js";
+import { createContactsHubStore } from "@/pages/contacts/contactsInteraction.js";
+import { sceneOwnsHexHitAtClientY } from "@/three/render/overlay/hexHitOwnership.js";
 
-function isContactsPath(pathname) {
-	return (String(pathname ?? "/").replace(/\/+$/, "") || "/") === CONTACTS_PATH;
-}
-
-/**
- * Contacts page: particle flower hologram on the right.
- * Built under the preloader curtain; after Start only transforms / uTime animate.
- * DEV applyTune updates pose + uniforms; rebuildShape is explicit (never per-frame).
- */
-export class ContactsScene {
-	constructor(appStore = null) {
-		this.store = appStore ?? store;
-		this.threeScene = new THREE.Scene();
-		this.threeScene.background = null;
-
-		this.root = new THREE.Group();
-		this.root.name = "ContactsRoot";
-		this.offsetRoot = new THREE.Group();
-		this.offsetRoot.name = "ContactsOffset";
-		this.tiltRoot = new THREE.Group();
-		this.tiltRoot.name = "ContactsTilt";
-		this.spinRoot = new THREE.Group();
-		this.spinRoot.name = "ContactsSpin";
-		this.tiltRoot.add(this.spinRoot);
-		this.offsetRoot.add(this.tiltRoot);
-		this.root.add(this.offsetRoot);
-		this.threeScene.add(this.root);
-
-		const cfg = contactsHologramTune;
-		this._tiltX = cfg.tiltX;
-		this._tiltZ = cfg.tiltZ;
-		this._rockAmpX = cfg.rockAmpX;
-		this._rockAmpZ = cfg.rockAmpZ;
-		this._rockSpeedX = cfg.rockSpeedX;
-		this._rockSpeedZ = cfg.rockSpeedZ;
-		this._spinZ = cfg.spinZ;
-		this.offsetRoot.position.set(cfg.offsetX, cfg.offsetY, cfg.offsetZ);
-		this.offsetRoot.scale.setScalar(cfg.scale);
-
-		this._elapsed = 0;
-		this._disposed = false;
-		this._mixPreview = false;
-		this.showCase = false;
-		this._carouselEnterPending = false;
-		this._hologram = null;
-
-		this.loaded = false;
-		this.readyPromise = this._prepare();
-	}
-
-	async _prepare() {
-		this._hologram = createContactsHologram(contactsHologramTune);
-		if (this._disposed) {
-			this._hologram.dispose();
-			this._hologram = null;
-			return false;
-		}
-
-		this.spinRoot.add(this._hologram.root);
-		this.applyTune(contactsHologramTune, { rebuildShape: false });
-		this._applyTiltPose(0);
-		this.loaded = true;
-		return true;
-	}
-
-	/**
-	 * Live pose + look. Shape rebuild only when `rebuildShape: true` (DEV button).
-	 * @param {typeof contactsHologramTune} [tune]
-	 * @param {{ rebuildShape?: boolean }} [opts]
-	 */
-	applyTune(tune = contactsHologramTune, opts = {}) {
-		this._tiltX = tune.tiltX;
-		this._tiltZ = tune.tiltZ;
-		this._rockAmpX = tune.rockAmpX;
-		this._rockAmpZ = tune.rockAmpZ;
-		this._rockSpeedX = tune.rockSpeedX;
-		this._rockSpeedZ = tune.rockSpeedZ;
-		this._spinZ = tune.spinZ;
-		this.offsetRoot.position.set(tune.offsetX, tune.offsetY, tune.offsetZ);
-		this.offsetRoot.scale.setScalar(tune.scale);
-		this._applyTiltPose(this._elapsed);
-
-		if (!this._hologram) {
-			return;
-		}
-		if (opts.rebuildShape) {
-			this._hologram.rebuildShape(tune);
-		} else {
-			this._hologram.applyLook(tune);
-		}
-	}
-
-	_applyTiltPose(elapsed) {
-		const t = elapsed ?? 0;
-		this.tiltRoot.rotation.x =
-			this._tiltX + Math.sin(t * this._rockSpeedX) * this._rockAmpX;
-		this.tiltRoot.rotation.z =
-			this._tiltZ + Math.sin(t * this._rockSpeedZ + 1.15) * this._rockAmpZ;
-		this.tiltRoot.rotation.y = 0;
-	}
-
-	getScene() {
-		return this.threeScene;
-	}
-
-	shouldRender() {
-		return true;
-	}
-
-	getModelsBloomLogoReveal() {
-		return 1;
-	}
-
-	resetCarouselState(ctx = {}) {
-		if (!isRingDormantReason(ctx.reason)) {
-			return;
-		}
-		this.spinRoot.rotation.z = 0;
-		this._applyTiltPose(this._elapsed);
-		this._carouselEnterPending = true;
-	}
-
-	playEnterAnimation() {
-		if (!this._carouselEnterPending) {
-			return;
-		}
-		this._carouselEnterPending = false;
+/** Same scene, camera, lights, plate motion and WebGL snake HUD; only content/action differ. */
+export class ContactsScene extends PortfolioHubScene {
+	constructor(store = appStore) {
+		super({
+			store: createContactsHubStore(store),
+			projects: CONTACTS_HUB_PROJECTS,
+			sceneId: "contacts",
+			isHubPath: (path) => String(path ?? "").replace(/\/+$/, "") === "/contacts",
+			isCasePath: () => false,
+			getProjectByPath: () => null,
+			externalLinks: true,
+			logoOptions: {
+				scale: 0.5,
+				// Keep brand colours below the HDR bloom gate; the existing reveal fades all layers.
+				emissiveBoost: { front: 1, back: 1, frontFloat: 1 },
+			},
+			getActionLabel: (locale) => ({ ru: "Перейти", en: "Open", zh: "打开" })[locale] ?? "Open",
+		});
+		this._appStore = store;
+		this._linkCamera = new THREE.PerspectiveCamera();
+		this._linkRaycaster = new THREE.Raycaster();
+		this._linkPointer = new THREE.Vector2();
+		this._linkLocalPoint = new THREE.Vector3();
+		this._linkPress = null;
+		this._onLinkDown = (event) => {
+			const index = event.button === 0 ? this._getLinkHit(event) : -1;
+			this._linkPress = index >= 0 ? { index, x: event.clientX, y: event.clientY, id: event.pointerId } : null;
+		};
+		this._onLinkUp = (event) => {
+			const press = this._linkPress;
+			this._linkPress = null;
+			if (!press || press.id !== event.pointerId || Math.hypot(event.clientX - press.x, event.clientY - press.y) > 8) return;
+			if (this._getLinkHit(event) !== press.index) return;
+			// Preserve the browser gesture: never open a tab from the scene's animation frame.
+			window.open(this.projects[press.index].externalHref, "_blank", "noopener,noreferrer");
+		};
+		this._onLinkCancel = () => { this._linkPress = null; };
+		window.addEventListener("pointerdown", this._onLinkDown, { passive: true });
+		window.addEventListener("pointerup", this._onLinkUp);
+		window.addEventListener("pointercancel", this._onLinkCancel);
 	}
 
 	applyCamera(camera, frame) {
-		applySceneProgressToCamera(camera, contactsCameraTune, frame?.sceneProgress ?? 0);
+		super.applyCamera(camera, frame);
+		camera.updateMatrixWorld();
+		this._linkCamera?.copy(camera);
 	}
 
-	setRouteState(routeState) {
-		const { currentPage, teleportPage, routePhase } = routeState;
-		const { show, shouldWake } = computeRouteSceneVisibility({
-			currentPage,
-			teleportPage,
-			routePhase,
-			matchPage: isContactsPath,
-		});
-
-		this.showCase = show;
-		if (!show) {
-			return;
+	_getLinkHit(event) {
+		if (!this._appStarted || !this.showHub || !sceneOwnsHexHitAtClientY("contacts", event.clientY)) return -1;
+		if (event.target instanceof Element && event.target.closest("a, button, input, textarea, select, [role='button']")) return -1;
+		this._linkPointer.set(event.clientX / window.innerWidth * 2 - 1, 1 - event.clientY / window.innerHeight * 2);
+		this.threeScene.updateMatrixWorld(true);
+		this._linkRaycaster.setFromCamera(this._linkPointer, this._linkCamera);
+		const hud = this.screenTitle;
+		if (hud.root.visible && this._lastHudTitleVisibility > 0.001) {
+			const meshes = hud.projectsColumn.layers.map((layer) => layer.mesh).filter((mesh) => mesh?.visible);
+			const hit = this._linkRaycaster.intersectObjects(meshes, true)[0];
+			if (hit) {
+				this._linkLocalPoint.copy(hit.point);
+				hud.rightGroup.worldToLocal(this._linkLocalPoint);
+				const index = hud.projectsColumn.resolveProjectIndexAtLocalPoint(this._linkLocalPoint.x, this._linkLocalPoint.y);
+				if (index >= 0) return index;
+			}
 		}
-		if (shouldWake) {
-			this.playEnterAnimation();
+		if (!this.root.visible || this._gridEnterProgress < 0.1) return -1;
+		const plates = this.plates.filter((plate) => plate.projectIndex >= 0 && plate.mesh);
+		const hit = this._linkRaycaster.intersectObjects(plates.map((plate) => plate.mesh), false)[0];
+		return hit ? (plates.find((plate) => plate.mesh === hit.object)?.projectIndex ?? -1) : -1;
+	}
+
+	update(delta, frame) {
+		super.update(delta, frame);
+		if (frame?.interactionEnabled && !frame.pointerBlocked) {
+			for (const key of ["caseHovered", "projectListHovered", "caseNavHovered", "screenGalleryHovered", "screenGalleryDragging"]) {
+				this._appStore.cursor[key] = this.store.cursor[key] === true;
+			}
 		}
-	}
-
-	setMixPreviewActive(active) {
-		this._mixPreview = active === true;
-		if (this._mixPreview) {
-			this.playEnterAnimation();
-		}
-	}
-
-	shouldRenderOverlay() {
-		return false;
-	}
-
-	shouldKeepUpdating() {
-		return this._mixPreview || this.showCase;
-	}
-
-	setPointerState() {
-		/* Form / channels live in HTML — no WebGL hits. */
-	}
-
-	update(delta) {
-		if (this._disposed || !this._hologram) {
-			return;
-		}
-
-		this._elapsed += delta;
-		this._applyTiltPose(this._elapsed);
-		if (this._spinZ) {
-			this.spinRoot.rotation.z += delta * this._spinZ;
-		}
-		this._hologram.update(this._elapsed);
 	}
 
 	dispose() {
-		this._disposed = true;
-		this._hologram?.dispose();
-		this._hologram = null;
+		window.removeEventListener("pointerdown", this._onLinkDown);
+		window.removeEventListener("pointerup", this._onLinkUp);
+		window.removeEventListener("pointercancel", this._onLinkCancel);
+		super.dispose();
 	}
 }

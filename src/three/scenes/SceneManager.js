@@ -8,15 +8,14 @@ import { resolveHexHitOwnerSceneId, yNormFromTopFromNdcY } from "../render/overl
 import { SceneCarouselLifecycleDispatcher } from "./lifecycle/SceneCarouselLifecycleDispatcher.js";
 import { DigitalWhaleScene } from "./home/DigitalWhaleScene.js";
 import { PlaceholderScene } from "./types/PlaceholderScene.js";
-import { PortfolioHubScene } from "./portfolio/PortfolioHubScene.js";
-import { Case1Scene } from "./portfolio/case1/Case1Scene.js";
-import { BelkaScene } from "./portfolio/case6/BelkaScene.js";
+import { PortfolioFilmScene } from "./portfolio/film/PortfolioFilmScene.js";
 import { Mmk1CapabilityScene } from "./capabilities/mmk1/Mmk1CapabilityScene.js";
 import { CapabilityWorldScene } from "./capabilities/CapabilityWorldScene.js";
 import { CAPABILITIES } from "@/pages/capabilities/data/capabilities.js";
 import { AboutScene } from "./about/AboutScene.js";
 import { ContactsScene } from "./contacts/ContactsScene.js";
 import { SceneDragOrbitController } from "./interaction/SceneDragOrbitController.js";
+import { PORTFOLIO_ENABLED } from "@/app/config/routeAvailability.js";
 
 function createLayerRenderTarget(renderer, width, height, gfx) {
 	const dpr = renderer.getPixelRatio();
@@ -72,7 +71,9 @@ export class SceneManager {
 
 		this.scenes.set("home", new DigitalWhaleScene(this.gfx));
 		this.scenes.get("home")?.initHeroText?.(this.renderer);
-		this.scenes.set("portfolioHub", new PortfolioHubScene({ inputElement: this.renderer.domElement }));
+		if (PORTFOLIO_ENABLED) {
+			this.scenes.set("portfolioHub", new PortfolioFilmScene(this.renderer, this.store));
+		}
 		this.scenes.set(CAPABILITIES[0].sceneId, new Mmk1CapabilityScene(this.renderer, this.store));
 		for (const capability of CAPABILITIES.slice(1)) {
 			this.scenes.set(
@@ -80,12 +81,11 @@ export class SceneManager {
 				new CapabilityWorldScene(this.renderer, this.store, capability),
 			);
 		}
-		this.scenes.set("case01", new Case1Scene(this.renderer, this.store));
-		this.scenes.set("case06", new BelkaScene(this.renderer, this.store));
 		this.scenes.set("about", new AboutScene(this.store));
 		this.scenes.set("contacts", new ContactsScene(this.store));
 
 		for (const def of PLACEHOLDER_SCENE_DEFINITIONS) {
+			if (def.id.startsWith("case")) continue;
 			if (def.id === "case04" || def.id === "case06" || def.id === "about" || def.id === "contacts") continue;
 			this.scenes.set(def.id, new PlaceholderScene(def, this.store));
 		}
@@ -507,15 +507,19 @@ export class SceneManager {
 		const carouselActiveIds = carouselHub ? this._getCarouselActiveIdSet() : null;
 		const interaction = this._resolveInteractiveSceneContext(carousel, carouselHub);
 		const interactiveId = interaction.sceneId;
-		const interactiveScene = interactiveId ? this.scenes.get(interactiveId) : null;
+		// DOM chrome blocks new scene hits, but must not erase an orbit pose.
+		// Keep the idle scene as its owner while a captured drag returns to rest.
+		const orbitSceneId = interaction.orbitSceneId ?? (carouselHub ? carousel.currentId : this.activeId);
+		const orbitScene = this.scenes.get(orbitSceneId);
 		this.sceneDragOrbit.update(delta, {
-			sceneId: interaction.orbitSceneId,
+			sceneId: orbitSceneId,
 			pointer: frame.visualPointer,
-			pointerDown: frame.pointerDown,
+			pointerDown: frame.pointerDown && !frame.pointerBlocked,
+			verticalEnabled: orbitScene?.isVerticalDragOrbitEnabled?.() === true,
+			maxVerticalOrbit: orbitScene?.getVerticalDragOrbitLimit?.(),
 			enabled: Boolean(
-				interactiveId
-					&& interactiveScene?.isDragOrbitEnabled?.(frame) === true
-					&& !frame.pointerBlocked
+				orbitSceneId
+					&& orbitScene?.isDragOrbitEnabled?.(frame) === true
 					&& !carousel.isInteractionLocked()
 					&& getHexShaderProgress() <= 0.001
 			),

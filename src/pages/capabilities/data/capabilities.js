@@ -25,8 +25,8 @@ export const CAPABILITIES = [
 		path: "/capabilities/synthetic-core",
 		sceneId: "capabilities:syntheticCore",
 		title: "Синтетическое ядро",
-		description: "Шаблонная сцена с пульсирующим ядром и орбитальными контурами.",
-		interaction: "Изучите структуру",
+		description: "Многослойное техногенное ядро: разберите механизм касанием и соберите его обратно.",
+		interaction: "Разберите ядро",
 		sceneVariant: "syntheticCore",
 	},
 	{

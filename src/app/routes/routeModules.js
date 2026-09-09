@@ -1,3 +1,5 @@
+import { PORTFOLIO_ENABLED } from "@/app/config/routeAvailability.js";
+
 export const routeModuleLoaders = {
 	main: () => import("@/pages/home/MainPage.jsx"),
 	portfolio: () => import("@/pages/portfolio/PortfolioPage.jsx"),
@@ -12,7 +14,9 @@ let routePreloadPromise = null;
 /** Loads the JS and CSS for every route while the loader is still visible. */
 export function preloadHtmlRoutes() {
 	if (!routePreloadPromise) {
-		routePreloadPromise = Promise.all(Object.values(routeModuleLoaders).map((load) => load()))
+		routePreloadPromise = Promise.all(Object.entries(routeModuleLoaders)
+			.filter(([id]) => id !== "portfolio" || PORTFOLIO_ENABLED)
+			.map(([, load]) => load()))
 			.catch((error) => {
 				routePreloadPromise = null;
 				throw error;

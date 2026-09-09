@@ -1,4 +1,7 @@
 import * as THREE from "three";
+import { HUD_MARKER_GLSL } from "../../../objects/sceneHud/sceneHudShaders.js";
+import { Mmk1HotspotLabels } from "./Mmk1HotspotLabels.js";
+import { Mmk1HotspotDetails } from "./Mmk1HotspotDetails.js";
 import { MMK1_CAMERA_HOTSPOTS, MMK1_CAMERA_HOTSPOT_MOTION } from "./mmk1CameraHotspotsConfig.js";
 
 const clamp01 = (value) => Math.max(0, Math.min(1, value));
@@ -7,62 +10,15 @@ const easeInOutCubic = (value) => {
 	return t < 0.5 ? 4 * t * t * t : 1 - ((-2 * t + 2) ** 3) / 2;
 };
 
-const HOVER_ENTER_DURATION = 0.2;
-const HOVER_LEAVE_DURATION = 0.24;
-const OUTER_REVEAL_ENTER_DURATION = 0.34;
-const OUTER_REVEAL_LEAVE_DURATION = 0.22;
-const DISMISS_DURATION = 0.5;
-
 const MARKER_FRAGMENT_SHADER = /* glsl */ `
-	uniform vec3 diffuse;
-	uniform float opacity;
-	uniform float uTime;
-	uniform float uHover;
-	uniform float uOuterReveal;
-	uniform float uReveal;
-	uniform float uFill;
-	uniform float uLineThickness;
-	uniform float uIdlePulse;
+	uniform float opacity,uTime,uHover,uLineThickness;
 	varying vec2 vMarkerUv;
-
-	const float PI = 3.141592653589793;
-	const float TWO_PI = 6.283185307179586;
-
-	float ring(float radius, float center, float halfWidth, float aa) {
-		return 1.0 - smoothstep(halfWidth - aa, halfWidth + aa, abs(radius - center));
-	}
-
-	void main() {
-		vec2 point = vMarkerUv - 0.5;
-		float radius = length(point);
-		float aa = max(fwidth(radius) * 0.55, 0.001);
-		float angle = mod(atan(point.x, point.y) + TWO_PI, TWO_PI);
-		float angle01 = angle / TWO_PI;
-		float revealMask = (1.0 - smoothstep(uReveal, uReveal + 0.018, angle01))
-			* smoothstep(0.0, 0.012, uReveal);
-
-		float pulse = max((0.5 + 0.5 * sin(uTime * 6.4)) * uHover, uIdlePulse);
-		float innerRadius = 0.248 + pulse * 0.022;
-		float outerRadius = 0.328 + pulse * 0.024;
-
-		float innerLine = ring(radius, innerRadius, 0.006 * uLineThickness, aa) * revealMask;
-
-		// The reveal and the tapered stroke share one rotating phase. Therefore
-		// the 0→360 draw always begins at the thick head instead of screen-top.
-		float rotatingPhase = fract(angle01 - uTime * 0.22);
-		float taperedWidth = mix(0.0125, 0.0045, pow(rotatingPhase, 0.82)) * uLineThickness;
-		float outerRevealMask = (1.0 - smoothstep(uOuterReveal, uOuterReveal + 0.018, rotatingPhase))
-			* smoothstep(0.0, 0.012, uOuterReveal);
-		float outerLine = ring(radius, outerRadius, taperedWidth, aa) * revealMask * outerRevealMask;
-		float outerOpacity = mix(0.92, 0.52, rotatingPhase);
-
-		float alpha = innerLine * 0.5;
-		alpha = max(alpha, outerLine * outerOpacity * (0.74 + uHover * 0.2));
-		if (alpha <= 0.001) discard;
-
-		gl_FragColor = vec4(diffuse, alpha * opacity);
-		#include <tonemapping_fragment>
-		#include <colorspace_fragment>
+	${HUD_MARKER_GLSL}
+	void main(){
+		vec2 p=(vMarkerUv-0.5)*72.0;
+		float alpha=hudMarkerInk(p,uTime,uHover,0.0,uLineThickness/1.5)*opacity;
+		if(alpha<0.002)discard;
+		gl_FragColor=vec4(hudMarkerTint(uHover,0.0),alpha);
 	}
 `;
 
@@ -70,11 +26,7 @@ function createMarkerMaterial() {
 	const uniforms = {
 		uTime: { value: 0 },
 		uHover: { value: 0 },
-		uOuterReveal: { value: 0 },
-		uReveal: { value: 1 },
-		uFill: { value: 1 },
 		uLineThickness: { value: 1.5 },
-		uIdlePulse: { value: 0 },
 	};
 	const material = new THREE.SpriteMaterial({
 		color: 0xffffff,
@@ -93,18 +45,28 @@ function createMarkerMaterial() {
 			.replace("#include <uv_vertex>", "#include <uv_vertex>\nvMarkerUv = uv;");
 		shader.fragmentShader = MARKER_FRAGMENT_SHADER;
 	};
-	material.customProgramCacheKey = () => "mmk1-camera-hotspot-v6";
+	material.customProgramCacheKey = () => "mmk1-camera-hotspot-core-v1";
 	return material;
 }
 
 /** Four persistent MMK-1 markers plus one reversible camera-flight owner. */
 export class Mmk1CameraHotspots {
-	constructor(threeScene, inputElement, { onActivate = null } = {}) {
+	constructor(threeScene, inputElement, { onActivate = null, renderer = null } = {}) {
 		this.inputElement = inputElement;
+		this.renderer = renderer;
+		const rect = inputElement?.getBoundingClientRect();
+		this.viewport = new THREE.Vector2(rect?.width || 1440, rect?.height || 900);
+		this.modelsParent = threeScene;
+		this.overlayScene = new THREE.Scene();
+		this.composeMode = "models";
+		this.labels = null;
+		this.details = null;
+		this.disposed = false;
 		this.onActivate = typeof onActivate === "function" ? onActivate : null;
 		this.group = new THREE.Group();
 		this.group.name = "mmk1-camera-hotspots";
-		this.group.visible = false;
+		// Visibility belongs to the crane scene, including warmup and hex layers.
+		// Route state, pointer ownership and camera flights only gate interaction.
 		threeScene.add(this.group);
 
 		this.markers = MMK1_CAMERA_HOTSPOTS.map((definition, index) => {
@@ -112,15 +74,11 @@ export class Mmk1CameraHotspots {
 			const sprite = new THREE.Sprite(material);
 			sprite.name = definition.id;
 			sprite.position.fromArray(definition.point);
-			sprite.scale.setScalar(MMK1_CAMERA_HOTSPOT_MOTION.markerScale);
+			sprite.scale.setScalar(1);
 			sprite.renderOrder = 80;
 			sprite.userData.hotspotDefinition = definition;
+			sprite.userData.rotationPhase = [0, 2.7, 6.3, 8.4][index];
 			sprite.userData.anchor = new THREE.Vector3().fromArray(definition.point);
-			sprite.userData.hoverProgress = 0;
-			sprite.userData.outerRevealProgress = 0;
-			sprite.userData.dismissProgress = null;
-			sprite.userData.dismissDirection = 0;
-			sprite.userData.idlePulseEnabled = index === 1;
 			this.group.add(sprite);
 			return sprite;
 		});
@@ -153,9 +111,6 @@ export class Mmk1CameraHotspots {
 		this.toFov = 49;
 
 		this._onClick = (event) => {
-			// During the internal MMK-1 -> light-trails hex mix the same scene is
-			// rendered twice. The target pass leaves this shared group hidden, but
-			// that render-only flag must not disable the still-visible source hits.
 			if (event.button !== 0 || !this.active || !this.camera || !this.inputElement) {
 				return;
 			}
@@ -173,11 +128,18 @@ export class Mmk1CameraHotspots {
 		this.inputElement?.addEventListener("click", this._onClick);
 	}
 
-	/**
-	 * Keep a private snapshot of the MMK-1 pass camera. SceneManager reuses one
-	 * camera for both capability layers, so retaining its mutable reference makes
-	 * markers project through the light-trails camera on the following update.
-	 */
+	async prepareLabels() {
+		await Promise.all([
+			document.fonts?.load('500 16px ManifoldExtended'),
+			document.fonts?.load('400 14px MazzardM'),
+			document.fonts?.load('500 80px ManifoldExtended'),
+		]);
+		if (this.disposed || this.labels || !this.renderer) return;
+		this.labels = new Mmk1HotspotLabels(this.group, this.markers, this.renderer);
+		this.details = new Mmk1HotspotDetails(this.group, this.markers, this.renderer);
+	}
+
+	/** Keep the crane pass camera separate from other scenes' shared camera. */
 	syncCamera(camera) {
 		if (!camera?.isPerspectiveCamera) return;
 		if (!this.camera) {
@@ -231,10 +193,13 @@ export class Mmk1CameraHotspots {
 
 	_layoutMarkers(camera) {
 		this._syncBoundAnchors();
+		this.renderer?.getSize(this.viewport);
+		const scale = MMK1_CAMERA_HOTSPOT_MOTION.markerSize * 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov * 0.5)) / this.viewport.y;
 		for (const marker of this.markers) {
 			this.projected.copy(marker.userData.anchor).project(camera);
 			const inDepth = this.projected.z >= -1 && this.projected.z <= 1;
-			marker.visible = inDepth && marker.userData.dismissProgress !== 1;
+			marker.visible = inDepth;
+			marker.scale.setScalar(scale);
 			if (!inDepth) {
 				continue;
 			}
@@ -247,8 +212,9 @@ export class Mmk1CameraHotspots {
 			} else {
 				marker.position.copy(marker.userData.anchor);
 			}
-			marker.material.opacity = offscreen ? 0.72 : 1;
 		}
+		this.labels?.layout(camera, this.viewport);
+		this.details?.layout(this.viewport);
 	}
 
 	setPointerState({ pointerDown = false, pointerBlocked = false } = {}) {
@@ -264,12 +230,11 @@ export class Mmk1CameraHotspots {
 	}
 
 	_pickMarker(camera, pointer, viewportWidth, viewportHeight) {
+		if (this.details?.containsPoint(pointer)) return null;
 		let nearest = null;
 		let nearestDistance = 32;
 		for (const marker of this.markers) {
-			if (marker.userData.dismissProgress !== null) {
-				continue;
-			}
+			if (marker.name === this.selectedId || marker.material.opacity < 0.05) continue;
 			marker.getWorldPosition(this.markerWorldPosition);
 			this.projected.copy(this.markerWorldPosition).project(camera);
 			if (this.projected.z < -1 || this.projected.z > 1) {
@@ -302,7 +267,6 @@ export class Mmk1CameraHotspots {
 
 	startOverviewFlight(camera, target) {
 		if (!camera || !target?.position || !target?.quaternion) return false;
-		this._resetMarkerVisuals();
 		this.selectedId = "__overview__";
 		this.fromPosition.copy(camera.position);
 		this.fromQuaternion.copy(camera.quaternion).normalize();
@@ -315,18 +279,9 @@ export class Mmk1CameraHotspots {
 	}
 
 	_activateMarker(marker, camera) {
-		if (!marker || marker.userData.dismissProgress !== null) {
+		if (!marker || marker.name === this.selectedId) {
 			return;
 		}
-		const previousMarker = this.markers.find((item) => item.name === this.selectedId);
-		if (previousMarker && previousMarker !== marker) {
-			previousMarker.userData.dismissProgress = previousMarker.userData.dismissProgress ?? 1;
-			previousMarker.userData.dismissDirection = -1;
-			previousMarker.visible = true;
-		}
-		marker.userData.dismissProgress = 0;
-		marker.userData.dismissDirection = 1;
-		marker.userData.hoverProgress = 0;
 		if (this.hovered === marker) {
 			this._clearHover();
 		}
@@ -341,32 +296,24 @@ export class Mmk1CameraHotspots {
 	_resetMarkerVisuals() {
 		for (const marker of this.markers) {
 			const uniforms = marker.material.userData.hotspotUniforms;
-			marker.userData.dismissProgress = null;
-			marker.userData.dismissDirection = 0;
-			marker.userData.hoverProgress = 0;
-			marker.userData.outerRevealProgress = 0;
 			uniforms.uHover.value = 0;
-			uniforms.uOuterReveal.value = 0;
-			uniforms.uReveal.value = 1;
-			uniforms.uFill.value = 1;
-			uniforms.uIdlePulse.value = 0;
+			marker.material.opacity = 1;
 			marker.visible = true;
 		}
 	}
 
-	update(delta, frame, { enabled = true } = {}) {
+	update(delta, frame, { interactionEnabled = true, locale = "ru", textState } = {}) {
 		const safeDelta = Math.min(Math.max(delta, 0), 0.05);
 		this.elapsed += safeDelta;
 		if (!this.camera && frame?.camera) {
 			this.syncCamera(frame.camera);
 		}
-		const visible = Boolean(enabled && this.camera);
 		this.active = Boolean(
-			visible
+			this.camera
+			&& interactionEnabled
 			&& frame?.interactionEnabled !== false
 			&& !frame?.pointerBlocked,
 		);
-		this.group.visible = visible;
 
 		if (this.flight) {
 			this.flight.elapsed += safeDelta;
@@ -380,23 +327,22 @@ export class Mmk1CameraHotspots {
 			}
 		}
 		if (this.pendingMarker) {
-			this._activateMarker(this.pendingMarker, this.camera);
+			if (this.active) this._activateMarker(this.pendingMarker, this.camera);
 			this.pendingMarker = null;
 			this.clickPending = false;
 		}
 
-		if (visible) {
+		if (this.camera) {
 			this._layoutMarkers(this.camera);
 		}
 
 		if (this.active) {
 			this.pointer.set(frame.pointer?.x ?? 2, frame.pointer?.y ?? 2);
-			const rect = this.inputElement?.getBoundingClientRect();
 			const nextHovered = this._pickMarker(
 				this.camera,
 				this.pointer,
-				rect?.width || window.innerWidth,
-				rect?.height || window.innerHeight,
+				this.viewport.x,
+				this.viewport.y,
 			);
 			if (nextHovered !== this.hovered) {
 				this._clearHover();
@@ -409,62 +355,19 @@ export class Mmk1CameraHotspots {
 
 		for (const marker of this.markers) {
 			const uniforms = marker.material.userData.hotspotUniforms;
-			const hovered = marker === this.hovered && marker.userData.dismissProgress === null;
-			const duration = hovered ? HOVER_ENTER_DURATION : HOVER_LEAVE_DURATION;
-			const direction = hovered ? 1 : -1;
-			const progress = THREE.MathUtils.clamp(
-				marker.userData.hoverProgress + direction * safeDelta / duration,
-				0,
-				1,
-			);
-			marker.userData.hoverProgress = progress;
-			uniforms.uTime.value = this.elapsed;
-			uniforms.uHover.value = progress * progress * (3 - 2 * progress);
-			const idlePulseCycle = (this.elapsed + 2) % 4.8;
-			const idlePulseProgress = idlePulseCycle < 0.72 ? idlePulseCycle / 0.72 : 0;
-			uniforms.uIdlePulse.value = marker.userData.idlePulseEnabled
-				&& marker.userData.dismissProgress === null
-				&& !hovered
-				&& idlePulseProgress > 0
-				? Math.sin(idlePulseProgress * Math.PI)
-				: 0;
-
-			if (marker.userData.dismissProgress === null) {
-				const outerDuration = hovered ? OUTER_REVEAL_ENTER_DURATION : OUTER_REVEAL_LEAVE_DURATION;
-				const outerDirection = hovered ? 1 : -1;
-				marker.userData.outerRevealProgress = THREE.MathUtils.clamp(
-					marker.userData.outerRevealProgress + outerDirection * safeDelta / outerDuration,
-					0,
-					1,
-				);
-			}
-			const outerProgress = marker.userData.outerRevealProgress;
-			uniforms.uOuterReveal.value = outerProgress * outerProgress * (3 - 2 * outerProgress);
-
-			if (marker.userData.dismissProgress !== null) {
-				const direction = marker.userData.dismissDirection || 1;
-				const dismissProgress = clamp01(
-					marker.userData.dismissProgress + direction * safeDelta / DISMISS_DURATION,
-				);
-				const easedDismiss = dismissProgress * dismissProgress * (3 - 2 * dismissProgress);
-				uniforms.uReveal.value = 1 - easedDismiss;
-				uniforms.uFill.value = 1 - clamp01(dismissProgress / 0.3);
-				if (direction < 0 && dismissProgress <= 0) {
-					marker.userData.dismissProgress = null;
-					marker.userData.dismissDirection = 0;
-					uniforms.uReveal.value = 1;
-					uniforms.uFill.value = 1;
-				} else {
-					marker.userData.dismissProgress = dismissProgress;
-				}
-			}
-			marker.scale.setScalar(MMK1_CAMERA_HOTSPOT_MOTION.markerScale);
+			const opacityTarget = marker.name === this.selectedId ? 0 : 1;
+			marker.material.opacity = THREE.MathUtils.damp(marker.material.opacity, opacityTarget, 12, safeDelta);
+			if (Math.abs(marker.material.opacity - opacityTarget) < 0.002) marker.material.opacity = opacityTarget;
+			uniforms.uTime.value = this.elapsed + marker.userData.rotationPhase;
+			uniforms.uHover.value = THREE.MathUtils.damp(uniforms.uHover.value, marker === this.hovered ? 1 : 0, 8, safeDelta);
 		}
+		this.labels?.update(safeDelta, this.hovered, locale);
+		this.details?.update(safeDelta, this.selectedId, this.flight, locale, textState);
 
 		if (this.clickPending) {
 			this.clickPending = false;
 			if (this.hovered) {
-				this._activateMarker(this.hovered, frame.camera);
+				this._activateMarker(this.hovered, this.camera);
 			}
 		}
 
@@ -503,6 +406,8 @@ export class Mmk1CameraHotspots {
 	}
 
 	reset() {
+		this.labels?.reset();
+		this.details?.reset();
 		this.flight = null;
 		this.selectedId = null;
 		this.clickPending = false;
@@ -510,7 +415,7 @@ export class Mmk1CameraHotspots {
 		this.pointerDown = false;
 		this.elapsed = 0;
 		this.camera = null;
-		this.group.visible = false;
+		this.active = false;
 		this._clearHover();
 		this._resetMarkerVisuals();
 	}
@@ -537,7 +442,30 @@ export class Mmk1CameraHotspots {
 		return next;
 	}
 
+	setComposeMode(mode) {
+		if (this.composeMode === mode) return;
+		this.composeMode = mode;
+		(mode === "screen" ? this.overlayScene : this.modelsParent).add(this.group);
+	}
+
+	renderScreenOverlay(renderer, camera) {
+		if (this.composeMode !== "screen") return;
+		this.syncCamera(camera);
+		const autoClear = renderer.autoClear;
+		try {
+			renderer.autoClear = false;
+			renderer.render(this.overlayScene, camera);
+		} finally {
+			renderer.autoClear = autoClear;
+		}
+	}
+
 	dispose() {
+		this.disposed = true;
+		this.labels?.dispose();
+		this.labels = null;
+		this.details?.dispose();
+		this.details = null;
 		this.reset();
 		this.inputElement?.removeEventListener("click", this._onClick);
 		this.inputElement = null;

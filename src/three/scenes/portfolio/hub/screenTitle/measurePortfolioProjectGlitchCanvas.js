@@ -17,7 +17,7 @@ const MIN_CANVAS_HEIGHT = 64;
  * @param {string} projectId
  * @param {object} layerCfg
  */
-export function measureWidestPortfolioProjectGlitchCanvas(projectId, layerCfg) {
+export function measureWidestPortfolioProjectGlitchCanvas(projectId, layerCfg, texts = SITE_LOCALES.map((locale) => getPortfolioProjectName(projectId, locale))) {
 	const measureCanvas = document.createElement("canvas");
 	measureCanvas.width = 1;
 	measureCanvas.height = 1;
@@ -44,8 +44,7 @@ export function measureWidestPortfolioProjectGlitchCanvas(projectId, layerCfg) {
 	let maxWidth = MIN_CANVAS_WIDTH;
 	let maxHeight = MIN_CANVAS_HEIGHT;
 
-	for (const locale of SITE_LOCALES) {
-		const text = getPortfolioProjectName(projectId, locale);
+	for (const text of texts) {
 		const slots = createGlitchTextSlots(text, uppercase);
 		const measured = measureCanvasGlitchTextSize(ctx, slots, measureStyle);
 		maxWidth = Math.max(maxWidth, measured.width);

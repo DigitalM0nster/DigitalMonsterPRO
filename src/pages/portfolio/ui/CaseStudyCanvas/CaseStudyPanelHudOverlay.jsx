@@ -7,11 +7,6 @@ import { navigateCaseStudyToState } from "@/pages/portfolio/core/navigateCaseStu
 import { useRouteTransitionContext } from "@/app/context/RouteTransitionContext.jsx";
 import { store } from "@/app/store.jsx";
 import { resolveSceneId } from "@/three/scenes/resolveSceneId.js";
-import { getCapabilityHudProject } from "@/pages/capabilities/data/capabilityHudProjects.js";
-import {
-	getCapabilityBySceneId,
-	isCapabilitySceneId,
-} from "@/pages/capabilities/data/capabilities.js";
 import CaseStudyPanelHudPainter from "./CaseStudyPanelHudPainter.jsx";
 
 /**
@@ -23,11 +18,7 @@ import CaseStudyPanelHudPainter from "./CaseStudyPanelHudPainter.jsx";
 export default function CaseStudyPanelHudOverlay() {
 	const { displayPathname } = useRouteTransitionContext();
 	const sceneId = useMemo(() => resolveSceneId(displayPathname), [displayPathname]);
-	const project = useMemo(() => (
-		isCapabilitySceneId(sceneId)
-			? getCapabilityHudProject(getCapabilityBySceneId(sceneId)?.id)
-			: getProjectByRoute(displayPathname)
-	), [displayPathname, sceneId]);
+	const project = useMemo(() => getProjectByRoute(displayPathname), [displayPathname]);
 	// Subscribe only to content identity — never stageProgress/scroll.
 	// Those update every spring tick; WebGL HUD reads them via getStageProgress().
 	// Tracking them here re-rendered the whole left painter at scroll FPS (CPU spike).
@@ -88,11 +79,10 @@ export default function CaseStudyPanelHudOverlay() {
 	// and locale snake live directly on HubPlateInnerPanels. Mounting the legacy
 	// fullscreen HUD here would still repaint/upload its large canvases during a
 	// locale switch even though PortfolioHubScene has no panelHud to display them.
-	const isCapabilityHud = isCapabilitySceneId(sceneId);
-	const sceneOwnsLegacyPanelHud = sceneId.startsWith("case") || isCapabilityHud;
+	const sceneOwnsLegacyPanelHud = sceneId.startsWith("case");
 	if (
 		!sceneOwnsLegacyPanelHud ||
-		(!openedCase && !isCapabilityHud) ||
+		!openedCase ||
 		!project ||
 		!renderTextInScene ||
 		isMobileLayout ||
@@ -103,11 +93,7 @@ export default function CaseStudyPanelHudOverlay() {
 
 	return (
 		<PortfolioProjectProvider project={project} value={contextValue}>
-			<CaseStudyPanelHudPainter
-				hideProjectNavigation={isCapabilityHud}
-				hideStageRail={isCapabilityHud}
-				skipPanelIntro={isCapabilityHud}
-			/>
+			<CaseStudyPanelHudPainter />
 		</PortfolioProjectProvider>
 	);
 }

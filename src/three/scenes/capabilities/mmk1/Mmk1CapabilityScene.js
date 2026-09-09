@@ -5,6 +5,8 @@ import { setMmk1ReturnToOverviewHandler } from "@/pages/capabilities/mmk1SceneBr
 import { Mmk1CameraHotspots } from "./Mmk1CameraHotspots.js";
 import { MMK1_CAMERA_HOTSPOT_MOTION } from "./mmk1CameraHotspotsConfig.js";
 import { isRingDormantReason } from "@/three/scenes/lifecycle/sceneLifecycle.js";
+import { CapabilitySceneSound } from "@/sounds/CapabilitySceneSound.js";
+import { getLoaderCurtainRemainingMs } from "@/app/config/loaderCurtain.js";
 
 const clamp01 = (value) => Math.max(0, Math.min(1, value));
 const easeInOutCubic = (value) => {
@@ -135,15 +137,14 @@ function isMmk1CapabilityPath(pathname) {
 
 /**
  * The former standalone MMK-1 case scene, now owned by the first capability.
- * Its prepared case-study left HUD remains the capability copy layer.
+ * Capability scenes contain no case-study left text HUD.
  */
 export class Mmk1CapabilityScene extends Case3Scene {
 	constructor(renderer, store) {
 		super(renderer, store, {
 			sceneId: "capabilities:mmk1",
 			matchPage: isMmk1CapabilityPath,
-			createPanelHud: true,
-			panelHudRequiresOpenedCase: false,
+			createPanelHud: false,
 			enableBlockHover: false,
 			settleRootOnEnter: true,
 		});
@@ -164,7 +165,9 @@ export class Mmk1CapabilityScene extends Case3Scene {
 		this._overviewReturnActive = false;
 		this._dragOrbitTarget = new THREE.Vector3();
 		this._carouselMixTargetPrepared = false;
+		this.sceneSound = new CapabilitySceneSound();
 		this._cameraHotspots = new Mmk1CameraHotspots(this.threeScene, renderer.domElement, {
+			renderer,
 			onActivate: (definition) => this._activateHotspot(definition),
 		});
 		this._freeCamera = import.meta.env.DEV
@@ -173,7 +176,7 @@ export class Mmk1CapabilityScene extends Case3Scene {
 					logLabel: "mmk1Camera",
 				})
 			: null;
-		this.readyPromise = Promise.resolve(this.readyPromise).then((craneReady) => {
+		this.readyPromise = Promise.all([this.readyPromise, this._cameraHotspots.prepareLabels(), this.sceneSound.prepare()]).then(([craneReady]) => {
 			this._applyCraneMaterialProfile(this._activeCraneMaterialProfile);
 			return craneReady;
 		});
@@ -192,6 +195,7 @@ export class Mmk1CapabilityScene extends Case3Scene {
 			return;
 		}
 		this._freeCamera?.setEnabled(false);
+		this.sceneSound.stop();
 		this._cameraHotspots?.reset();
 		this._craneRotationFlight = null;
 		this._craneMaterialFlight = null;
@@ -343,13 +347,25 @@ export class Mmk1CapabilityScene extends Case3Scene {
 		if (this._freeCamera?.enabled && frame?.camera) {
 			this._freeCamera.update(delta, frame.camera);
 		}
+		const current = frame?.activeSceneId === this.sceneId;
+		const textStarted = this.store.appStarted === true && getLoaderCurtainRemainingMs(this.store.appStartedAt) === 0;
+		const transitioning = this.store.sceneCarouselClickTransitionActive === true || Math.abs(this.store.hexShaderProgress ?? 0) > 0.0001;
 		const hotspotHovered = this._cameraHotspots?.update(delta, frame, {
-			enabled: Boolean(
+			locale: this.store.siteLocale,
+			textState: { started: textStarted, current, transitioning },
+			interactionEnabled: Boolean(
 				(this.activePage || this.showCase)
 					&& !this._freeCamera?.enabled
 					&& frame?.interactionEnabled !== false,
 			),
 		}) ?? false;
+		this.sceneSound.update(delta, {
+			enabled: current && this.store.appStarted === true && !transitioning,
+			reveal: this._cameraHotspots?.details?.getSoundReveal(true) ?? 0,
+			hudReveal: this._cameraHotspots?.details?.getSoundReveal() ?? 0,
+			hoverReveals: this._cameraHotspots?.labels?.soundReveals,
+			pan: -0.4,
+		});
 		if (this.store?.cursor) {
 			this.store.cursor.caseHovered = hotspotHovered
 				|| Boolean(this.pointerInteract?.isHovered?.());
@@ -510,6 +526,7 @@ export class Mmk1CapabilityScene extends Case3Scene {
 	}
 
 	dispose() {
+		this.sceneSound.dispose();
 		this._craneRotationFlight = null;
 		this._craneMaterialFlight = null;
 		this._frameCamera = null;

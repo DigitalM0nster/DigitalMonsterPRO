@@ -90,7 +90,8 @@ export class ModelsBloomPipeline {
 	}
 
 	_getBloomConfigKey(bloomConfig) {
-		return `${bloomConfig.intensity}|${bloomConfig.threshold}|${bloomConfig.smoothing}|${bloomConfig.mipmapBlur}|${bloomConfig.levels}|${bloomConfig.radius}|${bloomConfig.resolutionScale}|${bloomConfig.kernelSize}`;
+		// Intensity, threshold and smoothing update uniforms in render().
+		return `${bloomConfig.mipmapBlur}|${bloomConfig.levels}|${bloomConfig.radius}|${bloomConfig.resolutionScale}|${bloomConfig.kernelSize}`;
 	}
 
 	_buildBloomChain(bloomConfig) {

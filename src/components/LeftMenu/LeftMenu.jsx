@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { useStore } from "@/app/store.jsx";
+import { store, useStore } from "@/app/store.jsx";
 import { getNavItemLabel } from "@/app/localization/interfaceTranslations.js";
 import { normalizeSiteLocale } from "@/functions/siteLocale.js";
 import { playLeftMenuGlitchSound } from "@/sounds/soundDesign.js";
@@ -16,6 +16,7 @@ import { MENU_CIRCLE_HOVER_SCALE, MENU_CIRCLE_IDLE_SCALE, MENU_SNAP_OFFSET } fro
 import { MENU_LABEL_APPEAR_MS, MENU_LABEL_DISAPPEAR_MS } from "./leftMenuLabelTimings.js";
 import styles from "./LeftMenu.module.scss";
 import { FIRST_CAPABILITY_PATH } from "@/pages/capabilities/data/capabilities.js";
+import { isRouteAvailable } from "@/app/config/routeAvailability.js";
 
 const NAV_ITEMS = [
 	{ id: "main", path: "/", icon: "home", match: (p) => p === "/" },
@@ -55,7 +56,7 @@ export default function LeftMenu() {
 	const siteLocale = normalizeSiteLocale(proxyStore.siteLocale);
 	const navItems = useMemo(
 		() =>
-			NAV_ITEMS.map((item) => ({
+			NAV_ITEMS.filter((item) => isRouteAvailable(item.path)).map((item) => ({
 				...item,
 				label: getNavItemLabel(item.id, siteLocale),
 			})),
@@ -237,6 +238,7 @@ export default function LeftMenu() {
 			if (relatedTarget instanceof Node && leftMenuRef.current?.contains(relatedTarget)) {
 				return;
 			}
+			store.cursor.leftMenuHovered = false;
 			// Кнопка уже запустила disappear — не дублируем и не сбрасываем
 			if (disappearingIndicesRef.current.size === 0) {
 				deactivateLabelAnimated(displayedIndexRef.current);
@@ -248,6 +250,7 @@ export default function LeftMenu() {
 
 	useEffect(() => {
 		return () => {
+			store.cursor.leftMenuHovered = false;
 			clearAllLabelTimers();
 			hideAllLabelsImmediate(new Set());
 			clearMenuCursorAnchor();
@@ -310,6 +313,7 @@ export default function LeftMenu() {
 			data-canvas-pointer-blocker="true"
 			aria-label="Основная навигация"
 			onPointerLeave={handleLeftMenuPointerLeave}
+			onPointerEnter={() => { store.cursor.leftMenuHovered = true; }}
 			style={{
 				"--menuCircleIdleScale": MENU_CIRCLE_IDLE_SCALE,
 				"--menuCircleHoverScale": MENU_CIRCLE_HOVER_SCALE,
@@ -327,10 +331,10 @@ export default function LeftMenu() {
 			</div>
 
 			<div className={styles.iconRail} data-menu-icon-rail>
-				{NAV_ITEMS.map((item, index) => (
+				{navItems.map((item, index) => (
 					<LeftMenuItem
 						key={item.id}
-						item={navItems[index]}
+						item={item}
 						isHomeNav={item.id === "main"}
 						isActive={!item.disabled && Boolean(item.match?.(pathname))}
 						disabled={Boolean(item.disabled)}

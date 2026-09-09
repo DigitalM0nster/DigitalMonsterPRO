@@ -171,7 +171,7 @@ function resolveDetailsButtonCfg(buttonCfg = {}, locale = getPortfolioLocale()) 
 
 	return {
 		...buttonCfg,
-		text: getPortfolioViewCaseButtonLabel(normalizedLocale),
+		text: (buttonCfg.getLabel ?? getPortfolioViewCaseButtonLabel)(normalizedLocale),
 		_locale: normalizedLocale,
 	};
 }
@@ -197,7 +197,7 @@ async function measureWidestDetailsButtonCanvas(buttonCfg = {}) {
 	for (const locale of SITE_LOCALES) {
 		const localeCfg = {
 			...buttonCfg,
-			text: getPortfolioViewCaseButtonLabel(locale),
+			text: (buttonCfg.getLabel ?? getPortfolioViewCaseButtonLabel)(locale),
 			_locale: locale,
 		};
 		const metrics = measureDetailsCanvas(measureCtx, localeCfg);
@@ -211,10 +211,10 @@ async function measureWidestDetailsButtonCanvas(buttonCfg = {}) {
 	};
 }
 
-function resolveHubPlatesCfg(cfg = portfolioHubPlatesConfig, locale = getPortfolioLocale()) {
+function resolveHubPlatesCfg(cfg = portfolioHubPlatesConfig, locale = getPortfolioLocale(), getLabel = getPortfolioViewCaseButtonLabel) {
 	return {
 		...cfg,
-		plateDetailsButton: resolveDetailsButtonCfg(cfg.plateDetailsButton ?? {}, locale),
+		plateDetailsButton: resolveDetailsButtonCfg({ ...cfg.plateDetailsButton, getLabel }, locale),
 	};
 }
 
@@ -222,9 +222,9 @@ function isDetailsButtonUppercase(locale) {
 	return normalizeSiteLocale(locale) !== "zh";
 }
 
-function createDetailsGlitchSlots(locale) {
+function createDetailsGlitchSlots(locale, getLabel = getPortfolioViewCaseButtonLabel) {
 	const normalizedLocale = normalizeSiteLocale(locale);
-	return createGlitchTextSlots(getPortfolioViewCaseButtonLabel(normalizedLocale), isDetailsButtonUppercase(normalizedLocale));
+	return createGlitchTextSlots(getLabel(normalizedLocale), isDetailsButtonUppercase(normalizedLocale));
 }
 
 function getDetailsBloomBoost(buttonCfg = {}) {
@@ -415,10 +415,10 @@ function paintDetailsLocaleSwitchFrame(texture, snakeTexture, buttonCfg, stableS
 	};
 }
 
-function initDetailsGlitchState(entry, locale) {
+function initDetailsGlitchState(entry, locale, getLabel = getPortfolioViewCaseButtonLabel) {
 	abortDetailsLocaleSwitch(entry);
 
-	const slots = createDetailsGlitchSlots(locale);
+	const slots = createDetailsGlitchSlots(locale, getLabel);
 	entry.glitchSlots = slots;
 
 	if (!entry.glitchEngine) {
@@ -831,7 +831,9 @@ function applyDetailsEntry(entry, cfg, stableSize = null) {
  * «Смотреть кейс» + HUD-стрелка на проектных плитах — правый нижний угол.
  */
 export class HubPlateDetailsButtons {
-	constructor() {
+	constructor(appStore = store, getLabel = getPortfolioViewCaseButtonLabel) {
+		this.getLabel = getLabel;
+		this.store = appStore;
 		/** @type {Array<{ plateMesh: THREE.Mesh, projectIndex: number, entry: ReturnType<typeof createDetailsGroup> }>} */
 		this.attachments = [];
 		this.focusProjectIndex = -1;
@@ -847,7 +849,7 @@ export class HubPlateDetailsButtons {
 	}
 
 	_getResolvedCfg(cfg = portfolioHubPlatesConfig) {
-		return resolveHubPlatesCfg(cfg, this._locale);
+		return resolveHubPlatesCfg(cfg, this._locale, this.getLabel);
 	}
 
 	async _syncStableCanvasSize(cfg = portfolioHubPlatesConfig) {
@@ -890,7 +892,7 @@ export class HubPlateDetailsButtons {
 		const targetLocale = this._locale;
 		const resolvedCfg = this._getResolvedCfg(cfg);
 		const buttonCfg = resolvedCfg.plateDetailsButton ?? {};
-		const nextText = getPortfolioViewCaseButtonLabel(targetLocale);
+		const nextText = this.getLabel(targetLocale);
 		const uppercase = isDetailsButtonUppercase(targetLocale);
 		const runOptions = getHeroGlitchSnakeRunOptions({ playSound: false });
 		const focused = this._getFocusedAttachment();
@@ -903,7 +905,7 @@ export class HubPlateDetailsButtons {
 			}
 
 			applyDetailsEntry(attachment.entry, resolvedCfg, this._stableCanvasSize);
-			initDetailsGlitchState(attachment.entry, targetLocale);
+			initDetailsGlitchState(attachment.entry, targetLocale, this.getLabel);
 		}
 
 		if (focused?.entry.group.visible) {
@@ -911,7 +913,7 @@ export class HubPlateDetailsButtons {
 				await this._runFocusedLocaleSwitch(focused.entry, buttonCfg, nextText, uppercase, runOptions, previousLocale);
 			}
 			applyDetailsEntry(focused.entry, resolvedCfg, this._stableCanvasSize);
-			initDetailsGlitchState(focused.entry, targetLocale);
+			initDetailsGlitchState(focused.entry, targetLocale, this.getLabel);
 		}
 
 		this._localeTexturesStale = false;
@@ -921,7 +923,7 @@ export class HubPlateDetailsButtons {
 		abortDetailsLocaleSwitch(entry);
 
 		if (!entry.glitchSlots) {
-			initDetailsGlitchState(entry, previousLocale);
+			initDetailsGlitchState(entry, previousLocale, this.getLabel);
 		}
 
 		if (!entry.glitchEngine) {
@@ -988,7 +990,7 @@ export class HubPlateDetailsButtons {
 				}
 
 				plate.mesh.add(entry.group);
-				initDetailsGlitchState(entry, this._locale);
+				initDetailsGlitchState(entry, this._locale, this.getLabel);
 				this.attachments.push({ plateMesh: plate.mesh, projectIndex: plate.projectIndex, entry });
 			}
 		})();
@@ -1003,7 +1005,7 @@ export class HubPlateDetailsButtons {
 
 		for (const attachment of this.attachments) {
 			applyDetailsEntry(attachment.entry, resolvedCfg, this._stableCanvasSize);
-			initDetailsGlitchState(attachment.entry, this._locale);
+			initDetailsGlitchState(attachment.entry, this._locale, this.getLabel);
 		}
 	}
 
@@ -1205,7 +1207,7 @@ export class HubPlateDetailsButtons {
 			return;
 		}
 		if (this.focusProjectIndex < 0) {
-			this.focusProjectIndex = Math.max(0, store.portfolioHubFocusIndex ?? 0);
+			this.focusProjectIndex = Math.max(0, this.store.portfolioHubFocusIndex ?? 0);
 		}
 		const focused = this._getFocusedAttachment();
 		if (focused) {

@@ -13,8 +13,6 @@ const projectConfig = {
 	},
 	caseStudy: {
 		renderTextInScene: true,
-		// The former case HUD is also the copy layer for the MMK-1 capability.
-		panelHudRoutes: ["/capabilities", "/capabilities/mmk1"],
 		chapterBase: 1,
 		useSectionBadge: true,
 		hideCategoryLabel: true,

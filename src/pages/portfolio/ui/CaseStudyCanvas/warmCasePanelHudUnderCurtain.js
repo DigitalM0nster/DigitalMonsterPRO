@@ -4,7 +4,6 @@
  * upload GPU textures onto each case scene’s panelHud, keep them for the session.
  */
 import { getAllPortfolioProjects } from "@/pages/portfolio/core/projectRegistry.js";
-import { getAllCapabilityHudProjects } from "@/pages/capabilities/data/capabilityHudProjects.js";
 import { buildCaseStudyFrameData } from "@/pages/portfolio/core/caseStudyFrameData.js";
 import { resolveSceneId } from "@/three/scenes/resolveSceneId.js";
 import { SITE_LOCALES, normalizeSiteLocale } from "@/functions/siteLocale.js";
@@ -33,10 +32,7 @@ let warmRenderer = null;
 
 function getAllWarmHudProjects() {
 	const unique = new Map();
-	for (const project of [
-		...getAllPortfolioProjects(),
-		...getAllCapabilityHudProjects(),
-	]) {
+	for (const project of getAllPortfolioProjects()) {
 		if (!project?.config?.caseStudy?.renderTextInScene) {
 			continue;
 		}
@@ -363,14 +359,6 @@ export function adoptWarmCasePanelHud(route, locale, viewportW, viewportH) {
 		}
 	}
 	return null;
-}
-
-/**
- * Read-only lookup for capability hex composition. These canvases are painted
- * and GPU-warmed under the preloader; internal scene wipes only rebind them.
- */
-export function getWarmCasePanelHud(route, locale, viewportW, viewportH) {
-	return adoptWarmCasePanelHud(route, locale, viewportW, viewportH);
 }
 
 export function clearWarmCasePanelHudCache() {

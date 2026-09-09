@@ -1,10 +1,12 @@
 import { projectsData } from "./portfolio/hub/projectsData.js";
 import { resolveCapabilitySceneId } from "@/pages/capabilities/data/capabilities.js";
+import { isRouteAvailable } from "@/app/config/routeAvailability.js";
 
 /**
  * pathname (displayPathname) → id сцены в SceneManager.
  */
 export function resolveSceneId(pathname) {
+	if (!isRouteAvailable(pathname)) return "home";
 	if (pathname === "/" || pathname === "") {
 		return "home";
 	}

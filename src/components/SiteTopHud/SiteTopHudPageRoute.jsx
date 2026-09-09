@@ -19,6 +19,7 @@ import { getHeroGlitchSnakeRunOptions } from "@/three/scenes/home/heroText/heroT
 import styles from "./SiteTopHud.module.scss";
 
 const TOP_HUD_CRUMB_SNAKE_OPTIONS = getHeroGlitchSnakeRunOptions({ playSound: false });
+const TOP_HUD_CRUMB_SOUND_GAIN = 0.5;
 const CASE_SEPARATOR_TEXTS = { ru: "/", en: "/", zh: "/" };
 
 function runTopHudCrumbSnake(group, mode, snakeLength) {
@@ -165,7 +166,7 @@ export default function SiteTopHudPageRoute({ pathname, locale }) {
 				"route",
 				TOP_HUD_GLITCH_SOUND_PAN,
 				{ x: -0.45, y: 2.2, z: -0.45 },
-				{ loopToDuration: true },
+				{ loopToDuration: true, volumeGain: TOP_HUD_CRUMB_SOUND_GAIN },
 			);
 		}
 		const baseDisappearMs = runTopHudCrumbSnake(baseOld, "disappear", sharedSnakeLength);
@@ -259,7 +260,7 @@ export default function SiteTopHudPageRoute({ pathname, locale }) {
 			};
 
 			if (!activeCaseGroup && !activeSeparatorGroup) {
-				playGlitchTextSound(appearDuration, "route", TOP_HUD_GLITCH_SOUND_PAN, { x: -0.45, y: 2.2, z: -0.45 });
+				playGlitchTextSound(appearDuration, "route", TOP_HUD_GLITCH_SOUND_PAN, { x: -0.45, y: 2.2, z: -0.45 }, { volumeGain: TOP_HUD_CRUMB_SOUND_GAIN });
 				commitCasePath();
 				return;
 			}
@@ -269,7 +270,7 @@ export default function SiteTopHudPageRoute({ pathname, locale }) {
 				runTopHudCrumbSnake(activeSeparatorGroup, "disappear", routeCrumbSnakeLength),
 				runTopHudCrumbSnake(activeCaseGroup, "disappear", routeCrumbSnakeLength),
 			);
-			playGlitchTextSound(disappearDuration + appearDuration, "route", TOP_HUD_GLITCH_SOUND_PAN, { x: -0.45, y: 2.2, z: -0.45 });
+			playGlitchTextSound(disappearDuration + appearDuration, "route", TOP_HUD_GLITCH_SOUND_PAN, { x: -0.45, y: 2.2, z: -0.45 }, { volumeGain: TOP_HUD_CRUMB_SOUND_GAIN });
 			timeoutRef.current = window.setTimeout(commitCasePath, disappearDuration);
 			return;
 		}
@@ -299,6 +300,7 @@ export default function SiteTopHudPageRoute({ pathname, locale }) {
 			"route",
 			TOP_HUD_GLITCH_SOUND_PAN,
 			{ x: -0.45, y: 2.2, z: -0.45 },
+			{ volumeGain: TOP_HUD_CRUMB_SOUND_GAIN },
 		);
 		timeoutRef.current = window.setTimeout(() => {
 			timeoutRef.current = 0;

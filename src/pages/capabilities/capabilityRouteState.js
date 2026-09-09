@@ -4,11 +4,10 @@ import {
 	requestCaseStudyScrollRepaint,
 	requestSiteArcScrollRepaint,
 } from "@/pages/portfolio/core/caseStudyAnimationFrame.js";
-import { getCapabilityHudProject } from "./data/capabilityHudProjects.js";
 import { CAPABILITIES, getCapabilityBySceneId } from "./data/capabilities.js";
 
 /**
- * Publish route-owned capability identity to the shared HUD/arc bridges.
+ * Publish route-owned capability identity and arc progress.
  * Scene motion is owned by SceneCarousel; this bridge only changes at route commits.
  */
 export function syncCapabilityRouteState(sceneId) {
@@ -23,8 +22,6 @@ export function syncCapabilityRouteState(sceneId) {
 	const stageIndex = Math.max(0, CAPABILITIES.findIndex((item) => item.sceneId === sceneId));
 	const denominator = Math.max(1, CAPABILITIES.length - 1);
 	const sectionProgress = stageIndex / denominator;
-	const project = getCapabilityHudProject(capability.id);
-	const activeTextState = project.states[0];
 
 	store.capabilitiesExperience.active = true;
 	store.capabilitiesExperience.activeStageIndex = stageIndex;
@@ -39,9 +36,9 @@ export function syncCapabilityRouteState(sceneId) {
 		store.capabilitiesExperience.activeHotspotId = null;
 	}
 
-	store.portfolioExperience.slug = project.config.slug;
+	store.portfolioExperience.slug = null;
 	store.portfolioExperience.activeStateIndex = 0;
-	store.portfolioExperience.activeStateId = activeTextState?.id ?? null;
+	store.portfolioExperience.activeStateId = null;
 	store.portfolioExperience.storyProgress = 0;
 	store.portfolioExperience.storyProgressTarget = 0;
 	store.portfolioExperience.stageProgress = 0;

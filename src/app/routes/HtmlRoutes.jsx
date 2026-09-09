@@ -1,8 +1,9 @@
-import { Routes, Route, useLocation } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { lazy, Suspense, useMemo } from "react";
 
 import { useRouteTransitionContext } from "@/app/context/RouteTransitionContext.jsx";
 import { routeModuleLoaders } from "./routeModules.js";
+import { PORTFOLIO_ENABLED, isRouteAvailable } from "@/app/config/routeAvailability.js";
 
 const MainPage = lazy(routeModuleLoaders.main);
 const PortfolioPage = lazy(routeModuleLoaders.portfolio);
@@ -16,12 +17,13 @@ export default function HtmlRoutes() {
 	const { displayPathname } = useRouteTransitionContext();
 
 	const displayLocation = useMemo(() => ({ ...location, pathname: displayPathname }), [location, displayPathname]);
+	if (!isRouteAvailable(location.pathname)) return <Navigate to="/" replace />;
 
 	return (
 		<Suspense fallback={null}>
 			<Routes location={displayLocation}>
 				<Route index element={<MainPage />} />
-				<Route path="/portfolio/*" element={<PortfolioPage />} />
+				<Route path="/portfolio/*" element={PORTFOLIO_ENABLED ? <PortfolioPage /> : <Navigate to="/" replace />} />
 				<Route path="/capabilities/*" element={<CapabilitiesPage />} />
 				<Route path="/about/*" element={<AboutPage />} />
 				<Route path="/contacts/*" element={<ContactsPage />} />

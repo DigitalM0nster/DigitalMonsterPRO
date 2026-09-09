@@ -1,28 +1,36 @@
 import * as THREE from "three";
 import { createGLTFLoader } from "@/three/assets/gltfLoader.js";
-import {
-	CITY_WINDOW_MATERIAL_DEFAULTS,
-	createCityLuminousWindowMaterial,
-	replaceCityWindowMaterial,
-} from "./cityLuminousWindowMaterial.js";
+import { CityRoadFlow } from "./CityRoadFlow.js";
+import { CityDistrictHighlight } from "./CityDistrictHighlight.js";
+import { CityDistrictHud } from "./CityDistrictHud.js";
+import { CityWorldTitle } from "./CityWorldTitle.js";
+import { bindCityDistrictWindows } from "./cityDistrictWindows.js";
+import { CITY_TRAFFIC_DEFAULTS, CITY_TRAFFIC_CONTROLS } from "./cityTrafficConfig.js";
+import { siteBloomDevOverrides } from "@/three/render/models/siteBloomConfig.js";
 import { replaceCitySurfaceMaterials } from "./cityBuildingMaterials.js";
+import { loadCityWindowState } from "./cityWindowShader.js";
+import { createCityReflectionEnvironment, prepareCityOfficeReflections } from "./cityReflectionEnvironment.js";
 
-const CITY_MODEL_URL = "/models/posibility5/city.glb";
+const CITY_FOG_COLOR = "#00050b";
+const CITY_FOG_DENSITY = CITY_TRAFFIC_DEFAULTS.fogDensity;
+
+const CITY_MODEL_URL = "/models/posibility5/city-approved.glb";
 const CITY_POSITION = new THREE.Vector3(2.4, -1.35, -0.15);
 const CITY_ROTATION_Y = -0.19;
-const CITY_SCALE = 0.9;
+const CITY_SCALE = 0.055;
 // Authored world-space camera. Never derive these values from model bounds:
 // moving the model must change the composition instead of moving the camera too.
-const CITY_CAMERA_POSITION = new THREE.Vector3(14.673, 8.097, 14.616);
-const CITY_CAMERA_LOOK_AT = new THREE.Vector3(3.497, 0.646, -0.906);
+const CITY_CAMERA_POSITION = new THREE.Vector3(4.3, 3.1, 5.3);
+const CITY_CAMERA_LOOK_AT = new THREE.Vector3(0.7, 0.1, 1.0);
 const CITY_CAMERA_FOV = 39;
 
-function disposeModel(root) {
+function disposeModel(root, environment = null, officeEnvironment = null) {
 	const geometries = new Set();
 	const materials = new Set();
 	const textures = new Set();
 
 	root?.traverse((object) => {
+		if (object.isInstancedMesh) object.dispose();
 		if (object.geometry) geometries.add(object.geometry);
 		const objectMaterials = Array.isArray(object.material)
 			? object.material
@@ -31,7 +39,7 @@ function disposeModel(root) {
 			if (!material) continue;
 			materials.add(material);
 			for (const value of Object.values(material)) {
-				if (value?.isTexture) textures.add(value);
+				if (value?.isTexture && value !== environment && value !== officeEnvironment) textures.add(value);
 			}
 		}
 	});
@@ -42,8 +50,17 @@ function disposeModel(root) {
 }
 
 export class CityModelWorld {
-	constructor(scene) {
+	constructor(scene, renderer) {
 		this.scene = scene;
+		this.renderer = renderer;
+		this.roadFlow = null;
+		this.districtHighlight = null;
+		this.hud = null;
+		this.title = null;
+		this.windowState = null;
+		this.reflectionTarget = null;
+		this.officeReflectionTarget = null;
+		this.trafficSettings = { ...CITY_TRAFFIC_DEFAULTS };
 		this.group = new THREE.Group();
 		this.group.name = "CapabilityCityModelWorld";
 		this.group.position.copy(CITY_POSITION);
@@ -52,22 +69,24 @@ export class CityModelWorld {
 		this.group.visible = false;
 		this.cameraPosition = CITY_CAMERA_POSITION.clone();
 		this.cameraLookAt = CITY_CAMERA_LOOK_AT.clone();
+		this.markerCameraParallax = new THREE.Vector2();
+		this.cameraDelta = 1 / 60;
 		this.model = null;
-		this.windowMaterial = null;
 		this.sceneFog = scene.fog?.isFogExp2 ? scene.fog : null;
-		this.sceneFogDefaultDensity = this.sceneFog?.density ?? CITY_WINDOW_MATERIAL_DEFAULTS.fogDensity;
-		this.sceneFogDefaultColor = this.sceneFog?.color.clone() ?? new THREE.Color(CITY_WINDOW_MATERIAL_DEFAULTS.fogColor);
-		this.cityFogDensity = CITY_WINDOW_MATERIAL_DEFAULTS.fogDensity;
-		this.cityFogColor = new THREE.Color(CITY_WINDOW_MATERIAL_DEFAULTS.fogColor);
+		this.sceneFogDefaultDensity = this.sceneFog?.density ?? CITY_FOG_DENSITY;
+		this.sceneFogDefaultColor = this.sceneFog?.color.clone() ?? new THREE.Color(CITY_FOG_COLOR);
+		this.cityFogDensity = CITY_FOG_DENSITY;
+		this.cityFogColor = new THREE.Color(CITY_FOG_COLOR);
 		this.disposed = false;
 
-		const ambientLight = new THREE.AmbientLight(0x6f8294, 0.14);
+		// Sky fill separates roofs, walls and undersides without a shadow pass.
+		const ambientLight = new THREE.HemisphereLight(0x95adc1, 0x101822, 0.7);
 		ambientLight.name = "CityAmbientLight";
-		const directionalLight = new THREE.DirectionalLight(0xb8cddd, 0.82);
+		const directionalLight = new THREE.DirectionalLight(0xb8cddd, 2.5);
 		directionalLight.name = "CityDirectionalLight";
 		directionalLight.position.set(8, 12, 10);
 		directionalLight.target.position.set(0, 2, 0);
-		const rimLight = new THREE.DirectionalLight(0x3f718f, 0.16);
+		const rimLight = new THREE.DirectionalLight(0x3f718f, 0.65);
 		rimLight.name = "CityRimLight";
 		rimLight.position.set(-9, 5, -7);
 		rimLight.target.position.set(1, 1.5, 0);
@@ -84,7 +103,17 @@ export class CityModelWorld {
 	}
 
 	async _loadModel() {
-		const gltf = await createGLTFLoader().loadAsync(CITY_MODEL_URL);
+		const [gltf, pathData, districtData] = await Promise.all([
+			createGLTFLoader().loadAsync(CITY_MODEL_URL),
+			fetch("/models/posibility5/city-flow-paths.json").then((response) => {
+				if (!response.ok) throw new Error("[CityModelWorld] Road routes failed to load");
+				return response.json();
+			}),
+			fetch("/models/posibility5/city-districts.json").then(response => {
+				if (!response.ok) throw new Error("[CityModelWorld] District platforms failed to load");
+				return response.json();
+			}),
+		]);
 		const model = gltf.scene;
 
 		if (this.disposed || !this.scene) {
@@ -100,35 +129,85 @@ export class CityModelWorld {
 			throw new Error(`[CityModelWorld] ${CITY_MODEL_URL} contains no renderable geometry`);
 		}
 
-		const surfaceMeshCount = replaceCitySurfaceMaterials(model);
-		if (surfaceMeshCount === 0) {
-			disposeModel(model);
-			throw new Error(
-				`[CityModelWorld] ${CITY_MODEL_URL} contains no supported building materials`,
-			);
+		// Shared architectural shaders preserve GLB GPU instancing.
+		const windowState = await loadCityWindowState(pathData.windows);
+		if (this.disposed) {
+			windowState?.texture.dispose(); disposeModel(model);
+			return false;
 		}
-
-		const windowMaterial = createCityLuminousWindowMaterial();
-		const windowMeshCount = replaceCityWindowMaterial(model, windowMaterial);
-		if (windowMeshCount === 0) {
-			windowMaterial.dispose();
-			disposeModel(model);
-			throw new Error(
-				`[CityModelWorld] ${CITY_MODEL_URL} contains no WindowMaterial meshes`,
-			);
+		this.windowState = windowState;
+		this.districtHighlight = new CityDistrictHighlight(districtData, this.renderer);
+		this.group.add(this.districtHighlight.mesh);
+		if (windowState) {
+			windowState.districtHighlight = this.districtHighlight;
+			windowState.intensity.value = this.trafficSettings.windowIntensity ?? 1;
+			windowState.unitScale.value = CITY_SCALE;
+			const target = await createCityReflectionEnvironment(this.renderer, () => this.disposed);
+			if (this.disposed || !target) {
+				target?.dispose(); windowState.texture.dispose(); disposeModel(model);
+				this.windowState = null;
+				return false;
+			}
+			this.reflectionTarget = target;
+			windowState.environment = target.texture;
 		}
-		this.windowMaterial = windowMaterial;
+		await replaceCitySurfaceMaterials(model, { normalsPrepared: pathData.normalsPrepared === true, windowState });
+		if (this.disposed) {
+			disposeModel(model, this.reflectionTarget?.texture);
+			this.reflectionTarget?.dispose();
+			this.reflectionTarget = null;
+			return false;
+		}
+		model.traverse((object) => {
+			// Blender's preview strands are replaced by small moving road particles.
+			if (object.material?.name === "FLOW THREADS | shader placeholder") object.visible = false;
+		});
+		bindCityDistrictWindows(model, this.districtHighlight);
+		const officeTarget = await prepareCityOfficeReflections(this.renderer, model, this.group, windowState, () => this.disposed);
+		if (this.disposed || !officeTarget) {
+			officeTarget?.dispose(); disposeModel(model, this.reflectionTarget?.texture);
+			this.reflectionTarget?.dispose(); this.reflectionTarget = null;
+			return false;
+		}
+		this.officeReflectionTarget = officeTarget;
+		model.traverse((object) => {
+			if (!object.isMesh) return;
+			for (const material of Array.isArray(object.material) ? object.material : [object.material]) {
+				if (material.name === "CityArchitectural-office") {
+					material.cityOfficeEnvironment = officeTarget.texture;
+					material.cityOfficeProbePosition = officeTarget.cityProbePosition;
+					material.cityOfficeProbeBounds = officeTarget.cityProbeBounds;
+				}
+			}
+		});
 
 		// Preserve the authored GLB transform. Runtime centering would cancel edits
 		// made to the model in Blender and make CITY_POSITION misleading.
 		this.model = model;
 		this.group.add(model);
+		const roadFlow = await CityRoadFlow.create(pathData);
+		if (this.disposed) {
+			roadFlow.dispose();
+			return false;
+		}
+		this.roadFlow = roadFlow;
+		roadFlow.setSettings(this.trafficSettings);
+		this.group.add(roadFlow.points, roadFlow.highways, roadFlow.cars);
+		await CityDistrictHud.prepare();
+		if (this.disposed) return false;
+		this.hud = new CityDistrictHud(this.group, this.renderer, this.districtHighlight);
+		await CityWorldTitle.prepare();
+		if (this.disposed) return false;
+		this.title = new CityWorldTitle(this.group, this.renderer);
 		return true;
 	}
 
 	setRenderEnabled(enabled) {
 		const visible = enabled === true;
 		this.group.visible = visible;
+		if (!visible) this.districtHighlight?.reset();
+		if (!visible) this.hud?.reset();
+		if (!visible) this.title?.reset();
 		if (this.sceneFog) {
 			this.sceneFog.density = visible
 				? this.cityFogDensity
@@ -137,80 +216,66 @@ export class CityModelWorld {
 		}
 	}
 
-	getOrbitTarget(target = new THREE.Vector3()) {
-		return target.copy(this.cameraLookAt);
+	getOrbitTarget(target) {
+		return target ? target.copy(this.cameraLookAt) : this.cameraLookAt;
 	}
 
 	applyCamera(camera, parallax) {
+		// Keep a hovered circle under the cursor; resume parallax smoothly on leave.
+		if (!(this.districtHighlight?.hovered >= 0)) {
+			this.markerCameraParallax.x = THREE.MathUtils.damp(this.markerCameraParallax.x, Number(parallax?.x) || 0, 12, this.cameraDelta);
+			this.markerCameraParallax.y = THREE.MathUtils.damp(this.markerCameraParallax.y, Number(parallax?.y) || 0, 12, this.cameraDelta);
+		}
 		camera.position.copy(this.cameraPosition);
-		camera.position.x += (Number(parallax?.x) || 0) * 0.58;
-		camera.position.y += (Number(parallax?.y) || 0) * 0.42;
+		camera.position.x += this.markerCameraParallax.x * 0.58;
+		camera.position.y += this.markerCameraParallax.y * 0.42;
 		camera.fov = CITY_CAMERA_FOV;
 		camera.updateProjectionMatrix();
 		camera.lookAt(this.cameraLookAt);
 		camera.updateMatrixWorld(true);
 	}
 
-	update() {
-		return false;
+	beginWarmupDraw() { this.districtHighlight?.beginWarmupDraw(); this.hud?.beginWarmupDraw(); this.title?.beginWarmupDraw(); }
+	endWarmupDraw() { this.districtHighlight?.endWarmupDraw(); this.hud?.endWarmupDraw(); this.title?.endWarmupDraw(); }
+
+	update(delta, active = false, frame = null, interactionOwned = false, locale = "ru") {
+		this.cameraDelta = Math.min(delta, .05);
+		if (this.group.visible) this.roadFlow?.update(delta, this.renderer?.getPixelRatio() ?? 1);
+		const hovered = this.group.visible && this.districtHighlight
+			? this.districtHighlight.update(delta, frame, active && interactionOwned)
+			: false;
+		if (this.group.visible) this.hud?.update(delta, locale);
+		if (this.group.visible) this.title?.update(delta, frame, locale);
+		return hovered;
 	}
 
-	getWindowMaterialSettings() {
-		const uniforms = this.windowMaterial?.uniforms;
-		if (!uniforms) return null;
-		return {
-			intensity: uniforms.uIntensity.value,
-			fogColor: `#${uniforms.uFogColor.value.getHexString()}`,
-			fogDensity: uniforms.uFogDensity.value,
-			fogNear: uniforms.uFogNear.value,
-			fogPower: uniforms.uFogPower.value,
-			fogOpacity: uniforms.uFogOpacity.value,
-		};
+	getTrafficSettings() {
+		return { ...this.trafficSettings };
 	}
 
-	setWindowMaterialSettings(settings = {}) {
-		const uniforms = this.windowMaterial?.uniforms;
-		if (!uniforms) return null;
-		if (settings.intensity != null) {
-			const intensity = Number(settings.intensity);
-			if (!Number.isFinite(intensity)) return null;
-			uniforms.uIntensity.value = THREE.MathUtils.clamp(intensity, 0, 6);
-		}
-		if (settings.fogColor != null) {
-			try {
-				this.cityFogColor.set(settings.fogColor);
-				uniforms.uFogColor.value.copy(this.cityFogColor);
-				if (this.group.visible && this.sceneFog) {
-					this.sceneFog.color.copy(this.cityFogColor);
-				}
-			} catch {
-				return null;
-			}
-		}
-		if (settings.fogDensity != null) {
-			const fogDensity = Number(settings.fogDensity);
-			if (!Number.isFinite(fogDensity)) return null;
-			this.cityFogDensity = THREE.MathUtils.clamp(fogDensity, 0, 0.25);
-			uniforms.uFogDensity.value = this.cityFogDensity;
-			if (this.group.visible && this.sceneFog) {
-				this.sceneFog.density = this.cityFogDensity;
-			}
-		}
-		for (const [key, uniformName, min, max] of [
-			["fogNear", "uFogNear", 0, 80],
-			["fogPower", "uFogPower", 0.1, 6],
-			["fogOpacity", "uFogOpacity", 0, 1],
-		]) {
+	setTrafficSettings(settings = {}) {
+		for (const [key, , min, max] of CITY_TRAFFIC_CONTROLS) {
 			if (settings[key] == null) continue;
-			const value = Number(settings[key]);
-			if (!Number.isFinite(value)) return null;
-			uniforms[uniformName].value = THREE.MathUtils.clamp(value, min, max);
+			if (min === "color") {
+				if (/^#[0-9a-f]{6}$/i.test(settings[key])) this.trafficSettings[key] = settings[key];
+			} else if (Number.isFinite(Number(settings[key]))) {
+				this.trafficSettings[key] = THREE.MathUtils.clamp(Number(settings[key]), min, max);
+			}
 		}
-		return this.getWindowMaterialSettings();
+		this.cityFogDensity = this.trafficSettings.fogDensity;
+		this.cityFogColor.set(this.trafficSettings.fogColor);
+		if (this.group.visible && this.sceneFog) {
+			this.sceneFog.density = this.cityFogDensity;
+			this.sceneFog.color.copy(this.cityFogColor);
+		}
+		this.roadFlow?.setSettings(this.trafficSettings);
+		if (this.windowState) this.windowState.intensity.value = this.trafficSettings.windowIntensity ?? 1;
+		if (settings.bloom != null && siteBloomDevOverrides) siteBloomDevOverrides.intensity = this.trafficSettings.bloom;
+		return this.getTrafficSettings();
 	}
 
-	resetWindowMaterialSettings() {
-		return this.setWindowMaterialSettings(CITY_WINDOW_MATERIAL_DEFAULTS);
+	resetTrafficSettings() {
+		return this.setTrafficSettings(CITY_TRAFFIC_DEFAULTS);
 	}
 
 	dispose(scene = this.scene) {
@@ -220,9 +285,20 @@ export class CityModelWorld {
 			this.sceneFog.color.copy(this.sceneFogDefaultColor);
 		}
 		scene?.remove(this.group);
-		disposeModel(this.model);
+		this.hud?.dispose(); this.hud = null;
+		this.title?.dispose(); this.title = null;
+		this.districtHighlight?.dispose();
+		this.districtHighlight = null;
+		disposeModel(this.model, this.reflectionTarget?.texture, this.officeReflectionTarget?.texture);
+		this.officeReflectionTarget?.dispose();
+		this.officeReflectionTarget = null;
+		this.reflectionTarget?.dispose();
+		this.reflectionTarget = null;
+		this.roadFlow?.dispose();
+		this.roadFlow = null;
+		this.windowState = null;
+		this.renderer = null;
 		this.model = null;
-		this.windowMaterial = null;
 		this.group.clear();
 		this.sceneFog = null;
 		this.sceneFogDefaultColor = null;

@@ -8,6 +8,7 @@ import { requestHexNavigation } from "@/functions/hexNavigation.js";
 import SiteArcDomNav from "@/components/SiteArc/SiteArcDomNav.jsx";
 import { setSiteArcNavigationSource } from "@/components/SiteArc/siteArcNavigationSource.js";
 import { FIRST_CAPABILITY_PATH } from "@/pages/capabilities/data/capabilities.js";
+import { isRouteAvailable } from "@/app/config/routeAvailability.js";
 
 const SITE_ITEMS = [
 	{ id: "main", routeNumber: "01", route: "/" },
@@ -36,8 +37,9 @@ export default function SiteArcNavigator() {
 	const { displayPathname } = useRouteTransitionContext();
 	const proxyStore = useStore();
 	const locale = normalizeSiteLocale(proxyStore.siteLocale);
-	const items = useMemo(() => SITE_ITEMS.map((item) => ({
+	const items = useMemo(() => SITE_ITEMS.filter((item) => isRouteAvailable(item.route)).map((item, index) => ({
 		...item,
+		routeNumber: String(index + 1).padStart(2, "0"),
 		title: getNavItemLabel(item.id, locale),
 		pathTitle: getNavItemLabel(item.id, locale),
 	})), [locale]);

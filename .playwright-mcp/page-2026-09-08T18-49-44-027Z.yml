@@ -1,0 +1,61 @@
+- application:
+  - iframe [aria-hidden] [ref=f14e1]
+  - region
+  - generic [ref=f14e4]:
+    - generic [ref=f14e5]:
+      - generic [ref=f14e8]:
+        - generic [ref=f14e16]:
+          - text: Custom Hologram shader demonstration.mp4
+          - tooltip [aria-hidden] [ref=f14e17]
+        - menubar "Панель меню" [ref=f14e21]:
+          - generic [ref=f14e22]:
+            - generic [ref=f14e23]:
+              - menuitem "Файл" [ref=f14e28] [cursor=pointer]
+              - menuitem "Просмотр" [ref=f14e34] [cursor=pointer]
+              - menuitem "Справка" [ref=f14e40] [cursor=pointer]
+            - generic:
+              - generic:
+                - generic:
+                  - generic:
+                    - tooltip [aria-hidden]: Дополнительно
+        - link "Войти" [ref=f14e48] [cursor=pointer]:
+          - /url: https://accounts.google.com/ServiceLogin?service=wise&passive=1209600&osid=1&continue=https://drive.google.com/file/d/1O_ovZgfQgwRJTWWX1m11DRLWLgT_Bx5D/view&followup=https://drive.google.com/file/d/1O_ovZgfQgwRJTWWX1m11DRLWLgT_Bx5D/view&ec=GAZAGQ
+      - generic [ref=f14e51]:
+        - generic [ref=f14e55]:
+          - button "Скачать" [ref=f14e56] [cursor=pointer]
+          - tooltip [aria-hidden] [ref=f14e62]: Скачать
+        - generic [ref=f14e63]:
+          - generic [ref=f14e65]:
+            - button "Эпизоды" [ref=f14e67] [cursor=pointer]:
+              - generic [aria-hidden] [ref=f14e73]: Эпизоды
+            - tooltip [aria-hidden] [ref=f14e74]: Эпизоды
+          - generic [ref=f14e76]:
+            - button "Расшифровка" [disabled] [ref=f14e78]:
+              - generic [aria-hidden] [ref=f14e84]: Расшифровка
+            - tooltip [aria-hidden] [ref=f14e85]: Расшифровка
+        - generic [ref=f14e88]:
+          - button "Скрыть заголовок файла" [ref=f14e89] [cursor=pointer]
+          - tooltip [aria-hidden] [ref=f14e99]: Скрыть заголовок файла
+    - generic "Показан читатель." [ref=f14e100]:
+      - generic "Custom Hologram shader demonstration.mp4. На экране." [active]
+      - generic [ref=f14e101]:
+        - generic "Назад" [ref=f14e102]
+        - generic "Далее" [ref=f14e103]
+        - main [ref=f14e104]:
+          - generic [ref=f14e105]:
+            - generic [ref=f14e107]:
+              - generic:
+                - generic:
+                  - list
+            - generic [ref=f14e108]:
+              - status "Загрузка…" [ref=f14e110]
+              - generic [ref=f14e145]:
+                - generic "Предварительный просмотр изображения":
+                  - generic:
+                    - generic:
+                      - button "Чтобы начать или возобновить воспроизведение, нажмите K"
+                      - tooltip [aria-hidden]: Воспроизвести (K)
+                - progressbar "Загрузка..." [ref=f14e148]
+                - generic [ref=f14e153]:
+                  - iframe [ref=f14e154]
+                  - tabpanel "Видеопроигрыватель" [ref=f14e155]

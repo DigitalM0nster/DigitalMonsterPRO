@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { usePageStateClasses } from "@/app/context/RouteTransitionContext.jsx";
 import { requestHexNavigation } from "@/functions/hexNavigation.js";
 import MainPageButtonSelector from "./components/MainPageButtonSelector.jsx";
+import { PORTFOLIO_ENABLED } from "@/app/config/routeAvailability.js";
 
 export default function MainPage() {
 	const location = useLocation();
@@ -21,7 +22,7 @@ export default function MainPage() {
 
 	return (
 		<div className={pageClassName}>
-			<MainPageButtonSelector onActivate={openPortfolio} />
+			{PORTFOLIO_ENABLED && <MainPageButtonSelector onActivate={openPortfolio} />}
 		</div>
 	);
 }

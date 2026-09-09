@@ -1,61 +1,21 @@
-/**
- * Public contact channels for the Contacts page (HTML list).
- * Placeholder handles — replace with production accounts when ready.
- */
-
-export const CONTACTS_EMAIL = "hello@digitalmonster.studio";
-
-/** @typedef {'email' | 'wechat' | 'telegram' | 'vk' | 'phone' | 'linkedin' | 'x'} ContactsChannelId */
-
-/**
- * @type {Array<{
- *   id: ContactsChannelId,
- *   href: string,
- *   value: string,
- *   external?: boolean,
- * }>}
- */
+/** Replace href values with your public profiles when the accounts are ready. */
 export const CONTACTS_CHANNELS = [
-	{
-		id: "email",
-		href: `mailto:${CONTACTS_EMAIL}`,
-		value: CONTACTS_EMAIL,
-		external: false,
-	},
-	{
-		id: "wechat",
-		href: "https://www.digitalmonster.studio/",
-		value: "DigitalMonster",
-		external: true,
-	},
-	{
-		id: "telegram",
-		href: "https://t.me/digitalmonster",
-		value: "@digitalmonster",
-		external: true,
-	},
-	{
-		id: "vk",
-		href: "https://vk.com/digitalmonster",
-		value: "vk.com/digitalmonster",
-		external: true,
-	},
-	{
-		id: "phone",
-		href: "tel:+79990000000",
-		value: "+7 999 000-00-00",
-		external: false,
-	},
-	{
-		id: "linkedin",
-		href: "https://www.linkedin.com/company/digitalmonster",
-		value: "Digital Monster",
-		external: true,
-	},
-	{
-		id: "x",
-		href: "https://x.com/digitalmonster",
-		value: "@digitalmonster",
-		external: true,
-	},
+	{ id: "youtube", label: "YouTube", href: "https://www.youtube.com/" },
+	{ id: "vk", label: "VK", href: "https://vk.com/" },
+	{ id: "facebook", label: "Facebook", href: "https://www.facebook.com/" },
+	{ id: "telegram", label: "Telegram", href: "https://telegram.org/" },
+	{ id: "instagram", label: "Instagram", href: "https://www.instagram.com/" },
+	{ id: "behance", label: "Behance", href: "https://www.behance.net/" },
+	{ id: "dribbble", label: "Dribbble", href: "https://dribbble.com/" },
+	{ id: "linkedin", label: "LinkedIn", href: "https://www.linkedin.com/" },
 ];
+
+/** Content adapter for the exact portfolio hub renderer. Visual settings stay in portfolioHubConfig. */
+export const CONTACTS_HUB_PROJECTS = CONTACTS_CHANNELS.map((channel) => ({
+	id: channel.id,
+	name: channel.label,
+	path: channel.href,
+	externalHref: channel.href,
+	hubLogo: `/images/contacts/${channel.id}.svg`,
+	labelSegments: [{ text: channel.label, role: "secondary" }],
+}));

@@ -1,3 +1,4 @@
+import { CITY_TRAFFIC_CONTROLS } from "@/three/scenes/capabilities/city/cityTrafficConfig.js";
 import { attachDevPanelDrag } from "./devPanelDrag.js";
 import { formatDevPanelHotkeyHints, registerDevPanelHotkey, unregisterDevPanelHotkey } from "./devPanelHotkeys.js";
 import { injectSceneDevToolsStyles } from "./sceneDevPanelUtils.js";
@@ -37,6 +38,20 @@ export class Mmk1CameraDevTools {
 				Enable control, then click the WebGL canvas to capture the mouse. Escape releases it. C copies the pose.
 			</p>
 			<p class="status" data-status>control disabled</p>
+			<section class="section" data-city-flight-section>
+				<p class="sectionTitle">Осмотр города</p>
+				<p class="legend">WASD — движение · Пробел — вверх · Alt — вниз · Shift — быстрее.<br/>Включите полёт и нажмите на сцену для обзора мышью. Esc освобождает мышь.</p>
+				<div class="actions"><button type="button" data-action="city-flight">Включить полёт</button><button type="button" data-action="city-overview">Вернуть общий вид</button></div>
+			</section>
+			<section class="section" data-city-traffic-section>
+				<p class="sectionTitle">Город · фары и движение</p>
+				<p class="legend">Изменения видны сразу. Размер фар не зависит от корпуса. Голубой — основная доля; белые и жёлтые задаются ниже.</p>
+				${CITY_TRAFFIC_CONTROLS.map(([key, label, min, max, step]) => min === "color"
+					? `<div class="field"><label>${label}</label><input type="color" aria-label="${label}" data-city-traffic-key="${key}" /></div>`
+					: `<div class="field"><label>${label}</label><input type="range" aria-label="${label}" min="${min}" max="${max}" step="${step}" data-city-traffic-key="${key}" /><input type="number" aria-label="${label}: значение" min="${min}" max="${max}" step="${step}" data-city-traffic-key="${key}" /></div>`
+				).join("")}
+				<div class="actions"><button type="button" data-action="copy-city-traffic">Скопировать конфиг</button><button type="button" data-action="reset-city-traffic">Сбросить настройки</button></div>
+			</section>
 			<section class="section">
 				<p class="readout"><span class="k">position</span><span class="v" data-position>—</span></p>
 				<p class="readout"><span class="k">rotation ° (X/Y/Z)</span><span class="v" data-rotation>—</span></p>
@@ -128,43 +143,7 @@ export class Mmk1CameraDevTools {
 					<button type="button" data-action="reset-hotspot-thickness">Reset thickness</button>
 				</div>
 			</section>
-			<section class="section">
-				<p class="sectionTitle">City windows</p>
-				<div class="field">
-					<label>glow intensity</label>
-					<input type="range" min="0" max="6" step="0.01" data-city-window-key="intensity" />
-					<input type="number" min="0" max="6" step="0.01" data-city-window-key="intensity" />
-				</div>
-				<div class="field">
-					<label>fog density</label>
-					<input type="range" min="0" max="0.25" step="0.001" data-city-window-key="fogDensity" />
-					<input type="number" min="0" max="0.25" step="0.001" data-city-window-key="fogDensity" />
-				</div>
-				<div class="field">
-					<label>fog color</label>
-					<input type="color" data-city-window-key="fogColor" />
-					<input type="text" data-city-window-key="fogColor" />
-				</div>
-				<div class="field">
-					<label>fog start</label>
-					<input type="range" min="0" max="80" step="0.1" data-city-window-key="fogNear" />
-					<input type="number" min="0" max="80" step="0.1" data-city-window-key="fogNear" />
-				</div>
-				<div class="field">
-					<label>fog curve</label>
-					<input type="range" min="0.1" max="6" step="0.01" data-city-window-key="fogPower" />
-					<input type="number" min="0.1" max="6" step="0.01" data-city-window-key="fogPower" />
-				</div>
-				<div class="field">
-					<label>fog opacity</label>
-					<input type="range" min="0" max="1" step="0.01" data-city-window-key="fogOpacity" />
-					<input type="number" min="0" max="1" step="0.01" data-city-window-key="fogOpacity" />
-				</div>
-				<div class="actions">
-					<button type="button" data-action="copy-city-windows">Copy values</button>
-					<button type="button" data-action="reset-city-windows">Reset windows</button>
-				</div>
-			</section>
+
 			<section class="section">
 				<div class="actions">
 					<button type="button" data-action="control">Enable control</button>
@@ -176,6 +155,14 @@ export class Mmk1CameraDevTools {
 			<footer class="legend" data-hints>${formatDevPanelHotkeyHints()}</footer>
 		`;
 		document.body.appendChild(this._panel);
+		if (window.location.pathname.includes("/capabilities/spatial-matrix")) {
+			for (const section of this._panel.querySelectorAll("section")) {
+				if (!section.hasAttribute("data-city-traffic-section") && !section.hasAttribute("data-city-flight-section") && !section.querySelector('[data-action="close"]')) section.style.setProperty("display", "none", "important");
+			}
+			this._panel.querySelector(".legend").textContent = "0 — открыть/закрыть. Ползунки работают без перезагрузки. Bloom — общий эффект сайта.";
+			for (const action of ["control", "copy", "reset"])
+				this._panel.querySelector(`[data-action="${action}"]`).style.display = "none";
+		}
 
 		this._statusEl = this._panel.querySelector("[data-status]");
 		this._positionEl = this._panel.querySelector("[data-position]");
@@ -188,8 +175,22 @@ export class Mmk1CameraDevTools {
 		this._materialInputs = Array.from(this._panel.querySelectorAll("[data-material-key]"));
 		this._hotspotThicknessRange = this._panel.querySelector("[data-hotspot-thickness-range]");
 		this._hotspotThicknessNumber = this._panel.querySelector("[data-hotspot-thickness-number]");
-		this._cityWindowInputs = Array.from(this._panel.querySelectorAll("[data-city-window-key]"));
+		this._cityTrafficInputs = Array.from(this._panel.querySelectorAll("[data-city-traffic-key]"));
 		this._controlButton = this._panel.querySelector('[data-action="control"]');
+		this._cityFlightButton = this._panel.querySelector('[data-action="city-flight"]');
+		this._cityFlightButton.addEventListener("click", () => {
+			const scene = this.getCityScene();
+			const enabled = scene?.setFreeCameraEnabled?.(!scene.isFreeCameraEnabled?.(), this.getCamera());
+			this._setStatus(enabled ? "Полёт включён · нажмите на сцену" : "Полёт выключен");
+			this.update(true);
+		});
+		this._panel.querySelector('[data-action="city-overview"]').addEventListener("click", () => {
+			const scene = this.getCityScene();
+			scene?.setFreeCameraEnabled?.(false, this.getCamera());
+			scene?.resetFreeCamera?.(this.getCamera());
+			this._setStatus("Общий вид восстановлен");
+			this.update(true);
+		});
 		this._detachPanelDrag = attachDevPanelDrag(this._panel, { id: "mmk1Camera" });
 
 		this._controlButton?.addEventListener("click", () => this._toggleControl());
@@ -200,8 +201,8 @@ export class Mmk1CameraDevTools {
 		this._panel.querySelector('[data-action="copy-material"]')?.addEventListener("click", () => void this._copyMaterial());
 		this._panel.querySelector('[data-action="reset-material"]')?.addEventListener("click", () => this._resetMaterial());
 		this._panel.querySelector('[data-action="reset-hotspot-thickness"]')?.addEventListener("click", () => this._resetHotspotThickness());
-		this._panel.querySelector('[data-action="copy-city-windows"]')?.addEventListener("click", () => void this._copyCityWindowSettings());
-		this._panel.querySelector('[data-action="reset-city-windows"]')?.addEventListener("click", () => this._resetCityWindowSettings());
+		this._panel.querySelector('[data-action="copy-city-traffic"]')?.addEventListener("click", () => void this._copyCityTrafficSettings());
+		this._panel.querySelector('[data-action="reset-city-traffic"]')?.addEventListener("click", () => this._resetCityTrafficSettings());
 		this._panel.querySelector('[data-action="close"]')?.addEventListener("click", () => this.setEnabled(false));
 		this._craneRange?.addEventListener("input", (event) => this._setCraneRotation(event.currentTarget.value));
 		this._craneNumber?.addEventListener("input", (event) => this._setCraneRotation(event.currentTarget.value));
@@ -214,10 +215,10 @@ export class Mmk1CameraDevTools {
 		}
 		this._hotspotThicknessRange?.addEventListener("input", (event) => this._setHotspotThickness(event.currentTarget.value));
 		this._hotspotThicknessNumber?.addEventListener("input", (event) => this._setHotspotThickness(event.currentTarget.value));
-		for (const input of this._cityWindowInputs) {
+		for (const input of this._cityTrafficInputs) {
 			const eventName = input.type === "text" ? "change" : "input";
-			input.addEventListener(eventName, (event) => this._setCityWindowValue(
-				event.currentTarget.dataset.cityWindowKey,
+			input.addEventListener(eventName, (event) => this._setCityTrafficValue(
+				event.currentTarget.dataset.cityTrafficKey,
 				event.currentTarget.value,
 			));
 		}
@@ -255,6 +256,8 @@ export class Mmk1CameraDevTools {
 		const next = !scene.isFreeCameraEnabled?.();
 		const active = scene.setFreeCameraEnabled?.(next, camera) === true;
 		this._syncControlButton();
+		if (this._cityFlightButton) this._cityFlightButton.textContent =
+			this.getCityScene()?.isFreeCameraEnabled?.() ? "Выключить полёт" : "Включить полёт";
 		this._setStatus(
 			next && !active
 				? "open /capabilities before enabling camera"
@@ -415,51 +418,51 @@ export class Mmk1CameraDevTools {
 		this._setStatus("hotspot line thickness reset");
 	}
 
-	_setCityWindowValue(key, value) {
-		if (!["intensity", "fogColor", "fogDensity", "fogNear", "fogPower", "fogOpacity"].includes(key)) return;
-		if (key === "fogColor" && !/^#[0-9a-fA-F]{6}$/.test(String(value))) return;
-		const settings = this.getCityScene()?.setCityWindowMaterialSettings?.({ [key]: value });
+	_setCityTrafficValue(key, value) {
+		if (!CITY_TRAFFIC_CONTROLS.some(([name]) => name === key)) return;
+		if (key.endsWith("Color") && !/^#[0-9a-fA-F]{6}$/.test(String(value))) return;
+		const settings = this.getCityScene()?.setCityTrafficSettings?.({ [key]: value });
 		if (!settings) {
-			this._setStatus("city window material is not ready");
+			this._setStatus("city traffic material is not ready");
 			return;
 		}
-		this._syncCityWindowControls(settings);
-		const formatted = key === "fogColor"
+		this._syncCityTrafficControls(settings);
+		const formatted = key.endsWith("Color")
 			? settings[key]
 			: Number(settings[key]).toFixed(3);
-		this._setStatus(`city windows ${key} = ${formatted}`);
+		this._setStatus(`city traffics ${key} = ${formatted}`);
 	}
 
-	_syncCityWindowControls(settings = this.getCityScene()?.getCityWindowMaterialSettings?.()) {
+	_syncCityTrafficControls(settings = this.getCityScene()?.getCityTrafficSettings?.()) {
 		if (!settings) return;
-		for (const input of this._cityWindowInputs ?? []) {
+		for (const input of this._cityTrafficInputs ?? []) {
 			if (document.activeElement === input) continue;
-			const key = input.dataset.cityWindowKey;
+			const key = input.dataset.cityTrafficKey;
 			if (settings[key] == null) continue;
 			input.value = String(settings[key]);
 		}
 	}
 
-	async _copyCityWindowSettings() {
-		const settings = this.getCityScene()?.getCityWindowMaterialSettings?.();
+	async _copyCityTrafficSettings() {
+		const settings = this.getCityScene()?.getCityTrafficSettings?.();
 		if (!settings) {
-			this._setStatus("city window material is not ready");
+			this._setStatus("city traffic material is not ready");
 			return;
 		}
-		const output = `cityWindowMaterial = ${JSON.stringify(settings, null, 2)};`;
+		const output = `export const cityTrafficConfig = ${JSON.stringify(settings, null, 2)};`;
 		console.info(output);
 		try {
 			await navigator.clipboard.writeText(output);
-			this._setStatus("city window values copied to clipboard");
+			this._setStatus("city traffic values copied to clipboard");
 		} catch {
 			this._setStatus("clipboard unavailable; values printed to console");
 		}
 	}
 
-	_resetCityWindowSettings() {
-		const settings = this.getCityScene()?.resetCityWindowMaterialSettings?.();
-		this._syncCityWindowControls(settings);
-		this._setStatus(settings ? "city window values reset" : "city window material is not ready");
+	_resetCityTrafficSettings() {
+		const settings = this.getCityScene()?.resetCityTrafficSettings?.();
+		this._syncCityTrafficControls(settings);
+		this._setStatus(settings ? "city traffic values reset" : "city traffic material is not ready");
 	}
 
 	async _copyLamps() {
@@ -496,8 +499,12 @@ export class Mmk1CameraDevTools {
 		this._syncCraneControls();
 		this._syncMaterialControls();
 		this._syncHotspotThickness();
-		this._syncCityWindowControls();
+		this._syncCityTrafficControls();
 		this._syncControlButton();
+		this._panel.querySelector('[data-city-flight-section]').style.display =
+			window.location.pathname === "/capabilities/spatial-matrix" ? "" : "none";
+		if (this._cityFlightButton) this._cityFlightButton.textContent =
+			this.getCityScene()?.isFreeCameraEnabled?.() ? "Выключить полёт" : "Включить полёт";
 		const snapshot = this.getScene()?.getFreeCameraSnapshot?.(this.getCamera());
 		if (!snapshot) {
 			return;
@@ -519,6 +526,8 @@ export class Mmk1CameraDevTools {
 		this.enabled = enabled;
 		this._panel?.classList.toggle("hidden", !enabled);
 		if (enabled) {
+			if (this.getCityScene()?.isFreeCameraEnabled?.() && document.pointerLockElement)
+				document.exitPointerLock?.();
 			this.update(true);
 			this._setStatus(this.getScene()?.isFreeCameraEnabled?.() ? "control enabled" : "control disabled");
 			return;
@@ -532,6 +541,7 @@ export class Mmk1CameraDevTools {
 			return;
 		}
 		this.getScene()?.setFreeCameraEnabled?.(false, this.getCamera());
+		this.getCityScene()?.setFreeCameraEnabled?.(false, this.getCamera());
 		unregisterDevPanelHotkey(HOTKEY);
 		this._detachPanelDrag?.();
 		this._detachPanelDrag = null;

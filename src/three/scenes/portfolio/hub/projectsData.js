@@ -131,6 +131,7 @@ export const projectsData = [
  * @returns {Array<{ text: string, role: 'secondary' | 'primary' }>}
  */
 export function getHubPlateLabelSegments(project, locale = getPortfolioLocale()) {
+	if (project.labelSegments) return project.labelSegments;
 	const custom = project.hubPlateLabel;
 	const localizedName = getPortfolioProjectName(project.id, locale);
 
@@ -179,12 +180,12 @@ export const DEFAULT_LOGO_ACCENT = {
  * Accent bloom для кейса из projectsData.logoAccent.
  * @param {number} projectIndex
  */
-export function getLogoAccent(projectIndex) {
+export function getLogoAccent(projectIndex, projects = projectsData) {
 	if (projectIndex < 0) {
 		return DEFAULT_LOGO_ACCENT;
 	}
 
-	const accent = projectsData[projectIndex]?.logoAccent;
+	const accent = projects[projectIndex]?.logoAccent;
 	if (!accent) {
 		return DEFAULT_LOGO_ACCENT;
 	}

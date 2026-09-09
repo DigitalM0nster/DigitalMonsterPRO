@@ -69,6 +69,13 @@ varying vec3 vNormal;
 varying vec3 vViewDir;
 varying vec3 vWorldPosition;
 
+#ifdef CRANE_GRATING
+varying vec3 vGratingPosition;
+varying vec3 vGratingNormal;
+varying vec3 vGratingViewDir;
+varying mat3 vGratingBasis;
+#endif
+
 void main() {
 	#include <beginnormal_vertex>
 	#include <defaultnormal_vertex>
@@ -78,6 +85,21 @@ void main() {
 	vNormal = normalize(normalMatrix * objectNormal);
 	vViewDir = normalize(cameraPosition - worldPos.xyz);
 	vWorldPosition = worldPos.xyz;
+	#ifdef CRANE_GRATING
+	vGratingPosition = position;
+	vGratingNormal = normal;
+	vGratingBasis = mat3(
+		normalize(modelMatrix[0].xyz),
+		normalize(modelMatrix[1].xyz),
+		normalize(modelMatrix[2].xyz)
+	);
+	vec3 toCamera = cameraPosition - worldPos.xyz;
+	vGratingViewDir = vec3(
+		dot(toCamera, vGratingBasis[0]),
+		dot(toCamera, vGratingBasis[1]),
+		dot(toCamera, vGratingBasis[2])
+	);
+	#endif
 
 	#include <project_vertex>
 	#include <fog_vertex>
@@ -108,6 +130,13 @@ varying vec3 vNormal;
 varying vec3 vViewDir;
 varying vec3 vWorldPosition;
 
+#ifdef CRANE_GRATING
+varying vec3 vGratingPosition;
+varying vec3 vGratingNormal;
+varying vec3 vGratingViewDir;
+varying mat3 vGratingBasis;
+#endif
+
 vec3 safeNormalize(vec3 value) {
 	return value * inversesqrt(max(dot(value, value), 0.00001));
 }
@@ -117,8 +146,83 @@ float stableHash(vec3 value) {
 	return fract(sin(dot(cell, vec3(127.1, 311.7, 74.7))) * 43758.5453123);
 }
 
+#ifdef CRANE_GRATING
+float gratingIntegral(float position, float width) {
+	return floor(position) * width + min(fract(position), width);
+}
+
+// Integrate each periodic strip over the pixel footprint. Subpixel holes retain
+// their open area instead of switching to an opaque sheet or a noisy alpha test.
+float gratingCoverage(float position, float width, float footprint) {
+	width = min(width, 1.0);
+	position += width * 0.5;
+	return clamp((
+		gratingIntegral(position + footprint * 0.5, width)
+		- gratingIntegral(position - footprint * 0.5, width)
+	) / footprint, 0.0, 1.0);
+}
+#endif
+
 void main() {
+	float gratingShade = 1.0;
+	float gratingAlpha = 1.0;
 	vec3 n = safeNormalize(vNormal);
+	#ifdef CRANE_GRATING
+	// A fine bearing-bar grid with an analytically intersected slab behind its top.
+	// The first cell-wall hit provides parallax, inner faces and depth shading in O(1).
+	// No extra meshes, textures, ray-march loop or per-frame resource work is needed.
+	n = safeNormalize(vGratingBasis * vGratingNormal);
+	if (abs(vGratingNormal.y) > 0.7) {
+		const float pitch = 0.028;
+		const float halfBar = 0.003 / (2.0 * pitch);
+		const float thickness = 0.005;
+		vec2 cell = vGratingPosition.xz / pitch;
+		vec2 centered = fract(cell + 0.5) - 0.5;
+		vec2 edge = abs(centered);
+		vec2 footprint = max(fwidth(cell), vec2(0.0001));
+		vec2 bars = 1.0 - smoothstep(vec2(halfBar) - footprint * 0.5, vec2(halfBar) + footprint * 0.5, edge);
+		float metal = max(bars.x, bars.y);
+		float resolution = max(footprint.x, footprint.y);
+		float detail = 1.0 - smoothstep(0.45, 1.25, resolution);
+		vec2 ray = -vGratingViewDir.xz / max(abs(vGratingViewDir.y), 0.0001) / pitch;
+		vec2 projectedDepth = ray * thickness;
+		vec2 coveredWidth = vec2(halfBar * 2.0) + abs(projectedDepth);
+		vec2 covered = vec2(
+			gratingCoverage(cell.x + projectedDepth.x * 0.5, coveredWidth.x, footprint.x),
+			gratingCoverage(cell.y + projectedDepth.y * 0.5, coveredWidth.y, footprint.y)
+		);
+		gratingAlpha = 1.0 - (1.0 - covered.x) * (1.0 - covered.y);
+		if (gratingAlpha < 0.002) discard;
+		vec2 holePosition = fract(cell);
+		vec2 wall = mix(vec2(halfBar), vec2(1.0 - halfBar), step(vec2(0.0), ray));
+		vec2 hitDepth = abs(wall - holePosition) / max(abs(ray), vec2(0.00001));
+		float depth = min(hitDepth.x, hitDepth.y);
+		float wallHit = 1.0 - smoothstep(thickness * 0.96, thickness, depth);
+		float facing = vGratingViewDir.y >= 0.0 ? 1.0 : -1.0;
+		vec3 surfaceNormal = vec3(0.0, facing, 0.0);
+		float surfaceShade = 1.0;
+		if (metal < 0.5 && wallHit > 0.0) {
+			surfaceNormal = hitDepth.x < hitDepth.y
+				? vec3(-sign(ray.x), 0.0, 0.0)
+				: vec3(0.0, 0.0, -sign(ray.y));
+			surfaceShade = mix(0.68, 0.32, clamp(depth / thickness, 0.0, 1.0));
+		} else {
+			// Small bevels catch light on the edges of each raised metal strip.
+			vec2 bevel = smoothstep(vec2(halfBar * 0.36), vec2(halfBar), edge);
+			if (edge.x < edge.y) surfaceNormal.x = sign(centered.x) * bevel.x * 0.65;
+			else surfaceNormal.z = sign(centered.y) * bevel.y * 0.65;
+			surfaceShade = mix(0.90, 1.12, bars.x);
+		}
+		n = safeNormalize(mix(n, vGratingBasis * surfaceNormal, detail));
+		vec2 top = vec2(
+			gratingCoverage(cell.x, halfBar * 2.0, footprint.x),
+			gratingCoverage(cell.y, halfBar * 2.0, footprint.y)
+		);
+		float topCoverage = 1.0 - (1.0 - top.x) * (1.0 - top.y);
+		float distantSteel = mix(0.40, 0.95, clamp(topCoverage / max(gratingAlpha, 0.001), 0.0, 1.0));
+		gratingShade = mix(distantSteel, surfaceShade, detail);
+	}
+	#endif
 	vec3 v = safeNormalize(vViewDir);
 	vec3 keyDir = safeNormalize(uKeyDir);
 	vec3 fillDir = safeNormalize(uFillDir);
@@ -160,7 +264,7 @@ void main() {
 	vec3 specColor = mix(vec3(1.0), wornSteel * 1.35, uMetalness * 0.38);
 	lit += specColor * spec;
 
-	gl_FragColor = vec4(lit, 1.0);
+	gl_FragColor = vec4(lit * gratingShade, gratingAlpha);
 	#include <fog_fragment>
 }
 `;
@@ -200,6 +304,30 @@ export function createCase3FakeLitMaterial(presetName, overrides = {}) {
 		depthTest: true,
 		depthWrite: true,
 	});
+}
+
+/** Prepared with the crane; perforations need no bitmap texture or runtime rebuild. */
+export function createCraneGratingMaterial() {
+	const material = createCase3FakeLitMaterial("crane", {
+		baseColor: 0x839298,
+		rimColor: 0x9dc6d4,
+		rimStrength: 0.06,
+		metalness: 0.95,
+		keyStrength: 0.78,
+		fillStrength: 0.4,
+		ambient: 0.48,
+		specularStrength: 0.45,
+		roughness: 0.5,
+		surfaceVariation: 0.12,
+		weathering: 0.025,
+		brushing: 0.18,
+	});
+	material.name = "galvanized-walkway-grating";
+	material.defines.CRANE_GRATING = 1;
+	material.side = THREE.DoubleSide;
+	material.transparent = true;
+	material.depthWrite = false;
+	return material;
 }
 
 /**

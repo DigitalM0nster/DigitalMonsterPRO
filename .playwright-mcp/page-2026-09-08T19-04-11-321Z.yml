@@ -1,0 +1,9 @@
+- generic [ref=f4e2]:
+  - generic [ref=f4e4] [cursor=pointer]
+  - generic [ref=f4e18]:
+    - generic "Digital Monster" [ref=f4e19]:
+      - generic [ref=f4e20]: DIGITAL
+      - generic [ref=f4e21]: MONSTER
+    - generic [ref=f4e23]:
+      - strong [ref=f4e24]: 48%
+      - generic [ref=f4e25]: ЗАГРУЗКА / LOADING

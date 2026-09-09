@@ -25,6 +25,7 @@ import {
 	syncSiteArcNavSnakeLines,
 } from "./siteArcNavSnake.js";
 import styles from "./SiteArcDomNav.module.scss";
+import { getSiteArcViewportOpacity } from "./siteArcCarouselMotion.js";
 
 const MAX_ITEMS = 16;
 const MAX_TITLE_LINES = 2;
@@ -71,6 +72,9 @@ export default function SiteArcDomNav({
 		const w = host.clientWidth || window.innerWidth;
 		const h = host.clientHeight || window.innerHeight;
 		const layout = buildSiteArcNavLayout(w, h, w < 768);
+		const viewportOpacity = getSiteArcViewportOpacity(w);
+		host.style.opacity = String(viewportOpacity);
+		host.style.visibility = viewportOpacity > 0.01 ? "visible" : "hidden";
 		layoutRef.current = layout;
 		host.style.setProperty("--arc-active", layout.activeColor);
 

@@ -5,7 +5,7 @@ import { KernelSize } from "postprocessing";
  * levels / radius / mipmap — tier caps в getSiteBloomConfig(gfx).
  */
 export const siteBloomArtDirection = {
-	intensity: 1.75,
+	intensity: 3,
 	/** HDR-only bloom: заливка hero-текста ≤ 1 не светится, контур > 1 — да. */
 	threshold: 1,
 	smoothing: 0.05,

@@ -2,6 +2,8 @@ import { proxy } from "valtio";
 import { useProxy } from "valtio/utils";
 import { getGraphicsConfig, getGraphicsTier, resolveRendererPixelRatio } from "@/functions/getGraphicsTier.js";
 import { getInitialBackgroundBrightness } from "@/functions/backgroundBrightness.js";
+import { PORTFOLIO_ENABLED } from "@/app/config/routeAvailability.js";
+import { CAPABILITIES } from "@/pages/capabilities/data/capabilities.js";
 
 const initialTier = typeof window !== "undefined" ? getGraphicsTier() : "medium";
 const graphics = getGraphicsConfig(initialTier);
@@ -35,7 +37,7 @@ export const store = proxy({
 	sceneCarouselClickTargetId: null,
 	sceneCarouselCurrentId: "home",
 	sceneCarouselPreviousId: "contacts",
-	sceneCarouselNextId: "portfolioHub",
+	sceneCarouselNextId: PORTFOLIO_ENABLED ? "portfolioHub" : CAPABILITIES[0].sceneId,
 	sceneCarouselLastCommitFromId: null,
 	sceneCarouselLastCommitDirection: null,
 	/** Leftover past ±1 at commit into About — becomes About story overshoot (1:1). */
@@ -86,6 +88,7 @@ export const store = proxy({
 		caseNavHovered: false,
 		/** Temporarily fade the HUD cursor during an About substage click jump. */
 		stageNavigationHidden: false,
+		leftMenuHovered: false,
 	},
 	/** Пользователь нажал «Начать» — можно запускать enter-анимации сцен. */
 	appStarted: false,

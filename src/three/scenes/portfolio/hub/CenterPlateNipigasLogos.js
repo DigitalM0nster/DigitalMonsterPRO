@@ -27,7 +27,10 @@ function getTextureAspect(texture) {
  * Три слоя логотипа на плите: зад, перед, float — светятся через bloom.
  */
 export class CenterPlateNipigasLogos {
-	constructor() {
+	constructor(projects = projectsData, options = {}) {
+		this.projects = projects;
+		this.scale = options.scale ?? 1;
+		this.emissiveBoost = options.emissiveBoost;
 		this.loaded = false;
 		this.anchor = new THREE.Group();
 		this.instances = [];
@@ -60,7 +63,7 @@ export class CenterPlateNipigasLogos {
 	}
 
 	_applyAccentToMaterials(projectIndex) {
-		const accent = getLogoAccent(projectIndex);
+		const accent = getLogoAccent(projectIndex, this.projects);
 		for (const mesh of this.instances) {
 			applyLogoAccent(mesh.material.uniforms, accent);
 		}
@@ -75,12 +78,16 @@ export class CenterPlateNipigasLogos {
 	}
 
 	_getLogoPlaneSize(aspect = this.textureAspect) {
-		return getLogoPlaneSizeForAspect(aspect);
+		return getLogoPlaneSizeForAspect(aspect).multiplyScalar(this.scale);
+	}
+
+	_getEmissiveBoost(slotId) {
+		return this.emissiveBoost?.[slotId] ?? portfolioHubLogoConfig.logoEmissiveBoost[slotId] ?? 1;
 	}
 
 	async _loadAll() {
 		const loader = new THREE.TextureLoader();
-		const results = await Promise.all(projectsData.map((project, index) => (
+		const results = await Promise.all(this.projects.map((project, index) => (
 			loader.loadAsync(project.hubLogo).then((texture) => ({ index, texture }))
 		)));
 
@@ -120,7 +127,7 @@ export class CenterPlateNipigasLogos {
 			}
 			const layer = getLogoLayerConfig(slotId);
 			const uniforms = mesh.material.uniforms;
-			uniforms.bloomBoost.value = portfolioHubLogoConfig.logoEmissiveBoost[slotId] ?? 1;
+			uniforms.bloomBoost.value = this._getEmissiveBoost(slotId);
 			uniforms.blur.value = layer.blur ?? 0;
 			mesh.material.userData.baseOpacity = layer.opacity ?? 1;
 			applyLogoRevealConfig(uniforms, this._getLogoPlaneSize(), this._getRevealSeed(this.currentProjectIndex));
@@ -140,7 +147,7 @@ export class CenterPlateNipigasLogos {
 				continue;
 			}
 			const uniforms = mesh.material.uniforms;
-			uniforms.bloomBoost.value = portfolioHubLogoConfig.logoEmissiveBoost[slotId] ?? 1;
+			uniforms.bloomBoost.value = this._getEmissiveBoost(slotId);
 			applyLogoRevealConfig(uniforms, this._getLogoPlaneSize(), this._getRevealSeed(this.currentProjectIndex));
 		}
 	}
@@ -156,7 +163,7 @@ export class CenterPlateNipigasLogos {
 
 		for (const slot of LOGO_SLOT_DEFS) {
 			const layer = getLogoLayerConfig(slot.id);
-			const bloomBoost = portfolioHubLogoConfig.logoEmissiveBoost[slot.id] ?? 1;
+			const bloomBoost = this._getEmissiveBoost(slot.id);
 			const material = createPortfolioLogoMaterial(placeholderTexture, {
 				opacity: layer.opacity,
 				blur: layer.blur,

@@ -9,6 +9,10 @@ const FOLLOW_SMOOTH = 0.14;
 const FOLLOW_SMOOTH_MENU = 0.055;
 const MENU_PARK_OFFSET_X = 220;
 
+Cursor.propTypes = {
+	startApp: (props, name) => typeof props[name] === "boolean" ? null : new TypeError("Cursor.startApp must be a boolean"),
+};
+
 export default function Cursor(props) {
 	const hovered = useSyncExternalStore(
 		(cb) => subscribe(store.cursor, cb),
@@ -40,6 +44,12 @@ export default function Cursor(props) {
 		() => store.cursor.stageNavigationHidden,
 		() => false,
 	);
+	const leftMenuHovered = useSyncExternalStore(
+		(cb) => subscribe(store.cursor, cb),
+		() => store.cursor.leftMenuHovered,
+		() => false,
+	);
+	const cursorActive = menuAnchored || leftMenuHovered;
 	const isHoverVisual = hovered || menuAnchored;
 	const isMenuMerged = menuAnchored && menuAnchorDiameter > 0;
 
@@ -109,15 +119,15 @@ export default function Cursor(props) {
 		if (!isDesktopCursor || !props.startApp || !followInitializedRef.current) {
 			return undefined;
 		}
-		if (!menuAnchored && !menuActivatedOnceRef.current) {
+		if (!cursorActive && !menuActivatedOnceRef.current) {
 			return undefined;
 		}
 
-		if (menuAnchored) {
+		if (cursorActive) {
 			menuActivatedOnceRef.current = true;
 		}
 
-		const fadeEndsAt = menuAnchored ? Number.POSITIVE_INFINITY : performance.now() + 450;
+		const fadeEndsAt = cursorActive ? Number.POSITIVE_INFINITY : performance.now() + 450;
 		let frameId = 0;
 		const tick = (now) => {
 			const menuActive = store.cursor.menuAnchorActive && store.cursor.menuAnchorDiameter > 0;
@@ -137,7 +147,7 @@ export default function Cursor(props) {
 
 		frameId = requestAnimationFrame(tick);
 		return () => cancelAnimationFrame(frameId);
-	}, [isDesktopCursor, menuAnchored, props.startApp]);
+	}, [isDesktopCursor, cursorActive, props.startApp]);
 
 	useEffect(() => {
 		if (menuAnchorRevision === lastAnchorRevisionRef.current) {
@@ -190,7 +200,8 @@ export default function Cursor(props) {
 		"cursor",
 		"menuOnlyCursor",
 		menuAnchored && "menuAnchorVisible",
-		stageNavigationHidden && "stageNavigationHidden",
+		leftMenuHovered && "menuRegionVisible",
+		stageNavigationHidden && !leftMenuHovered && "stageNavigationHidden",
 		isHoverVisual && "hover",
 		isMenuMerged && "menuMerged",
 		caseHovered && "caseHovered",

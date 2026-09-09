@@ -35,6 +35,13 @@ export const ROUTE_GLITCH_SCOPES = {
 		exitTimeBudgetMs: ROUTE_TRANSITION_EXIT_MS,
 		enterTimeBudgetMs: ROUTE_TRANSITION_ENTER_MS,
 	},
+	contacts: {
+		isActive: (pathname) => pathname.replace(/\/+$/, "") === "/contacts",
+		enterStagger: "cascade",
+		exitStagger: "parallel",
+		exitTimeBudgetMs: ROUTE_TRANSITION_EXIT_MS,
+		enterTimeBudgetMs: ROUTE_TRANSITION_ENTER_MS,
+	},
 	/** Список проектов на hub /portfolio — enter/exit glitch. */
 	portfolioHub: {
 		isActive: isPortfolioHubPath,

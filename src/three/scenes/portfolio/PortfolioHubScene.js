@@ -14,9 +14,10 @@ import {
 } from "./hub/portfolioHubConfig.js";
 import { store as appStore } from "@/app/store.jsx";
 import { CenterPlateNipigasLogos } from "./hub/CenterPlateNipigasLogos.js";
-import { HubPlatesRenderer } from "./hub/HubPlatesRenderer.js";
+import { HubPlatesRenderer } from "@/three/objects/plates/HubPlatesRenderer.js";
+import { createPlateGeometry, createPlateMaterial, createPlateMaterials } from "@/three/objects/plates/createPlate.js";
 import { HubPlateInnerPanels } from "./hub/HubPlateInnerPanels.js";
-import { splitPlateMaterialGroups } from "./hub/splitPlateMaterialGroups.js";
+import { splitPlateMaterialGroups } from "@/three/objects/plates/splitPlateMaterialGroups.js";
 import { HubPlateProjectLabels } from "./hub/hubPlateProjectLabel.js";
 import { HubPlateDetailsButtons } from "./hub/hubPlateDetailsButton.js";
 import { HubScreenTitle } from "./hub/hubScreenTitle.js";
@@ -52,9 +53,6 @@ import {
 	syncHubPlateCaseFromScene,
 } from "@/pages/portfolio/hubPlateCase/hubPlateCaseStore.js";
 
-function gridSlideForTarget(targetIndex) {
-	return targetIndex >= 0 ? getGridFocusSlide(targetIndex) : { y: 0, z: 0 };
-}
 
 /** В r155 DirectionalLightHelper убрали из examples — стрелка к target. */
 function createDirectionalDevHelper(light) {
@@ -131,6 +129,14 @@ function ensureHubRectAreaUniforms() {
  */
 export class PortfolioHubScene {
 	constructor(options = {}) {
+		this.store = options.store ?? appStore;
+		this.projects = options.projects ?? projectsData;
+		this.sceneId = options.sceneId ?? "portfolioHub";
+		this.isHubPath = options.isHubPath ?? isPortfolioHubPath;
+		this.isCasePath = options.isCasePath ?? isPortfolioCasePath;
+		this.getProjectByPath = options.getProjectByPath ?? getPortfolioProjectByPath;
+		this.externalLinks = options.externalLinks === true;
+		this._gridSlideForTarget = (index) => getGridFocusSlide(index, this.projects.length);
 		this.threeScene = new THREE.Scene();
 		this.root = new THREE.Group();
 		/** Сдвиг всех плит по локальной Z при фокусе на проекте. */
@@ -165,17 +171,17 @@ export class PortfolioHubScene {
 		this._lastHudTitleVisibility = -1;
 		/** Сглаженный множитель bloom (0…1), без скачка при смене lifecycle. */
 		this._hubBloomRevealCurrent = 0;
-		this.centerPlateLogos = new CenterPlateNipigasLogos();
-		this.plateProjectLabels = new HubPlateProjectLabels();
-		this.plateDetailsButtons = new HubPlateDetailsButtons();
-		this.screenTitle = new HubScreenTitle(this.threeScene);
+		this.centerPlateLogos = new CenterPlateNipigasLogos(this.projects, options.logoOptions);
+		this.plateProjectLabels = new HubPlateProjectLabels(this.projects, this.store);
+		this.plateDetailsButtons = new HubPlateDetailsButtons(this.store, options.getActionLabel);
+		this.screenTitle = new HubScreenTitle(this.threeScene, { projects: this.projects, store: this.store, sceneId: this.sceneId });
 		this._portfolioLocaleSwitch = createPortfolioHubLocaleSwitchController({
 			getProjectsColumn: () => this.screenTitle?.projectsColumn,
 			getPlateLabels: () => this.plateProjectLabels,
 			getPlateDetailsButtons: () => this.plateDetailsButtons,
 			getInnerPanels: () => this.innerPanels,
 			// Animate only while hub is the current page — previous/next stay warm.
-			shouldAnimateLocale: () => shouldAnimateSiteLocaleForRingScene("portfolioHub") && (this._hubLifecycle === "active" || this._hubLifecycle === "entering"),
+			shouldAnimateLocale: () => shouldAnimateSiteLocaleForRingScene(this.sceneId) && (this._hubLifecycle === "active" || this._hubLifecycle === "entering"),
 		});
 		this._logoRevealAlpha = 0;
 		this._devPlateLabelRevealOverride = null;
@@ -445,8 +451,7 @@ export class PortfolioHubScene {
 	}
 
 	_buildPlateGeometry(cfg) {
-		const geometry = new RoundedBoxGeometry(cfg.plateSize, cfg.plateSize, cfg.depth, cfg.cornerSegments, cfg.cornerRadius);
-		return splitPlateMaterialGroups(geometry);
+		return createPlateGeometry(cfg);
 	}
 
 	_buildProjectPlateGeometry(cfg) {
@@ -479,8 +484,8 @@ export class PortfolioHubScene {
 
 	_buildProjectIndexLookup() {
 		const lookup = new Map();
-		for (let index = 0; index < projectsData.length; index += 1) {
-			const layout = getProjectPlateLayout(index);
+		for (let index = 0; index < this.projects.length; index += 1) {
+			const layout = getProjectPlateLayout(index, this.projects.length);
 			lookup.set(`${layout.rowIndex},${layout.plateIndex}`, index);
 		}
 		return lookup;
@@ -515,7 +520,7 @@ export class PortfolioHubScene {
 		this._applyGridTransformAtProgress(1);
 		const labelsReady = this.plateProjectLabels.attachToPlates(this.plates, cfg);
 		const detailsReady = this.plateDetailsButtons.attachToPlates(this.plates, cfg);
-		const innerPanelsReady = this.innerPanels.attachToPlates(this.plates, cfg);
+		const innerPanelsReady = this.externalLinks ? Promise.resolve() : this.innerPanels.attachToPlates(this.plates, cfg);
 		const screenTitleReady = this.screenTitle.init(cfg).then(() => {
 			this._syncScreenTitleVisibility();
 		});
@@ -535,11 +540,11 @@ export class PortfolioHubScene {
 		}
 
 		// Список проектов — только на /portfolio; на кейсе HUD не рисуем и не кликаем.
-		if (isPortfolioCasePath(this._routeDisplayedPage)) {
+		if (this.isCasePath(this._routeDisplayedPage)) {
 			return 0;
 		}
 
-		if (!isPortfolioHubPath(this._routeDisplayedPage)) {
+		if (!this.isHubPath(this._routeDisplayedPage)) {
 			return 0;
 		}
 
@@ -713,15 +718,17 @@ export class PortfolioHubScene {
 		resetHubCaseSelection(this._caseSelection);
 		this._directCaseEnterPrepared = false;
 		this._directCaseEnterPlaying = false;
-		resetHubPlateCaseColumnMotion();
-		syncHubPlateCaseFromScene({ open: false, projectIndex: -1, progress: 0 });
+		if (!this.externalLinks) {
+			resetHubPlateCaseColumnMotion();
+			syncHubPlateCaseFromScene({ open: false, projectIndex: -1, progress: 0 });
+		}
 		this._caseSelectionContentProjectIndex = -1;
 		this._caseSelectionContentFromAlpha = 0;
 		this._caseSelectionContentPartLinear = 0;
 		this.innerPanels.reset();
-		appStore.cursor.screenGalleryHovered = false;
-		appStore.cursor.screenGalleryDragging = false;
-		appStore.cursor.caseNavHovered = false;
+		this.store.cursor.screenGalleryHovered = false;
+		this.store.cursor.screenGalleryDragging = false;
+		this.store.cursor.caseNavHovered = false;
 		const rect2 = this.rectAreaLightsById?.get("rect2");
 		const rect2Def = portfolioHubLights.rectAreas?.find((entry) => entry.id === "rect2");
 		if (rect2 && rect2Def?.position) {
@@ -747,7 +754,7 @@ export class PortfolioHubScene {
 			return;
 		}
 
-		resetPortfolioHubBackgroundFocus(appStore);
+		resetPortfolioHubBackgroundFocus(this.store);
 		this.screenTitle?.stashProjectsHiddenForDormant?.();
 		this._clearHubEnterDelayTimer();
 		this._mixTargetPrepared = false;
@@ -848,7 +855,7 @@ export class PortfolioHubScene {
 		}
 
 		// Still the live hub page in the ring — never wipe mid-stay.
-		if (role === "current" || getSceneCarousel().currentId === "portfolioHub") {
+		if (role === "current" || getSceneCarousel().currentId === this.sceneId) {
 			return;
 		}
 
@@ -898,7 +905,7 @@ export class PortfolioHubScene {
 		if (!this._carouselEnterPending) {
 			// About→hub (and any reverse while hub stayed live as `previous`): plates stay up,
 			// route only hid the list — re-snake without grid enter / dormant wake.
-			if (this._hubLifecycle === "active" && this._gridEnterProgress >= 1 && isPortfolioHubPath(this._routeDisplayedPage)) {
+			if (this._hubLifecycle === "active" && this._gridEnterProgress >= 1 && this.isHubPath(this._routeDisplayedPage)) {
 				this._playProjectsListReenterOnly();
 			}
 			return;
@@ -908,7 +915,7 @@ export class PortfolioHubScene {
 			return;
 		}
 
-		const loaderDelayMs = this._appStarted ? getLoaderCurtainRemainingMs(appStore.appStartedAt) : 0;
+		const loaderDelayMs = this._appStarted ? getLoaderCurtainRemainingMs(this.store.appStartedAt) : 0;
 		if (loaderDelayMs > 0) {
 			this._hubEnterDelayTimer = setTimeout(() => {
 				this._hubEnterDelayTimer = 0;
@@ -928,7 +935,7 @@ export class PortfolioHubScene {
 			return;
 		}
 
-		const loaderDelayMs = this._appStarted ? getLoaderCurtainRemainingMs(appStore.appStartedAt) : 0;
+		const loaderDelayMs = this._appStarted ? getLoaderCurtainRemainingMs(this.store.appStartedAt) : 0;
 		if (loaderDelayMs > 0) {
 			this._hubEnterDelayTimer = setTimeout(() => {
 				this._hubEnterDelayTimer = 0;
@@ -1006,8 +1013,8 @@ export class PortfolioHubScene {
 				if (this._hubLifecycle === "dormant") {
 					return;
 				}
-				if ((appStore.portfolioHubFocusIndex ?? -1) < 0) {
-					commitPortfolioHubFocusIndex(appStore, 0);
+				if ((this.store.portfolioHubFocusIndex ?? -1) < 0) {
+					commitPortfolioHubFocusIndex(this.store, 0);
 				}
 				void this.plateProjectLabels?.playPendingLocaleReveal?.(portfolioHubPlatesConfig);
 				void this.plateDetailsButtons?.playPendingLocaleReveal?.(portfolioHubPlatesConfig);
@@ -1098,7 +1105,7 @@ export class PortfolioHubScene {
 		this._routeDisplayedPage = currentPage ?? "/";
 		this._routeTeleportPage = teleportPage ?? "/";
 		this._routePhase = routePhase ?? "idle";
-		if (!isPortfolioHubPath(this._routeDisplayedPage) && !isPortfolioCasePath(this._routeDisplayedPage) && this._freeCamera?.enabled) {
+		if (!this.isHubPath(this._routeDisplayedPage) && !this.isCasePath(this._routeDisplayedPage) && this._freeCamera?.enabled) {
 			this._freeCamera.setEnabled(false);
 		}
 		const routeKey = `${currentPage}|${teleportPage}|${routePhase}`;
@@ -1112,16 +1119,16 @@ export class PortfolioHubScene {
 		this._lastAppStarted = appStarted;
 		this._appStarted = appStarted;
 
-		const displayedCase = getPortfolioProjectByPath(currentPage);
-		const targetCase = getPortfolioProjectByPath(teleportPage);
+		const displayedCase = this.getProjectByPath(currentPage);
+		const targetCase = this.getProjectByPath(teleportPage);
 		const routeCase = targetCase ?? displayedCase;
-		const displayedCaseIndex = displayedCase ? projectsData.indexOf(displayedCase) : -1;
+		const displayedCaseIndex = displayedCase ? this.projects.indexOf(displayedCase) : -1;
 		// URL intent arrives in teleportPage while currentPage deliberately remains
 		// /portfolio until the route hand-off. Start the gathered-column animation from
 		// that intent instead of waiting for a reload or display-path commit.
-		this._pendingRouteCaseProjectIndex = routeCase ? projectsData.indexOf(routeCase) : -1;
-		const hubDisplayed = isPortfolioHubPath(currentPage) || displayedCaseIndex >= 0;
-		const hubTarget = isPortfolioHubPath(teleportPage) || isPortfolioCasePath(teleportPage);
+		this._pendingRouteCaseProjectIndex = routeCase ? this.projects.indexOf(routeCase) : -1;
+		const hubDisplayed = this.isHubPath(currentPage) || displayedCaseIndex >= 0;
+		const hubTarget = this.isHubPath(teleportPage) || this.isCasePath(teleportPage);
 
 		// A case and /portfolio are two states of this same warmed scene. Start the
 		// reverse motion as soon as the hub becomes the browser target; never snap
@@ -1130,7 +1137,7 @@ export class PortfolioHubScene {
 		// for the first frame. Only the navigation target can tell us that this is
 		// a real return; using currentPage here immediately reversed a just-started
 		// case selection as soon as its URL was committed.
-		const returningToPortfolioHub = this._caseSelection.active && isPortfolioHubPath(teleportPage);
+		const returningToPortfolioHub = this._caseSelection.active && this.isHubPath(teleportPage);
 		if (returningToPortfolioHub && this._caseSelection.phase !== "returning") {
 			this._beginCaseReturn();
 		}
@@ -1431,7 +1438,7 @@ export class PortfolioHubScene {
 		if (!this._freeCamera) {
 			return false;
 		}
-		if (enabled && !isPortfolioHubPath(this._routeDisplayedPage) && !isPortfolioCasePath(this._routeDisplayedPage)) {
+		if (enabled && !this.isHubPath(this._routeDisplayedPage) && !this.isCasePath(this._routeDisplayedPage)) {
 			return false;
 		}
 		this._freeCamera.setEnabled(enabled, camera);
@@ -1458,7 +1465,7 @@ export class PortfolioHubScene {
 	applyPlateLabelFromConfig(options = {}) {
 		this.plateProjectLabels.applyFromConfig(portfolioHubPlatesConfig);
 		void this.plateDetailsButtons.applyFromConfig(portfolioHubPlatesConfig);
-		const focusIndex = appStore.portfolioHubFocusIndex ?? -1;
+		const focusIndex = this.store.portfolioHubFocusIndex ?? -1;
 		const labelReveal = this._devPlateLabelRevealOverride;
 		const alpha = labelReveal?.alpha ?? this._logoRevealAlpha ?? 0;
 		const revealState = labelReveal?.state ?? {
@@ -1523,61 +1530,11 @@ export class PortfolioHubScene {
 	}
 
 	_createPlateMaterial(m = portfolioHubPlatesConfig.material, role = "project") {
-		const typeKey = role === "decor" ? (m.decorType ?? m.type) : m.type;
-		const type = typeKey === "basic" || typeKey === "standard" || typeKey === "physical" ? typeKey : "standard";
-		const color = new THREE.Color(m.color);
-		const opacity = m.opacity ?? 1;
-		const roughness = m.roughness ?? 0.07;
-		const metalness = m.metalness ?? 0;
-		const transmission = m.transmission ?? 0;
-		// Transparent plates must not write depth — logos/labels sit on the surface and z-fight otherwise.
-		const depthWrite = false;
-
-		if (type === "basic") {
-			return new THREE.MeshBasicMaterial({
-				color,
-				transparent: true,
-				opacity,
-				fog: true,
-				depthWrite,
-			});
-		}
-
-		if (type === "standard") {
-			return new THREE.MeshStandardMaterial({
-				color,
-				transparent: true,
-				opacity,
-				roughness,
-				metalness,
-				fog: true,
-				depthWrite,
-			});
-		}
-
-		return new THREE.MeshPhysicalMaterial({
-			color,
-			transparent: true,
-			opacity,
-			transmission,
-			roughness,
-			metalness,
-			thickness: m.thickness ?? 0,
-			clearcoat: m.clearcoat ?? 0,
-			clearcoatRoughness: m.clearcoatRoughness ?? 0.15,
-			ior: m.ior ?? 1.45,
-			fog: true,
-			depthWrite,
-		});
+		return createPlateMaterial(m, role);
 	}
 
 	_createPlateMaterials(m = portfolioHubPlatesConfig.material, role = "project") {
-		const sideConfig = {
-			...m,
-			...(m.sides ?? {}),
-		};
-
-		return [this._createPlateMaterial(m, role), this._createPlateMaterial(sideConfig, role)];
+		return createPlateMaterials(m, role);
 	}
 
 	/** DEV material tuner: transform uniforms live; recreate only when material class changes. */
@@ -1659,7 +1616,7 @@ export class PortfolioHubScene {
 		this._plateHoverNeedsRaycast = true;
 		this.centerPlateLogos.setLogoHover(false);
 		this.plateDetailsButtons.setDetailsHover(false);
-		appStore.cursor.caseHovered = false;
+		this.store.cursor.caseHovered = false;
 	}
 
 	_getFocusedPlateHoverTarget(focusIndex) {
@@ -1697,7 +1654,7 @@ export class PortfolioHubScene {
 	/** Hit-test активной плитки: один Raycaster по одному mesh, recursive=false. */
 	_updatePlateElementHover(delta, frame) {
 		const hoverCfg = portfolioHubPlatesConfig.interaction?.hoverMotion;
-		const focusIndex = appStore.portfolioHubFocusIndex ?? -1;
+		const focusIndex = this.store.portfolioHubFocusIndex ?? -1;
 		const minReveal = hoverCfg?.minRevealAlpha ?? 0.55;
 		const canHover = this._canAcceptHubInteraction(frame) && focusIndex >= 0 && this._logoRevealAlpha >= minReveal && this._gridEnterProgress >= 1 && !this._gridExitActive;
 
@@ -1709,7 +1666,7 @@ export class PortfolioHubScene {
 			this.centerPlateLogos.updateHover(delta);
 			this.plateDetailsButtons.setDetailsHover(false);
 			this.plateDetailsButtons.updateHover(delta);
-			appStore.cursor.caseHovered = false;
+			this.store.cursor.caseHovered = false;
 			return;
 		}
 
@@ -1730,7 +1687,7 @@ export class PortfolioHubScene {
 		this.centerPlateLogos.updateHover(delta);
 		this.plateDetailsButtons.setDetailsHover(this._plateHovered);
 		this.plateDetailsButtons.updateHover(delta);
-		appStore.cursor.caseHovered = this._plateHovered;
+		this.store.cursor.caseHovered = this._plateHovered;
 	}
 
 	setPointerState({ pointerDown, pointerBlocked = false }) {
@@ -1740,10 +1697,10 @@ export class PortfolioHubScene {
 			this._plateHovered = false;
 			this._plateHoverNeedsRaycast = true;
 			this.screenTitle.clearProjectsPointerHit?.();
-			appStore.cursor.caseHovered = false;
-			appStore.cursor.screenGalleryHovered = false;
-			appStore.cursor.screenGalleryDragging = false;
-			appStore.cursor.caseNavHovered = false;
+			this.store.cursor.caseHovered = false;
+			this.store.cursor.screenGalleryHovered = false;
+			this.store.cursor.screenGalleryDragging = false;
+			this.store.cursor.caseNavHovered = false;
 			this.innerPanels.clearGalleryHover();
 			this.innerPanels.clearGalleryPointer();
 			return;
@@ -1766,9 +1723,9 @@ export class PortfolioHubScene {
 		);
 		if (!canHover) {
 			this.innerPanels.clearGalleryHover();
-			appStore.cursor.screenGalleryHovered = false;
-			appStore.cursor.screenGalleryDragging = false;
-			appStore.cursor.caseNavHovered = false;
+			this.store.cursor.screenGalleryHovered = false;
+			this.store.cursor.screenGalleryDragging = false;
+			this.store.cursor.caseNavHovered = false;
 			return;
 		}
 
@@ -1783,10 +1740,10 @@ export class PortfolioHubScene {
 			performance.now() / 1000,
 		);
 		const galleryNavigationHovered = this.innerPanels.isGalleryNavigationHovered();
-		appStore.cursor.caseNavHovered = galleryNavigationHovered;
-		appStore.cursor.screenGalleryHovered =
+		this.store.cursor.caseNavHovered = galleryNavigationHovered;
+		this.store.cursor.screenGalleryHovered =
 			(galleryHovered && !galleryNavigationHovered) || galleryDragging;
-		appStore.cursor.screenGalleryDragging = galleryDragging && this._pointerDown;
+		this.store.cursor.screenGalleryDragging = galleryDragging && this._pointerDown;
 	}
 
 	/** Project cases are route states rendered by this same warmed scene. */
@@ -1840,7 +1797,7 @@ export class PortfolioHubScene {
 	_prepareDirectCaseEnter(projectIndex) {
 		if (
 			projectIndex < 0 ||
-			!projectsData[projectIndex] ||
+			!this.projects[projectIndex] ||
 			this._caseSelection.active ||
 			!this._getPlateByProjectIndex(projectIndex)?.mesh
 		) {
@@ -1861,7 +1818,7 @@ export class PortfolioHubScene {
 		this.platesGroup.position.z = gridTarget.z;
 		this._lastMenuGridY = gridTarget.y;
 		this._lastMenuGridZ = gridTarget.z;
-		settleHubMenuAnimAtFocus(this._hubAnim, projectIndex, gridSlideForTarget);
+		settleHubMenuAnimAtFocus(this._hubAnim, projectIndex, this._gridSlideForTarget);
 		const slideX = portfolioHubPlatesConfig.interaction?.plateSlideX ?? 0;
 		this.platesRenderer.setProjectPlatePositions(
 			(index) => (index === projectIndex ? 1 : 0),
@@ -1923,7 +1880,7 @@ export class PortfolioHubScene {
 			!this._caseSelection.active ||
 			this._caseSelection.phase === "returning" ||
 			projectIndex < 0 ||
-			!projectsData[projectIndex]
+			!this.projects[projectIndex]
 		) {
 			return false;
 		}
@@ -1941,7 +1898,7 @@ export class PortfolioHubScene {
 			return false;
 		}
 
-		commitPortfolioHubFocusIndex(appStore, projectIndex);
+		commitPortfolioHubFocusIndex(this.store, projectIndex);
 		this._caseSelectionContentProjectIndex = -1;
 		this._caseSelectionContentFromAlpha = 0;
 		this._caseSelectionContentPartLinear = 0;
@@ -1955,6 +1912,7 @@ export class PortfolioHubScene {
 	}
 
 	_syncRequestedCaseSelection() {
+		if (this.externalLinks) return;
 		const requestedIndex = consumeHubPlateCaseOpenRequest();
 		if (requestedIndex === null) {
 			return;
@@ -2021,10 +1979,10 @@ export class PortfolioHubScene {
 			return;
 		}
 
-		commitPortfolioHubFocusIndex(appStore, projectIndex);
+		commitPortfolioHubFocusIndex(this.store, projectIndex);
 		this.platesGroup.position.y = this._caseReturnGroupTargetY;
 		this.platesGroup.position.z = this._caseReturnGroupTargetZ;
-		settleHubMenuAnimAtFocus(this._hubAnim, projectIndex, gridSlideForTarget);
+		settleHubMenuAnimAtFocus(this._hubAnim, projectIndex, this._gridSlideForTarget);
 		this._resetCaseSelection();
 		this._updateMenuInteraction();
 		this._plateHoverNeedsRaycast = true;
@@ -2036,7 +1994,8 @@ export class PortfolioHubScene {
 		camera = null,
 		{ commitRoute = true, playMovementSound = true, exitProjects = true } = {},
 	) {
-		if (this._caseSelection.active || projectIndex < 0 || !projectsData[projectIndex]) {
+		if (this.externalLinks) return false;
+		if (this._caseSelection.active || projectIndex < 0 || !this.projects[projectIndex]) {
 			return false;
 		}
 
@@ -2051,7 +2010,7 @@ export class PortfolioHubScene {
 			visibleLogo?.partLinear ?? this._caseSelectionContentFromAlpha,
 		);
 
-		commitPortfolioHubFocusIndex(appStore, projectIndex);
+		commitPortfolioHubFocusIndex(this.store, projectIndex);
 		const started = beginHubCaseSelection(
 			this._caseSelection,
 			this.plates,
@@ -2080,7 +2039,7 @@ export class PortfolioHubScene {
 		}
 		if (commitRoute) {
 			commitPortfolioHubCaseRoute(
-				projectsData[projectIndex].path,
+				this.projects[projectIndex].path,
 				this._routeDisplayedPage,
 			);
 		}
@@ -2193,7 +2152,7 @@ export class PortfolioHubScene {
 			return false;
 		}
 
-		const focusIndex = appStore.portfolioHubFocusIndex ?? -1;
+		const focusIndex = this.store.portfolioHubFocusIndex ?? -1;
 		if (focusIndex < 0) {
 			return false;
 		}
@@ -2209,7 +2168,7 @@ export class PortfolioHubScene {
 			return false;
 		}
 
-		const project = projectsData[focusIndex];
+		const project = this.projects[focusIndex];
 		if (!project?.path) {
 			return false;
 		}
@@ -2389,7 +2348,7 @@ export class PortfolioHubScene {
 
 		const platePayload = {
 			mesh: plate.mesh,
-			flatIndex: getProjectPlateFlatIndex(focusIndex),
+			flatIndex: getProjectPlateFlatIndex(focusIndex, this.projects.length),
 			projectIndex: focusIndex,
 		};
 
@@ -2427,7 +2386,7 @@ export class PortfolioHubScene {
 
 	/** Dev: проиграть reveal подписи заново для превью параметров. */
 	replayPlateLabelReveal() {
-		const focusIndex = appStore.portfolioHubFocusIndex ?? -1;
+		const focusIndex = this.store.portfolioHubFocusIndex ?? -1;
 		if (focusIndex < 0) {
 			return false;
 		}
@@ -2467,11 +2426,11 @@ export class PortfolioHubScene {
 		const timing = portfolioHubPlatesConfig.interaction;
 		const slideX = timing.plateSlideX;
 		const now = performance.now() / 1000;
-		const storeTarget = appStore.portfolioHubFocusIndex ?? -1;
+		const storeTarget = this.store.portfolioHubFocusIndex ?? -1;
 		const enterPlateGate = timing.gridEnterStartPlateFraction ?? timing.gridStartPlateFraction ?? 0.4;
 		const logosAllowed = !this._gridExitActive && (this._gridEnterProgress >= 1 || this._gridEnterProgress >= enterPlateGate);
 
-		const visuals = advanceHubMenuAnim(this._hubAnim, storeTarget, now, timing, gridSlideForTarget, logosAllowed);
+		const visuals = advanceHubMenuAnim(this._hubAnim, storeTarget, now, timing, this._gridSlideForTarget, logosAllowed);
 
 		const { gridY, gridZ, logoProjectIndex, logoProgress, logoPartLinear, logoEntering, logoRevealJustStarted, logoRevealJustPaused, plateMovementJustStarted } = visuals;
 
@@ -2523,7 +2482,7 @@ export class PortfolioHubScene {
 		const mixProgress = getHexShaderProgress();
 		if (mixProgress > 0.0001) {
 			const { targetId } = getSceneCarousel().getMixSourceTargetIds();
-			if (targetId === "portfolioHub" && this._hubLifecycle === "dormant") {
+			if (targetId === this.sceneId && this._hubLifecycle === "dormant") {
 				// Fallback if mix-target prepare did not run — dormant plates are opacity 0.
 				return clamp01(mixProgress);
 			}
@@ -2579,7 +2538,7 @@ export class PortfolioHubScene {
 			const tiltChanged = this._updateCursorGridTilt(_delta, pointer, frame);
 			this._updateCursorParallax(_delta, pointer, frame);
 
-			if ((isPortfolioHubPath(this._routeDisplayedPage) || isPortfolioCasePath(this._routeDisplayedPage)) && frame?.camera) {
+			if ((this.isHubPath(this._routeDisplayedPage) || this.isCasePath(this._routeDisplayedPage)) && frame?.camera) {
 				this._freeCamera?.update(_delta, frame.camera);
 			}
 
@@ -2600,7 +2559,7 @@ export class PortfolioHubScene {
 						nowSeconds,
 					);
 				} else {
-					const canPickProjectsList = this._canAcceptHubInteraction(frame) && isPortfolioHubPath(this._routeDisplayedPage) && (this._lastHudTitleVisibility ?? 0) > 0.001;
+					const canPickProjectsList = this._canAcceptHubInteraction(frame) && this.isHubPath(this._routeDisplayedPage) && (this._lastHudTitleVisibility ?? 0) > 0.001;
 					if (!canPickProjectsList) {
 						this.screenTitle.clearProjectsPointerHit?.();
 					} else {
@@ -2639,9 +2598,9 @@ export class PortfolioHubScene {
 	}
 
 	dispose() {
-		appStore.cursor.screenGalleryHovered = false;
-		appStore.cursor.screenGalleryDragging = false;
-		appStore.cursor.caseNavHovered = false;
+		this.store.cursor.screenGalleryHovered = false;
+		this.store.cursor.screenGalleryDragging = false;
+		this.store.cursor.caseNavHovered = false;
 		this._clearHubEnterDelayTimer();
 		this._mixTargetPrepared = false;
 		this._lightHelpersVisible = false;

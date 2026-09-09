@@ -763,7 +763,7 @@ function syncLabelGlitchState(entry, segments, labelCfg) {
 }
 
 function resolveEntryWidestCanvasSize(entry, segments, labelCfg) {
-	const project = projectsData[entry?.projectIndex];
+	const project = entry?.project ?? projectsData[entry?.projectIndex];
 	if (project) {
 		return measureWidestHubPlateLabelCanvas(project, labelCfg);
 	}
@@ -950,8 +950,8 @@ function getLabelLayerPosition(layout, cfg, labelCfg, slot) {
 	return new THREE.Vector3(layout.x, layout.y, slot.z(cfg.depth, labelCfg, cfg) + zOffset);
 }
 
-function createLabelGroup(projectIndex, cfg) {
-	const project = projectsData[projectIndex];
+function createLabelGroup(projectIndex, cfg, projects = projectsData) {
+	const project = projects[projectIndex];
 	if (!project) {
 		return null;
 	}
@@ -1111,7 +1111,9 @@ function applyLabelEntry(entry, cfg) {
  * HUD-подписи на проектных плитах (верхний/нижний левый угол — plateLabel.corner).
  */
 export class HubPlateProjectLabels {
-	constructor() {
+	constructor(projects = projectsData, appStore = store) {
+		this.projects = projects;
+		this.store = appStore;
 		/** @type {Array<{ plateMesh: THREE.Mesh, projectIndex: number, entry: ReturnType<typeof createLabelGroup> }>} */
 		this.attachments = [];
 		this.focusProjectIndex = -1;
@@ -1185,11 +1187,12 @@ export class HubPlateProjectLabels {
 				continue;
 			}
 
-			const entry = createLabelGroup(plate.projectIndex, cfg);
+			const entry = createLabelGroup(plate.projectIndex, cfg, this.projects);
 			if (!entry) {
 				continue;
 			}
 
+			entry.project = this.projects[plate.projectIndex];
 			initLabelGlitchState(entry, entry.segments, cfg.plateLabel ?? {});
 			plate.mesh.add(entry.group);
 			this.attachments.push({ plateMesh: plate.mesh, projectIndex: plate.projectIndex, entry });
@@ -1220,7 +1223,7 @@ export class HubPlateProjectLabels {
 		const focused = this._getFocusedAttachment();
 
 		for (const attachment of this.attachments) {
-			const project = projectsData[attachment.projectIndex];
+			const project = this.projects[attachment.projectIndex];
 			if (!project) {
 				continue;
 			}
@@ -1267,7 +1270,7 @@ export class HubPlateProjectLabels {
 			return;
 		}
 		if (this.focusProjectIndex < 0) {
-			this.focusProjectIndex = Math.max(0, store.portfolioHubFocusIndex ?? 0);
+			this.focusProjectIndex = Math.max(0, this.store.portfolioHubFocusIndex ?? 0);
 		}
 		const focused = this._getFocusedAttachment();
 		if (focused) {

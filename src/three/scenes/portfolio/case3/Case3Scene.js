@@ -3,7 +3,7 @@ import { easing } from "maath";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { createGLTFLoader } from "@/three/assets/gltfLoader.js";
 import { restoreRootForShow } from "@/three/scenes/utils/sceneRoot.js";
-import { createCase3FakeLitMaterial } from "./case3FakeLitMaterial.js";
+import { createCase3FakeLitMaterial, createCraneGratingMaterial } from "./case3FakeLitMaterial.js";
 import { createCase3PointerInteract } from "./createCase3PointerInteract.js";
 import { CASE3_RADAR, createCase3GridRadar } from "./createCase3GridRadar.js";
 import { CASE3_BLOCK_HOVER } from "./case3InteractConfig.js";
@@ -672,6 +672,7 @@ function mergeCraneGeometry(sourceScene) {
 	const bodyGeometries = [];
 	const wireGeometries = [];
 	const lightGeometries = [];
+	const gratingGeometries = [];
 	sourceScene.updateMatrixWorld(true);
 	sourceScene.traverse((object) => {
 		if (!object.isMesh || !object.geometry?.attributes?.position) return;
@@ -680,6 +681,8 @@ function mergeCraneGeometry(sourceScene) {
 			.map((material) => String(material?.name ?? "").toLowerCase());
 		const isWire = objectName === "wires" || materialNames.includes("wiresmaterial");
 		const isLight = objectName.startsWith("lightsphere") || materialNames.includes("red");
+		// The authored walkway / service-platform mesh must keep its own material.
+		const isGrating = objectName.startsWith("setka") || materialNames.includes("material_2");
 		let geometry = object.geometry.index ? object.geometry.toNonIndexed() : object.geometry.clone();
 		geometry.applyMatrix4(object.matrixWorld);
 		for (const attributeName of Object.keys(geometry.attributes)) {
@@ -690,6 +693,7 @@ function mergeCraneGeometry(sourceScene) {
 		geometry.clearGroups();
 		if (isLight) lightGeometries.push(geometry);
 		else if (isWire) wireGeometries.push(geometry);
+		else if (isGrating) gratingGeometries.push(geometry);
 		else bodyGeometries.push(geometry);
 	});
 
@@ -697,13 +701,14 @@ function mergeCraneGeometry(sourceScene) {
 	const body = mergeGeometries(bodyGeometries, false);
 	const wires = wireGeometries.length > 0 ? mergeGeometries(wireGeometries, false) : null;
 	const lights = lightGeometries.length > 0 ? mergeGeometries(lightGeometries, false) : null;
-	for (const geometry of [...bodyGeometries, ...wireGeometries, ...lightGeometries]) geometry.dispose();
-	for (const geometry of [body, wires, lights]) {
+	const grating = gratingGeometries.length > 0 ? mergeGeometries(gratingGeometries, false) : null;
+	for (const geometry of [...bodyGeometries, ...wireGeometries, ...lightGeometries, ...gratingGeometries]) geometry.dispose();
+	for (const geometry of [body, wires, lights, grating]) {
 		geometry?.computeVertexNormals();
 		geometry?.computeBoundingBox();
 		geometry?.computeBoundingSphere();
 	}
-	return { body, wires, lights };
+	return { body, wires, lights, grating };
 }
 
 export class Case3Scene {
@@ -751,6 +756,7 @@ export class Case3Scene {
 		this.craneBodyMesh = null;
 		this.craneWiresMesh = null;
 		this.craneLightsMesh = null;
+		this.craneGratingMesh = null;
 		this._craneRotationY = CRANE_ROTATION_Y;
 		this.pointerInteract = null;
 		this.gridRadar = null;
@@ -845,9 +851,17 @@ export class Case3Scene {
 				const lightsMesh = geometries.lights
 					? new THREE.Mesh(geometries.lights, lightsMaterial)
 					: null;
+				const gratingMesh = geometries.grating
+					? new THREE.Mesh(geometries.grating, createCraneGratingMaterial())
+					: null;
 				crane.add(bodyMesh);
 				if (wiresMesh) crane.add(wiresMesh);
 				if (lightsMesh) crane.add(lightsMesh);
+				if (gratingMesh) {
+					gratingMesh.name = "crane-walkway-grating";
+					crane.add(gratingMesh);
+					this.disposables.push(geometries.grating, gratingMesh.material);
+				}
 				this.disposables.push(geometries.body, craneMaterial, wiresMaterial, lightsMaterial);
 				if (geometries.wires) this.disposables.push(geometries.wires);
 				if (geometries.lights) this.disposables.push(geometries.lights);
@@ -872,6 +886,7 @@ export class Case3Scene {
 				this.craneBodyMesh = bodyMesh;
 				this.craneWiresMesh = wiresMesh;
 				this.craneLightsMesh = lightsMesh;
+				this.craneGratingMesh = gratingMesh;
 
 				this.loaded = true;
 				if (this._mixPreview) {

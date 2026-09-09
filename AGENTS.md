@@ -171,6 +171,15 @@ Canonical: [`src/sounds/SCROLL_ANIMATION_SOUND.md`](src/sounds/SCROLL_ANIMATION_
 - Scrub a buffer; rate from `|d progress / dt|`; rest → soft fade stop (no idle loop after spring rAF ends).
 - Paths in `SOUND_CATALOG` (`soundDesign.js`); left HUD reference: `caseStudyTextTransitionSound.js`; hex: `hexTransitionSound.js`.
 
+## Approved GPU glitch-snake text effect
+
+The user explicitly approved the Synthetic Core HUD glitch-snake on 2026-09-09 and requested that this implementation be preserved for future reuse. Before implementing or changing a text glitch-snake, read [`src/three/GPU_GLITCH_SNAKE.md`](src/three/GPU_GLITCH_SNAKE.md) and use its linked working implementation as the visual/performance reference.
+
+- Prepare clean text, compact per-letter order data and a small replacement-symbol atlas before Start. Animate one reversible shader playhead; no per-frame Canvas2D text paints, texture uploads, per-letter CPU animation or resource recreation on hover.
+- Preserve the serpentine letter order, brief cyan symbol substitutions, sharp settled text and deliberate letter/word spacing. Do not substitute a generic opacity/wipe effect or continuous whole-text noise.
+- Rasterize only the element bounds; keep an inexpensive idle shader path. Render sharp text after bloom at rest and bake the same mesh into the scene during hex transitions, without double drawing.
+- Reuse the method in the narrowest relevant owner. Do not automatically replace unrelated working effects or introduce a general framework just to document this pattern. The detailed guide records settings, lifecycle, portability limits and verification.
+
 ## Required verification for related changes
 
 When a task modifies About rendering, case panel HUD, scroll, typography, WebGL overlays, mosaic/stage mix, or carousel/hex transitions, verify all of the following before considering it complete:

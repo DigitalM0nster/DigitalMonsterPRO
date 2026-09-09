@@ -28,7 +28,7 @@ import {
 import { syncSiteArcSelectSequence } from "@/components/SiteArc/siteArcSelectSequence.js";
 import { getSiteArcShift } from "@/components/SiteArc/siteArcPositionMotion.js";
 import { setSiteArcFocusFromScroll } from "@/components/SiteArc/siteArcFocusMotion.js";
-import { resolveSiteArcCarouselMotion } from "@/components/SiteArc/siteArcCarouselMotion.js";
+import { resolveSiteArcCarouselMotion, getSiteArcViewportOpacity } from "@/components/SiteArc/siteArcCarouselMotion.js";
 import { getSceneCarousel } from "@/three/render/transition/carouselPage.js";
 import { isSiteArcSessionActive } from "@/components/SiteArc/siteArcSession.js";
 import { isSiteArcNavigationActive } from "@/components/SiteArc/siteArcNavigationSource.js";
@@ -235,7 +235,7 @@ export function buildSiteArcGpuState(viewportW, viewportH, isMobile = false) {
 	);
 	const glowStrength = 1;
 	const cfg = siteArcConfig;
-	const introOpacity = Math.max(0, Math.min(1, siteArcRuntime.introOpacity ?? 1));
+	const introOpacity = Math.max(0, Math.min(1, siteArcRuntime.introOpacity ?? 1)) * getSiteArcViewportOpacity(viewportW);
 
 	const nodeAngles = [];
 	const nodeHighlights = [];

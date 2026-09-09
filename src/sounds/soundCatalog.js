@@ -17,6 +17,9 @@ export const SOUND_CATALOG = Object.freeze({
 	panel_hud_text: "/audio/text4.mp3",
 	underwater: "/audio/underwater.mp3",
 	glitch_button: "/audio/glitch_button.mp3",
+	capability_flight_air: "/audio/capability_flight_air.wav",
+	capability_line_energy: "/audio/capability_line_reference_hum.wav",
+	capability_line_sweep: "/audio/capability_line_reference_sweep.wav",
 });
 
 export function getUniqueSoundSources() {

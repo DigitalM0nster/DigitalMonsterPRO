@@ -7,13 +7,7 @@ import {
 	getPortfolioProjectListUppercase,
 	getPortfolioProjectName,
 } from "@/pages/portfolio/data/portfolioProjectsCopy.js";
-import {
-	ensureHubCanvasGlitchRouteScope,
-	runHubCanvasGlitchRoute,
-	setHubCanvasGlitchLayers,
-	setHubCanvasGlitchEnterDeferred,
-	playHubCanvasEnterFromScene,
-} from "./hubCanvasGlitchRoute.js";
+import { createHubCanvasGlitchRouteScope } from "./hubCanvasGlitchRoute.js";
 import { getRouteGlitchCascadeFinishMs } from "@/functions/routeGlitchConfig.js";
 import { cancelRouteGlitchStagger } from "@/functions/routeGlitchRegistry.js";
 import { playGlitchTextSound } from "@/sounds/soundDesign.js";
@@ -34,7 +28,7 @@ function resolveProjectLayer(project, projectIndex, columnCfg, locale = getPortf
 	const layerDef = {
 		id: `project-${project.id}`,
 		...defaults,
-		text: textOverride ?? getPortfolioProjectName(project.id, locale),
+		text: textOverride ?? (project.externalHref ? project.name : getPortfolioProjectName(project.id, locale)),
 		uppercase,
 		opacity: listOpacity,
 		meta: { projectIndex, path: project.path, projectId: project.id },
@@ -48,7 +42,10 @@ function resolveProjectLayer(project, projectIndex, columnCfg, locale = getPortf
  * Active-проект держится до смены или ухода с hub; змейка — при смене active.
  */
 export class HubScreenProjectsColumn {
-	constructor(parentGroup) {
+	constructor(parentGroup, options = {}) {
+		this.projects = options.projects ?? projectsData;
+		this.sceneId = options.sceneId ?? "portfolioHub";
+		this._routeGlitch = createHubCanvasGlitchRouteScope(this.sceneId);
 		this.root = parentGroup;
 		this.layers = [];
 		this.columnCfg = null;
@@ -66,6 +63,10 @@ export class HubScreenProjectsColumn {
 		this._pendingLocale = null;
 		this._localeSwitchRunToken = 0;
 		this._exitGlitchRunToken = 0;
+	}
+
+	_projectName(project, locale) {
+		return project.externalHref ? project.name : getPortfolioProjectName(project.id, locale);
 	}
 
 	_layoutStack() {
@@ -195,7 +196,7 @@ export class HubScreenProjectsColumn {
 		this._activeProjectIndex = next;
 		logPortfolioActiveDebug("COLUMN_ACTIVE_CHANGED", {
 			activeIndex: next,
-			projectId: projectsData[next]?.id ?? null,
+			projectId: this.projects[next]?.id ?? null,
 			skipHoverGlitch,
 			immediateOpacity,
 		});
@@ -302,15 +303,15 @@ export class HubScreenProjectsColumn {
 			return;
 		}
 
-		const layerDefs = projectsData.map((project, projectIndex) =>
+		const layerDefs = this.projects.map((project, projectIndex) =>
 			resolveProjectLayer(project, projectIndex, columnCfg),
 		);
 
 		await ensureScreenTextFonts(layerDefs);
 
 		for (let projectIndex = 0; projectIndex < layerDefs.length; projectIndex += 1) {
-			const project = projectsData[projectIndex];
-			const stableCanvas = measureWidestPortfolioProjectGlitchCanvas(project.id, layerDefs[projectIndex]);
+			const project = this.projects[projectIndex];
+			const stableCanvas = measureWidestPortfolioProjectGlitchCanvas(project.id, layerDefs[projectIndex], project.externalHref ? [project.name] : undefined);
 			layerDefs[projectIndex].stableCanvasWidth = stableCanvas.width;
 			layerDefs[projectIndex].stableCanvasHeight = stableCanvas.height;
 		}
@@ -326,9 +327,9 @@ export class HubScreenProjectsColumn {
 		this._layoutStack();
 		this._applyLayerVisuals();
 
-		setHubCanvasGlitchLayers(this.layers);
-		ensureHubCanvasGlitchRouteScope();
-		setHubCanvasGlitchEnterDeferred(glitchIntro);
+		this._routeGlitch.setLayers(this.layers);
+		this._routeGlitch.ensureRegistered();
+		this._routeGlitch.setDeferred(glitchIntro);
 	}
 
 	_syncAllLayersGlitchHidden() {
@@ -358,7 +359,7 @@ export class HubScreenProjectsColumn {
 		this._projectsIntroFinishedLayers = this.layers.map(() => false);
 		logPortfolioActiveDebug("SNAKE_STARTED", { itemCount: this.layers.length });
 		this._markProjectsIntroGlitchActive();
-		playHubCanvasEnterFromScene();
+		this._routeGlitch.playEnterFromScene();
 		this._scheduleGlitchAppearFallback();
 	}
 
@@ -366,11 +367,11 @@ export class HubScreenProjectsColumn {
 	_ensureLocaleCanvasesMatchCfg() {
 		const uppercase = getPortfolioProjectListUppercase();
 		this.layers.forEach((layer, projectIndex) => {
-			const project = projectsData[projectIndex];
+			const project = this.projects[projectIndex];
 			if (!project || !layer.glitchText) {
 				return;
 			}
-			const want = getPortfolioProjectName(project.id, getPortfolioLocale());
+			const want = this._projectName(project, getPortfolioLocale());
 			const have = String(layer.glitchText.options?.text ?? "");
 			const wantCmp = uppercase ? want.toUpperCase() : want;
 			const haveCmp = uppercase ? have.toUpperCase() : have;
@@ -389,9 +390,9 @@ export class HubScreenProjectsColumn {
 		this._pendingLocale = null;
 		const uppercase = getPortfolioProjectListUppercase();
 		this.layers.forEach((layer, projectIndex) => {
-			const project = projectsData[projectIndex];
+			const project = this.projects[projectIndex];
 			if (project) {
-				layer.setLocaleTextHidden(getPortfolioProjectName(project.id, locale), { uppercase });
+				layer.setLocaleTextHidden(this._projectName(project, locale), { uppercase });
 			}
 		});
 	}
@@ -421,10 +422,10 @@ export class HubScreenProjectsColumn {
 			layer.setFocusActive(false, 0, { pointerHover: false });
 			layer.setLayerOpacity(listOpacity, { immediate: true });
 		}
-		runHubCanvasGlitchRoute("exit");
+		this._routeGlitch.run("exit");
 
 		const cascadeFinishMs = getRouteGlitchCascadeFinishMs(
-			"portfolioHub",
+			this.sceneId,
 			"exit",
 			this.layers.length,
 		);
@@ -448,7 +449,7 @@ export class HubScreenProjectsColumn {
 		this._projectsIntroVisualComplete = null;
 		this._clearProjectsIntroGlitchTimer();
 		this._projectsIntroGlitchActive = false;
-		cancelRouteGlitchStagger("portfolioHub");
+		cancelRouteGlitchStagger(this.sceneId);
 		// Hide only — never mark/upload textures on leave (home land frame must stay light).
 		// Enter glitch will flush when the list actually appears again.
 		this._syncAllLayersGlitchHidden();
@@ -466,7 +467,7 @@ export class HubScreenProjectsColumn {
 		this._clearProjectsIntroGlitchTimer();
 		this._projectsIntroGlitchActive = true;
 
-		const finishMs = getRouteGlitchCascadeFinishMs("portfolioHub", "enter", this.layers.length);
+		const finishMs = getRouteGlitchCascadeFinishMs(this.sceneId, "enter", this.layers.length);
 		this._projectsIntroGlitchTimer = setTimeout(() => {
 			this._projectsIntroGlitchTimer = null;
 			this._projectsIntroGlitchActive = false;
@@ -486,7 +487,7 @@ export class HubScreenProjectsColumn {
 
 	_scheduleGlitchAppearFallback() {
 		this._clearGlitchAppearFallback();
-		const finishMs = getRouteGlitchCascadeFinishMs("portfolioHub", "enter", this.layers.length);
+		const finishMs = getRouteGlitchCascadeFinishMs(this.sceneId, "enter", this.layers.length);
 		this._glitchAppearFallbackTimer = setTimeout(() => {
 			this._glitchAppearFallbackTimer = null;
 			for (const layer of this.layers) {
@@ -576,7 +577,7 @@ export class HubScreenProjectsColumn {
 				this._projectsIntroFinishedLayers[index] = true;
 				logPortfolioActiveDebug("SNAKE_ITEM_FINISHED", {
 					index,
-					projectId: projectsData[index]?.id ?? null,
+					projectId: this.projects[index]?.id ?? null,
 				});
 			}
 			return finished;
@@ -618,9 +619,9 @@ export class HubScreenProjectsColumn {
 			if (introIsStillHidden) {
 				this._pendingLocale = null;
 				this.layers.forEach((layer, projectIndex) => {
-					const project = projectsData[projectIndex];
+					const project = this.projects[projectIndex];
 					if (project) {
-						layer.setLocaleTextHidden(getPortfolioProjectName(project.id, locale), { uppercase });
+						layer.setLocaleTextHidden(this._projectName(project, locale), { uppercase });
 					}
 				});
 				return;
@@ -628,9 +629,9 @@ export class HubScreenProjectsColumn {
 
 			this._pendingLocale = locale;
 			this.layers.forEach((layer, projectIndex) => {
-				const project = projectsData[projectIndex];
+				const project = this.projects[projectIndex];
 				if (project && layer.layerCfg) {
-					layer.layerCfg.text = getPortfolioProjectName(project.id, locale);
+					layer.layerCfg.text = this._projectName(project, locale);
 					layer.layerCfg.uppercase = uppercase;
 				}
 			});
@@ -652,9 +653,9 @@ export class HubScreenProjectsColumn {
 		// On-page but list still hidden for enter: prepare new copy; enter snake owns appear.
 		if (introIsStillHidden) {
 			this.layers.forEach((layer, projectIndex) => {
-				const project = projectsData[projectIndex];
+				const project = this.projects[projectIndex];
 				if (project) {
-					layer.setLocaleTextHidden(getPortfolioProjectName(project.id, locale), { uppercase });
+					layer.setLocaleTextHidden(this._projectName(project, locale), { uppercase });
 				}
 			});
 			return;
@@ -669,8 +670,8 @@ export class HubScreenProjectsColumn {
 		const overlapRatio = Math.max(0, Math.min(1, runOptions.appearOverlapRatio ?? 0.9));
 		let maxSwitchDuration = 0;
 
-		for (const project of projectsData) {
-			const nextText = getPortfolioProjectName(project.id, locale);
+		for (const project of this.projects) {
+			const nextText = this._projectName(project, locale);
 			const letterSlots = createGlitchTextSlots(nextText, uppercase).filter((slot) => !slot.isSpace);
 			const snakeLength = getSnakeLength(letterSlots.length);
 			const naturalDuration = getTotalSnakeDuration(letterSlots, snakeLength, 1, timing);
@@ -686,12 +687,12 @@ export class HubScreenProjectsColumn {
 
 		await Promise.all(
 			this.layers.map((layer, projectIndex) => {
-				const project = projectsData[projectIndex];
+				const project = this.projects[projectIndex];
 				if (!project) {
 					return Promise.resolve();
 				}
 
-				const nextText = getPortfolioProjectName(project.id, locale);
+				const nextText = this._projectName(project, locale);
 
 				return layer.switchLocaleWithSnake(nextText, { uppercase, playSound: false });
 			}),
@@ -711,8 +712,8 @@ export class HubScreenProjectsColumn {
 		this._projectsIntroVisualComplete = null;
 		this._clearProjectsIntroGlitchTimer();
 		this._projectsIntroGlitchActive = false;
-		cancelRouteGlitchStagger("portfolioHub");
-		runHubCanvasGlitchRoute("exit");
+		cancelRouteGlitchStagger(this.sceneId);
+		this._routeGlitch.dispose();
 		this._glowPreviewIndex = -1;
 		this._activeProjectIndex = -1;
 		this._pointerHitIndex = -1;

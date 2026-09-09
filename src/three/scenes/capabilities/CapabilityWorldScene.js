@@ -1,14 +1,13 @@
 import * as THREE from "three";
+import { sceneOwnsHexHitAtClientY } from "@/three/render/overlay/hexHitOwnership.js";
 import { InfiniteLightTrailsWorld } from "./lightTrails/InfiniteLightTrailsWorld.js";
 import { SyntheticCoreWorld } from "./placeholders/SyntheticCoreWorld.js";
+import { SyntheticCoreSound } from "./placeholders/SyntheticCoreSound.js";
 import { CityModelWorld } from "./city/CityModelWorld.js";
-import {
-	createCaseStudyPanelHud,
-	disposeCaseStudyPanelHud,
-	syncCaseStudyPanelHud,
-} from "@/three/scenes/portfolio/caseStudyText/caseStudyPanelHudHost.js";
-import { getSceneCarousel } from "@/three/render/transition/carouselPage.js";
+import { CapabilityNarrative } from "./typography/CapabilityNarrative.js";
+import { CapabilitySceneSound } from "@/sounds/CapabilitySceneSound.js";
 import { isRingDormantReason } from "@/three/scenes/lifecycle/sceneLifecycle.js";
+import { PortfolioFreeCameraController } from "@/three/scenes/portfolio/hub/PortfolioFreeCameraController.js";
 
 function createWorld(capability, scene, renderer) {
 	switch (capability.sceneVariant) {
@@ -18,13 +17,13 @@ function createWorld(capability, scene, renderer) {
 			return new CityModelWorld(scene, renderer);
 		case "syntheticCore":
 		default:
-			return new SyntheticCoreWorld(scene);
+			return new SyntheticCoreWorld(scene, renderer, new SyntheticCoreSound());
 	}
 }
 
 /**
  * Route-level Three scene for a non-MMK capability.
- * Each route owns its scene, camera, lifecycle and panel HUD; only the renderer
+ * Each route owns its scene, camera and lifecycle; only the renderer
  * and transition compositor remain site-wide owners.
  */
 export class CapabilityWorldScene {
@@ -40,12 +39,30 @@ export class CapabilityWorldScene {
 		this.pointerBlocked = true;
 		this.world = createWorld(capability, this.threeScene, renderer);
 		this.root = this.world.group;
-		this.panelHud = createCaseStudyPanelHud(this.threeScene);
-		this.readyPromise = this.world.readyPromise ?? Promise.resolve(true);
+		this.world.bindInput?.(renderer.domElement, event => this.store?.appStarted === true
+			&& this.root.visible && !event.target?.closest?.('[data-canvas-pointer-blocker="true"], button, a, [role="button"]')
+			&& sceneOwnsHexHitAtClientY(this.sceneId, event.clientY));
+		this._disposed = false;
+		this.narrative = null;
+		this.sceneSound = new CapabilitySceneSound();
+		this.readyPromise = this._prepareNarrative();
+		this._freeCamera = import.meta.env.DEV && capability.sceneVariant === "spatialMatrix"
+			? new PortfolioFreeCameraController(renderer.domElement, { snapshotName: "cityCamera", logLabel: "cityCamera" })
+			: null;
+		if (this._freeCamera) this._freeCamera.moveSpeed = 0.65;
 	}
 
 	getScene() {
 		return this.threeScene;
+	}
+
+	async _prepareNarrative() {
+		await Promise.all([this.world.readyPromise, this.sceneSound.prepare()]);
+		const variant = this.capability.sceneVariant;
+		if (this._disposed || (variant !== "lightTrails" && variant !== "syntheticCore")) return true;
+		this.narrative = await CapabilityNarrative.create(this.root, this.renderer, variant, () => this._disposed);
+		if (this.narrative && variant === "syntheticCore") this.world.hud.setNarrative(this.narrative);
+		return true;
 	}
 
 	getModelsBloomLogoReveal() {
@@ -56,14 +73,20 @@ export class CapabilityWorldScene {
 		return { enabled: false };
 	}
 
-	setRouteState() {}
+	setRouteState(routeState = {}) {
+		if (routeState.currentPage && routeState.currentPage !== this.capability.path) this.world.sound?.stop();
+		if (routeState.currentPage && routeState.currentPage !== "/capabilities/spatial-matrix")
+			this._freeCamera?.setEnabled(false);
+	}
 
 	resetCarouselState(ctx = {}) {
 		if (!isRingDormantReason(ctx.reason)) {
 			return;
 		}
 		this.world.setInteractionEnabled?.(false);
-		this.panelHud?.setVisible(false);
+		this.narrative?.reset();
+		this.sceneSound.stop();
+		this._freeCamera?.setEnabled(false);
 		this.world.setRenderEnabled?.(false);
 	}
 
@@ -85,14 +108,26 @@ export class CapabilityWorldScene {
 	}
 
 	isDragOrbitEnabled() {
-		return this.capability.sceneVariant !== "lightTrails";
+		// Reuse the site's bounded 25-degree drag and smooth return to overview.
+		return this.capability.sceneVariant === "syntheticCore"
+			|| (this.capability.sceneVariant === "spatialMatrix" && !this._freeCamera?.enabled);
 	}
 
 	getDragOrbitTarget() {
 		return this.world.getOrbitTarget?.() ?? null;
 	}
 
+	isVerticalDragOrbitEnabled() {
+		return this.isDragOrbitEnabled();
+	}
+
+	getVerticalDragOrbitLimit() {
+		// A small city tilt keeps the ground and distant districts in view.
+		return this.capability.sceneVariant === "spatialMatrix" ? Math.PI / 18 : undefined;
+	}
+
 	applyCamera(camera) {
+		if (this._freeCamera?.apply(camera)) return;
 		if (this.capability.sceneVariant === "lightTrails") {
 			this.world.applyCamera(camera, 1);
 			return;
@@ -112,6 +147,11 @@ export class CapabilityWorldScene {
 	update(delta, frame) {
 		this._enableWorld();
 		const interactionOwned = frame?.interactionEnabled !== false && !frame?.pointerBlocked;
+		if (this._freeCamera?.enabled && frame?.camera) {
+			// Hovering the dev panel blocks scene picking, not keyboard flight.
+			// Route leave and carousel dormancy own disabling the controller.
+			this._freeCamera.update(delta, frame.camera);
+		}
 		const pointer = interactionOwned ? frame?.pointer ?? { x: 0, y: 0 } : { x: 0, y: 0 };
 		this.cameraParallax.x = THREE.MathUtils.damp(
 			this.cameraParallax.x,
@@ -131,11 +171,27 @@ export class CapabilityWorldScene {
 			this.world.setInteractionEnabled(interactionOwned);
 			this.world.update(delta, frame, 1);
 		} else {
-			hovered = this.world.update(delta, true, frame, interactionOwned) ?? false;
+			hovered = this.world.update(delta, true, frame, interactionOwned, this.store?.siteLocale) ?? false;
 		}
+		this.narrative?.update(delta, frame, this.store?.siteLocale);
+		const current = frame?.activeSceneId === this.sceneId;
+		const visibility = current ? 1 - Math.min(1, Math.abs(this.store?.hexShaderProgress ?? 0)) : 0;
+		const soundEnabled = current && this.store?.appStarted === true;
+		// Read the just-painted lens/HUD state; dormant and warmup worlds stay silent.
+		this.world.sound?.update(delta, this.world.assemblyUniform.value, this.world.elapsed, {
+			enabled: soundEnabled, visibility, hud: this.world.hud,
+		});
+		const title = this.narrative ?? this.world.title;
+		this.sceneSound.update(delta, {
+			enabled: soundEnabled,
+			reveal: title?.getSoundReveal() ?? 0,
+			hudReveal: (this.world.hud?.uniforms?.uSnake?.value ?? 0) * visibility,
+			hudVolume: this.capability.sceneVariant === "syntheticCore" ? 0.65 : 0.2,
+			pan: this.capability.sceneVariant === "lightTrails" ? (this.narrative?.frame.side ?? 1) * 0.5 : -0.35,
+			flightWorld: this.capability.sceneVariant === "lightTrails" ? this.world : null,
+			visibility,
+		});
 
-		const routeActive = getSceneCarousel().currentId === this.sceneId;
-		syncCaseStudyPanelHud(this.panelHud, { active: routeActive });
 		if (interactionOwned && this.store?.cursor) {
 			this.store.cursor.caseHovered = Boolean(hovered);
 		}
@@ -145,11 +201,13 @@ export class CapabilityWorldScene {
 		const token = { visible: this.root?.visible === true };
 		this._enableWorld();
 		this.world.beginWarmupDraw?.();
+		this.narrative?.beginWarmupDraw();
 		return token;
 	}
 
 	endWarmupDraw(token) {
 		this.world.endWarmupDraw?.();
+		this.narrative?.endWarmupDraw();
 		if (!token?.visible) {
 			this.world.setRenderEnabled?.(false);
 		}
@@ -167,21 +225,43 @@ export class CapabilityWorldScene {
 		return false;
 	}
 
-	getCityWindowMaterialSettings() {
-		return this.world.getWindowMaterialSettings?.() ?? null;
+	getCityTrafficSettings() {
+		return this.world.getTrafficSettings?.() ?? null;
 	}
 
-	setCityWindowMaterialSettings(settings = {}) {
-		return this.world.setWindowMaterialSettings?.(settings) ?? null;
+	isFreeCameraEnabled() { return this._freeCamera?.enabled === true; }
+
+	setFreeCameraEnabled(enabled, camera) {
+		if (!this._freeCamera || (enabled && window.location.pathname !== "/capabilities/spatial-matrix")) return false;
+		this._freeCamera.setEnabled(enabled, camera);
+		return this._freeCamera.enabled;
 	}
 
-	resetCityWindowMaterialSettings() {
-		return this.world.resetWindowMaterialSettings?.() ?? null;
+	resetFreeCamera(camera) {
+		if (!camera) return;
+		this.world.applyCamera(camera, { x: 0, y: 0 });
+		this._freeCamera?.syncFromCamera(camera);
+	}
+
+	getFreeCameraSnapshot(camera) { return this._freeCamera?.getSnapshot(camera) ?? null; }
+	copyFreeCameraSnapshot(camera) { return this._freeCamera?.copySnapshot(camera) ?? Promise.resolve(false); }
+
+	setCityTrafficSettings(settings = {}) {
+		return this.world.setTrafficSettings?.(settings) ?? null;
+	}
+
+	resetCityTrafficSettings() {
+		return this.world.resetTrafficSettings?.() ?? null;
 	}
 
 	dispose() {
-		disposeCaseStudyPanelHud(this.panelHud);
-		this.panelHud = null;
+		this._disposed = true;
+		this.sceneSound.dispose();
+		this.world?.hud?.setNarrative?.(null);
+		this.narrative?.dispose();
+		this.narrative = null;
+		this._freeCamera?.dispose();
+		this._freeCamera = null;
 		this.world?.dispose?.(this.threeScene);
 		this.world = null;
 		this.root = null;

@@ -1,0 +1,59 @@
+- application:
+  - iframe [aria-hidden] [ref=e1]
+  - region
+  - generic [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e8]:
+        - generic [ref=e16]:
+          - text: Simple three.js scene with postprocessing and custom background shader.mp4
+          - tooltip [aria-hidden] [ref=e17]
+        - menubar "Панель меню" [ref=e21]:
+          - generic [ref=e22]:
+            - generic [ref=e23]:
+              - menuitem "Файл" [ref=e28] [cursor=pointer]
+              - menuitem "Просмотр" [ref=e34] [cursor=pointer]
+              - menuitem "Справка" [ref=e40] [cursor=pointer]
+            - generic:
+              - generic:
+                - generic:
+                  - generic:
+                    - tooltip [aria-hidden]: Дополнительно
+        - link "Войти" [ref=e48] [cursor=pointer]:
+          - /url: https://accounts.google.com/ServiceLogin?service=wise&passive=1209600&osid=1&continue=https://drive.google.com/file/d/1xP-_m0bFu9CeN3Bnaia3c4QeigVKg1nV/view&followup=https://drive.google.com/file/d/1xP-_m0bFu9CeN3Bnaia3c4QeigVKg1nV/view&ec=GAZAGQ
+      - generic [ref=e51]:
+        - generic [ref=e55]:
+          - button "Скачать" [ref=e56] [cursor=pointer]
+          - tooltip [aria-hidden] [ref=e62]: Скачать
+        - generic [ref=e63]:
+          - generic [ref=e65]:
+            - button "Эпизоды" [ref=e67] [cursor=pointer]:
+              - generic [aria-hidden] [ref=e73]: Эпизоды
+            - tooltip [aria-hidden] [ref=e74]: Эпизоды
+          - generic [ref=e76]:
+            - button "Расшифровка" [disabled] [ref=e78]:
+              - generic [aria-hidden] [ref=e84]: Расшифровка
+            - tooltip [aria-hidden] [ref=e85]: Расшифровка
+        - generic [ref=e88]:
+          - button "Скрыть заголовок файла" [ref=e89] [cursor=pointer]
+          - tooltip [aria-hidden] [ref=e99]: Скрыть заголовок файла
+    - generic "Показан читатель." [ref=e100]:
+      - generic "Simple three.js scene with postprocessing and custom background shader.mp4. На экране." [active]
+      - generic [ref=e101]:
+        - generic "Назад" [ref=e102]
+        - generic "Далее" [ref=e103]
+        - main [ref=e104]:
+          - generic [ref=e105]:
+            - generic [ref=e107]:
+              - generic:
+                - generic:
+                  - list
+            - generic [ref=e108]:
+              - status "Загрузка…" [ref=e110]
+              - generic [ref=e145]:
+                - generic "Предварительный просмотр изображения" [ref=e146] [cursor=pointer]:
+                  - generic [ref=e148]:
+                    - button "Чтобы начать или возобновить воспроизведение, нажмите K" [ref=e149]
+                    - tooltip [aria-hidden] [ref=e159]: Воспроизвести (K)
+                  - img "Предварительный просмотр изображения" [ref=e160]
+                - iframe [ref=e162]
+  - generic [ref=e163]: Simple three.js scene with postprocessing and custom background shader.mp4. На экране.

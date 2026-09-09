@@ -1,4 +1,5 @@
 import { hexGridOverlayDefaults } from "../overlay/hexGridOverlayConfig.js";
+import { PORTFOLIO_ENABLED, isRouteAvailable } from "@/app/config/routeAvailability.js";
 import { carouselClickTransitionConfig, easeCarouselClickProgress } from "./carouselClickTransitionConfig.js";
 import {
 	clampSceneProgress,
@@ -41,7 +42,7 @@ import {
 /** Бесконечное кольцо: previous ← current → next + scroll progress / progressTarget. */
 export const CAROUSEL_SCENE_IDS = [
 	"home",
-	"portfolioHub",
+	...(PORTFOLIO_ENABLED ? ["portfolioHub"] : []),
 	...CAPABILITY_SCENE_IDS,
 	"about",
 	"contacts",
@@ -94,6 +95,7 @@ export const SCENE_ID_TO_PAGE = {
 };
 
 export function pageToCarouselSceneId(page) {
+	if (!isRouteAvailable(page)) return "home";
 	const normalized = String(page ?? "/").replace(/\/+$/, "") || "/";
 	if (normalized === "/" || normalized === "") {
 		return "home";

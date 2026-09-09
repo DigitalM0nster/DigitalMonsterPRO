@@ -1,30 +1,21 @@
-import { useEffect } from "react";
 import { Navigate, useLocation } from "react-router-dom";
-import "@/styles/portfolio/portfolio.scss";
-import "@/styles/portfolio/portfolioExploration.scss";
-
-import PortfolioHubContent from "./components/PortfolioHubContent.jsx";
-import { isPortfolioCasePath, isPortfolioHubPath } from "@/three/scenes/portfolio/hub/projectsData.js";
 import { usePageStateClasses } from "@/app/context/RouteTransitionContext.jsx";
-import { setPortfolioSpatialAudio } from "@/sounds/soundDesign.js";
+import { filmProjects } from "./data/filmProjects.js";
+import { requestFilmAction } from "./filmInteraction.js";
+import styles from "./PortfolioPage.module.scss";
+
+/** Visible media, typography and controls belong to PortfolioFilmScene. */
 export default function PortfolioPage() {
 	const location = useLocation();
-	const pageClassName = [usePageStateClasses("portfolio"), "hub"].filter(Boolean).join(" ");
-
-	useEffect(() => {
-		setPortfolioSpatialAudio(true);
-		return () => setPortfolioSpatialAudio(false);
-	}, []);
-
-	if (!isPortfolioHubPath(location.pathname) && !isPortfolioCasePath(location.pathname)) {
-		return <Navigate to="/portfolio" replace />;
-	}
-
+	const pageClass = usePageStateClasses("portfolio");
+	if (location.pathname.replace(/\/+$/, "") !== "/portfolio") return <Navigate to="/portfolio" replace />;
 	return (
-		<div className={pageClassName}>
-			<div className="pageContent">
-				<PortfolioHubContent />
-			</div>
-		</div>
+		<section className={`${pageClass} ${styles.page}`} aria-label="Portfolio">
+			<nav className={styles.accessibleControls} aria-label="Projects">
+				{filmProjects.map((project, index) => <button key={project.id} onFocus={() => requestFilmAction(index)} onClick={() => requestFilmAction(index)}>{project.name}</button>)}
+				<button onClick={() => requestFilmAction("inspect")}>Рассмотреть / К обзору</button>
+				<button onClick={() => requestFilmAction("play")}>Воспроизведение / Пауза</button>
+			</nav>
+		</section>
 	);
 }

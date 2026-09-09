@@ -16,7 +16,9 @@ const PLATE_FOCUS_DEBOUNCE_MS = 100;
  * Список: enter/exit по роуту; active держится до другого проекта или ухода со страницы.
  */
 export class HubScreenHudLayout {
-	constructor(parent) {
+	constructor(parent, options = {}) {
+		this.store = options.store ?? store;
+		this.projects = options.projects ?? projectsData;
 		this.parent = parent;
 		this.root = new THREE.Group();
 		this.root.name = "hubScreenHud";
@@ -27,7 +29,7 @@ export class HubScreenHudLayout {
 		this.root.add(this.leftGroup, this.rightGroup);
 
 		this.leftColumn = new HubScreenTextColumn(this.leftGroup, "left");
-		this.projectsColumn = new HubScreenProjectsColumn(this.rightGroup);
+		this.projectsColumn = new HubScreenProjectsColumn(this.rightGroup, options);
 
 		this.hudCfg = null;
 		this.baseOpacity = 1;
@@ -102,8 +104,8 @@ export class HubScreenHudLayout {
 		this._activeProjectIndex = -1;
 		this.projectsColumn.setActiveProjectIndex(-1, { skipHoverGlitch: true });
 		// Не сбрасывать focus в -1: PortfolioHubScene уже стартовал выезд/логотип первой плиты.
-		if ((store.portfolioHubFocusIndex ?? -1) < 0) {
-			commitPortfolioHubFocusIndex(store, 0);
+		if ((this.store.portfolioHubFocusIndex ?? -1) < 0) {
+			commitPortfolioHubFocusIndex(this.store, 0);
 		}
 		this._projectsIntroExpectHidden = true;
 		this.projectsColumn.playEnterGlitch({
@@ -134,7 +136,7 @@ export class HubScreenHudLayout {
 			this._activeProjectIndex = -1;
 			this._pointerHitIndex = -1;
 			this._pendingPlateFocusIndex = -1;
-			store.cursor.projectListHovered = false;
+			this.store.cursor.projectListHovered = false;
 		} else {
 			this.clearActiveProject();
 		}
@@ -167,7 +169,7 @@ export class HubScreenHudLayout {
 			this._pointerHitIndex = -1;
 			this._pendingPlateFocusIndex = -1;
 			this.projectsColumn.clearActiveProject();
-			store.cursor.projectListHovered = false;
+			this.store.cursor.projectListHovered = false;
 		} else {
 			this.clearActiveProject();
 		}
@@ -181,7 +183,7 @@ export class HubScreenHudLayout {
 		this._pointerHitIndex = -1;
 		this._pendingPlateFocusIndex = -1;
 		this.projectsColumn.clearActiveProject();
-		commitPortfolioHubFocusIndex(store, -1);
+		commitPortfolioHubFocusIndex(this.store, -1);
 	}
 
 	_clearPlateFocusDebounceTimer() {
@@ -194,14 +196,14 @@ export class HubScreenHudLayout {
 	/** Плита / логотип / звук — в store только после debounce. */
 	_flushPlateFocusIndex() {
 		const next = this._pendingPlateFocusIndex ?? -1;
-		if ((store.portfolioHubFocusIndex ?? -1) === next) {
+		if ((this.store.portfolioHubFocusIndex ?? -1) === next) {
 			return;
 		}
 		logPortfolioActiveDebug("PLATE_FOCUS_COMMIT", {
-			from: store.portfolioHubFocusIndex ?? -1,
+			from: this.store.portfolioHubFocusIndex ?? -1,
 			to: next,
 		});
-		commitPortfolioHubFocusIndex(store, next);
+		commitPortfolioHubFocusIndex(this.store, next);
 	}
 
 	_schedulePlateFocusDebounce() {
@@ -223,7 +225,7 @@ export class HubScreenHudLayout {
 			reason,
 			from: this._activeProjectIndex,
 			to: next,
-			projectId: projectsData[next]?.id ?? null,
+			projectId: this.projects[next]?.id ?? null,
 			introPending: this._projectsSingleActivePending,
 			immediatePlate,
 			immediateOpacity,
@@ -247,7 +249,7 @@ export class HubScreenHudLayout {
 		}
 
 		if (this._activeProjectIndex < 0) {
-			const focusedProjectIndex = store.portfolioHubFocusIndex ?? -1;
+			const focusedProjectIndex = this.store.portfolioHubFocusIndex ?? -1;
 			const introProjectIndex = focusedProjectIndex >= 0 ? focusedProjectIndex : 0;
 			this._applyActiveProjectIndex(introProjectIndex, {
 				skipHoverGlitch: true,
@@ -292,7 +294,7 @@ export class HubScreenHudLayout {
 		const canPick = !this._projectsSelectionLocked && this.root.visible && this._visibilityMultiplier > 0.001 && this.projectsColumn.layers.length > 0;
 
 		if (!canPick || !frame?.camera || !frame?.pointer) {
-			store.cursor.projectListHovered = false;
+			this.store.cursor.projectListHovered = false;
 			if (this._pointerHitIndex !== -1) {
 				this._pointerHitIndex = -1;
 				this.projectsColumn.setPointerHitIndex(-1);
@@ -331,10 +333,10 @@ export class HubScreenHudLayout {
 			logPortfolioActiveDebug("POINTER_HIT_CHANGED", {
 				from: this._pointerHitIndex,
 				to: hitIndex,
-				projectId: projectsData[hitIndex]?.id ?? null,
+				projectId: this.projects[hitIndex]?.id ?? null,
 			});
 			this._pointerHitIndex = hitIndex;
-			store.cursor.projectListHovered = hitIndex >= 0;
+			this.store.cursor.projectListHovered = hitIndex >= 0;
 			this.projectsColumn.setPointerHitIndex(hitIndex);
 		}
 
@@ -349,7 +351,7 @@ export class HubScreenHudLayout {
 			return -1;
 		}
 
-		const project = projectsData[this._pointerHitIndex];
+		const project = this.projects[this._pointerHitIndex];
 		if (!project?.path) {
 			return -1;
 		}
@@ -454,7 +456,7 @@ export class HubScreenHudLayout {
 	}
 
 	clearProjectsPointerHit() {
-		store.cursor.projectListHovered = false;
+		this.store.cursor.projectListHovered = false;
 		if (this._pointerHitIndex === -1) {
 			return;
 		}
@@ -474,7 +476,7 @@ export class HubScreenHudLayout {
 	}
 
 	dispose() {
-		store.cursor.projectListHovered = false;
+		this.store.cursor.projectListHovered = false;
 		this._projectsSingleActivePending = false;
 		this._projectsSelectionLocked = false;
 		this._clearProjectsExitVisibilityOverride({ applyVisibility: false });

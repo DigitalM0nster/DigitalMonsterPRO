@@ -576,14 +576,14 @@ export function getPlateLayoutPosition(rowIndex, plateIndex) {
 	return [0, startY + rowIndex * rowStep, startZ + plateIndex * depthStep];
 }
 
-export function getProjectPlateLayout(projectIndex) {
+export function getProjectPlateLayout(projectIndex, projectCount = projectsData.length) {
 	const { projectPlateRowIndex, projectsPerRow, projectPlateDepthTailPadding } = portfolioHubPlatesConfig;
 	const platesPerRow = PORTFOLIO_HUB_PLATES_PER_ROW;
 	const col = projectIndex % projectsPerRow;
 	const rowOffset = Math.floor(projectIndex / projectsPerRow);
 	const rowIndex = projectPlateRowIndex + rowOffset;
 
-	const projectsRemaining = projectsData.length - rowOffset * projectsPerRow;
+	const projectsRemaining = projectCount - rowOffset * projectsPerRow;
 	const projectsInRow = Math.min(projectsPerRow, projectsRemaining);
 	const tailPadding = projectPlateDepthTailPadding ?? 1;
 	const blockStart = platesPerRow - tailPadding - projectsInRow;
@@ -594,23 +594,23 @@ export function getProjectPlateLayout(projectIndex) {
 	};
 }
 
-export function getProjectPlateLocalPosition(projectIndex) {
-	const { rowIndex, plateIndex } = getProjectPlateLayout(projectIndex);
+export function getProjectPlateLocalPosition(projectIndex, projectCount = projectsData.length) {
+	const { rowIndex, plateIndex } = getProjectPlateLayout(projectIndex, projectCount);
 	return getPlateLayoutPosition(rowIndex, plateIndex);
 }
 
-export function getProjectPlateFlatIndex(projectIndex) {
-	const { rowIndex, plateIndex } = getProjectPlateLayout(projectIndex);
+export function getProjectPlateFlatIndex(projectIndex, projectCount = projectsData.length) {
+	const { rowIndex, plateIndex } = getProjectPlateLayout(projectIndex, projectCount);
 	return rowIndex * PORTFOLIO_HUB_PLATES_PER_ROW + plateIndex;
 }
 
-export function getGridFocusSlide(projectIndex) {
+export function getGridFocusSlide(projectIndex, projectCount = projectsData.length) {
 	if (projectIndex < 0) {
 		return { y: 0, z: 0 };
 	}
 
-	const anchor = getProjectPlateLocalPosition(0);
-	const target = getProjectPlateLocalPosition(projectIndex);
+	const anchor = getProjectPlateLocalPosition(0, projectCount);
+	const target = getProjectPlateLocalPosition(projectIndex, projectCount);
 
 	return {
 		y: anchor[1] - target[1],

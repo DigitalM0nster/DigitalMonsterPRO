@@ -94,13 +94,9 @@ void main() {
 	vec2 sampleUv = vUv;
 	float buildT = easeInOutCubic(revealLinear);
 	float riseT = easeOutCubic(buildT);
-	float alphaT;
-
-	if (revealEnter > 0.5) {
-		alphaT = buildT;
-	} else {
-		alphaT = revealProgress;
-	}
+	// The animation owner already eases opacity and preserves it on pause/resume.
+	// Part assembly has a separate timeline; using it for alpha jumps on retarget.
+	float alphaT = revealProgress;
 
 	if (usePartReveal > 0.5) {
 		float cellW = partSize / max(logoPlaneSize.x, 0.001);

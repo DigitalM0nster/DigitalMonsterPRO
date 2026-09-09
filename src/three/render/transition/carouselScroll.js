@@ -1,6 +1,7 @@
 import { getSceneCarousel } from "@/three/render/transition/carouselPage.js";
 import { isCarouselRoutePage } from "./SceneCarousel.js";
 import { isSceneDevToolsWheelTarget } from "../../dev/sceneDevPanelUtils.js";
+import { dispatchLocalSceneScroll } from "./localSceneScroll.js";
 
 /** Чувствительность колёсика: deltaY (px) → единицы progressTarget. */
 export const CAROUSEL_WHEEL_PROGRESS_FACTOR = 0.001;
@@ -97,7 +98,8 @@ export function attachCarouselScroll(ctx) {
 
 		event.preventDefault();
 
-		addCarouselWheelDelta(normalizeWheelDelta(event));
+		const delta = normalizeWheelDelta(event);
+		if (!dispatchLocalSceneScroll(getSceneCarousel().currentId, delta)) addCarouselWheelDelta(delta);
 	};
 
 	window.addEventListener("wheel", onWheel, { passive: false, capture: true });

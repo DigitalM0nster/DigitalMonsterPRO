@@ -22,29 +22,24 @@ import { disposeHexTransitionSound, preloadHexTransitionSound, updateHexTransiti
 import { disposeUnderwaterSound, preloadUnderwaterSound, updateUnderwaterSound } from "../../sounds/underwaterSound.js";
 import { cancelSharedAnimationFrame, requestSharedAnimationFrame } from "@/functions/sharedAnimationFrame.js";
 import { warmCasePanelHudUnderCurtain } from "@/pages/portfolio/ui/CaseStudyCanvas/warmCasePanelHudUnderCurtain.js";
-import { getWarmCasePanelHud } from "@/pages/portfolio/ui/CaseStudyCanvas/warmCasePanelHudUnderCurtain.js";
 import { warmAboutPanelHudUnderCurtain } from "@/pages/about/warmAboutPanelHudUnderCurtain.js";
 import { getAboutPanelHudEnterProgress, getAboutPanelHudState } from "@/pages/about/aboutPanelHudBridge.js";
 import { armAboutPanelHudForRoute } from "@/pages/about/aboutPanelHudStory.js";
 import { getCasePanelHudEnterProgress } from "@/pages/portfolio/core/casePanelHudBridge.js";
-import { getCasePanelHudDisplayedLocale } from "@/pages/portfolio/core/casePanelHudLocaleMix.js";
-import {
-	getCapabilityBySceneId,
-	isCapabilitySceneId,
-} from "@/pages/capabilities/data/capabilities.js";
+import { isCapabilitySceneId } from "@/pages/capabilities/data/capabilities.js";
 import { createSiteArcOverlay, disposeSiteArcOverlay, syncSiteArcOverlay } from "@/components/SiteArc/three/siteArcHost.js";
 import { AboutEpicTextDevTools } from "../dev/AboutEpicTextDevTools.js";
 import { BackgroundLiquidDevTools } from "../dev/BackgroundLiquidDevTools.js";
 import { SiteArcDevTools } from "../dev/SiteArcDevTools.js";
 import { CaseStudyStageRailDevTools } from "../dev/CaseStudyStageRailDevTools.js";
 import { BelkaOrbitsDevTools } from "../dev/BelkaOrbitsDevTools.js";
-import { ContactsDevTools } from "../dev/ContactsDevTools.js";
 import { ProgressDevTools } from "../dev/ProgressDevTools.js";
 import { PortfolioCameraDevTools } from "../dev/PortfolioCameraDevTools.js";
 import { OceanDevTools } from "../dev/OceanDevTools.js";
 import { Mmk1CameraDevTools } from "../dev/Mmk1CameraDevTools.js";
 
 const NO_GRAIN_BLUR = { enabled: false, radius: 0 };
+const CAPABILITY_HUD_SCENES = ["capabilities:syntheticCore", "capabilities:spatialMatrix"];
 const SKIP_ALL_WARM_IN_DEVELOPMENT = import.meta.env.DEV;
 /** Idle home: mix progress ≈ 0 — hex/bloom/composite не нужны. */
 const IDLE_HOME_HEX_EPS = 0.0001;
@@ -155,11 +150,6 @@ export class DigitalMonsterThreeApp {
 			: null;
 		this.progressDevTools = import.meta.env.DEV ? new ProgressDevTools() : null;
 		this.aboutEpicTextDevTools = import.meta.env.DEV ? new AboutEpicTextDevTools() : null;
-		this.contactsDevTools = import.meta.env.DEV
-			? new ContactsDevTools({
-					getScene: () => this.sceneManager?.getSceneById?.("contacts") ?? null,
-				})
-			: null;
 		this.belkaOrbitsDevTools = import.meta.env.DEV
 			? new BelkaOrbitsDevTools({
 					getScene: () => this.sceneManager?.getSceneById?.("case06") ?? null,
@@ -241,6 +231,7 @@ export class DigitalMonsterThreeApp {
 		this.canvas.addEventListener("pointermove", this._onPointerMove);
 		this.canvas.addEventListener("pointerup", this._onPointerUp);
 		this.canvas.addEventListener("pointercancel", this._onPointerUp);
+		this.canvas.addEventListener("lostpointercapture", this._onPointerUp);
 		syncCarouselFromPage(this.currentPage);
 		initCarouselScroll(() => this.currentPage);
 		const carousel = getSceneCarousel();
@@ -374,7 +365,7 @@ export class DigitalMonsterThreeApp {
 		}
 
 		// Pass 2: home + hub again — first InstancedMesh/ocean frame often still allocates.
-		for (const sceneId of ["home", "portfolioHub"]) {
+		for (const sceneId of ["home", "portfolioHub", "contacts"]) {
 			if (this.disposed || !drawnIds.has(sceneId)) {
 				continue;
 			}
@@ -548,11 +539,19 @@ export class DigitalMonsterThreeApp {
 		this._onViewportPointerMove(event);
 		this.pointerBlocked = false;
 		this.pointerDown = true;
+		// A canvas-started orbit owns this pointer until release, including above
+		// the menu. Captured events stay on the canvas instead of cancelling it.
+		if (event.target === this.canvas && this.sceneManager.sceneDragOrbit.sceneId) {
+			this.canvas.setPointerCapture(event.pointerId);
+		}
 	}
 
 	_onPointerUp(event) {
-		if (event?.button !== undefined && event.button !== 0) {
+		if (event?.type === "pointerup" && event.button !== 0) {
 			return;
+		}
+		if (event?.pointerId !== undefined && this.canvas.hasPointerCapture(event.pointerId)) {
+			this.canvas.releasePointerCapture(event.pointerId);
 		}
 		if (isCanvasPointerBlocked(event)) {
 			this._clearInteractivePointer();
@@ -625,7 +624,7 @@ export class DigitalMonsterThreeApp {
 		// About Front/Heart and hub plates are intentionally near-black — soft luminance key
 		// treats them as empty plate and replaces with liquid. Bake liquid under models.
 		const involvesAbout = pageA === "/about" || pageB === "/about" || mix.sourceId === "about" || mix.targetId === "about";
-		const involvesPortfolioHub = mix.sourceId === "portfolioHub" || mix.targetId === "portfolioHub";
+		const involvesPlateScene = [mix.sourceId, mix.targetId].some((id) => id === "portfolioHub" || id === "contacts");
 		const involvesCapabilities = isCapabilitySceneId(mix.sourceId)
 			|| isCapabilitySceneId(mix.targetId);
 		// Capability scenes can contain dark, non-emissive surfaces. They
@@ -633,7 +632,7 @@ export class DigitalMonsterThreeApp {
 		// the luminance-key path, which treated those surfaces as an empty black plate.
 		const bakeBackgroundUnderModels = involvesHome
 			|| involvesAbout
-			|| involvesPortfolioHub
+			|| involvesPlateScene
 			|| involvesCapabilities;
 
 		const sharedBackground = this.backgroundPipeline.renderCarouselBackground(delta, bgOptions) ?? this.backgroundPipeline.lastTexture;
@@ -655,12 +654,8 @@ export class DigitalMonsterThreeApp {
 		if (bakeBackgroundUnderModels) {
 			const bgA = pageA === "/" ? null : sharedBackground;
 			const bgB = pageB === "/" ? null : sharedBackground;
-			const sourceHudTexture = isCapabilitySceneId(mix.sourceId)
-				? this._getCapabilityHexOverlayTexture(mix.sourceId)
-				: this._getHexBakeOverlayTexture(mix.sourceId);
-			const targetHudTexture = isCapabilitySceneId(mix.targetId)
-				? this._getCapabilityHexOverlayTexture(mix.targetId)
-				: this._getHexBakeOverlayTexture(mix.targetId);
+			const sourceHudTexture = this._getHexBakeOverlayTexture(mix.sourceId);
+			const targetHudTexture = this._getHexBakeOverlayTexture(mix.targetId);
 			const contentA = this.screenCompositor.compositeToLayerTarget(this.renderer, "a", bgA, mix.sourceModels, grainBlur, sourceHudTexture);
 
 			let contentB = contentA;
@@ -711,10 +706,13 @@ export class DigitalMonsterThreeApp {
 	 * Arc / project-nav chrome stay live DOM.
 	 */
 	_getHexBakeOverlayTexture(sceneId) {
+		if (isCapabilitySceneId(sceneId)) {
+			return null;
+		}
 		if (sceneId === "about") {
 			return this._getAboutPanelHudHexOverlayTexture();
 		}
-		if (sceneId?.startsWith("case") || isCapabilitySceneId(sceneId)) {
+		if (sceneId?.startsWith("case")) {
 			return this._getCasePanelHudHexOverlayTexture(sceneId);
 		}
 		return this._getPanelOverlayTextureForScene(sceneId);
@@ -786,24 +784,6 @@ export class DigitalMonsterThreeApp {
 		return texture;
 	}
 
-	/** Prepared capability copy for a route-level hex layer. */
-	_getCapabilityHexOverlayTexture(sceneId) {
-		const capability = getCapabilityBySceneId(sceneId);
-		const hud = this.sceneManager.getCasePanelHudBySceneId(sceneId);
-		if (!capability || !hud) {
-			return null;
-		}
-		const viewportW = Math.max(1, this.container.clientWidth || window.innerWidth);
-		const viewportH = Math.max(1, this.container.clientHeight || window.innerHeight);
-		const warm = getWarmCasePanelHud(
-			capability.path,
-			getCasePanelHudDisplayedLocale(),
-			viewportW,
-			viewportH,
-		);
-		return hud.getWarmCanvasTexture?.(warm?.fromCanvas) ?? null;
-	}
-
 	_getSceneOverlayTexture(sceneId) {
 		const state = this.sceneManager.getSceneOverlayState(sceneId);
 		const canvas = state.canvas;
@@ -865,17 +845,22 @@ export class DigitalMonsterThreeApp {
 		const hexProgressLive = this._getHexShaderProgress() > 0.0001;
 		const caseOpen = Boolean(this.store.openedCase);
 		const carousel = getSceneCarousel();
-		const capabilityHudOpen = isCapabilitySceneId(carousel.currentId)
-			&& this.sceneManager.getActiveSceneId() === carousel.currentId
-			&& String(this.currentPage ?? "").startsWith("/capabilities");
-		const caseStyleHudOpen = caseOpen || capabilityHudOpen;
 		// Click lock (`_clickPhase`) arms before progress leaves 0 — treat that as hex-live
 		// so home scroll-hint moves into models RT instead of vanishing for one frame.
 		const hexNavLive = Boolean(carousel.isHexNavigationActive?.() || carousel.isCaseBoundaryDrive?.());
 		const hexActive = hexProgressLive || hexNavLive;
+		// Like the Home hint: sharp at rest, baked into the scene during a hex wipe.
+		const currentSceneId = onCarousel ? carousel.currentId : this.sceneManager.getActiveSceneId();
+		for (const id of CAPABILITY_HUD_SCENES) {
+			this.sceneManager.getSceneById(id)?.world?.hud
+				?.setComposeMode(!caseOpen && currentSceneId === id && !hexActive ? "screen" : "models");
+		}
+		const craneSceneId = "capabilities:mmk1";
+		this.sceneManager.getSceneById(craneSceneId)?._cameraHotspots
+			?.setComposeMode(!caseOpen && currentSceneId === craneSceneId && !hexActive ? "screen" : "models");
 		// Left HUD compose/hide is folded into _renderCasePanelHudScreenOverlays
 		// (one pass over cached HUDs). When case closed, hide all immediately.
-		if (!caseStyleHudOpen) {
+		if (!caseOpen) {
 			this.sceneManager.forEachCasePanelHud((hud) => {
 				hud.setComposeMode("models");
 				if (hud.visible) {
@@ -948,11 +933,13 @@ export class DigitalMonsterThreeApp {
 		const carousel = getSceneCarousel();
 		const caseOpen = Boolean(this.store.openedCase);
 		const hexProgress = this._getHexShaderProgress();
-		const capabilityHudOpen = isCapabilitySceneId(carousel.currentId)
-			&& this.sceneManager.getActiveSceneId() === carousel.currentId
-			&& String(this.currentPage ?? "").startsWith("/capabilities");
+		for (const id of CAPABILITY_HUD_SCENES) {
+			this.sceneManager.getSceneById(id)?.world?.hud?.renderScreenOverlay(this.renderer, this.sceneManager.camera);
+		}
+		this.sceneManager.getSceneById("capabilities:mmk1")?._cameraHotspots
+			?.renderScreenOverlay(this.renderer, this.sceneManager.camera);
 
-		if (caseOpen || capabilityHudOpen) {
+		if (caseOpen) {
 			// Idle: sharp screen overlay after bloom.
 			// Hex leave (case→site click OR case→case scroll boundary): left text
 			// bakes into the hex RT — do not screen-draw (would sit on top of the
@@ -964,13 +951,9 @@ export class DigitalMonsterThreeApp {
 			// the arming frame (hexProgress≈0) → one-frame brightness flash.
 			const activeHud = this.sceneManager.getActiveCasePanelHud();
 			const caseScrollMix = carousel.isCaseBoundaryDrive();
-			const mixIds = carousel.getMixSourceTargetIds?.() ?? {};
-			const capabilityMixParticipant = isCapabilitySceneId(mixIds.sourceId)
-				|| isCapabilitySceneId(mixIds.targetId);
 			/** Hex owns the band whenever models are in a live wipe (click or scroll). */
 			const hexOwnsLeftHud = hexProgress > 0.0001 && (
-				(caseOpen && (caseScrollMix || carousel.isHexNavigationActive()))
-				|| (capabilityHudOpen && capabilityMixParticipant)
+				caseScrollMix || carousel.isHexNavigationActive()
 			);
 			this.sceneManager.forEachCasePanelHud((hud) => {
 				const allow = hud === activeHud;
@@ -1379,6 +1362,7 @@ export class DigitalMonsterThreeApp {
 		this.canvas.removeEventListener("pointermove", this._onPointerMove);
 		this.canvas.removeEventListener("pointerup", this._onPointerUp);
 		this.canvas.removeEventListener("pointercancel", this._onPointerUp);
+		this.canvas.removeEventListener("lostpointercapture", this._onPointerUp);
 		this.canvas.removeEventListener("webglcontextlost", this._onContextLost, false);
 		this.canvas.removeEventListener("webglcontextrestored", this._onContextRestored, false);
 		this.liquidDevTools?.dispose?.();
@@ -1387,8 +1371,6 @@ export class DigitalMonsterThreeApp {
 		this.progressDevTools = null;
 		this.aboutEpicTextDevTools?.dispose?.();
 		this.aboutEpicTextDevTools = null;
-		this.contactsDevTools?.dispose?.();
-		this.contactsDevTools = null;
 		this.belkaOrbitsDevTools?.dispose?.();
 		this.belkaOrbitsDevTools = null;
 		this.siteArcDevTools?.dispose?.();

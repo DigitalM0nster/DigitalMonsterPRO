@@ -1,4 +1,6 @@
 import * as THREE from "three";
+import { PreparationScheduler } from "../../../app/preparationScheduler.js";
+import { compileSceneChunked } from "../../../renderer/compileSceneChunked.js";
 
 const hash = (x) => { const h = Math.sin(x * 127.1 + 311.7) * 43758.5453; return h - Math.floor(h); };
 
@@ -52,6 +54,14 @@ export async function prepareCityOfficeReflections(renderer, model, cityGroup, w
  camera.updateMatrixWorld(true); sky.position.copy(camera.position);
  let complete = false;
  try {
+  // The first cube face otherwise compiles every visible architectural material
+  // in one render() call. Prepare those exact RT variants between paints first.
+  // Ordinary RTs use NoToneMapping in r155, matching the capture below.
+  const scheduler = new PreparationScheduler({
+   nextFrame: () => new Promise(resolve => requestAnimationFrame(resolve)), cancelled,
+  });
+  await scheduler.breath();
+  await compileSceneChunked(renderer, capture, camera.children[0], scheduler, cube, { visibleOnly: true });
   for (let face = 0; face < 6; face++) {
    await new Promise(resolve => requestAnimationFrame(resolve));
    if (cancelled()) return null;
@@ -85,6 +95,9 @@ export async function prepareCityOfficeReflections(renderer, model, cityGroup, w
    .applyMatrix4(placement.matrixWorld);
   complete = true;
   return cube;
+ } catch (error) {
+  if (cancelled()) return null;
+  throw error;
  } finally {
   for (const [material, visible] of hidden) material.visible = visible;
   placement.remove(model); capture.clear();

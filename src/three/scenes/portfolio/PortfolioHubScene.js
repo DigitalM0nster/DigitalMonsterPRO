@@ -174,7 +174,10 @@ export class PortfolioHubScene {
 		this.centerPlateLogos = new CenterPlateNipigasLogos(this.projects, options.logoOptions);
 		this.plateProjectLabels = new HubPlateProjectLabels(this.projects, this.store);
 		this.plateDetailsButtons = new HubPlateDetailsButtons(this.store, options.getActionLabel);
-		this.screenTitle = new HubScreenTitle(this.threeScene, { projects: this.projects, store: this.store, sceneId: this.sceneId });
+		this.screenTitle = new HubScreenTitle(this.threeScene, {
+			projects: this.projects, store: this.store, sceneId: this.sceneId,
+			createProjectsTextLayer: options.createProjectsTextLayer,
+		});
 		this._portfolioLocaleSwitch = createPortfolioHubLocaleSwitchController({
 			getProjectsColumn: () => this.screenTitle?.projectsColumn,
 			getPlateLabels: () => this.plateProjectLabels,

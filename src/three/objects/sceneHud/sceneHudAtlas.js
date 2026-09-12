@@ -26,6 +26,31 @@ function createSymbols(name) {
 
 /** Paint once before Start. The small order map stores one scanline per text row. */
 export function createSceneHudAtlas(pixelRatio, states, name, { width = 300, height = 200, rowCount = 3 } = {}) {
+	const steps = paintSceneHudAtlas(pixelRatio, states, name, { width, height, rowCount });
+	let step;
+	do { step = steps.next(); } while (!step.done);
+	return step.value;
+}
+
+/** Same pixels as the synchronous path; all work still completes before ready. */
+export async function createSceneHudAtlasChunked(pixelRatio, states, name, size, cancelled = () => false,
+	nextFrame = () => new Promise(resolve => requestAnimationFrame(resolve))) {
+	const steps = paintSceneHudAtlas(pixelRatio, states, name, size);
+	let start = performance.now();
+	try {
+		while (!cancelled()) {
+			const step = steps.next();
+			if (step.done) return step.value;
+			if (performance.now() - start >= 3) {
+				await nextFrame();
+				start = performance.now();
+			}
+		}
+		return null;
+	} finally { steps.return(); }
+}
+
+function* paintSceneHudAtlas(pixelRatio, states, name, { width = 300, height = 200, rowCount = 3 } = {}) {
 	const stateCount = states[0].length;
 	const atlasWidth = width * 3;
 	const canvas = document.createElement("canvas");
@@ -34,6 +59,9 @@ export function createSceneHudAtlas(pixelRatio, states, name, { width = 300, hei
 	const ctx = canvas.getContext("2d");
 	ctx.scale(pixelRatio, pixelRatio);
 	ctx.textBaseline = "middle";
+	// Font + glyph metrics are constant during this preparation; never retain
+	// them across font loading, locale changes or another atlas construction.
+	const metrics = new Map();
 	const orderData = new Uint8Array(atlasWidth * stateCount * rowCount * 4);
 	for (let locale = 0; locale < 3; locale++) {
 		for (let state = 0; state < stateCount; state++) {
@@ -42,17 +70,24 @@ export function createSceneHudAtlas(pixelRatio, states, name, { width = 300, hei
 			ctx.translate(locale * width, state * height);
 			const text = (value, x, y, size, color, row = -1, align = "left", typography = {}) => {
 				ctx.font = typography.font ?? `500 ${size}px ManifoldExtended, "Segoe UI", sans-serif`;
+				const font = ctx.font;
+				if (!metrics.has(font)) metrics.set(font, new Map());
+				const widths = metrics.get(font);
+				const measure = char => {
+					if (!widths.has(char)) widths.set(char, ctx.measureText(char).width);
+					return widths.get(char);
+				};
 				ctx.fillStyle = color;
 				const tracking = typography.tracking ?? (size >= 14 ? 1.4 : 1.1);
 				const space = typography.space ?? size * 0.55;
 				let cursor = x;
 				if (align === "right") {
 					cursor -= Array.from(value).reduce((width, char) => width
-						+ (char === " " ? space : ctx.measureText(char).width + tracking), 0) - tracking;
+						+ (char === " " ? space : measure(char) + tracking), 0) - tracking;
 				}
 				for (const char of value) {
 					if (char === " ") { cursor += space; continue; }
-					const width = ctx.measureText(char).width;
+					const width = measure(char);
 					ctx.fillText(char, cursor, y);
 					if (row >= 0) rows[row].push({ x: cursor, width, size, row });
 					cursor += width + tracking;
@@ -60,6 +95,7 @@ export function createSceneHudAtlas(pixelRatio, states, name, { width = 300, hei
 			};
 			for (const line of states[locale][state]) {
 				text(line.text, line.x, line.y, line.size, line.color, line.row ?? -1, line.align, line);
+				yield;
 			}
 			ctx.restore();
 			// Alternate direction at each turn, including large multi-line headings.
@@ -73,6 +109,7 @@ export function createSceneHudAtlas(pixelRatio, states, name, { width = 300, hei
 					orderData[offset + 3] = 255;
 				}
 			});
+			yield;
 		}
 	}
 	const orderTexture = new THREE.DataTexture(orderData, atlasWidth, stateCount * rowCount);

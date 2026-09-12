@@ -157,12 +157,23 @@ export function createAboutFrontGlassMaterial(cfg = {}) {
 				// Wispy plasma filaments (domain-warped fbm ridges).
 				vec2 eUv = plateUv * uEnergyScale;
 				float t = uTime * uEnergySpeed;
-				vec2 warp = vec2(
-					fbm(eUv + vec2(t * 0.15, -t * 0.08)),
-					fbm(eUv * 1.3 + vec2(-t * 0.1, t * 0.12))
-				);
-				float n1 = fbm(eUv * 1.4 + warp * 1.8);
-				float n2 = fbm(eUv * 2.6 - warp.yx * 1.2 + vec2(t * 0.05, 0.0));
+				// One FBM call site keeps the driver's cold compiler from expanding
+				// five copies of the same five-octave noise. Preserve field order:
+				// both warp components must exist before the two filament fields.
+				vec2 warp = vec2(0.0);
+				float n1 = 0.0, n2 = 0.0, rimField = 0.0;
+				for (int fieldIndex = 0; fieldIndex < 5; fieldIndex++) {
+					vec2 sampleUv = eUv + vec2(t * 0.15, -t * 0.08);
+					if (fieldIndex == 1) sampleUv = eUv * 1.3 + vec2(-t * 0.1, t * 0.12);
+					else if (fieldIndex == 2) sampleUv = eUv * 1.4 + warp * 1.8;
+					else if (fieldIndex == 3) sampleUv = eUv * 2.6 - warp.yx * 1.2 + vec2(t * 0.05, 0.0);
+					else if (fieldIndex == 4) sampleUv = plateUv * 14.0 + t * 0.2;
+					float field = fbm(sampleUv);
+					if (fieldIndex < 2) warp[fieldIndex] = field;
+					else if (fieldIndex == 2) n1 = field;
+					else if (fieldIndex == 3) n2 = field;
+					else rimField = field;
+				}
 				float ridges = abs(n1 * 2.0 - 1.0);
 				ridges = 1.0 - smoothstep(0.02, 0.28, ridges);
 				float veil = smoothstep(0.35, 0.85, n2);
@@ -172,7 +183,7 @@ export function createAboutFrontGlassMaterial(cfg = {}) {
 				float energy = filaments * uEnergyOpacity;
 
 				// Noisy rim break-up (etched / plasma edge, not a clean outline).
-				float rimNoise = mix(0.65, 1.35, fbm(plateUv * 14.0 + t * 0.2));
+				float rimNoise = mix(0.65, 1.35, rimField);
 				float rim = fresnel * rimNoise;
 
 				float volume = mix(uThickness * 0.18, 1.05, fresnel);

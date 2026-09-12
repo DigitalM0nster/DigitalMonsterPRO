@@ -336,10 +336,10 @@ class HexTransitionSoundController {
 			if (!audio) {
 				continue;
 			}
-			audio.pause();
+			if (!audio.paused) audio.pause();
 			if (reset) {
 				try {
-					audio.currentTime = 0;
+					if (audio.currentTime !== 0) audio.currentTime = 0;
 				} catch {
 					// ignore
 				}
@@ -395,7 +395,7 @@ class HexTransitionSoundController {
 
 	_pauseInactive(activeAudio) {
 		for (const audio of [this._audio, this._audioReversed]) {
-			if (audio && audio !== activeAudio) {
+			if (audio && audio !== activeAudio && !audio.paused) {
 				audio.pause();
 			}
 		}

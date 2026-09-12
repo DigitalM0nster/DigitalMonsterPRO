@@ -1,7 +1,9 @@
+import { getScenePixelRatio } from "@/three/renderer/renderResolution.js";
 import * as THREE from "three";
 import { applyScreenTextureColorSpace } from "../composerUtils.js";
 import { createHexGridOverlayMaterial, syncHexGridMaterialBlendMode } from "./hexGridOverlayMaterial.js";
 import { hexGridOverlayDefaults } from "./hexGridOverlayConfig.js";
+import { compileSceneChunked } from "../../renderer/compileSceneChunked.js";
 
 const overlayScene = new THREE.Scene();
 const overlayCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
@@ -22,6 +24,12 @@ export class HexGridOverlayPass {
 	setTextures(textureA, textureB) {
 		this.material.uniforms.textureA.value = textureA;
 		this.material.uniforms.textureB.value = textureB;
+	}
+
+	async prepareProgramsUnderCurtain(scheduler) {
+		if (!this.modelsMixTarget) throw new Error("Hex warm target is not prepared");
+		syncHexGridMaterialBlendMode(this.material);
+		await compileSceneChunked(this.renderer, overlayScene, overlayCamera, scheduler, this.modelsMixTarget);
 	}
 
 	setProgress(progress) {
@@ -155,7 +163,7 @@ export class HexGridOverlayPass {
 		this.size = { w: width, h: height };
 		this._updateResolution();
 
-		const dpr = this.renderer.getPixelRatio();
+		const dpr = getScenePixelRatio(this.renderer);
 		const w = Math.floor(width * dpr);
 		const h = Math.floor(height * dpr);
 
@@ -171,7 +179,7 @@ export class HexGridOverlayPass {
 	}
 
 	_updateResolution() {
-		const dpr = this.renderer.getPixelRatio();
+		const dpr = getScenePixelRatio(this.renderer);
 		this.material.uniforms.resolution.value.set(this.size.w * dpr, this.size.h * dpr);
 	}
 

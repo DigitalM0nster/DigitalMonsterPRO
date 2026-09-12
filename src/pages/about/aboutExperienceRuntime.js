@@ -17,6 +17,7 @@ import {
 	getAbsChaseSmoothMul,
 } from "@/three/render/transition/segmentScrollSpring.js";
 import states, { ABOUT_STAGE_COUNT } from "./states.js";
+import { ABOUT_OPEN_STORY_ANCHOR, getAboutStorySegment } from "./aboutStoryTiming.js";
 import { isSceneDevToolsWheelTarget } from "@/three/dev/sceneDevPanelUtils.js";
 import {
 	armAboutPanelHudForRoute,
@@ -80,6 +81,7 @@ import { requestSiteArcScrollRepaint } from "@/pages/portfolio/core/caseStudyAni
 
 const LEGACY_STAGE_INTERVALS = Math.max(1, ABOUT_STAGE_COUNT - 1);
 const ABOUT_WHEEL_STRENGTH = 1.5;
+const ABOUT_FINAL_STAGE_WHEEL_MULTIPLIER = 2;
 /** Softer than carousel — interior stages only. */
 const ABOUT_SPRING_RATES = {
 	returnSmooth: 0.7,
@@ -141,16 +143,20 @@ function isRouteEdgeStory(story) {
 }
 
 /**
- * Wheel → story units. Softer About scale only while moving inside stages;
+ * Input pixels → story units. Softer About scale only while moving inside stages;
  * pushing out of 0 / STORY_MAX (or already on leave) matches carousel.
  */
-function getPixelsPerStoryUnit(storyTarget, deltaPixels) {
+function getPixelsPerStoryUnit(storyTarget, deltaPixels, inputSource) {
 	const pushingBackwardLeave = deltaPixels < 0 && storyTarget <= CAROUSEL_PROGRESS_COMMIT_EPS;
 	const pushingForwardLeave = deltaPixels > 0 && storyTarget >= STORY_MAX - CAROUSEL_PROGRESS_COMMIT_EPS;
 	if (isRouteEdgeStory(storyTarget) || pushingBackwardLeave || pushingForwardLeave) {
 		return getCarouselPixelsPerSegment();
 	}
-	return getPixelsPerStage();
+	const afterThirdStage = storyTarget > 3 || (storyTarget === 3 && deltaPixels > 0);
+	const wheelMultiplier = inputSource === "wheel" && afterThirdStage
+		? ABOUT_FINAL_STAGE_WHEEL_MULTIPLIER
+		: 1;
+	return getPixelsPerStage() / wheelMultiplier;
 }
 
 function clamp(value, min, max) {
@@ -210,13 +216,13 @@ function applyStageTargetRest(storyTarget, delta) {
 	/** Interior content stages — softer About rates. */
 	if (story <= CAROUSEL_PROGRESS_COMMIT_EPS) return 0;
 
-	const segment = Math.floor(story + 1e-12);
-	let local = story - segment;
-	if (local <= TARGET_REST_EPS) return segment;
-	if (local >= 1 - TARGET_REST_EPS) return Math.min(STORY_MAX, segment + 1);
+	const { start, span, local: segmentLocal } = getAboutStorySegment(story);
+	let local = segmentLocal;
+	if (local <= TARGET_REST_EPS) return start;
+	if (local >= 1 - TARGET_REST_EPS) return Math.min(STORY_MAX, start + span);
 
 	local = applyLocalSegmentTargetRest(local, delta, ABOUT_SPRING_RATES);
-	return clamp(segment + local, 0, STORY_TARGET_MAX);
+	return clamp(start + local * span, 0, STORY_TARGET_MAX);
 }
 
 function getStoryChaseConfig(storyProgress, storyTarget = storyProgress) {
@@ -236,7 +242,7 @@ function getStoryChaseConfig(storyProgress, storyTarget = storyProgress) {
 	} else if (storyTarget > STORY_MAX) {
 		absLocal = storyTarget - STORY_MAX;
 	} else {
-		absLocal = storyToStageLocal(storyProgress);
+		absLocal = getAboutStorySegment(storyProgress).local;
 	}
 	return {
 		smooth: onEdge ? CAROUSEL_PROGRESS_SMOOTH : ABOUT_PROGRESS_SMOOTH,
@@ -253,6 +259,7 @@ function snapStoryPair(current, target) {
 	let nextCurrent = current;
 
 	const restPoints = [CAROUSEL_PROGRESS_SEGMENT_BACK_END];
+	restPoints.push(ABOUT_OPEN_STORY_ANCHOR);
 	for (let i = 0; i <= STORY_MAX; i += 1) restPoints.push(i);
 	restPoints.push(STORY_MAX + 1);
 
@@ -271,6 +278,7 @@ function snapStoryPair(current, target) {
 				rest > 0
 				&& nextTarget === rest
 				&& nextCurrent >= rest - CAROUSEL_PROGRESS_COMMIT_SNAP_ZONE
+				&& (rest !== ABOUT_OPEN_STORY_ANCHOR || nextCurrent <= rest + CAROUSEL_PROGRESS_COMMIT_SNAP_ZONE)
 			) {
 				nextCurrent = rest;
 			}
@@ -290,7 +298,7 @@ function storyNeedsAnimation(current, target) {
 		const local = target - STORY_MAX;
 		return local > eps && local < 1 - eps;
 	}
-	const local = target - Math.floor(target + 1e-12);
+	const { local } = getAboutStorySegment(target);
 	return local > eps && local < 1 - eps;
 }
 
@@ -401,8 +409,21 @@ function createAboutExperienceRuntime() {
 		}
 		syncAboutPanelHudFromStory(visualCurrent);
 		requestSiteArcScrollRepaint();
-		// White PCB particle bed — follows painted story even at rest (no blue edge SFX).
-		updateAboutParticleSound(current);
+	};
+
+	/** A terminal zero-delta update fades loops before this owner's rAF stops. */
+	const updateMotionSounds = (delta) => {
+		updateAboutFrontDissolveSound(delta, aboutStoryToFrontDissolve(current));
+		updateAboutBackDissolveSound(delta, aboutStoryToBackDissolve(current));
+		updateAboutPcbAppearSound(delta, aboutStoryToPcbReveal(current));
+		updateAboutParticleSound(current, delta);
+		if (
+			!isAboutPanelHudLocaleMixBusy()
+			&& current >= 0 && current <= STORY_MAX
+			&& target >= 0 && target <= STORY_MAX
+		) {
+			updateCaseStudyTextTransitionSound(delta, resolveAboutPanelHudStoryPair(clampStoryVisual(current)).mix);
+		}
 	};
 
 	/** Mirror route-edge overshoot onto carousel for mix/cameras (About still owns spring). */
@@ -484,6 +505,7 @@ function createAboutExperienceRuntime() {
 	};
 
 	const stopAnimation = () => {
+		updateMotionSounds(0);
 		if (rafId) {
 			window.cancelAnimationFrame(rafId);
 			rafId = 0;
@@ -507,6 +529,7 @@ function createAboutExperienceRuntime() {
 				return;
 			}
 			experience.active = false;
+			updateMotionSounds(0);
 			getSceneCarousel().clearAboutBoundaryDrive();
 			return;
 		}
@@ -534,31 +557,14 @@ function createAboutExperienceRuntime() {
 
 		syncBoundaryDrive();
 		if (tryCommitRouteLeave()) {
+			updateMotionSounds(0);
 			return;
 		}
 
 		publish();
-		// Front hex dissolve scrub — painted dissolve (story 0.5→1), not wheel.
-		updateAboutFrontDissolveSound(dt, aboutStoryToFrontDissolve(current));
-		// Back plate disappear — painted dissolve (story 1→2), not wheel.
-		updateAboutBackDissolveSound(dt, aboutStoryToBackDissolve(current));
-		// White PCB particle appear — painted reveal (story 1.5→2), not wheel.
-		updateAboutPcbAppearSound(dt, aboutStoryToPcbReveal(current));
-		// Left HUD mosaic scrub — interior stages only (route-edge leave is hexTransition).
-		if (
-			!isAboutPanelHudLocaleMixBusy()
-			&& current >= 0
-			&& current <= STORY_MAX
-			&& target >= 0
-			&& target <= STORY_MAX
-		) {
-			// Drive SFX from visual HUD mix (front-half wipe), not soft story local.
-			updateCaseStudyTextTransitionSound(
-				dt,
-				resolveAboutPanelHudStoryPair(clampStoryVisual(current)).mix,
-			);
-		}
-		if (storyNeedsAnimation(current, target)) {
+		const keepAnimating = storyNeedsAnimation(current, target);
+		updateMotionSounds(keepAnimating ? dt : 0);
+		if (keepAnimating) {
 			rafId = window.requestAnimationFrame(tick);
 		}
 	};
@@ -582,7 +588,7 @@ function createAboutExperienceRuntime() {
 		}, WHEEL_IDLE_MS);
 	};
 
-	const applyInputPixels = (rawDeltaPixels) => {
+	const applyInputPixels = (rawDeltaPixels, inputSource = "touch") => {
 		if (!ownsInput() || !Number.isFinite(rawDeltaPixels) || rawDeltaPixels === 0) {
 			return false;
 		}
@@ -598,7 +604,7 @@ function createAboutExperienceRuntime() {
 			scrollIntent = "backward";
 		}
 
-		const pixelsPerUnit = getPixelsPerStoryUnit(target, rawDeltaPixels);
+		const pixelsPerUnit = getPixelsPerStoryUnit(target, rawDeltaPixels, inputSource);
 		target = clampStoryTarget(target + rawDeltaPixels / pixelsPerUnit);
 
 		publish();
@@ -617,6 +623,18 @@ function createAboutExperienceRuntime() {
 	};
 
 	const jumpByStage = (direction) => {
+		if (direction > 0 && target < ABOUT_OPEN_STORY_ANCHOR - CAROUSEL_PROGRESS_COMMIT_EPS) {
+			jumpToStory(ABOUT_OPEN_STORY_ANCHOR);
+			return;
+		}
+		if (direction < 0 && target > ABOUT_OPEN_STORY_ANCHOR + CAROUSEL_PROGRESS_COMMIT_EPS && target <= 1) {
+			jumpToStory(ABOUT_OPEN_STORY_ANCHOR);
+			return;
+		}
+		if (direction < 0 && target > 0 && target <= ABOUT_OPEN_STORY_ANCHOR + CAROUSEL_PROGRESS_COMMIT_EPS) {
+			jumpToStory(0);
+			return;
+		}
 		const stageIndex = storyToStageIndex(clampStoryVisual(target));
 		const nextStageIndex = stageIndex + direction;
 		if (states[nextStageIndex]) {
@@ -649,7 +667,7 @@ function createAboutExperienceRuntime() {
 			return;
 		}
 		event.preventDefault();
-		applyInputPixels(delta);
+		applyInputPixels(delta, "wheel");
 	};
 
 	const onKeyDown = (event) => {
@@ -768,6 +786,7 @@ function createAboutExperienceRuntime() {
 		scrollIntent = null;
 		getSceneCarousel().clearAboutBoundaryDrive();
 		publish();
+		updateMotionSounds(0);
 	};
 
 	experience.active = true;
@@ -778,7 +797,9 @@ function createAboutExperienceRuntime() {
 		id: "about",
 		sceneId: "about",
 		snapshot: () => {
-			const rest = resolveStoryRest(target, STORY_MAX);
+			const rest = target >= 0 && target < 1
+				? resolveStoryRest(target / ABOUT_OPEN_STORY_ANCHOR, 2) * ABOUT_OPEN_STORY_ANCHOR
+				: resolveStoryRest(target, STORY_MAX);
 			const carousel = getSceneCarousel();
 			if (rest < 0) {
 				return {
@@ -818,13 +839,7 @@ function createAboutExperienceRuntime() {
 			scrollIntent = value < 0 ? "backward" : value > STORY_MAX ? "forward" : null;
 			syncBoundaryDrive();
 			publish();
-			updateAboutFrontDissolveSound(delta, aboutStoryToFrontDissolve(current));
-			updateAboutBackDissolveSound(delta, aboutStoryToBackDissolve(current));
-			updateAboutPcbAppearSound(delta, aboutStoryToPcbReveal(current));
-			if (current >= 0 && current <= STORY_MAX) {
-				const mix = resolveAboutPanelHudStoryPair(clampStoryVisual(current)).mix;
-				updateCaseStudyTextTransitionSound(delta, mix);
-			}
+			updateMotionSounds(delta);
 		},
 		commit: () => {
 			if (!tryCommitRouteLeave()) {
@@ -832,6 +847,7 @@ function createAboutExperienceRuntime() {
 				syncBoundaryDrive();
 				publish();
 			}
+			updateMotionSounds(0);
 		},
 	};
 	const unregisterNavigationOwner = registerSiteNavigationProgressOwner(navigationOwner);

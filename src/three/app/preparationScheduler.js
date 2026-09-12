@@ -13,6 +13,8 @@ export class PreparationScheduler {
 		this.spentMs = 0;
 		this.lastJobMs = 0;
 		this.stats = { jobs: 0, yields: 0, maxJobMs: 0 };
+		// Only existing synchronous scene updates are sampled; no extra warm work.
+		this.sceneCpuSamples = Object.create(null);
 	}
 
 	check() {
@@ -30,17 +32,29 @@ export class PreparationScheduler {
 		this.lastJobMs = 0;
 	}
 
-	async run(job, { gpu = false } = {}) {
+	async run(job, { gpu = false, cpuSceneId = null } = {}) {
 		this.check();
 		if (gpu || this.spentMs >= this.budgetMs) await this.breath();
 		const start = this.now();
+		let completed = false;
 		try {
-			return job();
+			const result = job();
+			completed = !result || typeof result.then !== "function";
+			return result;
 		} finally {
 			this.lastJobMs = this.now() - start;
 			this.spentMs += this.lastJobMs;
 			this.stats.jobs++;
 			this.stats.maxJobMs = Math.max(this.stats.maxJobMs, this.lastJobMs);
+			if (completed && !gpu && cpuSceneId) {
+				const sample = this.sceneCpuSamples[cpuSceneId];
+				if (!sample) {
+					this.sceneCpuSamples[cpuSceneId] = { firstMs: this.lastJobMs, repeatsMs: [], count: 1 };
+				} else {
+					sample.count++;
+					if (sample.repeatsMs.length < 32) sample.repeatsMs.push(this.lastJobMs);
+				}
+			}
 		}
 	}
 }

@@ -1,33 +1,49 @@
 const TAU = Math.PI * 2;
 
-/** Short, enveloped energy/glass accents, baked once under the preloader curtain. */
-export async function prepareCoreAccentBuffers(context) {
+/** Bake soft, band-limited textures under the curtain; runtime only mixes buffers. */
+export async function prepareCoreAccentBuffers(context, cancelled = () => false) {
 	const buffers = {};
-	for (const [name, duration] of [["light", 1.8], ["hover", 0.46]]) {
+	for (const [name, duration] of [["hover", 1], ["light", 2], ["opening", 3]]) {
 		const buffer = context.createBuffer(1, Math.ceil(duration * context.sampleRate), context.sampleRate);
-		const samples = buffer.getChannelData(0);
-		let seed = 731, air = 0;
-		for (let start = 0; start < samples.length; start += 8192) {
-			await new Promise(resolve => requestAnimationFrame(resolve));
-			for (let i = start; i < Math.min(start + 8192, samples.length); i++) {
-				const t = i / context.sampleRate, phase = i / (samples.length - 1);
-				seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
-				air += ((seed / 4294967296 * 2 - 1) - air) * 0.18;
-				const tail = Math.min(1, (1 - phase) * 6) ** 2;
-				if (name === "light") {
-					const envelope = (1 - Math.exp(-t / 0.065)) * Math.exp(-t * 1.7) * tail;
-					const body = Math.sin(TAU * (175 * t + 45 * t * t)) * 0.5
-						+ Math.sin(TAU * (352 * t + 90 * t * t)) * 0.19;
-					const shimmer = Math.sin(TAU * (1050 * t - 180 * t * t)) * (0.09 + Math.sin(t * 31) * 0.035);
-					samples[i] = (body + shimmer + air * 0.2) * envelope;
-				} else {
-					const envelope = (1 - Math.exp(-t / 0.009)) * Math.exp(-t * 8) * tail;
-					const pitch = 620 * t + 42 * (t - 0.035 * (1 - Math.exp(-t / 0.035)));
-					samples[i] = (Math.sin(TAU * pitch) * 0.6 + Math.sin(TAU * 1324 * t) * 0.17 + air * 0.07) * envelope;
+		for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
+			const samples = buffer.getChannelData(channel);
+			const fastAlpha = 1 - Math.exp(-TAU * 1400 / context.sampleRate);
+			const slowAlpha = 1 - Math.exp(-TAU * 170 / context.sampleRate);
+			let seed = 731 + channel * 103, fast = 0, slow = 0;
+			for (let start = 0; start < samples.length; start += 16384) {
+				await new Promise(resolve => requestAnimationFrame(resolve));
+				if (cancelled()) return null;
+				for (let i = start; i < Math.min(start + 16384, samples.length); i++) {
+					const t = i / context.sampleRate;
+					if (name === "hover") {
+						// Fixed pitch, no chirp, beat or tremolo on a stationary pointer.
+						samples[i] = Math.sin(TAU * 196 * t) * 0.4 + Math.sin(TAU * 392 * t) * 0.045;
+					} else if (name === "light") {
+						// Same calm 196 Hz voice as hover; the painted glow shapes its volume.
+						samples[i] = Math.sin(TAU * 196 * t) * 0.34 + Math.sin(TAU * 392 * t) * 0.038;
+					} else if (name === "opening") {
+						seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+						const noise = seed / 4294967296 * 2 - 1;
+						fast += (noise - fast) * fastAlpha; slow += (noise - slow) * slowAlpha;
+						const air = fast - slow;
+						const phase = i / (samples.length - 1), envelope = Math.sin(Math.PI * phase) ** 0.7;
+						const breath = 0.8 + Math.sin(TAU * phase * 2) * 0.2;
+						samples[i] = (air * 1.35 * breath + Math.sin(TAU * 196 * t) * 0.07 + Math.sin(TAU * 294 * t) * 0.025) * envelope;
+					}
 				}
 			}
 		}
 		buffers[name] = buffer;
+	}
+	// Reuse the approved glow recording verbatim for pointer movement.
+	buffers.surface = buffers.light;
+	const opening = buffers.opening;
+	buffers.closing = context.createBuffer(1, opening.length, opening.sampleRate);
+	const source = opening.getChannelData(0), target = buffers.closing.getChannelData(0);
+	for (let start = 0; start < source.length; start += 16384) {
+		await new Promise(resolve => requestAnimationFrame(resolve));
+		if (cancelled()) return null;
+		for (let i = start; i < Math.min(start + 16384, source.length); i++) target[i] = source[source.length - 1 - i];
 	}
 	return buffers;
 }

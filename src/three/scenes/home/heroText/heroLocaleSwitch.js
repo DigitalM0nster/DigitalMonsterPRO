@@ -26,8 +26,14 @@ export function createHeroLocaleSwitchController({
 	let isSwitching = false;
 	let trackedStoreLocale = store.siteLocale;
 	let currentSwitchPromise = Promise.resolve();
+	let disposed = false;
 
 	const runLocaleSwitch = ({ animate = shouldAnimateSiteLocaleForRingScene("home") } = {}) => {
+		if (disposed) return Promise.resolve();
+		if (!animate) {
+			subtitle.finishLocaleSwitch?.();
+			stack.finishLocaleSwitch?.();
+		}
 		if (isSwitching) {
 			return currentSwitchPromise;
 		}
@@ -40,7 +46,7 @@ export function createHeroLocaleSwitchController({
 
 		currentSwitchPromise = (async () => {
 			try {
-				// Both layers together — tight glitch canvases keep this cheap enough.
+				// High/Medium select prepared glyphs; Low retains the existing Canvas path.
 				await Promise.all([
 					subtitle.switchLocaleWithSnake(getHeroTaglineLines(targetLocale), {
 						fontFamily: getHeroSubtitleFontFamily(targetLocale),
@@ -56,13 +62,14 @@ export function createHeroLocaleSwitchController({
 					stack.uploadPreparedTexture?.();
 				}
 
+				if (disposed) return;
 				syncLayerPositions(resolveHeroTextPosition(heroTextPositionConfig));
 				displayedLocale = targetLocale;
 			} catch (error) {
 				console.error("[heroLocaleSwitch] locale switch failed", error);
 			} finally {
 				isSwitching = false;
-				if (desiredLocale !== displayedLocale) {
+				if (!disposed && desiredLocale !== displayedLocale) {
 					void runLocaleSwitch({
 						animate: shouldAnimateSiteLocaleForRingScene("home"),
 					});
@@ -97,6 +104,7 @@ export function createHeroLocaleSwitchController({
 
 	const controller = {
 		dispose() {
+			disposed = true;
 			unsubscribe();
 		},
 		getDisplayedLocale() {
@@ -105,6 +113,8 @@ export function createHeroLocaleSwitchController({
 		/** Apply a locale selected while Home was dormant, without a delayed snake. */
 		syncLocaleForActivation() {
 			desiredLocale = getHeroLocale();
+			subtitle.finishLocaleSwitch?.();
+			stack.finishLocaleSwitch?.();
 			if (isSwitching) {
 				return currentSwitchPromise.then(() => controller.syncLocaleForActivation());
 			}

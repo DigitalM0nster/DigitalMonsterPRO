@@ -6,19 +6,50 @@ import { filmPaletteGLSL } from "./filmPalette.js";
 export const filmHudVertex = `
 uniform vec4 uRect;
 varying vec2 vUv;
+#ifdef FILM_MSDF
+attribute vec4 aGlyphRect,aGlyphUv;
+#endif
+#ifdef FILM_RULE_GLOW
+uniform float uVertical;
+#endif
 ${filmSurfaceGLSL}
 void main(){
+ vec2 local=position.xy;
  vUv=uv;
- vec3 p=filmSurface(vec3(uRect.xy+position.xy*uRect.zw,.018));
+ #ifdef FILM_MSDF
+ local=aGlyphRect.xy+uv*aGlyphRect.zw-.5;
+ vUv=aGlyphUv.xy+uv*aGlyphUv.zw;
+ #endif
+ #if defined(FILM_LOW) && defined(FILM_RULE_GLOW)
+ // Give the rule's local halo space without changing its luminous core width.
+ local*=mix(vec2(1.,6.),vec2(6.,1.),uVertical);
+ #elif defined(FILM_RULE_GLOW)
+ local*=mix(vec2(1.,2.),vec2(2.,1.),uVertical);
+ #endif
+ vec3 p=filmSurface(vec3(uRect.xy+local*uRect.zw,.018));
  gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.);
 }`;
 
 export const filmHudTextFragment = `
 uniform sampler2D uMap;uniform float uOpacity;uniform float uGain;
+uniform vec3 uInk;uniform vec2 uMsdfRange;
 varying vec2 vUv;
 void main(){
  vec4 ink=texture2D(uMap,vUv);
- gl_FragColor=vec4(ink.rgb*uGain,ink.a*uOpacity);
+ #ifdef FILM_MSDF
+ float median=max(min(ink.r,ink.g),min(max(ink.r,ink.g),ink.b));
+ float range=max(.5*dot(uMsdfRange,1./max(fwidth(vUv),vec2(.000001))),1.);
+ // Match the original .65px outline on a 64px source font, without bitmap resampling.
+ float smallTypeWeight=.10*clamp(2.-range,0.,1.);
+ ink=vec4(uInk,clamp((median-.5+.040625)*range+.5+smallTypeWeight,0.,1.));
+ #endif
+ float gain=uGain;
+ #ifdef FILM_MEDIUM
+ // Quiet labels stay below bloom; names retain a small, controlled luminous core.
+ gain=uGain>1.2?1.07:.98;
+ ink.rgb=uInk;
+ #endif
+ gl_FragColor=vec4(ink.rgb*gain,ink.a*uOpacity);
  #include <colorspace_fragment>
 }`;
 
@@ -30,31 +61,38 @@ varying vec2 vUv;
 void main(){
  float d=abs(mix(vUv.y,vUv.x,uVertical)-.5);
  float core=1.-smoothstep(.08,.24,d);
+ float coreGain=1.8;
  float halo=exp(-d*12.)*.18;
+ float haloGain=.4;
+ #ifdef FILM_MEDIUM
+ // Differentiate the signed coordinate: abs() can cancel derivatives across the line.
+ float aa=max(fwidth(mix(vUv.y,vUv.x,uVertical)),.0001);
+ #ifdef FILM_RULE_GLOW
+ // Wider existing quad makes room for a soft halo without thickening the core.
+ d*=2.;aa*=2.;
+ #endif
+ core=clamp((.16-d)/aa+.5,0.,1.);
+ coreGain=1.8;
+ halo=exp(-d*3.5)*.28*(1.-smoothstep(.8,1.,d));
+ haloGain=2.;
+ #endif
  float a=max(core,halo);
- vec3 light=uColor*filmUiGain*(1.8*core+.4*halo);
+ vec3 tint=uColor;
+ #ifdef FILM_MEDIUM
+ // Local halo keeps hairlines continuous; a quarter-resolution bloom would turn
+ // their subpixel coverage into bright dots. Preserve hue while staying below it.
+ float peakLuminance=dot(tint,vec3(.2126,.7152,.0722))*filmUiGain*(coreGain+.28*haloGain);
+ tint*=min(1.,.94/max(peakLuminance,.0001));
+ #endif
+ vec3 light=tint*filmUiGain*(coreGain*core+haloGain*halo);
+ #ifdef FILM_LOW
+ float aa=max(fwidth(mix(vUv.y,vUv.x,uVertical))*6.,.0001);
+ d*=6.;
+ core=clamp((.24-d)/aa+.5,0.,1.);
+ halo=exp(-d*2.)*.45*(1.-smoothstep(2.5,3.,d));
+ gl_FragColor=uColor.r>.9?filmLowWhite(core*.9,core,uOpacity):filmLowLight(core*2.+halo,core,uOpacity);
+ #else
  gl_FragColor=vec4(light/max(a,.0001),a*uOpacity);
- #include <colorspace_fragment>
-}`;
-
-export const filmHudNavigatorFragment = `
-${filmPaletteGLSL}
-uniform float uOpacity;uniform float uActive;uniform float uCount;uniform float uHover;uniform float uHoverOpacity;
-varying vec2 vUv;
-void main(){
- vec2 p=vec2(vUv.x*uCount,vUv.y);
- float dx=p.x-(uActive+.5);
- float endFade=smoothstep(0.,.16,p.x)*(1.-smoothstep(uCount-.16,uCount,p.x));
- float line=1.-smoothstep(.007,.024,abs(p.y-.17));
- float rail=line*.22*endFade;
- float cell=abs(fract(p.x+.5)-.5);
- float ticks=(1.-smoothstep(.006,.022,cell))*(1.-smoothstep(.018,.06,abs(p.y-.17)))*.27;
- float selected=line*(1.-smoothstep(.25,.35,abs(dx)));
- float glow=exp(-dx*dx*13.-(p.y-.17)*(p.y-.17)*160.)*.16;
- float field=(1.-smoothstep(.28,.47,abs(dx)))*(1.-smoothstep(.0,.65,p.y))*.055;
- float hover=line*(1.-smoothstep(.25,.35,abs(p.x-(uHover+.5))))*uHoverOpacity*.45;
- float a=max(field,max(rail,max(ticks,max(selected,max(glow,hover)))));
- vec3 light=filmAccent*filmUiGain*(field*.07+rail*.55+ticks*.4+selected*1.8+glow*.6+hover*.9);
- gl_FragColor=vec4(light/max(a,.0001),a*uOpacity);
+ #endif
  #include <colorspace_fragment>
 }`;

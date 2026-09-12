@@ -22,4 +22,22 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-node_modules
+
+# Local render exports, captures, and browser profiles
+/output/
+/.playwright-mcp/
+/.codex-build-check/
+/.codex-artifacts/
+/.codex/city-scene/evidence/**/*.png
+/.codex/city-scene/evidence/**/*.jpg
+/.codex/city-scene/evidence/**/*.webp
+/.codex/city-scene/evidence/**/*.webm
+/.codex/city-scene/evidence/**/*.mp4
+
+# Python render-tool caches
+__pycache__/
+*.py[cod]
+
+# Superseded portfolio videos; keep the versions used by filmProjects.js
+/public/video/portfolio/*-presentation-v[6-9]-*.mp4
+/public/video/portfolio/nipigas-presentation-v10-*.mp4

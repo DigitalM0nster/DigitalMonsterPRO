@@ -95,6 +95,38 @@ test("overlapping, distant and offscreen markers cannot be hovered", () => {
 	highlight.dispose();
 });
 
+test("magnetic circles move toward the cursor by at most nine pixels and return on blocked input", () => {
+	const highlight = new CityDistrictHighlight(data, renderer), camera = cameraAt(), markers = highlight.markers;
+	markers.project(camera);
+	const anchor = markers.points[0].clone(), cameraPose = camera.matrixWorld.clone();
+	const pointer = new THREE.Vector2((anchor.x + 24) / 960 - 1, (anchor.y + 18) / 540 - 1);
+	const frame = { camera, pointer, pointerDown: false };
+	const state = markers.markerState, geometry = markers.mesh.geometry;
+	highlight.update(1 / 60, frame, true);
+	assert.ok(markers.offsets[0].x > 0 && markers.offsets[0].y > 0);
+	assert.ok(markers.offsets[0].length() < 9, "attraction eases in instead of snapping");
+	for (let i = 0; i < 120; i++) highlight.update(1 / 120, frame, true);
+	assert.ok(Math.abs(markers.offsets[0].length() - 9) < .001);
+	assert.equal(highlight.hovered, 0);
+	assert.equal(markers.pick(pointer), 0, "hit testing follows the displayed circle");
+	assert.ok(markers.points[0].x > anchor.x && markers.points[0].y > anchor.y);
+	assert.equal(markers.offsets[1].length(), 0, "unrelated circles do not follow the cursor");
+	assert.deepEqual(camera.matrixWorld.elements, cameraPose.elements, "magnetism does not own the camera");
+	pointer.set((anchor.x - 12) / 960 - 1, anchor.y / 540 - 1);
+	for (let i = 0; i < 60; i++) highlight.update(1 / 60, frame, true);
+	assert.ok(markers.offsets[0].x < -4 && Math.abs(markers.offsets[0].y) < .001);
+	const beforeLeave = markers.offsets[0].length();
+	frame.pointerDown = true; highlight.update(1 / 60, frame, true);
+	assert.equal(highlight.hovered, -1);
+	assert.ok(markers.offsets[0].length() > 0 && markers.offsets[0].length() < beforeLeave);
+	for (let i = 0; i < 60; i++) highlight.update(1 / 60, frame, false);
+	assert.ok(markers.offsets[0].length() < .001);
+	assert.equal(markers.markerState, state); assert.equal(markers.mesh.geometry, geometry);
+	assert.equal(markers.mesh.material.uniforms.uMarkerState.value, state);
+	highlight.reset(); assert.ok(markers.offsets.every(offset => offset.length() === 0));
+	highlight.dispose();
+});
+
 test("authored quarters contain four or five buildings and retain prepared anchors", () => {
 	const file = new URL("../../../../../public/models/posibility5/city-districts.json", import.meta.url);
 	const data = JSON.parse(readFileSync(file));

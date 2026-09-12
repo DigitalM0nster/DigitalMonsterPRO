@@ -1,5 +1,5 @@
 /**
- * About front-plate hex dissolve SFX (stage 1, story 0.5→1).
+ * About front-plate hex dissolve SFX (after the opening anchor, story 0.5→1).
  *
  * Progress scrub on painted dissolve (same formula as AboutScene), not wheel.
  * Buffer: SOUND_CATALOG.logo_reveal. Forward/reverse beds follow dissolve direction.
@@ -13,6 +13,8 @@ import {
 } from "./masterAudioBus.js";
 import { loadAudioBuffer } from "./audioAssetCache.js";
 import { SOUND_CATALOG } from "./soundCatalog.js";
+
+export { aboutStoryToFrontDissolve } from "@/pages/about/aboutStoryTiming.js";
 
 /** Mild center-left — front plate sits mid-frame, not left HUD. */
 const SOUND_PAN = -0.2;
@@ -47,15 +49,6 @@ let handlersBound = false;
 
 function clamp01(value) {
 	return Math.max(0, Math.min(1, Number(value) || 0));
-}
-
-/**
- * Painted front hex dissolve 0…1 — matches AboutScene._applyStoryProgress.
- * @param {number} story
- */
-export function aboutStoryToFrontDissolve(story) {
-	const stage1 = clamp01(story);
-	return clamp01((stage1 - 0.5) / 0.5);
 }
 
 async function loadBuffers() {

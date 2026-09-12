@@ -126,7 +126,7 @@ export class SceneDragOrbitController {
 		return this.blockScenePointer;
 	}
 
-	apply(camera, sceneId, { orbitTarget = null } = {}) {
+	apply(camera, sceneId, { orbitTarget = null, preserveTarget = false } = {}) {
 		if (
 			!camera
 			|| sceneId !== this.sceneId
@@ -145,11 +145,16 @@ export class SceneDragOrbitController {
 		// Keep the pivot on the canonical view ray. Scene targets provide the
 		// correct radius, while this alignment prevents a first-drag look snap for
 		// authored camera quaternions (for example an active MMK-1 hotspot).
-		this.viewDirection.set(0, 0, -1).applyQuaternion(camera.quaternion).normalize();
-		this.orbitTarget.copy(camera.position).addScaledVector(this.viewDirection, orbitRadius);
+		if (!preserveTarget) {
+			this.viewDirection.set(0, 0, -1).applyQuaternion(camera.quaternion).normalize();
+			this.orbitTarget.copy(camera.position).addScaledVector(this.viewDirection, orbitRadius);
+		}
 		this.orbitOffset.subVectors(camera.position, this.orbitTarget);
 		this.orbitQuaternion.setFromAxisAngle(this.worldY, this.currentOrbit);
 		this.orbitOffset.applyQuaternion(this.orbitQuaternion);
+		// Off-axis content keeps its screen placement when camera position and
+		// orientation rotate together around the actual model centre.
+		if (preserveTarget) camera.quaternion.premultiply(this.orbitQuaternion);
 		// Pitch around the yawed camera's right axis, keeping clear of the poles.
 		this.orbitRight.crossVectors(this.worldY, this.orbitOffset);
 		if (this.orbitRight.lengthSq() > 0.000001) {
@@ -158,9 +163,10 @@ export class SceneDragOrbitController {
 			const nextElevation = THREE.MathUtils.clamp(elevation - this.currentVerticalOrbit, -Math.PI / 2 + 0.1, Math.PI / 2 - 0.1);
 			this.orbitQuaternion.setFromAxisAngle(this.orbitRight, elevation - nextElevation);
 			this.orbitOffset.applyQuaternion(this.orbitQuaternion);
+			if (preserveTarget) camera.quaternion.premultiply(this.orbitQuaternion);
 		}
 		camera.position.copy(this.orbitTarget).add(this.orbitOffset);
-		camera.lookAt(this.orbitTarget);
+		if (!preserveTarget) camera.lookAt(this.orbitTarget);
 		camera.updateMatrixWorld(true);
 	}
 

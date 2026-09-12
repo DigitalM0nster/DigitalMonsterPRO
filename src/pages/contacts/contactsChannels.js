@@ -17,5 +17,5 @@ export const CONTACTS_HUB_PROJECTS = CONTACTS_CHANNELS.map((channel) => ({
 	path: channel.href,
 	externalHref: channel.href,
 	hubLogo: `/images/contacts/${channel.id}.svg`,
-	labelSegments: [{ text: channel.label, role: "secondary" }],
+	labelSegments: [{ text: channel.href.replace(/^https?:\/\/(?:www\.)?/i, "").replace(/\/$/, ""), role: "secondary" }],
 }));

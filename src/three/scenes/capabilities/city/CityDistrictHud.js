@@ -1,4 +1,6 @@
+import { getScenePixelRatio } from "@/three/renderer/renderResolution.js";
 import * as THREE from "three";
+import { SceneTextLocale } from "../typography/sceneTextLocale.js";
 import { createSceneHudAtlas } from "../../../objects/sceneHud/sceneHudAtlas.js";
 import { advanceHudSnake, HUD_MARKER_GLSL, hudSnakeGlsl } from "../../../objects/sceneHud/sceneHudShaders.js";
 import { CITY_HUD_STATE_COUNT, createDistrictHudContent, districtHudState, districtHudMetrics } from "./cityDistrictHudContent.js";
@@ -15,6 +17,7 @@ export class CityDistrictHud {
 
 	constructor(parent, renderer, highlight) {
 		this.parent = parent; this.highlight = highlight;
+		this.localeMotion = new SceneTextLocale();
 		this.viewport = new THREE.Vector2();
 		this.projected = new THREE.Vector3();
 		this.localAnchor = new THREE.Vector3();
@@ -25,7 +28,7 @@ export class CityDistrictHud {
 		this.metrics = highlight.districts.map(districtHudMetrics);
 		this.overlayScene = new THREE.Scene();
 		parent.add(highlight.markers.mesh);
-		this.pixelRatio = renderer.getPixelRatio();
+		this.pixelRatio = getScenePixelRatio(renderer);
 		const atlasRatio = Math.min(2, this.pixelRatio, renderer.capabilities.maxTextureSize / (CITY_HUD_STATE_COUNT * CITY_HUD_HEIGHT));
 		this.atlas = createSceneHudAtlas(atlasRatio, createDistrictHudContent(), "city-district", { width: CITY_HUD_WIDTH, height: CITY_HUD_HEIGHT });
 		this.uniforms = {
@@ -124,6 +127,7 @@ export class CityDistrictHud {
 		u.uViewport.value.copy(this.viewport);
 		this.projected.copy(this.localAnchor); this.parent.localToWorld(this.projected); this.projected.project(camera);
 		u.uEnd.value.set((this.projected.x + 1) * width / 2, (this.projected.y + 1) * height / 2);
+		if (this.current >= 0) u.uEnd.value.add(this.highlight.markers.offsets[this.current]);
 		u.uOnscreen.value = Math.abs(this.projected.z) <= 1 && Math.abs(this.projected.x) <= 1 && Math.abs(this.projected.y) <= 1 ? 1 : 0;
 		const p = layoutDistrictHud(width, height, u.uEnd.value.x, u.uEnd.value.y, this.placement);
 		u.uScale.value = p.scale;
@@ -145,6 +149,7 @@ export class CityDistrictHud {
 		const selected = this.highlight.hovered, u = this.uniforms;
 		if (selected !== this.current && (u.uReveal.value < .025 || this.current < 0)) {
 			this.current = selected; u.uSnake.value = 0;
+			this.localeMotion.reset();
 			if (selected >= 0) {
 				this.placement.side = 0;
 				this.localAnchor.copy(this.highlight.focus);
@@ -158,11 +163,12 @@ export class CityDistrictHud {
 		if (showing) this.localAnchor.copy(this.highlight.focus);
 		this.layoutPending = true; this.follow = 1 - Math.exp(-18 * delta);
 		u.uReveal.value = THREE.MathUtils.damp(u.uReveal.value, showing ? 1 : 0, showing ? 8 : 18, delta);
-		u.uSnake.value = advanceHudSnake(u.uSnake.value, showing, delta);
-		u.uLocale.value = locale === "en" ? 1 : locale === "zh" ? 2 : 0;
+		const natural = this.localeMotion.busy ? u.uSnake.value : advanceHudSnake(u.uSnake.value, showing, delta);
+		u.uSnake.value = this.localeMotion.update(delta, locale, natural, showing);
+		u.uLocale.value = this.localeMotion.locale;
 	}
 
-	reset() { this.current = -1; this.uniforms.uReveal.value = 0; this.uniforms.uSnake.value = 0; }
+	reset() { this.current = -1; this.uniforms.uReveal.value = 0; this.uniforms.uSnake.value = 0; this.localeMotion.reset(); }
 	beginWarmupDraw() { this.uniforms.uReveal.value = .01; this.uniforms.uSnake.value = .5; }
 	endWarmupDraw() { this.reset(); }
 	setComposeMode(mode) {

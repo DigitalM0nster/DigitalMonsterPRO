@@ -43,8 +43,8 @@ export function getForcedGraphicsTierFromUrl() {
 /** @returns {{ score: number, cores: number, memoryGb: number | null, mobile: boolean }} */
 function computeGraphicsHardwareScore() {
 	const mobile = isMobileGraphicsDevice();
-	const cores = typeof navigator.hardwareConcurrency === "number" ? navigator.hardwareConcurrency : 4;
-	const memoryGb = typeof navigator.deviceMemory === "number" ? navigator.deviceMemory : null;
+	const cores = Number.isFinite(navigator.hardwareConcurrency) && navigator.hardwareConcurrency > 0 ? navigator.hardwareConcurrency : 4;
+	const memoryGb = Number.isFinite(navigator.deviceMemory) && navigator.deviceMemory > 0 ? navigator.deviceMemory : null;
 
 	let score = 0;
 	if (cores >= 8) score += 2;
@@ -53,30 +53,19 @@ function computeGraphicsHardwareScore() {
 	if (memoryGb != null) {
 		if (memoryGb >= 8) score += 2;
 		else if (memoryGb >= 4) score += 1;
-	} else if (!mobile) {
-		// deviceMemory на Windows часто недоступен — ориентируемся на CPU, не занижаем desktop.
-		if (cores >= 8) score += 2;
-		else if (cores >= 4) score += 1;
 	}
 
 	return { score, cores, memoryGb, mobile };
 }
 
-function resolveTierFromScore(score, mobile) {
-	let tier = "high";
-	if (score <= 2) tier = "low";
-	else if (score <= 3) tier = "medium";
-
-	if (mobile) {
-		if (tier === "high") {
-			tier = "medium";
-		}
-		if (score <= 2) {
-			tier = "low";
-		}
-	}
-
-	return tier;
+function resolveHardwareTier({ cores, memoryGb, mobile }) {
+	// Independent ceilings: extra RAM cannot compensate for few CPU threads,
+	// and extra threads cannot compensate for a known small memory budget.
+	if (cores < 4 || (memoryGb !== null && memoryGb < 4)) return "low";
+	if (cores < 8 && memoryGb !== null && memoryGb <= 4) return "low";
+	// Unknown RAM is not invented from CPU data, nor treated as low memory.
+	if (cores < 8 || (memoryGb !== null && memoryGb < 8) || mobile) return "medium";
+	return "high";
 }
 
 export function getGraphicsTier() {
@@ -100,10 +89,7 @@ export function getGraphicsTier() {
 		/* ignore */
 	}
 
-	const { score, mobile } = computeGraphicsHardwareScore();
-
-	// Макс. score = 4. Раньше high требовал >4 — автоматически high был недостижим.
-	return resolveTierFromScore(score, mobile);
+	return resolveHardwareTier(computeGraphicsHardwareScore());
 }
 
 /**
@@ -128,7 +114,7 @@ export function getGraphicsTierDiagnostics() {
 	const { score, cores, memoryGb, mobile } = computeGraphicsHardwareScore();
 
 	return {
-		tier: forced ?? calibratedGraphicsTier ?? resolveTierFromScore(score, mobile),
+		tier: getGraphicsTier(),
 		score,
 		cores,
 		memoryGb,
@@ -149,8 +135,8 @@ export function getGraphicsConfig(tier) {
 			litePipeline: true,
 			/** Без bloom / liquid / grain на low; hex-mix карусели — всегда. */
 			noPostProcess: true,
-			/** Макс. частота тяжёлого render pass (update/анимации — каждый rAF). */
-			renderFpsCap: 30,
+			/** Match display cadence; AdaptiveFrameSkipper handles actual overload. */
+			renderFpsCap: 0,
 			reduceBackgroundBlur: true,
 			bloomMipmap: true,
 			bloomLevels: 2,
@@ -161,7 +147,7 @@ export function getGraphicsConfig(tier) {
 			powerPreference: "low-power",
 		},
 		medium: {
-			dprCap: 1.25,
+			dprCap: 1,
 			caseCanvasDprCap: 1,
 			caseRenderFpsCap: 0,
 			staticCaseRenderFpsCap: 0,
@@ -200,7 +186,7 @@ export function getGraphicsConfig(tier) {
 
 /**
  * DPR для WebGL.
- * low — 0.8 · medium — cap 1 · high — 2.
+ * low — 1 · medium — 1 · high — 2.
  */
 export function resolveRendererPixelRatio(tier, devicePixelRatio = typeof window !== "undefined" ? window.devicePixelRatio : 1) {
 	const gfx = getGraphicsConfig(tier);
@@ -214,7 +200,6 @@ export function resolveRendererPixelRatio(tier, devicePixelRatio = typeof window
 		return gfx.dprCap ?? 2;
 	}
 
-	// Medium keeps UI/WebGL typography clean on 1x desktop monitors without paying
-	// high tier's fixed DPR 2 fill-rate cost.
-	return Math.min(Math.max(device, 1.25), gfx.dprCap);
+	// Medium renders at DPR 1 on both standard and HiDPI displays.
+	return Math.min(Math.max(device, 1), gfx.dprCap);
 }

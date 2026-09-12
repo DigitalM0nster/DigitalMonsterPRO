@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import PropTypes from "prop-types";
 import {
 	getMasterAudioContext,
 	initMasterAudioBus,
@@ -6,6 +7,7 @@ import {
 	resumeMasterAudioContext,
 } from "@/sounds/masterAudioBus.js";
 import { siteTopHudWaveformConfig } from "./siteTopHudWaveformConfig.js";
+import { SITE_MAIN_COLOR } from "@/app/config/siteMainColor.js";
 import styles from "./SiteTopHud.module.scss";
 
 function resolveAccentRgba(color, alpha) {
@@ -299,7 +301,7 @@ export default function SiteTopHudWaveform({ active = false }) {
 			const centerX = canvasWidth * 0.5;
 			const centerSpread = Math.max(4, cfg.centerAmpSpread);
 			const centerAmpFloor = Math.max(0, Math.min(1, cfg.centerAmpFloor));
-			const accent = getComputedStyle(document.documentElement).getPropertyValue("--mainColor").trim() || "#00a9ff";
+			const accent = SITE_MAIN_COLOR;
 			const isIdleAnim = listening && !hasMotion;
 			const idleBreath = isIdleAnim ? 0.5 + 0.5 * Math.sin(idleTime * cfg.idleBreathFreq) : 0;
 
@@ -410,3 +412,5 @@ export default function SiteTopHudWaveform({ active = false }) {
 
 	return <canvas ref={canvasRef} className={styles.waveform} aria-hidden="true" />;
 }
+
+SiteTopHudWaveform.propTypes = { active: PropTypes.bool };

@@ -25,6 +25,9 @@ import {
 	isAboutPanelHudRevealBusy,
 } from "@/pages/about/aboutPanelHudReveal.js";
 import { isAboutPanelHudLocaleMixBusy } from "@/pages/about/aboutPanelHudBridge.js";
+import { stageLocalToHudMix } from "./aboutStoryTiming.js";
+
+export { stageLocalToHudMix } from "./aboutStoryTiming.js";
 
 /** @typedef {'text1' | 'text2' | 'text3' | 'empty'} AboutHudLayerId */
 
@@ -66,10 +69,6 @@ let paintKey = "";
 let contentPairKey = "none";
 /** @type {number} */
 let lastStoryVisual = 0;
-
-function clamp01(value) {
-	return Math.max(0, Math.min(1, Number(value) || 0));
-}
 
 function clampStoryVisual(story) {
 	return Math.max(0, Math.min(4, Number(story) || 0));
@@ -171,16 +170,6 @@ function estimateVerticalZone(viewportH, projectNavLayout) {
 		return null;
 	}
 	return { zoneTop, zoneBottom, zoneHeight };
-}
-
-/**
- * Twice the previous text speed: finish in the first quarter of each story
- * segment, then hold while 3D keeps chasing the same shared spring.
- * @param {number} local 0…1 inside a story segment
- */
-export function stageLocalToHudMix(local) {
-	const t = clamp01(local);
-	return t < 0.25 ? clamp01(t * 4) : 1;
 }
 
 /**

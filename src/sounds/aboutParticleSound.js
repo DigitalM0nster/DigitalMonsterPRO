@@ -1,7 +1,7 @@
 /**
  * About white InsideLarge PCB particle bed.
  *
- * Soft stitched loop while the white microchip particles are on screen.
+ * Soft stitched loop while scrolling the visible white microchip particles.
  * Blue edge lattice has no SFX. Driven by painted story presence, not wheel.
  * Buffer: SOUND_CATALOG.about_particles.
  */
@@ -48,6 +48,7 @@ let loopBuffer = null;
 let playback = null;
 let lastGainTarget = 0;
 let handlersBound = false;
+let lastStory = 0;
 
 function clamp01(value) {
 	return Math.max(0, Math.min(1, Number(value) || 0));
@@ -327,9 +328,17 @@ export function preloadAboutParticleSound() {
 
 /**
  * @param {number} story painted About story progress
+ * @param {number} delta seconds; zero explicitly ends the story's animation
  */
-export function updateAboutParticleSound(story) {
+export function updateAboutParticleSound(story, delta = 0) {
 	ensureHandlers();
+	const currentStory = Number(story) || 0;
+	const speed = delta > 1e-6 ? Math.abs(currentStory - lastStory) / delta : 0;
+	lastStory = currentStory;
+	if (speed <= 0.0025) {
+		stopPlayback();
+		return;
+	}
 	if (!isPageSoundAllowed() || !isSoundAudible()) {
 		stopPlayback(160);
 		return;
@@ -338,15 +347,9 @@ export function updateAboutParticleSound(story) {
 	const presence = aboutStoryToParticlePresence(story);
 	const proximity = aboutStoryToParticleProximity(story);
 	if (!loopBuffer) {
-		void loadBuffers().then(() => {
-			if (loopBuffer) {
-				void resumeMasterAudioContext();
-				syncGain(
-					aboutStoryToParticlePresence(story),
-					aboutStoryToParticleProximity(story),
-				);
-			}
-		});
+		// The next painted motion may start playback; a late decode must not
+		// resurrect a loop after the story has already stopped or left the page.
+		void loadBuffers();
 		return;
 	}
 
@@ -357,4 +360,5 @@ export function updateAboutParticleSound(story) {
 export function resetAboutParticleSound() {
 	stopPlayback(0);
 	lastGainTarget = 0;
+	lastStory = 0;
 }

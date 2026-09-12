@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { HUD_MARKER_GLSL } from "../../../objects/sceneHud/sceneHudShaders.js";
+import { advanceMarkerMagnet } from "../../../objects/sceneHud/sceneMarkerMagnet.js";
 
 // Match the crane's 72 px sprite and 32 px interaction radius.
 const HALF_SIZE = 36;
@@ -14,6 +15,11 @@ export class CityDistrictMarkers {
 		this.viewport = new THREE.Vector2(1, 1);
 		this.anchors = districts.map(d => new THREE.Vector3(...d.anchor).add(new THREE.Vector3(0, d.kind === "park" ? 3.4 : 1.2, 0)));
 		this.points = this.anchors.map(() => new THREE.Vector3());
+		this.offsets = this.anchors.map(() => new THREE.Vector2());
+		this.velocities = this.anchors.map(() => new THREE.Vector2());
+		this.levels = levels;
+		// One vec4 per district keeps the marker shader within mobile uniform limits.
+		this.markerState = new Float32Array(districts.length * 4);
 		this.visible = new Float32Array(districts.length);
 		this.distances = new Float32Array(districts.length);
 		this.parks = districts.map(d => d.kind === "park");
@@ -46,15 +52,15 @@ export class CityDistrictMarkers {
 			name: "CityDistrictMarkers", transparent: true, depthTest: false, depthWrite: false, toneMapped: false,
 			uniforms: {
 				uCityMatrix: { value: cityMatrix }, uViewport: { value: this.viewport },
-				uVisible: { value: this.visible }, uLevels: { value: levels }, uTime: this.time,
+				uMarkerState: { value: this.markerState }, uTime: this.time,
 			},
 			vertexShader: `uniform mat4 uCityMatrix; uniform vec2 uViewport;
-				uniform float uVisible[${districts.length}],uLevels[${districts.length}];
+				uniform vec4 uMarkerState[${districts.length}];
 				attribute float aDistrict,aPhase; varying vec2 vPoint; varying float vVisible,vHover,vPhase;
-				void main(){int id=int(aDistrict+.5);vVisible=uVisible[id];vHover=uLevels[id];vPhase=aPhase;
+				void main(){int id=int(aDistrict+.5);vec4 state=uMarkerState[id];vVisible=state.w;vHover=state.z;vPhase=aPhase;
 					vPoint=(uv*2.-1.)*${HALF_SIZE}.;
 					gl_Position=projectionMatrix*viewMatrix*uCityMatrix*vec4(position,1.);
-					gl_Position.xy+=vPoint*2./uViewport*gl_Position.w;
+					gl_Position.xy+=(vPoint+state.xy)*2./uViewport*gl_Position.w;
 					if(vVisible<.5)gl_Position=vec4(2.,2.,2.,1.);
 				}`,
 			fragmentShader: `uniform float uTime; varying vec2 vPoint; varying float vVisible,vHover,vPhase;
@@ -72,7 +78,25 @@ export class CityDistrictMarkers {
 		this.mesh.onBeforeRender = (renderer, scene, camera) => this.project(camera, renderer);
 	}
 
-	update(delta) { this.time.value += Math.min(Math.max(delta, 0), .05); }
+	update(delta, pointer = null) {
+		const dt = Math.min(Math.max(delta, 0), .05);
+		this.time.value += dt;
+		const x = pointer ? (pointer.x + 1) * this.viewport.x / 2 : 0;
+		const y = pointer ? (pointer.y + 1) * this.viewport.y / 2 : 0;
+		for (let i = 0; i < this.offsets.length; i++) {
+			const offset = this.offsets[i], p = this.points[i];
+			let dx = 0, dy = 0;
+			if (pointer && i === this.hovered && this.visible[i]) {
+				// Measure from the fixed anchor so attraction cannot feed back into itself.
+				dx = x - (p.x - offset.x);
+				dy = y - (p.y - offset.y);
+			}
+			const previousX = offset.x, previousY = offset.y;
+			advanceMarkerMagnet(offset, this.velocities[i], dx, dy, dt);
+			p.x += offset.x - previousX; p.y += offset.y - previousY;
+			this.markerState[i * 4] = offset.x; this.markerState[i * 4 + 1] = offset.y;
+		}
+	}
 
 	project(camera, renderer = this.renderer) {
 		renderer.getSize(this.viewport);
@@ -82,7 +106,8 @@ export class CityDistrictMarkers {
 			const p = this.points[i].copy(this.anchors[i]).applyMatrix4(this.cityMatrix);
 			this.distances[i] = p.distanceToSquared(this.cameraPosition);
 			p.project(camera);
-			p.x = (p.x + 1) * width / 2; p.y = (p.y + 1) * height / 2;
+			p.x = (p.x + 1) * width / 2 + this.offsets[i].x;
+			p.y = (p.y + 1) * height / 2 + this.offsets[i].y;
 		}
 		this.order.sort(this.compare);
 		this.visible.fill(0); this.count = 0;
@@ -100,6 +125,12 @@ export class CityDistrictMarkers {
 			this.visible[id] = 1; this.accepted[this.count++] = id;
 			if (this.count >= limit) break;
 		}
+		for (let i = 0; i < this.points.length; i++) {
+			this.markerState[i * 4] = this.offsets[i].x;
+			this.markerState[i * 4 + 1] = this.offsets[i].y;
+			this.markerState[i * 4 + 2] = this.levels[i];
+			this.markerState[i * 4 + 3] = this.visible[i];
+		}
 	}
 
 	pick(pointer) {
@@ -110,6 +141,16 @@ export class CityDistrictMarkers {
 			if ((p.x - x) ** 2 + (p.y - y) ** 2 <= radius ** 2) return id;
 		}
 		return -1;
+	}
+
+	reset() {
+		this.hovered = -1;
+		for (let i = 0; i < this.offsets.length; i++) {
+			this.points[i].x -= this.offsets[i].x; this.points[i].y -= this.offsets[i].y;
+			this.offsets[i].set(0, 0);
+			this.velocities[i].set(0, 0);
+		}
+		this.markerState.fill(0);
 	}
 
 	dispose() { this.mesh.removeFromParent(); this.mesh.geometry.dispose(); this.mesh.material.dispose(); }

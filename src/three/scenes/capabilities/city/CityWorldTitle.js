@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { advanceCityTitle, cityTitleReveal } from "./cityTitleMotion.js";
+import { SceneTextLocale } from "../typography/sceneTextLocale.js";
 
 const COPY = [
 	["СОЗДАЁМ МИРЫ,", "КОТОРЫЕ ПОМНЯТ", "На экране — на мгновение. В памяти — надолго."],
@@ -69,6 +70,7 @@ export class CityWorldTitle {
 	constructor(parent, renderer) {
 		this.parent = parent;
 		this.elapsed = 0;
+		this.localeMotion = new SceneTextLocale(1.15, 1.15);
 		this.warming = false;
 		this.viewport = new THREE.Vector2();
 		this.lastAspect = -1;
@@ -141,13 +143,16 @@ export class CityWorldTitle {
 	update(delta, frame, locale) {
 		if (this.warming) return;
 		const store = frame?.store;
-		this.elapsed = advanceCityTitle(this.elapsed, delta, {
+		const current = frame?.activeSceneId === "capabilities:spatialMatrix";
+		const transitioning = store?.sceneCarouselClickTransitionActive === true || Math.abs(store?.hexShaderProgress ?? 0) > 0.0001;
+		if (!this.localeMotion.busy) this.elapsed = advanceCityTitle(this.elapsed, delta, {
 			started: store?.appStarted === true,
-			current: frame?.activeSceneId === "capabilities:spatialMatrix",
-			transitioning: store?.sceneCarouselClickTransitionActive === true || Math.abs(store?.hexShaderProgress ?? 0) > 0.0001,
+			current, transitioning,
 		});
-		this.uniforms.uReveal.value = cityTitleReveal(this.elapsed);
-		this.uniforms.uLocale.value = locale === "en" ? 1 : locale === "zh" ? 2 : 0;
+		this.uniforms.uReveal.value = this.localeMotion.update(
+			store?.appStarted === true && (current || transitioning) ? delta : 0, locale, cityTitleReveal(this.elapsed),
+		);
+		this.uniforms.uLocale.value = this.localeMotion.locale;
 	}
 
 	getSoundReveal() {
@@ -158,7 +163,7 @@ export class CityWorldTitle {
 		return THREE.MathUtils.clamp((u.uReveal.value - start) / (end - start), 0, 1);
 	}
 
-	reset() { this.elapsed = 0; this.uniforms.uReveal.value = 0; }
+	reset() { this.elapsed = 0; this.uniforms.uReveal.value = 0; this.localeMotion.reset(); }
 	beginWarmupDraw() { this.warming = true; this.uniforms.uReveal.value = 1; }
 	endWarmupDraw() { this.warming = false; this.reset(); }
 	dispose() {

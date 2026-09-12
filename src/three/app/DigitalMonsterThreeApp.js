@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { getScenePixelRatio, setScenePixelRatio, resolveOutputPixelRatio } from "../renderer/renderResolution.js";
 import { PreparationScheduler, resolveFullWarm } from "./preparationScheduler.js";
 import { warmScreenOverlay } from "../renderer/warmScreenOverlay.js";
 import { BackgroundPipeline } from "../render/background/BackgroundPipeline.js";
@@ -38,6 +39,8 @@ import { BelkaOrbitsDevTools } from "../dev/BelkaOrbitsDevTools.js";
 import { ProgressDevTools } from "../dev/ProgressDevTools.js";
 import { PortfolioCameraDevTools } from "../dev/PortfolioCameraDevTools.js";
 import { OceanDevTools } from "../dev/OceanDevTools.js";
+import { MediumHomeDevTools } from "../dev/MediumHomeDevTools.js";
+import { LowHomeDevTools } from "../dev/LowHomeDevTools.js";
 import { Mmk1CameraDevTools } from "../dev/Mmk1CameraDevTools.js";
 
 const NO_GRAIN_BLUR = { enabled: false, radius: 0 };
@@ -62,6 +65,7 @@ export class DigitalMonsterThreeApp {
 	constructor(container, options) {
 		this.container = container;
 		this.store = options.store;
+		this.store.preparationProgress = 0;
 		this.onResize = this.onResize.bind(this);
 		this.setRendered = options.setRendered ?? (() => {});
 		this.onWebGLContextLost = options.onWebGLContextLost ?? (() => {});
@@ -159,6 +163,10 @@ export class DigitalMonsterThreeApp {
 					getScene: () => this.sceneManager?.getSceneById?.("home") ?? null,
 				})
 			: null;
+		this.mediumHomeDevTools = import.meta.env.DEV && this.gfxTier === "medium"
+			? new MediumHomeDevTools({ getScene: () => this.sceneManager?.getSceneById("home") }) : null;
+		this.lowHomeDevTools = import.meta.env.DEV && this.gfxTier === "low"
+			? new LowHomeDevTools({ getScene: () => this.sceneManager?.getSceneById("home") }) : null;
 		this.portfolioCameraDevTools = import.meta.env.DEV
 			? new PortfolioCameraDevTools({
 					getScene: () => this.sceneManager?.getSceneById?.("portfolioHub") ?? null,
@@ -234,6 +242,8 @@ export class DigitalMonsterThreeApp {
 			nextFrame: yieldToNextPaint, cancelled: () => this.disposed || this._webglLost,
 		});
 		this.preparePromise = this._prepareApplication();
+		if (this.mediumHomeDevTools) this.preparePromise.then(() => this.mediumHomeDevTools?.apply());
+		if (this.lowHomeDevTools) this.preparePromise.then(() => this.lowHomeDevTools?.apply());
 	}
 
 	/**
@@ -243,20 +253,36 @@ export class DigitalMonsterThreeApp {
 	 */
 	async _prepareApplication() {
 		if (!this.fullWarm) {
-			this.ready = true;
-			void this.sceneManager.readyPromise
-				.then(() => {
-					if (!this.disposed) {
-						this.sceneManager.getSceneById("home")?.prepareHeroTextUnderCurtain?.();
-					}
+			const homePrepared = this.sceneManager.readyPromise
+				.then(async () => {
+					if (this.disposed || this._webglLost) return false;
+					const home = this.sceneManager.getSceneById("home");
+					await home?.prepareHeroTextUnderCurtain?.();
+					if (this.disposed || this._webglLost) return false;
+					await home?.prepareResourcesUnderCurtain?.(this.renderer, this.preparationScheduler);
+					return !this.disposed && !this._webglLost;
 				})
 				.catch((error) => {
 					this.prepareError = error;
 					console.error("[three] development scene preparation failed", error);
+					return false;
 				});
+			// Fast dev skips the site-wide warm traversal, not Low's visible effect.
+			// Wait before Start and before restoring the Low panel's saved uniform.
+			if (this.gfxTier === "low" && !await homePrepared) return false;
+			this.ready = true;
+			this._setPreparationProgress(1);
 			return true;
 		}
 		try {
+			// Report completed scene resources, not elapsed time or downloaded bytes.
+			let completedScenes = 0;
+			const scenes = [...this.sceneManager.scenes.values()];
+			for (const scene of scenes) {
+				Promise.resolve(scene.readyPromise).then(() => {
+					this._setPreparationProgress(0.25 * (++completedScenes / scenes.length));
+				}, () => {}); // The canonical readyPromise below owns failure handling.
+			}
 			await Promise.all([this.sceneManager.readyPromise, this.backgroundPipeline.readyPromise]);
 			if (this.disposed) {
 				return false;
@@ -264,7 +290,9 @@ export class DigitalMonsterThreeApp {
 
 			await yieldToNextPaint();
 			// Late UI under curtain, then compile (hero includes scroll-hint meshes).
-			this.sceneManager.getSceneById("home")?.prepareHeroTextUnderCurtain?.();
+			await this.sceneManager.getSceneById("home")?.prepareHeroTextUnderCurtain?.();
+			if (this.disposed || this._webglLost) return false;
+			this._setPreparationProgress(0.29);
 
 			await yieldToNextPaint();
 			// Case and capability HUD canvases/textures for every locale.
@@ -272,6 +300,7 @@ export class DigitalMonsterThreeApp {
 				sceneManager: this.sceneManager,
 				renderer: this.renderer,
 			});
+			this._setPreparationProgress(0.32);
 			if (this.disposed) {
 				return false;
 			}
@@ -281,13 +310,18 @@ export class DigitalMonsterThreeApp {
 				sceneManager: this.sceneManager,
 				renderer: this.renderer,
 			});
+			this._setPreparationProgress(0.35);
 			if (this.disposed) {
 				return false;
 			}
 
 			await this.preparationScheduler.run(() => this.sceneManager.warmupRenderTargets(), { gpu: true });
+			this._setPreparationProgress(0.36);
 
-			await this.sceneManager.warmupPrograms({ scheduler: this.preparationScheduler });
+			await this.sceneManager.warmupPrograms({ scheduler: this.preparationScheduler,
+				onProgress: (done, total) => this._setPreparationProgress(0.36 + 0.16 * done / total),
+			});
+			this._setPreparationProgress(0.52);
 			await this._warmupScreenOverlays();
 			if (this.disposed) {
 				return false;
@@ -298,6 +332,7 @@ export class DigitalMonsterThreeApp {
 			await this._warmupRenderPipeline();
 			if (!this.disposed && !this._webglLost) {
 				this.ready = true;
+				this._setPreparationProgress(1);
 				return true;
 			}
 			return false;
@@ -309,13 +344,31 @@ export class DigitalMonsterThreeApp {
 		}
 	}
 
+	_setPreparationProgress(progress) {
+		if (this.disposed || this._webglLost) return;
+		this.store.preparationProgress = Math.max(this.store.preparationProgress, Math.min(1, progress));
+	}
+
 	async _warmupRenderPipeline() {
 		const scheduler = this.preparationScheduler;
+		await this.backgroundPipeline.prepareProgramsUnderCurtain(scheduler);
 		const backgroundTexture = await scheduler.run(() =>
 			this.backgroundPipeline.renderCarouselBackground(0) ?? this.backgroundPipeline.lastTexture, { gpu: true });
+		await this.screenCompositor.prepareProgramsUnderCurtain(this.renderer, scheduler, backgroundTexture);
+		this._setPreparationProgress(0.66);
+		await this.hexGridOverlay.prepareProgramsUnderCurtain(scheduler);
 
-		// The pair pass warms compositor, hex, bloom and final output as separate jobs.
-		await this._warmupAllScenesAndHexPairs(backgroundTexture);
+		// Every directed pair gets its own real hex draw. All pairs feed the same
+		// hex RT into the same bloom/output programs, so warm those shared passes once.
+		const hexTexture = await this._warmupAllScenesAndHexPairs(backgroundTexture);
+		if (!hexTexture) throw new Error("[three] allWarm produced no hex texture");
+		if (!this.noPostProcess) await this.modelsPostProcess.bloom.prepareProgramsUnderCurtain(scheduler);
+		const warmedTexture = this.noPostProcess ? hexTexture : await scheduler.run(() =>
+			this.modelsPostProcess.applyBloom(hexTexture, 0, 1), { gpu: true });
+		this._setPreparationProgress(0.98);
+		await scheduler.run(() => this.screenCompositor.drawToScreen(
+			this.renderer, null, warmedTexture ?? hexTexture, NO_GRAIN_BLUR), { gpu: true });
+		this._setPreparationProgress(0.99);
 
 		await scheduler.run(() => this._renderFrame(0), { gpu: true });
 	}
@@ -323,15 +376,20 @@ export class DigitalMonsterThreeApp {
 	async _warmupScreenOverlays() {
 		const scheduler = this.preparationScheduler;
 		const camera = this.sceneManager.camera;
+		const jobs = [];
 		for (const scene of this.sceneManager.scenes.values()) {
 			for (const overlay of [scene.panelHud, scene.world?.hud, scene._cameraHotspots]) {
-				await warmScreenOverlay(overlay, this.renderer, camera, scheduler);
+				if (overlay) jobs.push(() => warmScreenOverlay(overlay, this.renderer, camera, scheduler));
 			}
 			for (const overlay of scene.heroTitle?.getWarmupOverlays?.() ?? []) {
-				await warmScreenOverlay(overlay, this.renderer, camera, scheduler, [this.sceneManager.layerTargets.a, null], scene.getScene());
+				jobs.push(() => warmScreenOverlay(overlay, this.renderer, camera, scheduler, [this.sceneManager.layerTargets.a, null], scene.getScene()));
 			}
 		}
-		await warmScreenOverlay(this.siteArc, this.renderer, camera, scheduler);
+		jobs.push(() => warmScreenOverlay(this.siteArc, this.renderer, camera, scheduler));
+		for (let i = 0; i < jobs.length; i++) {
+			await jobs[i]();
+			this._setPreparationProgress(0.52 + 0.13 * (i + 1) / jobs.length);
+		}
 	}
 
 	/**
@@ -344,6 +402,9 @@ export class DigitalMonsterThreeApp {
 		const drawnIds = new Set();
 		const scheduler = this.preparationScheduler;
 		const breath = () => scheduler.breath();
+		const repeatIds = ["home", "portfolioHub", "contacts"].filter(id => sceneIds.includes(id));
+		let sceneDraws = 0;
+		const reportSceneDraw = () => this._setPreparationProgress(0.66 + 0.08 * (++sceneDraws / (sceneIds.length + repeatIds.length)));
 
 		// Pass 1: one scene per chunk (update → breath → GPU draw).
 		for (const sceneId of sceneIds) {
@@ -355,6 +416,7 @@ export class DigitalMonsterThreeApp {
 			if (texture) {
 				drawnIds.add(sceneId);
 			}
+			reportSceneDraw();
 		}
 		const missingSceneIds = sceneIds.filter((sceneId) => !drawnIds.has(sceneId));
 		if (missingSceneIds.length > 0) {
@@ -362,12 +424,13 @@ export class DigitalMonsterThreeApp {
 		}
 
 		// Pass 2: home + hub again — first InstancedMesh/ocean frame often still allocates.
-		for (const sceneId of ["home", "portfolioHub", "contacts"]) {
+		for (const sceneId of repeatIds) {
 			if (this.disposed || !drawnIds.has(sceneId)) {
 				continue;
 			}
 			await breath();
 			await this.sceneManager.warmupSceneDrawChunked(sceneId, "b", breath, { scheduler });
+			reportSceneDraw();
 		}
 
 		const hexPairs = this._resolveWarmupHexPairs(sceneIds);
@@ -376,6 +439,8 @@ export class DigitalMonsterThreeApp {
 		// Slot A is immutable while a source's targets are visited in slot B.
 		// Reuse its composite, not a new full-size RT for every scene or pair.
 		const sourceCache = { id: null, texture: null };
+		let lastHexTexture = null;
+		let completedPairs = 0;
 		try {
 			for (const [sourceId, targetId] of hexPairs) {
 				if (this.disposed) break;
@@ -384,10 +449,13 @@ export class DigitalMonsterThreeApp {
 				}
 				const warmed = await this._warmHexPair(backgroundTexture, { sourceId, targetId, breath, sourceCache });
 				if (!warmed) throw new Error(`[three] allWarm missed hex pair: ${sourceId} -> ${targetId}`);
+				lastHexTexture = warmed;
+				this._setPreparationProgress(0.74 + 0.23 * (++completedPairs / hexPairs.length));
 			}
 		} finally {
 			if (!this.disposed) this.hexGridOverlay.setProgress(prevProgress);
 		}
+		return lastHexTexture;
 	}
 
 	async _warmHexPair(backgroundTexture, {
@@ -398,12 +466,17 @@ export class DigitalMonsterThreeApp {
 	}) {
 		if (this.disposed) return false;
 		const scheduler = this.preparationScheduler;
+		// About's prepared content also passes through the compositor during hex.
+		// Read the warm texture directly: runtime route/visibility gates stay dormant.
+		const overlayForScene = (id) => id === "about"
+			? this.sceneManager.getSceneById(id)?.panelHud?.fromTexture ?? null : null;
 		if (sourceCache.id !== sourceId) {
 			await breath();
 			const sourceTex = await this.sceneManager.warmupSceneDrawChunked(sourceId, "a", breath, { scheduler });
 			if (!sourceTex || this.disposed) return false;
 			sourceCache.texture = await scheduler.run(() => this.screenCompositor.compositeToLayerTarget(
 				this.renderer, "a", sourceId === "home" ? null : backgroundTexture, sourceTex, NO_GRAIN_BLUR,
+				overlayForScene(sourceId),
 			), { gpu: true });
 			sourceCache.id = sourceId;
 		}
@@ -420,17 +493,13 @@ export class DigitalMonsterThreeApp {
 		const bgB = targetId === "home" ? null : backgroundTexture;
 		const fullA = sourceCache.texture;
 		const fullB = await scheduler.run(() => this.screenCompositor.compositeToLayerTarget(
-			this.renderer, "b", bgB, targetTex, NO_GRAIN_BLUR), { gpu: true });
+			this.renderer, "b", bgB, targetTex, NO_GRAIN_BLUR, overlayForScene(targetId)), { gpu: true });
 		const hexTexture = await scheduler.run(() => {
 			this.hexGridOverlay.setTextures(fullA, fullB);
 			this.hexGridOverlay.setProgress(0.55);
 			return this.hexGridOverlay.renderModelsMixToTexture(this.renderer) ?? fullA;
 		}, { gpu: true });
-		const warmedTexture = this.noPostProcess ? hexTexture : await scheduler.run(() =>
-			this.modelsPostProcess.applyBloom(hexTexture, 0, 1), { gpu: true });
-		await scheduler.run(() => this.screenCompositor.drawToScreen(
-			this.renderer, null, warmedTexture ?? hexTexture, NO_GRAIN_BLUR), { gpu: true });
-		return true;
+		return hexTexture;
 	}
 
 	/**
@@ -574,7 +643,9 @@ export class DigitalMonsterThreeApp {
 				: updateSiteGrainBlurRadius(delta, {
 						scroll: this.store.scroll,
 						carouselProgress: progress,
-						viewportWidth: this.container.clientWidth || window.innerWidth,
+						// ResizeObserver/onResize already records the width used by the RTs.
+						// Reading layout here flushes preceding HUD style writes every frame.
+						viewportWidth: this._renderSize.w || window.innerWidth,
 						openedCase: this.store.openedCase,
 					});
 
@@ -1087,7 +1158,7 @@ export class DigitalMonsterThreeApp {
 	}
 
 	setPixelRatio(dpr) {
-		this.renderer.setPixelRatio(dpr);
+		setScenePixelRatio(this.renderer, dpr);
 		this.onResize();
 	}
 
@@ -1103,7 +1174,7 @@ export class DigitalMonsterThreeApp {
 
 	/** В консоль: с каким DPR реально рендерим (без спама каждый кадр). */
 	_logRendererPixelRatio() {
-		const dpr = this.renderer.getPixelRatio();
+		const dpr = getScenePixelRatio(this.renderer);
 		const buffer = this.renderer.getDrawingBufferSize(new THREE.Vector2());
 		const cssW = this.container.clientWidth || window.innerWidth;
 		const cssH = this.container.clientHeight || window.innerHeight;
@@ -1119,7 +1190,7 @@ export class DigitalMonsterThreeApp {
 		const diag = getGraphicsTierDiagnostics();
 		const memLabel = diag.memoryGb != null ? `${diag.memoryGb}GB` : "n/a";
 		console.info(
-			`[DigitalMonsterThree] tier=${this.gfxTier}${lite ? " · litePipeline" : ""}${noPost}${renderCap ? ` · renderCap=${renderCap}fps` : ""} · DPR=${dpr} · буфер ${buffer.x}×${buffer.y} · CSS ${Math.round(cssW)}×${Math.round(cssH)}`,
+			`[DigitalMonsterThree] tier=${this.gfxTier}${lite ? " · litePipeline" : ""}${noPost}${renderCap ? ` · renderCap=${renderCap}fps` : ""} · scene DPR=${dpr} · output DPR=${this.renderer.getPixelRatio()} · буфер ${buffer.x}×${buffer.y} · CSS ${Math.round(cssW)}×${Math.round(cssH)}`,
 		);
 		console.info(
 			`[DigitalMonsterThree] tier detect: score=${diag.score} · ${diag.cores}c · RAM ${memLabel}${diag.mobile ? " · mobile" : " · desktop"}${diag.forced ? ` · forced=${diag.forced}` : ""}`,
@@ -1194,16 +1265,20 @@ export class DigitalMonsterThreeApp {
 
 		const w = this.container.clientWidth || window.innerWidth;
 		const h = this.container.clientHeight || window.innerHeight;
-		const dpr = this.renderer.getPixelRatio();
+		const dpr = getScenePixelRatio(this.renderer);
 		if (w <= 0 || h <= 0) {
 			return;
 		}
-		if (this._renderSize.w === w && this._renderSize.h === h && this._renderSize.dpr === dpr) {
+		// Preview the sharper output separately until its hex typography path is
+		// approved. Normal Medium retains the user's accepted scene/text rendering.
+		const nativeTextPreview = import.meta.env.DEV && new URLSearchParams(window.location.search).get("nativeText") === "1";
+		const outputDpr = nativeTextPreview ? resolveOutputPixelRatio(this.gfxTier, dpr, window.devicePixelRatio, w, h) : dpr;
+		if (this._renderSize.w === w && this._renderSize.h === h && this._renderSize.dpr === dpr && this._renderSize.outputDpr === outputDpr) {
 			return;
 		}
-		this._renderSize = { w, h, dpr };
+		this._renderSize = { w, h, dpr, outputDpr };
 
-		this.renderer.setSize(w, h, false);
+		this.renderer.setDrawingBufferSize(w, h, outputDpr);
 		this.camera.aspect = w / h;
 		this.camera.updateProjectionMatrix();
 		this.backgroundPipeline.setSize(w, h);
@@ -1386,6 +1461,10 @@ export class DigitalMonsterThreeApp {
 		this.mmk1CameraDevTools?.dispose?.();
 		this.mmk1CameraDevTools = null;
 		this.oceanDevTools?.dispose?.();
+		this.mediumHomeDevTools?.dispose?.();
+		this.mediumHomeDevTools = null;
+		this.lowHomeDevTools?.dispose?.();
+		this.lowHomeDevTools = null;
 		this.oceanDevTools = null;
 		this.backgroundPipeline.dispose();
 		disposeCarouselScroll();

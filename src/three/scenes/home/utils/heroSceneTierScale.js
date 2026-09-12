@@ -8,11 +8,11 @@ export function getOceanGridCap(tier = getGraphicsTier()) {
 	}
 
 	if (tier === "medium") {
-		return [200, 88];
+		return [280, 100];
 	}
 
-	// Shader-плоскость: cols×rows только в fragment shader, не геометрия.
-	return [640, 90];
+	// Low uses fewer real point rows while retaining the same wave deformation.
+	return [192, 64];
 }
 
 /**
@@ -34,9 +34,9 @@ export function resolveOceanGridSize(gridCols, gridRows, tier = getGraphicsTier(
 	return [Math.min(cols, capCols), Math.min(rows, capRows)];
 }
 
-/** На low/medium — shader-плоскость; на high — классические Points + линии. */
-export function shouldUseShaderOceanSurface(tier = getGraphicsTier()) {
-	return tier !== "high";
+/** All tiers use point waves; the procedural surface remains an optional factory. */
+export function shouldUseShaderOceanSurface() {
+	return false;
 }
 
 /** Сегменты mesh плоскости для геометрических волн (отдельно от плотности точек в shader). */
@@ -49,7 +49,7 @@ export function getOceanMeshSegmentCap(tier = getGraphicsTier()) {
 		return [48, 36];
 	}
 
-	return [24, 18];
+	return [48, 32];
 }
 
 /**
@@ -63,13 +63,13 @@ export function resolveOceanMeshSegments(gridCols, gridRows, tier = getGraphicsT
 	return [segX, segZ];
 }
 
-/** Макс. тайлов океана по X (скролл-слои). C1: high — 3 вместо динамических 5–11. */
+/** Three centered tiles cover desktop; avoid spreading wave vertices over 11. */
 export function getOceanTileCountCap(tier = getGraphicsTier()) {
-	if (tier === "high") {
+	if (tier === "high" || tier === "medium") {
 		return 3;
 	}
 
-	return 11;
+	return 3;
 }
 
 export function getOceanGridSizeFromConfig(config = digitalWhaleConfig, options = {}) {
@@ -77,9 +77,9 @@ export function getOceanGridSizeFromConfig(config = digitalWhaleConfig, options 
 	return resolveOceanGridSize(o.gridCols, o.gridRows, getGraphicsTier(), options);
 }
 
-/** На low/medium кит — holo-shader на меше вместо edge-партиклов. */
-export function shouldUseWhaleHologram(tier = getGraphicsTier()) {
-	return tier === "low" || tier === "medium";
+/** All tiers use GPU particles; Low supplies its own density and LDR light profile. */
+export function shouldUseWhaleHologram() {
+	return false;
 }
 
 const AMBIENT_MUL = {

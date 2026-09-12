@@ -12,9 +12,13 @@ export default function PortfolioPage() {
 	return (
 		<section className={`${pageClass} ${styles.page}`} aria-label="Portfolio">
 			<nav className={styles.accessibleControls} aria-label="Projects">
-				{filmProjects.map((project, index) => <button key={project.id} onFocus={() => requestFilmAction(index)} onClick={() => requestFilmAction(index)}>{project.name}</button>)}
+				<button onClick={() => requestFilmAction("projects")}>Избранные проекты</button>
+				{filmProjects.map((project, index) => <button key={project.id} onClick={() => requestFilmAction(index)}>{project.name}</button>)}
 				<button onClick={() => requestFilmAction("inspect")}>Рассмотреть / К обзору</button>
 				<button onClick={() => requestFilmAction("play")}>Воспроизведение / Пауза</button>
+				<button onClick={() => requestFilmAction("mute")}>Выключить / Включить звук видео</button>
+				<button onClick={() => requestFilmAction("volume-down")}>Уменьшить громкость видео</button>
+				<button onClick={() => requestFilmAction("volume-up")}>Увеличить громкость видео</button>
 			</nav>
 		</section>
 	);

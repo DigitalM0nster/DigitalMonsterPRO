@@ -1,3 +1,4 @@
+import { getScenePixelRatio } from "@/three/renderer/renderResolution.js";
 import { easing } from "maath";
 import { ROUTE_TRANSITION_ENTER_MS } from "@/app/config/routeTransition.js";
 import { isPortfolioHubPath, isPortfolioCasePath } from "../../scenes/portfolio/hub/projectsData.js";
@@ -14,6 +15,7 @@ import {
 	syncBackgroundLiquidTuneUniforms,
 } from "./backgroundLiquidPass.js";
 import { backgroundLiquidTune } from "./backgroundLiquidTune.js";
+import { compileSceneChunked } from "../../renderer/compileSceneChunked.js";
 
 const BG_ENTER_SMOOTH_SEC = ROUTE_TRANSITION_ENTER_MS / 1000;
 /** Временно: заморозить анимацию liquid-фона. */
@@ -89,9 +91,14 @@ export class BackgroundPipeline {
 		};
 
 		if (this.size.w > 0 && this.size.h > 0) {
-			const dpr = this.renderer.getPixelRatio();
+			const dpr = getScenePixelRatio(this.renderer);
 			this._ensureTarget(Math.floor(this.size.w * dpr), Math.floor(this.size.h * dpr));
 		}
+	}
+
+	async prepareProgramsUnderCurtain(scheduler) {
+		if (!this.draw || !this.target) throw new Error("Background warm resources are not prepared");
+		await compileSceneChunked(this.renderer, this.draw.scene, this.draw.camera, scheduler, this.target);
 	}
 
 	_ensureTarget(width, height) {
@@ -128,7 +135,7 @@ export class BackgroundPipeline {
 		}
 		this.size = { w: width, h: height };
 		if (this.liquidMaterial) {
-			const dpr = this.renderer.getPixelRatio();
+			const dpr = getScenePixelRatio(this.renderer);
 			this._ensureTarget(Math.floor(width * dpr), Math.floor(height * dpr));
 		}
 	}

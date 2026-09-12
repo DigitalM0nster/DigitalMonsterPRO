@@ -10,6 +10,12 @@ uniform vec2 uVirtualCursor3;
 uniform vec2 uPlaneSize;
 uniform vec2 uResolution;
 uniform float uTime;
+uniform float uGlowTime;
+#ifdef MEDIUM_TITLE_COVERAGE
+uniform vec3 uMediumGlowColor;
+uniform float uMediumFill, uMediumGlow, uMediumGlowWidth, uMediumEdgeSoftness;
+uniform float uMediumMotion, uMediumMotionSpeed;
+#endif
 uniform float uProgress;
 uniform float uCharCount;
 uniform vec2 uPositionOffset;
@@ -31,6 +37,7 @@ uniform float uClickOffset;
 uniform float uClickMaxStrength;
 uniform vec3 uOutlineBoost;
 uniform float uOutlineThreshold;
+uniform float uOutlinePixelScale;
 uniform vec3 uFillGradientTop;
 uniform vec3 uFillGradientBottom;
 uniform float uTitleShimmer;
@@ -83,6 +90,14 @@ vec2 uvToNDC(vec2 uv) {
 	float aspectRatio = uResolution.x / uResolution.y;
 	return vec2(-1.0 + 2.0 * uv.x + 2.0 * uPositionOffset.x, -1.0 + 2.0 * uv.y - 2.0 * uPositionOffset.y * aspectRatio);
 }
+
+#ifdef LOW_TITLE_LOCAL
+varying vec4 vGlyphBounds;
+float lowTitleInk(vec2 uv) {
+	if (any(lessThan(uv, vGlyphBounds.xy)) || any(greaterThan(uv, vGlyphBounds.zw))) return 0.0;
+	return texture2D(uTexture, uv).a;
+}
+#endif
 
 void main() {
 	vec2 sampleUv = vUv;
@@ -138,18 +153,76 @@ void main() {
 		}
 	}
 	float alpha = displacedColor.a * visible * revealAlpha * uMasterAlpha;
+	// Slow travelling light, shared by every tier. Glyph positions/fill stay put.
+	float lightTravel = 0.92 + 0.16 * (0.5 + 0.5 * sin(displacedUV.x * 19.0 + displacedUV.y * 8.0 - uGlowTime * 0.72));
 
-	float edgeDetection = length(vec2(dFdx(displacedColor.a), dFdy(displacedColor.a * 0.5)));
+#ifdef LOW_TITLE_LOCAL
+	// Local halo only on the title quads. The fill samples the clean atlas;
+	// no fullscreen bloom, canvas repaint or blurred text fill is needed.
+	if (uRenderPass < 0.5) {
+		gl_FragColor = vec4(vec3(0.87, 0.92, 1.0), alpha);
+	} else {
+		vec2 dx = dFdx(vUv);
+		vec2 dy = dFdy(vUv);
+		float halo = 0.0;
+		float weight = 0.0;
+		for (int x = -2; x <= 2; x++) {
+			for (int y = -2; y <= 2; y++) {
+				float w = exp(-float(x*x+y*y) * 0.38);
+				halo += lowTitleInk(vUv + offset + (float(x) * dx + float(y) * dy) * 3.2) * w;
+				weight += w;
+			}
+		}
+		halo /= weight;
+		gl_FragColor = vec4(vec3(0.34, 0.46, 1.0), halo * 1.8 * lightTravel * visible * revealAlpha * uMasterAlpha);
+	}
+	return;
+#endif
+
+#ifdef MEDIUM_TITLE_COVERAGE
+	// Resolve four High-sized subpixels inside this ONE scene pixel. This is
+	// coverage antialiasing, not a halo/blur kernel outside the glyph boundary.
+	vec2 quarterPixel = vec2(0.25) / uResolution;
+	vec4 a = vec4(
+		texture2D(uTexture, displacedUV + vec2(-quarterPixel.x, -quarterPixel.y)).a,
+		texture2D(uTexture, displacedUV + vec2( quarterPixel.x, -quarterPixel.y)).a,
+		texture2D(uTexture, displacedUV + vec2(-quarterPixel.x,  quarterPixel.y)).a,
+		texture2D(uTexture, displacedUV + vec2( quarterPixel.x,  quarterPixel.y)).a
+	);
+	// The same x/y derivative pairs as a High 2x2 fragment quad.
+	vec2 dx = vec2(a.y - a.x, a.w - a.z);
+	vec2 dy = vec2(a.z - a.x, a.w - a.y) * 0.5;
+	vec4 edge = vec4(length(vec2(dx.x, dy.x)), length(vec2(dx.x, dy.y)),
+		length(vec2(dx.y, dy.x)), length(vec2(dx.y, dy.y)));
+	// Smooth the edge classification, keeping fill/emission complementary.
+	// This does not spread a blur outside the prepared glyph coverage.
+	float threshold = uOutlineThreshold / uMediumGlowWidth;
+	vec4 outlineMask = smoothstep(vec4(threshold - uMediumEdgeSoftness), vec4(threshold + uMediumEdgeSoftness), edge)
+		* smoothstep(vec4(0.3 - uMediumEdgeSoftness), vec4(0.3 + uMediumEdgeSoftness), a);
+	bool lightPass = uRenderPass > 0.5;
+	float coverage = dot(a * (lightPass ? outlineMask : vec4(1.0) - outlineMask), vec4(0.25));
+	if (coverage <= 0.0) discard;
+	vec3 fill = mix(uFillGradientBottom, uFillGradientTop, clamp(displacedUV.y, 0.0, 1.0));
+	float shimmer = uTitleShimmer * sin(uTime * 1.35 + displacedUV.x * 48.0 + displacedUV.y * 12.0);
+	float mediumTravel = 1.0 + uMediumMotion * sin(displacedUV.x * 19.0 + displacedUV.y * 8.0 - uGlowTime * uMediumMotionSpeed);
+	vec3 baseColor = min((fill * uFillBrightness + shimmer) * uMediumFill, vec3(1.0));
+	// Turning glow off restores the ordinary fill, without holes in its edges.
+	vec3 color = lightPass ? max(baseColor, uMediumGlowColor * uMediumGlow * mediumTravel) : baseColor;
+	gl_FragColor = vec4(color, coverage * visible * revealAlpha * uMasterAlpha);
+	return;
+#endif
+
+	float edgeDetection = length(vec2(dFdx(displacedColor.a), dFdy(displacedColor.a * 0.5))) * uOutlinePixelScale;
 	bool isOutline = edgeDetection > uOutlineThreshold && displacedColor.a > 0.3;
 
-	if (isOutline) {
+	if (isOutline && uRenderPass < 1.5) {
 		if (uRenderPass < 0.5) {
 			discard;
 		}
-		vec3 outline = displacedColor.rgb * uOutlineBoost;
+		vec3 outline = displacedColor.rgb * uOutlineBoost * lightTravel;
 		gl_FragColor = vec4(outline, displacedColor.a * visible * revealAlpha * uMasterAlpha);
 	} else {
-		if (uRenderPass > 0.5) {
+		if (uRenderPass > 0.5 && uRenderPass < 1.5) {
 			discard;
 		}
 		float gradT = clamp(displacedUV.y, 0.0, 1.0);

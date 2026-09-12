@@ -1,7 +1,7 @@
 /** Uneven signal blocks. Integer splits cover the image exactly, even on low quality. */
 export function createFilmGlitchTiles(low = false) {
-  const columns = 128, rows = 64, targetArea = low ? 30 : 18;
-  const maxWidth = low ? 10 : 8, maxHeight = low ? 5 : 4;
+  const columns = 256, rows = 128, targetArea = low ? 32 : 18;
+  const maxWidth = low ? 7 : 6, maxHeight = 3;
   let state = 9173;
   const random = () => {
     state = (Math.imul(state, 1664525) + 1013904223) >>> 0;

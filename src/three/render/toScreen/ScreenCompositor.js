@@ -1,7 +1,9 @@
+import { getScenePixelRatio } from "@/three/renderer/renderResolution.js";
 import * as THREE from "three";
 import { applyScreenTextureColorSpace, blitTextureToRenderTarget } from "../composerUtils.js";
 import { applyGrainBlurToBlitMaterial, createViewportMaskBlitMaterial } from "./viewportMask/blitMaterial.js";
 import { applyCaseStudyEdgeShadeUniforms, createCaseStudyEdgeShadeMaterial } from "./caseStudyEdgeShadeMaterial.js";
+import { compileSceneChunked } from "../../renderer/compileSceneChunked.js";
 
 const bgScene = new THREE.Scene();
 const modelsScene = new THREE.Scene();
@@ -110,6 +112,22 @@ export class ScreenCompositor {
 		hexOverLiquidScene.add(this.hexOverLiquidMesh);
 	}
 
+	async prepareProgramsUnderCurtain(renderer, scheduler, backgroundTexture) {
+		if (!backgroundTexture || !this.layerTargets.a) throw new Error("Compositor warm resources are not prepared");
+		const material = this.bgMesh.material;
+		const previousMap = material.map;
+		try {
+			// MeshBasicMaterial needs the actual map flag/UV channel at compile time.
+			material.map = backgroundTexture;
+			for (const target of [this.layerTargets.a, null]) {
+				await compileSceneChunked(renderer, bgScene, screenCamera, scheduler, target);
+				await compileSceneChunked(renderer, modelsScene, screenCamera, scheduler, target);
+			}
+		} finally {
+			material.map = previousMap;
+		}
+	}
+
 	/**
 	 * Case pages: darken bg+models at the right arc. HUD overlays after and stay bright.
 	 * @param {{ enabled?: boolean, right?: boolean, delta?: number }} opts
@@ -214,7 +232,7 @@ export class ScreenCompositor {
 			return;
 		}
 
-		const dpr = renderer.getPixelRatio();
+		const dpr = getScenePixelRatio(renderer);
 		const bufferW = Math.floor(width * dpr);
 		const bufferH = Math.floor(height * dpr);
 

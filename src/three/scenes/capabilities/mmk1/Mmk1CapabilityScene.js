@@ -7,6 +7,8 @@ import { MMK1_CAMERA_HOTSPOT_MOTION } from "./mmk1CameraHotspotsConfig.js";
 import { isRingDormantReason } from "@/three/scenes/lifecycle/sceneLifecycle.js";
 import { CapabilitySceneSound } from "@/sounds/CapabilitySceneSound.js";
 import { getLoaderCurtainRemainingMs } from "@/app/config/loaderCurtain.js";
+import { getGraphicsTier } from "@/functions/getGraphicsTier.js";
+import { prepareMmk1MediumNeon } from "./mmk1MediumNeon.js";
 
 const clamp01 = (value) => Math.max(0, Math.min(1, value));
 const easeInOutCubic = (value) => {
@@ -15,6 +17,9 @@ const easeInOutCubic = (value) => {
 };
 
 const CRANE_MATERIAL_TRANSITION_DURATION = 0.46;
+// Audible body of the prepared logo_reveal + glitch_button recording (seconds).
+// Its remaining 180 ms are a quiet tail, too early for the intro's last moving letters.
+const INTRO_SOUND_SAMPLE_RANGE = { start: 0.03, end: 0.54 };
 const CRANE_MATERIAL_NUMERIC_LIMITS = {
 	rimStrength: [0, 4],
 	rimPower: [0.25, 8],
@@ -148,6 +153,7 @@ export class Mmk1CapabilityScene extends Case3Scene {
 			enableBlockHover: false,
 			settleRootOnEnter: true,
 		});
+		if (getGraphicsTier() === "medium") prepareMmk1MediumNeon(this.constructionBlocks, this.disposables);
 		this._routeCurrentPage = "/";
 		this._defaultCraneRotationY = this.getCraneRotationY();
 		this._craneRotationFlight = null;
@@ -361,7 +367,11 @@ export class Mmk1CapabilityScene extends Case3Scene {
 		}) ?? false;
 		this.sceneSound.update(delta, {
 			enabled: current && this.store.appStarted === true && !transitioning,
+			// Hotspots already enforce the scene's pointer Y-band during hex entry.
+			hoverEnabled: textStarted && this._cameraHotspots?.active === true,
+			hudEnabled: textStarted && this._cameraHotspots?.active === true,
 			reveal: this._cameraHotspots?.details?.getSoundReveal(true) ?? 0,
+			titleSampleRange: INTRO_SOUND_SAMPLE_RANGE,
 			hudReveal: this._cameraHotspots?.details?.getSoundReveal() ?? 0,
 			hoverReveals: this._cameraHotspots?.labels?.soundReveals,
 			pan: -0.4,

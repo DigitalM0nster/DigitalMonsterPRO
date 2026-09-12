@@ -1,5 +1,7 @@
+import { getScenePixelRatio } from "@/three/renderer/renderResolution.js";
 import * as THREE from "three";
-import { createSceneHudAtlas } from "../../../objects/sceneHud/sceneHudAtlas.js";
+import { SceneTextLocale } from "../typography/sceneTextLocale.js";
+import { createSceneHudAtlas, createSceneHudAtlasChunked } from "../../../objects/sceneHud/sceneHudAtlas.js";
 import { advanceHudSnake, hudSnakeGlsl } from "../../../objects/sceneHud/sceneHudShaders.js";
 import { MMK1_CAMERA_HOTSPOTS } from "./mmk1CameraHotspotsConfig.js";
 
@@ -41,18 +43,19 @@ const FRAGMENT = /* glsl */ `
 
 /** Four prewarmed text panels; hover only moves the shared snake playhead. */
 export class Mmk1HotspotLabels {
-	constructor(parent, markers, renderer) {
+	static async create(parent, markers, renderer, cancelled) {
+		const atlas = await createSceneHudAtlasChunked(getScenePixelRatio(renderer), createLabelStates(), "mmk1-hotspot", undefined, cancelled);
+		return atlas ? new Mmk1HotspotLabels(parent, markers, renderer, atlas) : null;
+	}
+
+	constructor(parent, markers, renderer, preparedAtlas = null) {
 		this.markers = markers;
+		this.localeMotions = markers.map(() => new SceneTextLocale());
 		this.soundReveals = new Float32Array(markers.length);
-		this.pixelRatio = renderer.getPixelRatio();
+		this.pixelRatio = getScenePixelRatio(renderer);
 		this.viewport = new THREE.Vector2();
 		this.projected = new THREE.Vector3();
-		const states = ["ru", "en", "zh"].map((locale) => MMK1_CAMERA_HOTSPOTS.map(({ label, labelPlacement }) => [
-			{ text: label[locale][0], x: 15, y: 104, size: 14, color: "#d3f3ff", row: 0 },
-			{ text: label[locale][1], x: 15, y: 131, size: 10, color: "#9bcddd", row: 1 },
-			{ text: locale === "en" ? "CLICK · EXPLORE" : locale === "zh" ? "点击 · 查看细节" : "НАЖМИТЕ · ПРИБЛИЗИТЬ", x: 15, y: 164, size: 10, color: "#b2cbd5", row: 2 },
-		].map((line) => labelPlacement === "left" ? { ...line, x: 270, align: "right" } : line)));
-		this.atlas = createSceneHudAtlas(this.pixelRatio, states, "mmk1-hotspot");
+		this.atlas = preparedAtlas ?? createSceneHudAtlas(this.pixelRatio, createLabelStates(), "mmk1-hotspot");
 		this.geometry = new THREE.PlaneGeometry(2, 2);
 		this.panels = markers.map((marker, index) => {
 			const material = new THREE.ShaderMaterial({
@@ -104,14 +107,17 @@ export class Mmk1HotspotLabels {
 		for (let i = 0; i < this.panels.length; i++) {
 			const requested = this.markers[i] === hovered;
 			const u = this.panels[i].material.uniforms;
-			u.uSnake.value = advanceHudSnake(u.uSnake.value, requested, delta);
+			const language = this.localeMotions[i];
+			const natural = language.busy ? u.uSnake.value : advanceHudSnake(u.uSnake.value, requested, delta);
+			u.uSnake.value = language.update(delta, locale, natural, requested);
 			this.soundReveals[i] = u.uSnake.value;
 			u.uDetails.value = THREE.MathUtils.damp(u.uDetails.value, requested ? 1 : 0, 7, delta);
-			u.uLocale.value = locale === "en" ? 1 : locale === "zh" ? 2 : 0;
+			u.uLocale.value = language.locale;
 		}
 	}
 
 	reset() {
+		for (const language of this.localeMotions) language.reset();
 		this.soundReveals.fill(0);
 		for (const panel of this.panels) {
 			panel.material.uniforms.uSnake.value = 0;
@@ -129,4 +135,12 @@ export class Mmk1HotspotLabels {
 		this.atlas.orderTexture.dispose();
 		this.atlas.glyphTexture.dispose();
 	}
+}
+
+function createLabelStates() {
+	return ["ru", "en", "zh"].map((locale) => MMK1_CAMERA_HOTSPOTS.map(({ label, labelPlacement }) => [
+		{ text: label[locale][0], x: 15, y: 104, size: 14, color: "#d3f3ff", row: 0 },
+		{ text: label[locale][1], x: 15, y: 131, size: 10, color: "#9bcddd", row: 1 },
+		{ text: locale === "en" ? "CLICK · EXPLORE" : locale === "zh" ? "点击 · 查看细节" : "НАЖМИТЕ · ПРИБЛИЗИТЬ", x: 15, y: 164, size: 10, color: "#b2cbd5", row: 2 },
+	].map((line) => labelPlacement === "left" ? { ...line, x: 270, align: "right" } : line)));
 }

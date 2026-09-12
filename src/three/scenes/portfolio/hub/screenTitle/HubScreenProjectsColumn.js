@@ -45,6 +45,7 @@ export class HubScreenProjectsColumn {
 	constructor(parentGroup, options = {}) {
 		this.projects = options.projects ?? projectsData;
 		this.sceneId = options.sceneId ?? "portfolioHub";
+		this._createTextLayer = options.createProjectsTextLayer ?? (() => new HubScreenTextLayer());
 		this._routeGlitch = createHubCanvasGlitchRouteScope(this.sceneId);
 		this.root = parentGroup;
 		this.layers = [];
@@ -317,7 +318,7 @@ export class HubScreenProjectsColumn {
 		}
 
 		for (const layerDef of layerDefs) {
-			const layer = new HubScreenTextLayer().build(layerDef, columnCfg.lineGap, {
+			const layer = await this._createTextLayer().build(layerDef, columnCfg.lineGap, {
 				initialHidden: glitchIntro,
 			});
 			this.layers.push(layer);

@@ -17,6 +17,7 @@ import { createAboutEdgeParticles } from "./aboutEdgeParticles.js";
 import { setAboutDissolveProgress } from "./aboutDissolveShader.js";
 import { resetAboutExperienceState } from "@/pages/about/aboutExperienceRuntime.js";
 import { ABOUT_STAGE_COUNT } from "@/pages/about/states.js";
+import { aboutStoryToModelProgress, aboutStoryToFrontDissolve } from "@/pages/about/aboutStoryTiming.js";
 import { isAboutPanelHudRevealExiting } from "@/pages/about/aboutPanelHudReveal.js";
 import { armAboutPanelHudForRoute, isAboutPanelHudVisitArmed, syncAboutPanelHudFromStory } from "@/pages/about/aboutPanelHudStory.js";
 import { isAboutExperienceRuntimeActive } from "@/pages/about/aboutExperienceRuntime.js";
@@ -68,7 +69,8 @@ function disposeObject3D(root, { skipMaterials = false } = {}) {
 /**
  * About WebGL scene: AboutUsModel.glb.
  * Model / camera / lookAt motion = GLB clips only (Blender).
- * Site owns shader dissolves + procedural particles (no mesh TRS FX).
+ * Shader dissolves + particles follow story; subtle content-group motion wraps
+ * the authored model clips without changing camera helpers or mesh tracks.
  */
 export class AboutScene {
 	constructor(store) {
@@ -103,6 +105,16 @@ export class AboutScene {
 		this._scrollProgress = 0;
 		this._storyProgress = 0;
 		this._dragOrbitTarget = new THREE.Vector3();
+		this.dragOrbitAroundTarget = true;
+		this._modelPivot = null;
+		this._modelPivotLocal = new THREE.Vector3();
+		this._contentMotionRoot = null;
+		this._motionCenter = new THREE.Vector3();
+		this._motionOffset = new THREE.Vector3();
+		this._motionTime = 0;
+		this._motionScale = 0;
+		this._pointerTiltX = 0;
+		this._pointerTiltY = 0;
 		this._insideLarge = null;
 		this._edgeForParticlesMesh = null;
 		this._edgeRebuildRaf = 0;
@@ -121,6 +133,44 @@ export class AboutScene {
 
 	getAboutMaterialsConfig() {
 		return this._materialsConfig;
+	}
+
+	beginWarmupDraw() {
+		// Later story stages are hidden at rest, but need a real draw before Start.
+		const nodes = new Set();
+		const objects = [this._particles?.lines, this._particles?.points, ...(this._epicText?.getWarmupObjects() ?? [])];
+		for (const object of objects) {
+			for (let node = object; node && node !== this.threeScene; node = node.parent) nodes.add(node);
+		}
+		const token = [...nodes].map(node => ({ node, visible: node.visible, frustumCulled: node.frustumCulled }));
+		// A deep-link/hex warm pose may already have dissolved these surfaces.
+		// Keep their programs/geometry prepared even when runtime omits the empty draw.
+		const materials = new Set([
+			this._materialsByKey?.frontGlass, this._materialsByKey?.outerCell,
+			this._materialsByKey?.OuterCellSeam, this._materialsByKey?.outerCellSeam,
+			this._frontBackSide?.material,
+		].filter(Boolean));
+		token.dissolveMaterials = [...materials].map(material => ({ material, visible: material.visible }));
+		this._warmupDrawNodes = token;
+		return token;
+	}
+
+	_showWarmupDrawNodes() {
+		// The regular story update hides them again; override only for the warm draw.
+		for (const { node } of this._warmupDrawNodes ?? []) {
+			node.visible = true;
+			node.frustumCulled = false;
+		}
+		for (const { material } of this._warmupDrawNodes?.dissolveMaterials ?? []) material.visible = true;
+	}
+
+	endWarmupDraw(token) {
+		this._warmupDrawNodes = null;
+		for (const { node, visible, frustumCulled } of token ?? []) {
+			node.visible = visible;
+			node.frustumCulled = frustumCulled;
+		}
+		for (const { material, visible } of token?.dissolveMaterials ?? []) material.visible = visible;
 	}
 
 	/** Structural knobs rebuild the lattice; the rest only touch uniforms. */
@@ -259,10 +309,9 @@ export class AboutScene {
 		const s = THREE.MathUtils.clamp(Number(story) || 0, 0, 4);
 		this._storyProgress = s;
 		this._scrollProgress = THREE.MathUtils.clamp(s, 0, 1);
-		this._gltfStoryAnim?.setStoryProgress?.(s);
-		/** Dissolve on stage 1: 0…0.5 visible, 0.5…1.0 fades out; stays gone after. */
-		const stage1 = THREE.MathUtils.clamp(s, 0, 1);
-		const dissolve = THREE.MathUtils.clamp((stage1 - 0.5) / 0.5, 0, 1);
+		this._gltfStoryAnim?.setStoryProgress?.(aboutStoryToModelProgress(s));
+		/** Text2's opening anchor keeps the front intact; dissolve starts on further scroll. */
+		const dissolve = aboutStoryToFrontDissolve(s);
 		const dissolveCfg = this._materialsConfig?.stage2Dissolve;
 		/** Front = hex (0); OUTER_cell = scan (1); locked after tuning. */
 		const frontMode = dissolveCfg?.mode ?? 0;
@@ -301,7 +350,11 @@ export class AboutScene {
 			if (!mat) continue;
 			mat.depthWrite = dissolve < 0.85;
 			mat.transparent = true;
+			mat.visible = dissolve < 1;
 		}
+		// At 1 the dissolve shader discards every fragment. Stop submitting those
+		// surfaces, but retain their nodes/children and restore on the first reverse frame.
+		if (this._materialsByKey?.frontGlass) this._materialsByKey.frontGlass.visible = dissolve < 1;
 		/** Depth prepass / front rim must not occlude heart through dissolve holes. */
 		const frontPrepass = this._frontPlate?.getObjectByName("PlateDepthPrepass");
 		if (frontPrepass) {
@@ -323,6 +376,7 @@ export class AboutScene {
 		if (this._frontBackSide?.material) {
 			this._frontBackSide.material.depthWrite = dissolve < 0.02;
 			this._frontBackSide.material.transparent = true;
+			this._frontBackSide.material.visible = dissolve < 1;
 		}
 		/** Vapor finishes by ~0.8 — hide after shader is already clear */
 		if (this._backPlate) {
@@ -482,6 +536,15 @@ export class AboutScene {
 
 				this.modelRoot.add(model);
 				this._model = model;
+				this._contentMotionRoot = model.getObjectByName("AboutUsContent");
+				this._modelPivot = model.getObjectByName("AboutModel") ?? model;
+				// Measure once under the curtain, excluding camera helpers and epic text.
+				// The cached local centre then follows the authored model pose in O(1).
+				const contentBox = computeAboutContentBox(model);
+				contentBox.getCenter(this._modelPivotLocal);
+				this._modelPivot.worldToLocal(this._modelPivotLocal);
+				const contentSize = contentBox.getSize(this._motionOffset);
+				this._motionScale = Math.max(contentSize.x, contentSize.y, contentSize.z) / Math.max(this.root.scale.x, 0.001);
 				this._frontPlate = model.getObjectByName("Front") ?? null;
 				this._backPlate = model.getObjectByName("Back") ?? null;
 				this._frontBackSide = model.getObjectByName("FrontBackSide") ?? null;
@@ -553,6 +616,9 @@ export class AboutScene {
 	}
 
 	getDragOrbitTarget(_camera, frame) {
+		if (this._modelPivot) {
+			return this._modelPivot.localToWorld(this._dragOrbitTarget.copy(this._modelPivotLocal));
+		}
 		const cam = this._resolveStageCamera();
 		const progress = Number.isFinite(frame?.sceneProgress) ? frame.sceneProgress : 0;
 		return this._dragOrbitTarget.set(
@@ -644,6 +710,35 @@ export class AboutScene {
 		this.root.scale.setScalar(layout.rootScale);
 	}
 
+	_updateModelMotion(delta, frame) {
+		const motion = this._contentMotionRoot;
+		if (!motion || !this._modelPivot || !this.store.appStarted) return;
+		const active = this._routeActive || this._mixPreview || frame?.sceneRole === "current"
+			|| Math.abs(Number(frame?.carouselProgress) || 0) > 0.0001;
+		if (!active) return;
+		const dt = Math.max(0, Math.min(0.05, delta));
+		this._motionTime += dt;
+		const pointerAllowed = !frame?.pointerBlocked && !frame?.pointerDown;
+		const px = pointerAllowed ? THREE.MathUtils.clamp(Number(frame?.pointer?.x) || 0, -1, 1) : 0;
+		const py = pointerAllowed ? THREE.MathUtils.clamp(Number(frame?.pointer?.y) || 0, -1, 1) : 0;
+		this._pointerTiltX = THREE.MathUtils.damp(this._pointerTiltX, -py * 0.018, 3, dt);
+		this._pointerTiltY = THREE.MathUtils.damp(this._pointerTiltY, px * 0.025, 3, dt);
+
+		// Rotate content around its own animated centre; camera/look-at helpers
+		// remain outside this group and keep their original story trajectory.
+		this._modelPivot.localToWorld(this._motionCenter.copy(this._modelPivotLocal));
+		motion.worldToLocal(this._motionCenter);
+		const t = this._motionTime;
+		motion.rotation.set(
+			this._pointerTiltX + Math.sin(t * 0.58) * 0.007,
+			this._pointerTiltY + Math.sin(t * 0.43) * 0.009,
+			Math.sin(t * 0.37) * 0.004,
+		);
+		motion.position.copy(this._motionCenter).sub(this._motionOffset.copy(this._motionCenter).applyQuaternion(motion.quaternion));
+		motion.position.x += Math.sin(t * 0.41) * this._motionScale * 0.002;
+		motion.position.y += Math.sin(t * 0.67) * this._motionScale * 0.004;
+	}
+
 	update(delta, frame) {
 		if (this._disposed) return;
 		const safeDelta = THREE.MathUtils.clamp(Number(delta) || 0, 0, 0.1);
@@ -666,6 +761,7 @@ export class AboutScene {
 		if (storyProgress !== this._storyProgress || this._gltfStoryAnim) {
 			this._applyStoryProgress(storyProgress);
 		}
+		this._updateModelMotion(safeDelta, frame);
 
 		const pointer = frame?.pointerBlocked ? { x: 0, y: 0 } : (frame?.pointer ?? { x: 0, y: 0 });
 		this._epicText?.update?.(this._elapsed, pointer, safeDelta, normalizeSiteLocale(store.siteLocale));
@@ -694,6 +790,7 @@ export class AboutScene {
 			}
 		}
 		syncAboutPanelHud(this.panelHud, { active: hudActive });
+		this._showWarmupDrawNodes();
 	}
 
 	dispose() {
@@ -727,6 +824,8 @@ export class AboutScene {
 		this._ownedMaterials = [];
 		this._model = null;
 		this._haloGeo?.dispose();
+		this._modelPivot = null;
+		this._contentMotionRoot = null;
 		this._haloMat?.dispose();
 		this.threeScene.clear();
 		this.threeScene = null;

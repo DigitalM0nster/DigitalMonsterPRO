@@ -6,19 +6,17 @@ import {
 } from "../shaders/digitalWhaleShaders.js";
 import { withFogUniforms } from "./shaderFogUniforms.js";
 import { digitalWhaleConfig } from "../digitalWhaleConfig.js";
+import { mediumHomeVisualConfig } from "../mediumHomeVisualConfig.js";
+import { createWhaleParticleSkinning } from "./whaleParticleSkinning.js";
+import { getGraphicsTier } from "@/functions/getGraphicsTier.js";
 import {
-	computeParticleBounds,
 	getWhaleParticleFadeRegion,
 	getWhaleParticleFadeRegionFadeMultiplier,
-	isInsideParticleFadeRegion,
 	resolveParticleFadeRegion,
 } from "./whaleParticleRegionFade.js";
 
 const _va = new THREE.Vector3();
 const _vb = new THREE.Vector3();
-const _skinnedA = new THREE.Vector3();
-const _skinnedB = new THREE.Vector3();
-const _result = new THREE.Vector3();
 
 /** Уникальные рёбра треугольников — совпадает с линиями wireframe в Blender. */
 function collectTriangleEdges(geometry) {
@@ -122,16 +120,6 @@ function sampleAlongEdges(mesh, edges, edgeSpacing) {
 	return samples;
 }
 
-function writeSkinnedVertex(mesh, vertexIndex, target) {
-	target.fromBufferAttribute(mesh.geometry.attributes.position, vertexIndex);
-
-	if (mesh.isSkinnedMesh) {
-		mesh.applyBoneTransform(vertexIndex, target);
-	}
-
-	target.applyMatrix4(mesh.matrix);
-}
-
 function sampleVertices(mesh, vertexStride) {
 	const samples = [];
 	const positionAttr = mesh.geometry?.attributes?.position;
@@ -169,13 +157,12 @@ function resolveMeshFadeMultiplier(mesh, rules) {
 
 /**
  * Партиклы вдоль рёбер меша (не по сетке вершин). Позиции интерполируются между
- * концами ребра и каждый кадр пересчитываются через скелет.
+ * концами ребра после GPU skinning. Атрибуты частиц после prepare неизменны.
  */
 export function createWhaleParticles(meshes, options = {}) {
 	const edgeSpacing = options.edgeSpacing ?? 0.1;
 	const vertexStride = options.vertexStride ?? 2;
 	const samples = [];
-	let sampleMode = "edges";
 
 	for (const mesh of meshes) {
 		const edges = collectMeshEdges(mesh);
@@ -183,28 +170,19 @@ export function createWhaleParticles(meshes, options = {}) {
 	}
 
 	if (samples.length === 0) {
-		sampleMode = "vertices";
 		for (const mesh of meshes) {
 			samples.push(...sampleVertices(mesh, vertexStride));
 		}
 	}
 
-	const count = samples.length;
-	const vertexCacheByMesh = new Map();
-	for (const { mesh, a, b } of samples) {
-		let vertexCache = vertexCacheByMesh.get(mesh);
-		if (!vertexCache) {
-			vertexCache = new Map();
-			vertexCacheByMesh.set(mesh, vertexCache);
-		}
-		if (!vertexCache.has(a)) {
-			vertexCache.set(a, new THREE.Vector3());
-		}
-		if (!vertexCache.has(b)) {
-			vertexCache.set(b, new THREE.Vector3());
-		}
+	// Stratified selection preserves coverage along the whole silhouette. This
+	// runs only during prepare; particle buffers remain immutable after Start.
+	if (getGraphicsTier() === "low" && samples.length > 10000) {
+		const stride = samples.length / 10000;
+		for (let i = 0; i < 10000; i++) samples[i] = samples[Math.floor(i * stride)];
+		samples.length = 10000;
 	}
-	const positions = new Float32Array(count * 3);
+	const count = samples.length;
 	const baseIntensities = new Float32Array(count);
 	const meshFadePerSample = new Float32Array(count);
 	const meshFadeRules = digitalWhaleConfig.whale?.particleFade?.meshes ?? [];
@@ -220,14 +198,28 @@ export function createWhaleParticles(meshes, options = {}) {
 	}
 
 	const geometry = new THREE.BufferGeometry();
-	geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
 	geometry.setAttribute("aIntensity", new THREE.BufferAttribute(intensities, 1));
+	const skinning = createWhaleParticleSkinning(samples, geometry);
+	const roundParticles = getGraphicsTier() === "medium";
+	const lowParticles = getGraphicsTier() === "low";
 
 	const material = new THREE.ShaderMaterial({
+		defines: lowParticles ? { LOW_LOCAL_PARTICLE: 1 } : roundParticles ? { MEDIUM_ROUND_PARTICLE: 1 } : {},
 		uniforms: withFogUniforms({
+			...skinning.uniforms,
+			uRegionMin: { value: new THREE.Vector3() },
+			uRegionMax: { value: new THREE.Vector3() },
+			uRegionFade: { value: 1 },
 			uTime: { value: 0 },
 			uColor: { value: new THREE.Color(0x00e5ff) },
 			uPointScale: { value: 2.2 },
+			// DPR-1 Medium needs room for the round halo around its compact core.
+			// High retains its original sprite size and grain profile.
+			uRasterScale: { value: 1 },
+			uLowFogRange: { value: new THREE.Vector2(18, 49) },
+			uMediumColor: { value: new THREE.Color(mediumHomeVisualConfig.whaleColor) },
+			uMediumEmission: { value: mediumHomeVisualConfig.whaleEmission },
+			uMediumRadiance: { value: mediumHomeVisualConfig.whaleRadiance },
 			uAlphaMult: { value: 1 },
 			uGlow: { value: 2.5 },
 			uGrainBlurRadius: { value: 0 },
@@ -240,86 +232,43 @@ export function createWhaleParticles(meshes, options = {}) {
 		transparent: true,
 		depthWrite: false,
 		blending: THREE.AdditiveBlending,
+		...(roundParticles || lowParticles ? {
+			// Keep the brightest light at each pixel, bounded by its HDR core.
+			// Dim overlapping points cannot obscure a bright one or add a hotspot.
+			blending: THREE.CustomBlending,
+			blendEquation: THREE.MaxEquation,
+			blendSrc: THREE.OneFactor,
+			blendDst: THREE.OneFactor,
+			blendEquationAlpha: THREE.AddEquation,
+			blendSrcAlpha: THREE.OneFactor,
+			blendDstAlpha: THREE.OneMinusSrcAlphaFactor,
+		} : {}),
 		fog: true,
 	});
 
 	const points = new THREE.Points(geometry, material);
 	points.renderOrder = 3;
 	points.frustumCulled = false;
+	// Root teardown and dev edge-spacing rebuild both dispose this material.
+	material.addEventListener("dispose", skinning.dispose);
 
-	let particleBounds = null;
 	const particleFadeBox = {};
 
-	function applyRegionIntensityFade() {
-		const region = getWhaleParticleFadeRegion();
-		const box = resolveParticleFadeRegion(region, particleBounds, particleFadeBox);
-		const intensityAttr = geometry.attributes.aIntensity;
-
-		if (!box) {
-			for (let i = 0; i < count; i++) {
-				intensityAttr.setX(i, baseIntensities[i] * meshFadePerSample[i]);
-			}
-			intensityAttr.needsUpdate = true;
-			return;
-		}
-
-		const insideFade = getWhaleParticleFadeRegionFadeMultiplier(region);
-
-		for (let i = 0; i < count; i++) {
-			let fade = meshFadePerSample[i];
-			const x = positions[i * 3];
-			const y = positions[i * 3 + 1];
-			const z = positions[i * 3 + 2];
-
-			if (isInsideParticleFadeRegion(x, y, z, box)) {
-				fade *= insideFade;
-			}
-
-			intensityAttr.setX(i, baseIntensities[i] * fade);
-		}
-
-		intensityAttr.needsUpdate = true;
-	}
-
 	function updatePositions() {
-		const positionAttr = geometry.attributes.position;
-
-		for (const [mesh, vertexCache] of vertexCacheByMesh) {
-			for (const [vertexIndex, vertex] of vertexCache) {
-				writeSkinnedVertex(mesh, vertexIndex, vertex);
-			}
+		skinning.update();
+		const region = getWhaleParticleFadeRegion();
+		const box = resolveParticleFadeRegion(region, skinning.initialBounds, particleFadeBox);
+		material.uniforms.uRegionFade.value = box ? getWhaleParticleFadeRegionFadeMultiplier(region) : 1;
+		if (box) {
+			material.uniforms.uRegionMin.value.set(box.minX, box.minY, box.minZ);
+			material.uniforms.uRegionMax.value.set(box.maxX, box.maxY, box.maxZ);
 		}
-
-		for (let i = 0; i < samples.length; i++) {
-			const { mesh, a, b, t } = samples[i];
-			const vertexCache = vertexCacheByMesh.get(mesh);
-			_skinnedA.copy(vertexCache.get(a));
-			_skinnedB.copy(vertexCache.get(b));
-			_result.lerpVectors(_skinnedA, _skinnedB, t);
-			positionAttr.setXYZ(i, _result.x, _result.y, _result.z);
-		}
-
-		positionAttr.needsUpdate = true;
-
-		if (!particleBounds) {
-			particleBounds = computeParticleBounds(positionAttr, count);
-			const region = getWhaleParticleFadeRegion();
-			const box = resolveParticleFadeRegion(region, particleBounds, particleFadeBox);
-			console.info("[createWhaleParticles] bounds (локальные координаты кита)", particleBounds);
-			if (box) {
-				console.info("[createWhaleParticles] region fade box", box);
-			}
-		}
-
-		applyRegionIntensityFade();
 	}
 
 	updatePositions();
 
 	if (count === 0) {
 		console.warn("[createWhaleParticles] нет геометрии для партиклов — проверьте FBX");
-	} else {
-		console.info(`[createWhaleParticles] ${count} точек (${sampleMode}) на ${meshes.length} mesh`);
 	}
 
 	return {
@@ -327,6 +276,7 @@ export function createWhaleParticles(meshes, options = {}) {
 		material,
 		geometry,
 		updatePositions,
+		bodySamples: skinning.bodySamples,
 		sampleCount: count,
 	};
 }

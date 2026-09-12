@@ -1,6 +1,7 @@
 import * as THREE from "three";
-import { NARRATIVE_COPY, advanceNarrative, narrativeFrame, coreNarrativeLayout, trailNarrativeWallPosition } from "./capabilityNarrativeContent.js";
+import { NARRATIVE_COPY, CORE_NARRATIVE_LABEL, advanceNarrative, narrativeFrame, coreNarrativeLayout, trailNarrativeWallPosition } from "./capabilityNarrativeContent.js";
 import { PASSAGE_RADIUS } from "../lightTrails/createLightTrailsEnvironment.js";
+import { SceneTextLocale } from "./sceneTextLocale.js";
 
 const WIDTH = 1024, HEIGHT = 384;
 const nextPaint = () => new Promise(resolve => requestAnimationFrame(resolve));
@@ -94,7 +95,8 @@ const FRAGMENT = /* glsl */ `
 export class CapabilityNarrative {
 	static async create(parent, renderer, variant, disposed) {
 		const copy = NARRATIVE_COPY[variant];
-		await Promise.all(copy.map(states => document.fonts?.load("500 72px ManifoldExtended", states.flat().join(" "))));
+		await Promise.all(copy.map((states, locale) => document.fonts?.load("500 72px ManifoldExtended",
+			states.flat().join(" ") + (variant === "syntheticCore" ? ` ${CORE_NARRATIVE_LABEL[locale]}` : ""))));
 		if (disposed()) return null;
 		const rows = copy[0].length;
 		const canvas = document.createElement("canvas");
@@ -112,7 +114,7 @@ export class CapabilityNarrative {
 				ctx.translate(locale * WIDTH, state * HEIGHT);
 				const lines = copy[locale][state];
 				const core = variant === "syntheticCore";
-				let right = core ? paintLine(ctx, "03", 44, 22, "#56b6cf", 3) : 12;
+				let right = core ? paintLine(ctx, CORE_NARRATIVE_LABEL[locale], 44, 22, "#56b6cf", 3) : 12;
 				right = Math.max(right, paintLine(ctx, lines[0], 149, core ? 76 : 70, "#dcebf0"));
 				right = Math.max(right, paintLine(ctx, lines[1], core ? 244 : 212, core ? 76 : 60, "#dcebf0"));
 				if (core) {
@@ -130,6 +132,7 @@ export class CapabilityNarrative {
 		this.variant = variant;
 		this.soundBounds = soundBounds;
 		this.elapsed = 0;
+		this.localeMotion = new SceneTextLocale(variant === "syntheticCore" ? 1.15 : 0.95, 0.95);
 		this.warming = false;
 		this.viewport = new THREE.Vector2();
 		// Upright floating inscriptions with a fixed, gentler turn along each side.
@@ -199,16 +202,19 @@ export class CapabilityNarrative {
 	update(delta, frame, locale) {
 		if (this.warming) return;
 		const store = frame?.store;
-		this.elapsed = advanceNarrative(this.elapsed, delta, {
+		const transitioning = store?.sceneCarouselClickTransitionActive === true || Math.abs(store?.hexShaderProgress ?? 0) > 0.0001;
+		const current = frame?.activeSceneId === `capabilities:${this.variant}`;
+		if (!this.localeMotion.busy) this.elapsed = advanceNarrative(this.elapsed, delta, {
 			started: store?.appStarted === true,
-			current: frame?.activeSceneId === `capabilities:${this.variant}`,
-			transitioning: store?.sceneCarouselClickTransitionActive === true || Math.abs(store?.hexShaderProgress ?? 0) > 0.0001,
-		});
+			current, transitioning,
+		}, this.variant);
 		this.frame = narrativeFrame(this.elapsed, this.variant);
-		this.uniforms.uReveal.value = this.frame.reveal;
+		this.uniforms.uReveal.value = this.localeMotion.update(
+			store?.appStarted === true && (current || transitioning) ? delta : 0, locale, this.frame.reveal,
+		);
 		this.uniforms.uState.value = this.frame.state;
 		this.uniforms.uSide.value = this.frame.side;
-		this.uniforms.uLocale.value = locale === "en" ? 1 : locale === "zh" ? 2 : 0;
+		this.uniforms.uLocale.value = this.localeMotion.locale;
 	}
 
 	getSoundReveal() {
@@ -222,6 +228,7 @@ export class CapabilityNarrative {
 	}
 
 	reset() {
+		this.localeMotion.reset();
 		this.elapsed = 0; this.frame = narrativeFrame(0, this.variant); this.uniforms.uReveal.value = 0;
 	}
 	beginWarmupDraw() { this.warming = true; this.uniforms.uReveal.value = 0.5; }

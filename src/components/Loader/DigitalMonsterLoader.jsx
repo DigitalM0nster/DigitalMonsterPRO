@@ -7,6 +7,7 @@ import { preloadUnderwaterSound } from "@/sounds/underwaterSound.js";
 import { rewarmCasePanelHudGpuForLocale } from "@/pages/portfolio/ui/CaseStudyCanvas/warmCasePanelHudUnderCurtain.js";
 import { rewarmAboutPanelHudGpuForLocale } from "@/pages/about/warmAboutPanelHudUnderCurtain.js";
 import { store } from "@/app/store.jsx";
+import { resolveLoadingTarget } from "@/functions/loadingProgress.js";
 
 const SHOW_LEGACY_LOADER = false;
 const TICK_MS = 80;
@@ -14,7 +15,6 @@ const TICK_SEC = TICK_MS / 1000;
 const MAX_TICK_DT_SEC = 0.25;
 const MAX_DISPLAY_RATE_PER_SEC = 8;
 const MIN_DISPLAY_RATE_PER_SEC = 0.65;
-const CONTINUOUS_TARGET_RATE_PER_SEC = 0.45;
 
 function readBootstrapNumber(value, fallback = 0) {
 	const next = Number(value);
@@ -23,7 +23,7 @@ function readBootstrapNumber(value, fallback = 0) {
 
 export default function DigitalMonsterLoader(props) {
 	const [removeLoader, setRemoveLoader] = useState(false);
-	const initialProgressRef = useRef(Math.min(99, readBootstrapNumber(window.__loaderBootstrapProgress, 0)));
+	const initialProgressRef = useRef(Math.min(10, readBootstrapNumber(window.__loaderBootstrapProgress, 0)));
 	const animationOffsetRef = useRef(`-${Math.max(0, (Date.now() - readBootstrapNumber(window.__loaderBootstrapStartedAt, Date.now())) / 1000)}s`);
 	const [loadingProgress, setLoadingProgress] = useState(initialProgressRef.current);
 	const [isFullScreen, setIsFullScreen] = useState(false);
@@ -46,7 +46,6 @@ export default function DigitalMonsterLoader(props) {
 	const renderedRef = useRef(props.rendered);
 	const startAppRef = useRef(props.startApp);
 	const removeLoaderRef = useRef(removeLoader);
-	const realTargetRef = useRef(Math.max(45, initialProgressRef.current));
 	const assetCountsRef = useRef({ loaded: 0, total: 0 });
 	const fontsReadyRef = useRef(false);
 	const [fontsReady, setFontsReady] = useState(false);
@@ -68,32 +67,7 @@ export default function DigitalMonsterLoader(props) {
 		};
 	}, []);
 
-	useEffect(() => {
-		if (!("PerformanceObserver" in window)) {
-			return undefined;
-		}
-
-		const observer = new PerformanceObserver((list) => {
-			let bonus = 0;
-			for (const entry of list.getEntries()) {
-				const bytes = entry.transferSize || entry.encodedBodySize || 0;
-				bonus += 0.08 + Math.min(1.2, (bytes / 1048576) * 0.2);
-			}
-			if (bonus > 0) {
-				realTargetRef.current = Math.min(98.5, realTargetRef.current + bonus);
-			}
-		});
-
-		try {
-			observer.observe({ type: "resource" });
-		} catch (_error) {
-			return undefined;
-		}
-
-		return () => observer.disconnect();
-	}, []);
-
-	// Если Canvas не успел выставить rendered — не блокируем кнопку вечно
+	// File completion advances only its own portion; GPU readiness owns the rest.
 	useEffect(() => {
 		const manager = DefaultLoadingManager;
 		const previousStart = manager.onStart;
@@ -108,9 +82,6 @@ export default function DigitalMonsterLoader(props) {
 			}
 
 			assetCountsRef.current = { loaded, total };
-			const ratio = Math.min(1, loaded / total);
-			const measuredTarget = 45 + ratio * 50;
-			realTargetRef.current = Math.max(realTargetRef.current, measuredTarget);
 		};
 
 		manager.onStart = (...args) => {
@@ -220,13 +191,10 @@ export default function DigitalMonsterLoader(props) {
 
 			const dtSec = Math.min(MAX_TICK_DT_SEC, Math.max(TICK_SEC, (now - lastTickTsRef.current) / 1000));
 			lastTickTsRef.current = now;
-			if (!renderedRef.current || !fontsReadyRef.current) {
-				realTargetRef.current = Math.min(98.5, realTargetRef.current + CONTINUOUS_TARGET_RATE_PER_SEC * dtSec);
-			}
-
-			const measuredTarget = Number.isFinite(realTargetRef.current) ? realTargetRef.current : 45;
 			const isReady = renderedRef.current && fontsReadyRef.current;
-			const target = isReady ? 100 : measuredTarget;
+			const target = resolveLoadingTarget({
+				...assetCountsRef.current, preparation: store.preparationProgress ?? 0, ready: isReady,
+			});
 
 			const gap = target - prev;
 			if (gap <= 0) {

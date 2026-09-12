@@ -384,8 +384,9 @@
 				var dt = Math.max(0.001, Math.min(0.05, (now - last) / 1000));
 				window.__loaderBootstrapActiveElapsed += dt;
 				var elapsed = window.__loaderBootstrapActiveElapsed;
-				var continuous = Math.min(98.5, Math.min(12, elapsed * 1.5) + Math.max(0, elapsed - 8) * 0.45);
-				var progress = Math.min(98.5, continuous + window.__loaderBootstrapResourceBonus);
+				// Bootstrap owns 0–10%; React then counts actual files and GPU preparation.
+				var continuous = Math.min(10, elapsed * 1.5);
+				var progress = Math.min(10, continuous + window.__loaderBootstrapResourceBonus);
 				window.__loaderBootstrapProgress = progress;
 				// Smooth head/tail — same tip for fill + snake, no 80ms stepping.
 				var head = window.__loaderBootstrapSnakeHead || 0;

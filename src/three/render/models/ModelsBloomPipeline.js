@@ -1,8 +1,10 @@
 import * as THREE from "three";
+import { getScenePixelRatio } from "../../renderer/renderResolution.js";
 import { EffectComposer, EffectPass, RenderPass, BloomEffect, BlendFunction, KernelSize } from "postprocessing";
 import { easing } from "maath";
 import { getSiteBloomConfig, siteBloomArtDirection } from "./siteBloomConfig.js";
 import { configureModelsRenderPass, renderComposerToTexture } from "../composerUtils.js";
+import { compileSceneChunked } from "../../renderer/compileSceneChunked.js";
 
 const BLOOM_RADIUS_MIN = 0.1;
 const BLOOM_RADIUS_MAX = 1.2;
@@ -89,6 +91,35 @@ export class ModelsBloomPipeline {
 		};
 	}
 
+	/** Prepare the same RT shader variants used by the following real bloom draw. */
+	async prepareProgramsUnderCurtain(scheduler) {
+		const built = await scheduler.run(() => this._buildBloomChain(getSiteBloomConfig(this.gfx)));
+		if (!built) throw new Error("Bloom warm chain is not prepared");
+		const compilePass = (pass, target) => compileSceneChunked(this.renderer, pass.scene, pass.camera, scheduler, target);
+		for (const pass of this.composer.passes) {
+			pass.renderToScreen = false;
+			await compilePass(pass, this.composer.inputBuffer);
+		}
+		const effect = this.bloomEffect;
+		await compilePass(effect.luminancePass, effect.luminancePass.renderTarget);
+		if (effect.mipmapBlurPass.enabled) {
+			const pass = effect.mipmapBlurPass;
+			const previousMaterial = pass.fullscreenMaterial;
+			try {
+				// The library creates its persistent fullscreen mesh through this setter.
+				// Both materials otherwise compile together on the first bloom frame.
+				pass.fullscreenMaterial = pass.downsamplingMaterial;
+				await compilePass(pass, pass.downsamplingMipmaps[0]);
+				pass.fullscreenMaterial = pass.upsamplingMaterial;
+				await compilePass(pass, pass.upsamplingMipmaps[0]);
+			} finally {
+				pass.fullscreenMaterial = previousMaterial;
+			}
+		} else {
+			await compilePass(effect.blurPass, effect.renderTarget);
+		}
+	}
+
 	_getBloomConfigKey(bloomConfig) {
 		// Intensity, threshold and smoothing update uniforms in render().
 		return `${bloomConfig.mipmapBlur}|${bloomConfig.levels}|${bloomConfig.radius}|${bloomConfig.resolutionScale}|${bloomConfig.kernelSize}`;
@@ -124,6 +155,7 @@ export class ModelsBloomPipeline {
 
 			this._syncBloomBlurParams(bloomConfig);
 			this.composer.addPass(new EffectPass(inputCamera, this.bloomEffect));
+			this._sizeSceneBuffers();
 			this.composer.autoRenderToScreen = false;
 			this.lastBloomConfigKey = configKey;
 			return true;
@@ -162,7 +194,18 @@ export class ModelsBloomPipeline {
 			return;
 		}
 		this.size = { w: width, h: height };
-		this.composer.setSize(width, height);
+		this._sizeSceneBuffers();
+	}
+
+	_sizeSceneBuffers() {
+		if (!this.size.w || !this.size.h) return;
+		const ratio = getScenePixelRatio(this.renderer);
+		const width = Math.floor(this.size.w * ratio), height = Math.floor(this.size.h * ratio);
+		// EffectComposer.setSize/addPass use the final drawing buffer's size.
+		// Size only the public offscreen buffers/passes; never resize the canvas.
+		this.composer.inputBuffer.setSize(width, height);
+		this.composer.outputBuffer.setSize(width, height);
+		for (const pass of this.composer.passes) pass.setSize(width, height);
 	}
 
 	/**

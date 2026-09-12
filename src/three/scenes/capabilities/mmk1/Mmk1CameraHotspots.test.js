@@ -31,6 +31,42 @@ function assertVisible(hotspots) {
 	}
 }
 
+test("crane magnets follow the cursor in screen pixels and keep drawing, labels and hits together", () => {
+	const { hotspots, camera, frame } = createFixture();
+	const marker = hotspots.markers[0], anchor = marker.userData.anchor.clone();
+	const cameraPose = camera.matrixWorld.clone(), material = marker.material;
+	const { screenAnchor, magnetOffset, magnetVelocity } = marker.userData;
+	frame.pointer = { x: screenAnchor.x + 24 / 720, y: screenAnchor.y + 18 / 450 };
+	let labelPosition;
+	hotspots.labels = { layout: () => { labelPosition = marker.position.clone(); }, update() {}, dispose() {} };
+	hotspots.update(1 / 60, frame);
+	assert.equal(hotspots.hovered, marker);
+	assert.ok(magnetOffset.length() > 0 && magnetOffset.length() < 9);
+	for (let i = 0; i < 60; i++) hotspots.update(1 / 60, frame);
+	assert.ok(Math.abs(magnetOffset.length() - 9) < .001);
+	const displayed = marker.position.clone().project(hotspots.camera);
+	assert.ok(Math.abs((displayed.x - screenAnchor.x) * 720 - magnetOffset.x) < 1e-8);
+	assert.ok(Math.abs((displayed.y - screenAnchor.y) * 450 - magnetOffset.y) < 1e-8);
+	assert.ok(labelPosition.distanceTo(marker.position) < 1e-9);
+	const edge = { x: displayed.x + 30 / 720, y: displayed.y };
+	assert.equal(hotspots._pickMarker(hotspots.camera, edge, 1440, 900), marker, "click target follows the displaced circle");
+	assert.deepEqual(marker.userData.anchor, anchor, "attraction cannot feed back into the crane anchor");
+	assert.deepEqual(camera.matrixWorld.elements, cameraPose.elements);
+	assert.ok(hotspots.markers.slice(1).every(m => m.userData.magnetOffset.length() === 0));
+	for (const compose of ["screen", "models"]) {
+		hotspots.setComposeMode(compose); hotspots.syncCamera(camera);
+		assert.ok(marker.position.distanceTo(labelPosition) < 1e-9);
+	}
+	hotspots.setPointerState({ pointerDown: true });
+	hotspots.update(1 / 60, frame);
+	assert.ok(magnetOffset.length() > 0 && magnetOffset.length() < 9, "dragging eases back to the anchor");
+	for (let i = 0; i < 60; i++) hotspots.update(1 / 60, { ...frame, pointerBlocked: true });
+	assert.equal(magnetOffset.length(), 0); assert.equal(magnetVelocity.length(), 0);
+	assert.equal(marker.material, material);
+	assertVisible(hotspots);
+	hotspots.dispose();
+});
+
 test("hover text reverses from its current letter phase and settles in both directions", () => {
 	let progress = advanceHudSnake(0, true, 0.46);
 	assert.ok(Math.abs(progress - 0.4) < 1e-9);
@@ -89,9 +125,9 @@ test("only the selected marker fades out, cannot be picked again, and returns wi
 	hotspots.dispose();
 });
 
-test("detail panels fit desktop, tablet, mobile and short landscape viewports", () => {
+test("details and overview fit desktop, tablet, mobile and short landscape viewports", () => {
 	for (const [width, height] of [[1440, 900], [1024, 768], [768, 500], [390, 844], [320, 568], [844, 390]]) {
-		for (let index = 0; index < 4; index++) {
+		for (let index = 0; index < 5; index++) {
 			const panel = getMmk1DetailLayout(index, width, height);
 			assert.ok(panel.x >= 0 && panel.y >= 0);
 			assert.ok(panel.x + panel.width <= width, `${index}: width ${width}`);

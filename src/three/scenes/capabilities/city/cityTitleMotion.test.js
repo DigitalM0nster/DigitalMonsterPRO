@@ -15,10 +15,10 @@ test("preloader, hidden scenes and incoming hex do not spend the opening delay",
 
 test("a partial reveal survives a reversed hex without a flash or restart", () => {
 	const elapsed = CITY_TITLE_DELAY + 0.4;
-	const paused = advanceCityTitle(elapsed, 4, { ...idle, transitioning: true });
-	assert.equal(paused, elapsed);
-	assert.equal(advanceCityTitle(paused, 4, { ...idle, current: false }), elapsed);
-	assert.ok(cityTitleReveal(advanceCityTitle(paused, 0.1, idle)) > cityTitleReveal(paused));
+	const mixed = advanceCityTitle(elapsed, 0.1, { ...idle, transitioning: true });
+	assert.ok(cityTitleReveal(mixed) > cityTitleReveal(elapsed));
+	assert.equal(advanceCityTitle(mixed, 4, { ...idle, current: false }), mixed);
+	assert.ok(cityTitleReveal(advanceCityTitle(mixed, 0.1, { ...idle, current: false, transitioning: true })) > cityTitleReveal(mixed));
 });
 
 test("delay and reveal are frame-rate independent and settle at an inexpensive rest", () => {

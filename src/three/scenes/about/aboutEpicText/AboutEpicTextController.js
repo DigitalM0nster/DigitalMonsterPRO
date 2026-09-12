@@ -305,6 +305,11 @@ export class AboutEpicTextController {
 		variant.strokeMat = strokeMat;
 	}
 
+	/** All prepared locales share the same first-draw gate. */
+	getWarmupObjects() {
+		return [...this._variants.values()].flatMap(({ mesh, stroke }) => [mesh, stroke]).filter(Boolean);
+	}
+
 	/**
 	 * @param {EpicLocaleVariant | null | undefined} variant
 	 * @param {boolean} on

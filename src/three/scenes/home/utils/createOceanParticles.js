@@ -10,6 +10,7 @@ import {
 import { withFogUniforms } from "./shaderFogUniforms.js";
 import { digitalWhaleConfig } from "../digitalWhaleConfig.js";
 import { getOceanTileCountCap } from "./heroSceneTierScale.js";
+import { getGraphicsTier } from "@/functions/getGraphicsTier.js";
 
 /** Ширина одного тайла сетки по X — для бесшовного скролла. */
 export const OCEAN_SURFACE_WIDTH = 120;
@@ -180,6 +181,7 @@ export function createOceanParticles(gridSize) {
 		// Additive is required for a visible luminous halo. RGB energy is bounded
 		// in the fragment shader, so individual cores retain pointColor.
 		blending: THREE.AdditiveBlending,
+		defines: getGraphicsTier() === "low" ? { LOW_OCEAN_LIGHT: 1 } : {},
 		uniforms: withFogUniforms({
 			uTime: { value: 0 },
 			uRippleCenter: {
@@ -204,7 +206,7 @@ export function createOceanParticles(gridSize) {
 	return { points, geometry, material };
 }
 
-/** High tier: линии сетки между точками. */
+/** High/Medium: линии сетки между точками. */
 export function createOceanGridLines(gridSize, geometry) {
 	const [cols, rows] = gridSize;
 	const positions = [];

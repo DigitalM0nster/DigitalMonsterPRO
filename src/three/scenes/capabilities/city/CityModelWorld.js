@@ -1,3 +1,4 @@
+import { getScenePixelRatio } from "@/three/renderer/renderResolution.js";
 import * as THREE from "three";
 import { createGLTFLoader } from "@/three/assets/gltfLoader.js";
 import { CityRoadFlow } from "./CityRoadFlow.js";
@@ -10,6 +11,7 @@ import { siteBloomDevOverrides } from "@/three/render/models/siteBloomConfig.js"
 import { replaceCitySurfaceMaterials } from "./cityBuildingMaterials.js";
 import { loadCityWindowState } from "./cityWindowShader.js";
 import { createCityReflectionEnvironment, prepareCityOfficeReflections } from "./cityReflectionEnvironment.js";
+import { CityInstanceVisibility } from "./CityInstanceVisibility.js";
 
 const CITY_FOG_COLOR = "#00050b";
 const CITY_FOG_DENSITY = CITY_TRAFFIC_DEFAULTS.fogDensity;
@@ -69,8 +71,6 @@ export class CityModelWorld {
 		this.group.visible = false;
 		this.cameraPosition = CITY_CAMERA_POSITION.clone();
 		this.cameraLookAt = CITY_CAMERA_LOOK_AT.clone();
-		this.markerCameraParallax = new THREE.Vector2();
-		this.cameraDelta = 1 / 60;
 		this.model = null;
 		this.sceneFog = scene.fog?.isFogExp2 ? scene.fog : null;
 		this.sceneFogDefaultDensity = this.sceneFog?.density ?? CITY_FOG_DENSITY;
@@ -78,6 +78,16 @@ export class CityModelWorld {
 		this.cityFogDensity = CITY_FOG_DENSITY;
 		this.cityFogColor = new THREE.Color(CITY_FOG_COLOR);
 		this.disposed = false;
+		this.instanceVisibility = null;
+		this._warmDraw = false;
+		this._previousBeforeRender = scene.onBeforeRender;
+		this._beforeCityRender = (renderer, renderScene, camera, target) => {
+			this._previousBeforeRender.call(renderScene, renderer, renderScene, camera, target);
+			// Scene hook runs after final camera/orbit and world matrices, before
+			// Three uploads attributes. Mesh.onBeforeRender would be one frame late.
+			if (!this._warmDraw && this.group.visible) this.instanceVisibility?.update(camera);
+		};
+		scene.onBeforeRender = this._beforeCityRender;
 
 		// Sky fill separates roofs, walls and undersides without a shadow pass.
 		const ambientLight = new THREE.HemisphereLight(0x95adc1, 0x101822, 0.7);
@@ -163,6 +173,12 @@ export class CityModelWorld {
 			if (object.material?.name === "FLOW THREADS | shader placeholder") object.visible = false;
 		});
 		bindCityDistrictWindows(model, this.districtHighlight);
+		this.instanceVisibility = await CityInstanceVisibility.prepare(model, () => this.disposed);
+		if (this.disposed || !this.instanceVisibility) {
+			disposeModel(model, this.reflectionTarget?.texture);
+			this.reflectionTarget?.dispose(); this.reflectionTarget = null;
+			return false;
+		}
 		const officeTarget = await prepareCityOfficeReflections(this.renderer, model, this.group, windowState, () => this.disposed);
 		if (this.disposed || !officeTarget) {
 			officeTarget?.dispose(); disposeModel(model, this.reflectionTarget?.texture);
@@ -221,26 +237,26 @@ export class CityModelWorld {
 	}
 
 	applyCamera(camera, parallax) {
-		// Keep a hovered circle under the cursor; resume parallax smoothly on leave.
-		if (!(this.districtHighlight?.hovered >= 0)) {
-			this.markerCameraParallax.x = THREE.MathUtils.damp(this.markerCameraParallax.x, Number(parallax?.x) || 0, 12, this.cameraDelta);
-			this.markerCameraParallax.y = THREE.MathUtils.damp(this.markerCameraParallax.y, Number(parallax?.y) || 0, 12, this.cameraDelta);
-		}
 		camera.position.copy(this.cameraPosition);
-		camera.position.x += this.markerCameraParallax.x * 0.58;
-		camera.position.y += this.markerCameraParallax.y * 0.42;
+		camera.position.x += (Number(parallax?.x) || 0) * 0.58;
+		camera.position.y += (Number(parallax?.y) || 0) * 0.42;
 		camera.fov = CITY_CAMERA_FOV;
 		camera.updateProjectionMatrix();
 		camera.lookAt(this.cameraLookAt);
 		camera.updateMatrixWorld(true);
 	}
 
-	beginWarmupDraw() { this.districtHighlight?.beginWarmupDraw(); this.hud?.beginWarmupDraw(); this.title?.beginWarmupDraw(); }
-	endWarmupDraw() { this.districtHighlight?.endWarmupDraw(); this.hud?.endWarmupDraw(); this.title?.endWarmupDraw(); }
+	beginWarmupDraw() {
+		this._warmDraw = true; this.instanceVisibility?.restore();
+		this.districtHighlight?.beginWarmupDraw(); this.hud?.beginWarmupDraw(); this.title?.beginWarmupDraw();
+	}
+	endWarmupDraw() {
+		this._warmDraw = false;
+		this.districtHighlight?.endWarmupDraw(); this.hud?.endWarmupDraw(); this.title?.endWarmupDraw();
+	}
 
 	update(delta, active = false, frame = null, interactionOwned = false, locale = "ru") {
-		this.cameraDelta = Math.min(delta, .05);
-		if (this.group.visible) this.roadFlow?.update(delta, this.renderer?.getPixelRatio() ?? 1);
+		if (this.group.visible) this.roadFlow?.update(delta, (this.renderer ? getScenePixelRatio(this.renderer) : 1));
 		const hovered = this.group.visible && this.districtHighlight
 			? this.districtHighlight.update(delta, frame, active && interactionOwned)
 			: false;
@@ -280,6 +296,8 @@ export class CityModelWorld {
 
 	dispose(scene = this.scene) {
 		this.disposed = true;
+		if (this.scene?.onBeforeRender === this._beforeCityRender) this.scene.onBeforeRender = this._previousBeforeRender;
+		this.instanceVisibility?.dispose(); this.instanceVisibility = null;
 		if (this.sceneFog) {
 			this.sceneFog.density = this.sceneFogDefaultDensity;
 			this.sceneFog.color.copy(this.sceneFogDefaultColor);

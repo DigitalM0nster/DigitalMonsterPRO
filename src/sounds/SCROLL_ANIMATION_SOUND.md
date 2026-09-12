@@ -10,7 +10,7 @@ Reference implementations:
 | About front hex dissolve | `aboutFrontDissolveSound.js` (`logo_reveal`) | Painted dissolve `clamp((story01 − 0.5) / 0.5)` — same as `AboutScene` |
 | About **Back disappear** | `aboutBackDissolveSound.js` (`text2`, stitched loop + soft edges) | Painted Back dissolve on story 1→2 |
 | About **white PCB appear** | `aboutPcbAppearSound.js` (`about_particles.wav`, fixed settle-rate loop) | Painted pcbReveal 1.5→2 — same timbre at any scroll speed |
-| About white PCB bed | `aboutParticleSound.js` (quiet loop after appear) | presence × proximity on story 2→4 |
+| About white PCB bed | `aboutParticleSound.js` (quiet loop during scroll) | painted story motion × presence × proximity; rest fades to silence |
 | Hex route mix | `hexTransitionSound.js` | Carousel **smoothed** `progress` (not `progressTarget`) |
 
 Paths live in `SOUND_CATALOG` (`soundDesign.js`). Prefetch/decode follows the preloader contract in `AGENTS.md`. Do **not** add one-line `*SoundSrc.js` files for a single path.
@@ -24,6 +24,8 @@ Paths live in `SOUND_CATALOG` (`soundDesign.js`). Prefetch/decode follows the pr
 
 2. **Scrub, don’t loop at rest.**  
    Position in the buffer follows a playhead derived from motion. When `|d progress / dt|` is near zero → fade out and stop. Do **not** leave a looping bed after the spring settles (About/case rAF often stops at rest — a loop would keep playing with no further `update()`).
+
+   About's owner sends a final zero-delta update before stopping rAF, resetting, or completing a menu settle. A final epsilon snap can still have nonzero measured speed, so waiting for one more unchanged frame is insufficient. Late particle decode only prepares the buffer; it must never start playback after motion ended. Idle model float/cursor tilt does not drive these scroll sounds.
 
 3. **Rate from visual speed.**  
    `rate ≈ |d progress / dt| × bufferDuration` (clamped). Fast wipe → faster scrub; crawl → silence below `MIN_SPEED`.

@@ -34,6 +34,8 @@ uniform float sweepSpread;
 uniform float usePartReveal;
 uniform float blur;
 uniform vec2 blurStep;
+uniform float arrowStartUv;
+uniform float arrowOffsetUv;
 uniform float glitchProgress;
 uniform float glitchTime;
 uniform float glitchIntensity;
@@ -61,9 +63,19 @@ float easeInOutCubic(float t) {
 		: 1.0 - pow(-2.0 * c + 2.0, 3.0) / 2.0;
 }
 
+vec4 samplePreparedHud(vec2 uv) {
+	// Text and arrow occupy separate regions of the prepared canvas. Move only
+	// the arrow, including its existing glow, before blur/glitch composition.
+	if (arrowOffsetUv > 0.0 && uv.x >= arrowStartUv) {
+		uv.x -= arrowOffsetUv;
+		if (uv.x < arrowStartUv) return vec4(0.0);
+	}
+	return texture2D(map, uv);
+}
+
 vec4 sampleHudMap(vec2 uv) {
 	if (blur < 0.001) {
-		return texture2D(map, uv);
+		return samplePreparedHud(uv);
 	}
 
 	vec4 sum = vec4(0.0);
@@ -73,7 +85,7 @@ vec4 sampleHudMap(vec2 uv) {
 		for (float y = -2.0; y <= 2.0; y += 1.0) {
 			vec2 offset = vec2(x, y) * blurStep * blur;
 			float weight = 1.0 - length(vec2(x, y)) * 0.12;
-			sum += texture2D(map, uv + offset) * weight;
+			sum += samplePreparedHud(uv + offset) * weight;
 			weightSum += weight;
 		}
 	}
@@ -175,6 +187,8 @@ export function createHubPlateDetailsTextMaterial(texture, options = {}) {
 			usePartReveal: { value: reveal.enabled !== false ? 1 : 0 },
 			blur: { value: options.blur ?? 0 },
 			blurStep: { value: options.blurStep ?? new THREE.Vector2(1, 1) },
+			arrowStartUv: { value: options.arrowStartUv ?? 1 },
+			arrowOffsetUv: { value: 0 },
 			glitchProgress: { value: 0 },
 			glitchTime: { value: 0 },
 			glitchIntensity: { value: options.glitch?.intensity ?? 0.031 },

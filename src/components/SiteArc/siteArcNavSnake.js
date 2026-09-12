@@ -17,11 +17,34 @@ import {
 
 /** @type {Map<string, { glitch: CanvasGlitchText, desiredText: string, switching: boolean, disposed: boolean }>} */
 const layers = new Map();
+/** Last bitmap copied to each mounted DOM canvas (slots can be reused for another label). */
+const paintedCanvases = new WeakMap();
 /** @type {Map<string, number>} */
 const switchTimers = new Map();
 /** @type {(() => void) | null} */
 let repaint = null;
 let repaintRaf = 0;
+
+// Draw/measure styles contain primitive values. Compare them without creating
+// two serialized strings for every unchanged label on every arc update.
+function equalStyleValues(previous, next) {
+	if (!previous) return false;
+	for (const key in next) {
+		if (previous[key] !== next[key]) return false;
+	}
+	for (const key in previous) {
+		if (!(key in next)) return false;
+	}
+	return true;
+}
+
+function invalidateFontMetrics() {
+	for (const layer of layers.values()) {
+		layer.measureKey = null;
+		layer.drawKey = null;
+	}
+	scheduleRepaint();
+}
 
 function scheduleRepaint() {
 	if (!repaint || repaintRaf) {
@@ -145,9 +168,15 @@ function getLayer(id, text, style) {
 			replacementShadowBlur: siteArcConfig.snakeGlowBlur,
 			replacementHaloAlpha: siteArcConfig.snakeGlowAlpha,
 			passedLetterHighlightAlpha: siteArcConfig.snakePassedLetterAlpha,
-			onRedraw: scheduleRepaint,
+			onRedraw: () => {
+				if (!layer || layer.disposed) return;
+				layer.revision += 1;
+				// A synchronous paint requested by syncDom is already being presented.
+				// Scheduling syncDom here would keep unchanged labels repainting forever.
+				if (!layer.painting) scheduleRepaint();
+			},
 		});
-		layer = { glitch, desiredText: text, switching: false, disposed: false };
+		layer = { glitch, desiredText: text, switching: false, disposed: false, revision: 0, painting: false };
 		layers.set(id, layer);
 		return layer;
 	}
@@ -178,10 +207,11 @@ function getLayer(id, text, style) {
 export function paintSiteArcNavSnakeDomLabel(canvas, id, text, style) {
 	if (!canvas || !text) {
 		if (canvas) {
-			canvas.width = 1;
-			canvas.height = 1;
+			if (canvas.width !== 1) canvas.width = 1;
+			if (canvas.height !== 1) canvas.height = 1;
 			canvas.style.width = "0px";
 			canvas.style.height = "0px";
+			paintedCanvases.delete(canvas);
 		}
 		return;
 	}
@@ -194,23 +224,50 @@ export function paintSiteArcNavSnakeDomLabel(canvas, id, text, style) {
 	if (style.letterSpacing != null) {
 		layer.glitch.options.letterSpacing = style.letterSpacing;
 	}
-	layer.glitch.ensureCanvasSize();
-	layer.glitch.drawInPlace();
+	const drawStyle = layer.glitch.getDrawStyle();
+	const measureStyle = layer.glitch.getMeasureStyle();
+	const measureKey = {
+		text: layer.glitch.options.text,
+		uppercase: layer.glitch.options.uppercase,
+		fontSize: drawStyle.fontSize,
+		fontWeight: drawStyle.fontWeight,
+		fontFamily: drawStyle.fontFamily,
+		letterSpacing: drawStyle.letterSpacing,
+		glowStrength: measureStyle.replacementGlowStrength,
+		pixelRatio: layer.glitch.pixelRatio,
+	};
+	const measureChanged = !equalStyleValues(layer.measureKey, measureKey);
+	layer.painting = true;
+	try {
+		if (measureChanged) {
+			layer.glitch.ensureCanvasSize();
+			layer.measured = measureCanvasGlitchTextSize(layer.glitch.ctx, layer.glitch.slots, measureStyle);
+			layer.measureKey = measureKey;
+		}
+		// Pending engine changes must appear in this paint too, just as before.
+		if (measureChanged || !equalStyleValues(layer.drawKey, drawStyle) || layer.glitch._pendingDrawLayer != null) {
+			layer.glitch.drawInPlace();
+			layer.drawKey = drawStyle;
+		}
+	} finally {
+		layer.painting = false;
+	}
 
 	const src = layer.glitch.canvas;
 	const dpr = Math.max(0.001, layer.glitch.pixelRatio);
 	// CanvasGlitchText intentionally keeps a 240px minimum cache for the snake.
 	// The DOM arc label must not inherit that empty tail: crop the copied bitmap
 	// to the real measured text bounds so its right edge can sit by the node.
-	const measured = measureCanvasGlitchTextSize(
-		layer.glitch.ctx,
-		layer.glitch.slots,
-		layer.glitch.getMeasureStyle(),
-	);
+	const measured = layer.measured;
 	const sourceCssW = Math.max(1, src.width / dpr);
 	const cssW = Math.max(1, Math.min(sourceCssW, measured.width));
 	const cssH = Math.max(1, src.height / dpr);
 	const sourcePixelW = Math.max(1, Math.min(src.width, Math.ceil(cssW * dpr)));
+	const lastPaint = paintedCanvases.get(canvas);
+	if (lastPaint?.layer === layer && lastPaint.revision === layer.revision
+		&& canvas.width === sourcePixelW && canvas.height === src.height) {
+		return { width: cssW, height: cssH };
+	}
 	if (canvas.width !== sourcePixelW) {
 		canvas.width = sourcePixelW;
 	}
@@ -237,6 +294,8 @@ export function paintSiteArcNavSnakeDomLabel(canvas, id, text, style) {
 		sourcePixelW,
 		src.height,
 	);
+	paintedCanvases.set(canvas, { layer, revision: layer.revision });
+	return { width: cssW, height: cssH };
 }
 
 /**
@@ -351,9 +410,11 @@ export function clearSiteArcNavSnakeHover(stateId) {
  */
 export function registerSiteArcNavSnakeRepaint(callback) {
 	repaint = callback;
+	document.fonts?.addEventListener("loadingdone", invalidateFontMetrics);
 	return () => {
 		if (repaint === callback) {
 			repaint = null;
+			document.fonts?.removeEventListener("loadingdone", invalidateFontMetrics);
 		}
 	};
 }

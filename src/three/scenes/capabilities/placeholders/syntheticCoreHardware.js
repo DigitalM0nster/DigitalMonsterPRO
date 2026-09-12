@@ -38,21 +38,33 @@ function batch(parent) {
 
 /** Curved armour with an actual inner wall, machined bevel and closed edges. */
 function createShellPatch(radius, phi, span, theta, height, thickness = 0.10, detail = 1) {
- const positions = [], normals = [], uvs = [];
  const nx = Math.max(8, Math.ceil(span * (40 + detail * 40))), ny = Math.max(2, Math.ceil(height * (24 + detail * 40)));
+ const count = 12 * (nx * ny + nx + ny);
+ const positions = new Float32Array(count * 3), normals = new Float32Array(count * 3), uvs = new Float32Array(count * 2);
+ let cursor = 0;
  const bevelInset = Math.min(0.008, span * 0.12, height * 0.12);
- const vertex = (p, n, u, v) => { positions.push(p.x,p.y,p.z); normals.push(n.x,n.y,n.z); uvs.push(u,v); };
- const triangle = (a,b,c, smooth = 0) => {
-  const n = new THREE.Vector3().subVectors(b,a).cross(new THREE.Vector3().subVectors(c,a)).normalize();
-  for (const [i,p] of [a,b,c].entries()) vertex(p, smooth ? p.clone().normalize().multiplyScalar(smooth) : n, i === 1 ? 1 : 0, i === 2 ? 1 : 0);
+ const vertex = (p, n, u, v) => {
+  const i = cursor * 3, j = cursor * 2;
+  positions[i]=p.x;positions[i+1]=p.y;positions[i+2]=p.z;
+  normals[i]=n.x;normals[i+1]=n.y;normals[i+2]=n.z;
+  uvs[j]=u;uvs[j+1]=v;cursor++;
  };
  for (const side of [1,-1]) {
   const r = radius + (side === 1 ? thickness : 0);
   const inset = side === 1 ? bevelInset : 0;
+  // Shared grid corners used to be recalculated and normalized per triangle.
+  // Keep double precision until the same final Float32 attribute conversion.
+  const points = [], directions = [];
+  for (let y=0;y<=ny;y++) for(let x=0;x<=nx;x++) {
+   const p=point(r,phi+inset+(span-2*inset)*x/nx,theta+inset+(height-2*inset)*y/ny);
+   points.push(p);directions.push(p.clone().normalize().multiplyScalar(side));
+  }
+  const triangle = (a,b,c) => {
+   vertex(points[a],directions[a],0,0);vertex(points[b],directions[b],1,0);vertex(points[c],directions[c],0,1);
+  };
   for (let y = 0; y < ny; y++) for (let x = 0; x < nx; x++) {
-   const get = (a,b) => point(r, phi + inset + (span - 2 * inset) * a / nx, theta + inset + (height - 2 * inset) * b / ny);
-   const a=get(x,y),b=get(x+1,y),c=get(x+1,y+1),d=get(x,y+1);
-   if(side===1){triangle(a,c,b,1);triangle(a,d,c,1);}else{triangle(a,b,c,-1);triangle(a,c,d,-1);}
+   const a=y*(nx+1)+x,b=a+1,d=a+nx+1,c=d+1;
+   if(side===1){triangle(a,c,b);triangle(a,d,c);}else{triangle(a,b,c);triangle(a,c,d);}
   }
  }
  for (let edge=0;edge<4;edge++) for(let i=0;i<(edge%2?ny:nx);i++) {
@@ -71,7 +83,7 @@ function createShellPatch(radius, phi, span, theta, height, thickness = 0.10, de
   };
   emit(a,u0,v0);emit(c,u1,v1);emit(b,u1,v1);emit(a,u0,v0);emit(d,u0,v0);emit(c,u1,v1);
  }
- const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));g.setAttribute('normal',new THREE.Float32BufferAttribute(normals,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uvs,2));return g;
+ const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(positions,3));g.setAttribute('normal',new THREE.BufferAttribute(normals,3));g.setAttribute('uv',new THREE.BufferAttribute(uvs,2));return g;
 }
 
 function irisBlade() {
@@ -130,10 +142,14 @@ export async function buildSyntheticCoreHardware(world, assembly, isDisposed) {
  // The entire blade sweep stays inside the smallest shell radius (2.08).
  const iris=new THREE.Group();iris.name='turbine-aperture';iris.position.z=1.0;assembly.add(iris);
  const target=batch(iris);
- for(let i=0;i<18;i++){
-  target.part({center:new THREE.Vector3(Math.cos(i*TAU/18)*1.2,Math.sin(i*TAU/18)*1.2,0.1),distance:0.25,delay:0.4});
-  target.add(irisBlade(),i%3===0?dark:titanium,[0,0,i%2*0.025],[0,0,i*TAU/18]);
- }
+ const blade=irisBlade();
+ try {
+  for(let i=0;i<18;i++){
+   target.part({center:new THREE.Vector3(Math.cos(i*TAU/18)*1.2,Math.sin(i*TAU/18)*1.2,0.1),distance:0.25,delay:0.4});
+   target.add(blade.clone(),i%3===0?dark:titanium,[0,0,i%2*0.025],[0,0,i*TAU/18]);
+   if(i%3===2){await breath();if(isDisposed()){target.dispose();return;}}
+  }
+ } finally { blade.dispose(); }
  target.part(null);
  target.add(new THREE.TorusGeometry(0.79,0.085,24,192),dark,[0,0,0.13]);
  target.add(new THREE.TorusGeometry(0.704,0.0035,12,192),energy,[0,0,0.14]);
@@ -162,6 +178,7 @@ export async function buildSyntheticCoreHardware(world, assembly, isDisposed) {
    bits.add(shellPatch(2.08,i*0.4,0.37,0.82,0.60),inset);
    for(let j=0;j<7;j++)bits.add(shellPatch(2.32,i*0.4+0.03,0.30,0.90+j*0.052,0.022,0.024),j%4===0?warm:dark);
    const path=[];for(let j=0;j<=20;j++)path.push(point(2.33,i*0.4+0.025+j*0.016,0.855));addFlow(world,group,path,0.008,energy);
+   await breath();if(isDisposed()){bits.dispose();return;}
   }
   bits.finish();world.rotors.push({object:group,axis:'y',speed:(index%2?-1:1)*0.013});
   world.floaters.push({object:group,origin:group.position.clone(),phase:index*2.1,amplitude:0.28+index*0.08});

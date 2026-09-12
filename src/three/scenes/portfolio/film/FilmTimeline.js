@@ -40,8 +40,8 @@ void main(){
  float rim=channel*smoothstep(-.018-aa,-.018+aa,distance);
  float head=length*uProgress,filled=1.-smoothstep(head-.055,head+.055,p.x);
  float glass=.8+.2*(1.-smoothstep(0.,.065,abs(p.y-.0175)));
- vec3 channelColor=filmAccent*mix(.080,.84*glass,filled);
- channelColor+=filmAccent*.44*rim*(.5+.3*filled);
+ vec3 channelColor=vec3(1.)*mix(.080,.84*glass,filled);
+ channelColor+=vec3(1.)*.44*rim*(.5+.3*filled);
  float channelAlpha=channel*mix(.70,.94,filled);
  // A small luminous rectangle replaces the thin vertical stick. Hover changes light, never size.
  float thumbDistance=roundedBox(p-vec2(head,0.),vec2(.19,.09),.018);
@@ -51,9 +51,14 @@ void main(){
  float glow=exp(-max(distance,0.)*22.)*channel*.08;
  float a=max(channelAlpha,max(thumb,halo));
  vec3 light=channelColor*channelAlpha*(1.-thumb);
- light+=filmAccent*1.38*thumb*(1.+uHover*.08);
- light+=filmAccent*.65*(halo+glow);
+ light+=vec3(1.)*1.38*thumb*(1.+uHover*.08);
+ light+=vec3(1.)*.65*(halo+glow);
+ #ifdef FILM_LOW
+ float railHalo=exp(-max(distance,0.)*18.)*.14*(.3+.7*filled);
+ gl_FragColor=filmLowWhite(channel*mix(.14,1.,filled)*(1.-thumb)+thumb*1.65+halo*2.+railHalo,a,uOpacity);
+ #else
  gl_FragColor=vec4(light*filmUiGain/max(a,.0001),a*uOpacity);
+ #endif
  }
  #include <colorspace_fragment>
 }`;
@@ -67,8 +72,12 @@ void main(){
  float d=min(segment(p,vec2(-edge,.12),vec2(-edge,.35)),segment(p,vec2(-edge,.35),vec2(-edge+.26,.35)));
  d=min(d,min(segment(p,vec2(edge,-.12),vec2(edge,-.35)),segment(p,vec2(edge,-.35),vec2(edge-.26,-.35))));
  float corner=1.-smoothstep(.007,.027,d),a=max(body*.44,corner*.28);
- vec3 light=filmAccent*(.015*body*.44+.39*filmUiGain*corner*(.28+uHover*.12));
+ vec3 light=vec3(1.)*(.015*body*.44+.39*filmUiGain*corner*(.28+uHover*.12));
+ #ifdef FILM_LOW
+ gl_FragColor=filmLowWhite(corner*.6+exp(-d*26.)*(.12+.12*uHover),a,uOpacity);
+ #else
  gl_FragColor=vec4(light/max(a,.0001),a*uOpacity);
+ #endif
  #include <colorspace_fragment>
 }`;
 

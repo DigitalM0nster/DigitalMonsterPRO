@@ -36,7 +36,7 @@ export function createWhaleHologramMaterial() {
 	return material;
 }
 
-/** Показывает FBX-меши с общим holo-материалом (low/medium). */
+/** Показывает FBX-меши с общим holo-материалом (Low). */
 export function applyWhaleHologram(root) {
 	const material = createWhaleHologramMaterial();
 	const meshes = [];

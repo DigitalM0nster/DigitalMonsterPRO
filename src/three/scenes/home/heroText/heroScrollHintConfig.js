@@ -6,6 +6,8 @@ export const heroScrollHintConfig = {
 	mainColor: "#00b3ff",
 	/** Цвет мыши и кончика змейки. */
 	brightColor: "#2ea4ff",
+	/** Основной цвет сайта для локального свечения Medium, без HDR-сдвига. */
+	mediumCueColor: "#00a9ff",
 	/** Цвет текста «листайте вниз». */
 	labelColor: "#ffffff",
 	/** Цвет свечения основного текста. */

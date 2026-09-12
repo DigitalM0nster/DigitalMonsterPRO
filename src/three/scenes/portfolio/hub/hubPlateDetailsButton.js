@@ -439,6 +439,13 @@ function getArrowHoverOffset(buttonCfg) {
 	return Math.max(0, buttonCfg.arrowHoverOffset ?? 8);
 }
 
+function getArrowStartUv(buttonCfg, canvasWidth) {
+	const tipX = canvasWidth - (buttonCfg.canvasPaddingRight ?? 16) - getArrowHoverOffset(buttonCfg);
+	const arrowWidth = getArrowWidth(buttonCfg.arrowSize ?? 14, buttonCfg.arrowLineWidth ?? 1.4);
+	// The split lies in the transparent gap, outside the text and arrow strokes.
+	return (tipX - arrowWidth - (buttonCfg.arrowGap ?? 12) * 0.5) / canvasWidth;
+}
+
 function measureDetailsCanvas(ctx, buttonCfg) {
 	const color = buttonCfg.color ?? DEFAULT_COLOR;
 	const text = resolveDetailsButtonDisplayText(buttonCfg.text ?? DEFAULT_TEXT, buttonCfg._locale ?? getPortfolioLocale());
@@ -706,6 +713,7 @@ function createDetailsGroup(projectIndex, cfg, stableSize = null) {
 			reveal: buttonCfg.reveal,
 			blur: getLayerBlur(cfg, slot.id),
 			blurStep: new THREE.Vector2(1 / canvasWidth, 1 / canvasHeight),
+			arrowStartUv: getArrowStartUv(buttonCfg, canvasWidth),
 		});
 		const plane = new THREE.Mesh(geometry, material);
 		const baseRenderOrder = slot.floatFromFront ? 6 : 4;
@@ -818,6 +826,8 @@ function applyDetailsEntry(entry, cfg, stableSize = null) {
 		plane.position.copy(position);
 		snakePlane?.position.copy(position);
 		applyHubPlateLabelBlurUniforms(plane.material.uniforms, getLayerBlur(cfg, slot.id), new THREE.Vector2(1 / canvasWidth, 1 / canvasHeight));
+		plane.material.uniforms.arrowStartUv.value = getArrowStartUv(buttonCfg, canvasWidth);
+		plane.material.uniforms.arrowOffsetUv.value = 0;
 	}
 	const frontFloat = entry.planes.find((plane) => plane.userData.detailsSlot?.floatFromFront) ?? entry.planes[0];
 	entry.plane = frontFloat;
@@ -934,7 +944,8 @@ export class HubPlateDetailsButtons {
 
 		const stableSize = this._stableCanvasSize;
 		const onRedraw = () => {
-			paintDetailsLocaleSwitchFrame(entry.texture, entry.snakeTexture, buttonCfg, stableSize, { arrowOffsetPx: entry.lastArrowOffsetPx }, entry.localeSwitchController);
+			// Arrow motion stays in the shader even while locale glyphs change.
+			paintDetailsLocaleSwitchFrame(entry.texture, entry.snakeTexture, buttonCfg, stableSize, {}, entry.localeSwitchController);
 		};
 
 		// Первый switch: engine создан с пустым onChange — без этого змейка не рисуется.
@@ -1182,17 +1193,8 @@ export class HubPlateDetailsButtons {
 		attachment.entry.arrowHover += (this._detailsHoverTarget - attachment.entry.arrowHover) * arrowT;
 		const arrowOffsetPx = getArrowHoverOffset(resolvedCfg.plateDetailsButton ?? {}) * attachment.entry.arrowHover;
 		if (!attachment.entry.localeSwitchController && Math.abs(arrowOffsetPx - attachment.entry.lastArrowOffsetPx) > 0.1) {
-			const size = updateDetailsTexture(
-				attachment.entry.texture,
-				resolvedCfg.plateDetailsButton ?? {},
-				{
-					arrowOffsetPx,
-				},
-				this._stableCanvasSize,
-			);
-			if (size) {
-				attachment.entry.canvasWidth = size.canvasWidth;
-				attachment.entry.canvasHeight = size.canvasHeight;
+			for (const material of attachment.entry.materials) {
+				material.uniforms.arrowOffsetUv.value = arrowOffsetPx / attachment.entry.canvasWidth;
 			}
 			attachment.entry.lastArrowOffsetPx = arrowOffsetPx;
 		}
@@ -1239,9 +1241,18 @@ export class HubPlateDetailsButtons {
 				attachment.entry.glitchActive = false;
 				attachment.entry.arrowHover = 0;
 				attachment.entry.lastArrowOffsetPx = 0;
-				updateDetailsTexture(attachment.entry.texture, buttonCfg, {}, this._stableCanvasSize);
-				clearDetailsSnakeTexture(attachment.entry.snakeTexture);
+				// Inactive plates keep the same clean bitmap. Locale/config painters
+				// bump texture.version, which invalidates this reset without an idle upload loop.
+				const entry = attachment.entry;
+				if (entry.inactiveTextureVersion !== entry.texture.version
+					|| entry.inactiveSnakeVersion !== entry.snakeTexture.version) {
+					updateDetailsTexture(entry.texture, buttonCfg, {}, this._stableCanvasSize);
+					clearDetailsSnakeTexture(entry.snakeTexture);
+					entry.inactiveTextureVersion = entry.texture.version;
+					entry.inactiveSnakeVersion = entry.snakeTexture.version;
+				}
 				for (const material of attachment.entry.materials) {
+					material.uniforms.arrowOffsetUv.value = 0;
 					applyHubPlateLabelGlitchUniforms(material.uniforms, 0, 0, buttonCfg.shaderGlitch);
 					material.uniforms.opacity.value = 0;
 					applyHubPlateLabelRevealUniforms(material.uniforms, 0, { entering: false }, buttonCfg.reveal);

@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { filmSurfaceNormal, filmSurfacePoint } from "./filmSurface.js";
 import { FilmTimeline } from "./FilmTimeline.js";
+import { FilmVolume } from "./FilmVolume.js";
 import { filmPaletteGLSL } from "./filmPalette.js";
 
 const vertex = `varying vec2 vUv;
@@ -26,10 +27,15 @@ void main(){
  }
  float halo=exp(-d*48.)*uHover;
  float a=max(plate,max(ink,max(halo*.32,rim)));
- vec3 light=filmAccent*.014*plate;
- light+=filmAccent*filmUiGain*mix(1.18,2.2,uHover)*ink;
- light+=filmAccent*filmUiGain*.62*(halo*.7+rim);
+ vec3 light=vec3(1.)*.014*plate;
+ light+=vec3(1.)*filmUiGain*mix(1.18,2.2,uHover)*ink;
+ light+=vec3(1.)*filmUiGain*.62*(halo*.7+rim);
+ #ifdef FILM_LOW
+ float localHalo=exp(-d*25.)*(.32+.32*uHover);
+ gl_FragColor=filmLowWhite(ink*(1.45+.8*uHover)+rim*.7+localHalo,max(plate,ink),uOpacity);
+ #else
  gl_FragColor=vec4(light/max(a,.0001),a*uOpacity);
+ #endif
  #include <colorspace_fragment>
 }`;
 
@@ -50,6 +56,8 @@ export class FilmScreenControls {
   }
   this.timeline=new FilmTimeline(surfaceGeometry,this.hitMaterial);
   this.root.add(this.timeline.panel,this.timeline.mesh,this.timeline.hit);this.hitTargets.push(this.timeline.hit);
+  this.volume=new FilmVolume(surfaceGeometry,this.hitMaterial);
+  this.root.add(this.volume.mesh,...this.volume.hits);this.hitTargets.push(...this.volume.hits);
  }
  layout(width,compact) {
   if(this.width===width&&this.compact===compact)return;
@@ -65,7 +73,7 @@ export class FilmScreenControls {
    control.hit.scale.setScalar(.46/width);
   }
  }
- update({layout,reveal,playing,video,focus,reduced,delta,warm,progress=0,seekable=false,duration=0}) {
+ update({layout,reveal,playing,video,focus,reduced,delta,warm,progress=0,seekable=false,duration=0,volume=1,muted=false}) {
   this.layout(layout.width,layout.compact);
   const ease=1-Math.exp(-Math.min(delta,.05)*12);
   for(const control of this.controls){
@@ -82,7 +90,8 @@ export class FilmScreenControls {
    control.hit.userData.enabled=enabled&&reveal>.1;
   }
   this.timeline.update({layout,reveal,video,seekable,progress,duration,hovered:this.hovered==="seek",delta,warm});
+  this.volume.update({layout,reveal,video,volume,muted,hovered:this.hovered==="volume"||this.hovered==="mute",delta,warm});
  }
  setHover(action){this.hovered=action;}
- dispose(){this.timeline.dispose();for(const control of this.controls)control.mesh.material.dispose();this.geometry.dispose();this.hitMaterial.dispose();}
+ dispose(){this.volume.dispose();this.timeline.dispose();for(const control of this.controls)control.mesh.material.dispose();this.geometry.dispose();this.hitMaterial.dispose();}
 }

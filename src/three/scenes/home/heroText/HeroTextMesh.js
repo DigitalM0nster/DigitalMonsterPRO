@@ -1,3 +1,4 @@
+import { getScenePixelRatio } from "@/three/renderer/renderResolution.js";
 import * as THREE from "three";
 import { heroTextVertexShader } from "../../../shaders/heroText/heroTextVertex.glsl.js";
 import { heroTextVertexInstancedShader } from "../../../shaders/heroText/heroTextVertexInstanced.glsl.js";
@@ -9,6 +10,8 @@ import { HeroTextGlitchController } from "./HeroTextGlitchController.js";
 import { drawHeroGlitchLine } from "./drawHeroGlitchText.js";
 import { resolveReplacementGlowMetrics } from "@/components/GlitchText/drawGlitchText.js";
 import { sceneOwnsHexHitAtClientY } from "../../../render/overlay/hexHitOwnership.js";
+import { getGraphicsTier } from "@/functions/getGraphicsTier.js";
+import { getHomeTextVisualSettings } from "../mediumHomeVisualConfig.js";
 
 const HERO_CLICK_WAVE_COUNT = 8;
 
@@ -67,6 +70,12 @@ export class HeroTextMesh {
 		this.renderer = renderer;
 		this.scene = scene;
 		this.splitBloomLayers = Boolean(shaderProfile === "title" && useInstancedLetters);
+		this.crispTitle = this.splitBloomLayers && getGraphicsTier() !== "high";
+		this.composeMode = "models";
+		if (this.crispTitle) {
+			this.overlayScene = new THREE.Scene();
+			this.overlayCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+		}
 		this.canvasWidth = canvasWidth;
 		this.fragmentShader = fragmentShader;
 		this.text = text;
@@ -88,6 +97,7 @@ export class HeroTextMesh {
 		this.uVirtualCursorYs = [0, 0, 0];
 
 		this.time = 0;
+		this.glowTime = 0;
 		this.uProgress = 0;
 		this.baseWidth = 1920;
 		this.influenceRadius = 0.035;
@@ -202,6 +212,9 @@ export class HeroTextMesh {
 			uGlitchStrength: { value: cfg.titleGlitchStrength },
 			uOutlineBoost: { value: new THREE.Vector3(cfg.titleOutlineR, cfg.titleOutlineG, cfg.titleOutlineB) },
 			uOutlineThreshold: { value: cfg.titleOutlineThreshold },
+			// Alpha derivatives are measured per framebuffer pixel. Match the
+			// High DPR-2 edge at Medium DPR 1 without widening the HDR outline.
+			uOutlinePixelScale: { value: getGraphicsTier() !== "high" ? getScenePixelRatio(this.renderer) / 2 : 1 },
 			uFillGradientTop: { value: new THREE.Color(cfg.titleGradientTop) },
 			uFillGradientBottom: { value: new THREE.Color(cfg.titleGradientBottom) },
 			uTitleShimmer: { value: cfg.titleShimmer },
@@ -534,7 +547,7 @@ export class HeroTextMesh {
 		this.canvas.width = this.canvasWidth;
 		this.canvas.height = this.canvasHeight;
 
-		this._loadFontAndRun(() => {
+		this.readyPromise = this._loadFontAndRun(() => {
 			const context = this.canvas.getContext("2d", { alpha: true });
 			const text = this.text;
 			const normalizedFontSize = this.reverseNormalizeItem(this.fontSize);
@@ -702,9 +715,20 @@ export class HeroTextMesh {
 
 	_createInstancedUniforms(textTexture, charCount, sumDu, sumDv, renderPass) {
 		const cfg = heroTextShaderConfig;
+		const medium = getHomeTextVisualSettings(getGraphicsTier());
 		return {
+			...(this.crispTitle ? {
+				uMediumFill: { value: medium.titleFill },
+				uMediumGlowColor: { value: new THREE.Color(medium.titleGlowColor) },
+				uMediumGlow: { value: medium.titleGlow },
+				uMediumGlowWidth: { value: medium.titleGlowWidth },
+				uMediumEdgeSoftness: { value: medium.titleEdgeSoftness },
+				uMediumMotion: { value: medium.titleMotion },
+				uMediumMotionSpeed: { value: medium.titleMotionSpeed },
+			} : {}),
 			uPlaneSize: { value: new THREE.Vector2(2, 2) },
 			uTime: { value: this.time },
+			uGlowTime: { value: this.glowTime },
 			uProgress: { value: 1 },
 			uTexture: { value: textTexture },
 			uPositionOffset: { value: new THREE.Vector2(this.offsetX, this.offsetY) },
@@ -752,6 +776,7 @@ export class HeroTextMesh {
 
 	_buildSplitInstancedMeshes(quadGeom, textTexture, charCount, sumDu, sumDv) {
 		this.textMaterial = new THREE.ShaderMaterial({
+			defines: getGraphicsTier() === "low" ? { LOW_TITLE_LOCAL: 1 } : this.crispTitle ? { MEDIUM_TITLE_COVERAGE: 1 } : {},
 			uniforms: this._createInstancedUniforms(textTexture, charCount, sumDu, sumDv, 1),
 			vertexShader: heroTextVertexInstancedShader,
 			fragmentShader: this.fragmentShader,
@@ -763,6 +788,7 @@ export class HeroTextMesh {
 		applyHeroTitleShaderUniforms(this.textMaterial.uniforms);
 
 		this.fillMaterial = new THREE.ShaderMaterial({
+			defines: getGraphicsTier() === "low" ? { LOW_TITLE_LOCAL: 1 } : this.crispTitle ? { MEDIUM_TITLE_COVERAGE: 1 } : {},
 			uniforms: this._createInstancedUniforms(textTexture, charCount, sumDu, sumDv, 0),
 			vertexShader: heroTextVertexInstancedShader,
 			fragmentShader: this.fragmentShader,
@@ -775,6 +801,8 @@ export class HeroTextMesh {
 
 		this.textMesh = new THREE.InstancedMesh(quadGeom, this.textMaterial, charCount);
 		this.textMesh.frustumCulled = false;
+		// Both tiers use High's disjoint masks: fill excludes the emissive edge.
+		// No extra blurred fill is added on top of the white body during hex.
 		this.textMesh.renderOrder = 21;
 		this.scene.add(this.textMesh);
 
@@ -782,6 +810,7 @@ export class HeroTextMesh {
 		this.fillMesh.frustumCulled = false;
 		this.fillMesh.renderOrder = 20;
 		this.scene.add(this.fillMesh);
+		this.setComposeMode(this.composeMode);
 		this._flushPendingProgressAnim();
 		this._bindRevealMaterials();
 		this._completeTextRebuild();
@@ -895,6 +924,7 @@ export class HeroTextMesh {
 		for (const material of this._getMaterials()) {
 			material.uniforms.uMouse.value.set(this.mouse.x, this.mouse.y);
 			material.uniforms.uTime.value = this.time * 0.005;
+			if (material.uniforms.uGlowTime) material.uniforms.uGlowTime.value = this.glowTime;
 			material.uniforms.uPositionOffset.value.set(this.offsetX, this.offsetY);
 			material.uniforms.uResolution.value.set(this.width, this.height);
 		}
@@ -906,6 +936,7 @@ export class HeroTextMesh {
 		if (this.shaderProfile === "title") {
 			const cfg = heroTextShaderConfig;
 			const dt = Math.min(Math.max(deltaTime, 0), 0.05);
+			this.glowTime += dt;
 			const attack = 1 - Math.exp(-cfg.titleClickAttack * dt);
 			const decay = Math.exp(-cfg.titleClickDecay * dt);
 			for (let i = 0; i < this.clickWaves.length; i += 1) {
@@ -941,7 +972,7 @@ export class HeroTextMesh {
 			return;
 		}
 
-		scene.remove(mesh);
+		mesh.removeFromParent();
 		if (disposeGeometry) {
 			mesh.geometry.dispose();
 		}
@@ -1106,6 +1137,24 @@ export class HeroTextMesh {
 
 		this._teardownTextMeshes();
 		this.createText();
+	}
+
+	/** Medium title keeps the same HDR composition at rest and through hex.
+	 * High's disjoint fill/outline masks keep the body separate from HDR emission.
+	 * The RT stays at native DPR 1, with no reduced-resolution text render. */
+	setComposeMode() {
+		if (!this.crispTitle) return;
+		this.composeMode = "models";
+		if (this.fillMesh && this.fillMesh.parent !== this.scene) this.scene.add(this.fillMesh);
+	}
+
+	renderScreenOverlay(renderer) {
+		if (!this.crispTitle || this.composeMode !== "screen" || !this.fillMesh) return;
+		const clear = renderer.autoClear;
+		try {
+			renderer.autoClear = false;
+			renderer.render(this.overlayScene, this.overlayCamera);
+		} finally { renderer.autoClear = clear; }
 	}
 
 	dispose() {

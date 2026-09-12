@@ -1,5 +1,6 @@
 import { isPageSoundAllowed, registerPageVisibilitySoundHandlers } from "./pageVisibilitySound.js";
-import { isSoundAudible, registerSiteSoundMuteHandler } from "./siteSoundToggle.js";
+import { isSoundAudible, isSiteSoundMuteFading, registerSiteSoundMuteHandler } from "./siteSoundToggle.js";
+import { LETTER_SNAKE_SOUND } from "./letterSnakeSound.js";
 import {
 	bindMediaElementToMasterBus,
 	connectGainWithPanToMasterBus,
@@ -29,7 +30,7 @@ export const CARD_MOVEMENT_FADE_OUT_S = 0.1;
 /** Длина файла digital_sound — верхняя граница воспроизведения (с). */
 export const DIGITAL_SOUND_FILE_S = 2;
 
-/** Один digital_sound — новый заменяет предыдущий. */
+/** One letter voice; a new snake replaces the previous one with a short fade. */
 export const MAX_GLITCH_TEXT_SOUNDS = 1;
 
 /** Минимум между звуками при hover по меню (мс). */
@@ -50,7 +51,7 @@ export const PORTFOLIO_SOUND_PAN = {
 /** Панорама звуков левого меню (-1 = полностью слева). */
 export const LEFT_MENU_SOUND_PAN = -0.7;
 
-/** Левое меню — digital_sound с левого канала. */
+/** The common letter voice, panned toward the left menu. */
 export const LEFT_MENU_GLITCH_SOUND_PAN = LEFT_MENU_SOUND_PAN;
 
 /** Правая scroll-навигация — зеркальная панорама glitch-звука меню. */
@@ -76,7 +77,7 @@ export const LEFT_MENU_BEEP_SOUND_PAN = LEFT_MENU_SOUND_PAN;
 export const CASE_STUDY_LEFT_SOUND_PAN = -0.65;
 export const CASE_STUDY_RIGHT_SOUND_PAN = 0.65;
 
-/** Громкость digital_sound в левом меню (портфолио / route = 1). */
+/** Relative gain of the common letter voice in the left menu. */
 export const LEFT_MENU_GLITCH_SOUND_GAIN = 0.6;
 
 /** Минимум между beep при hover по пунктам левого меню (мс). */
@@ -181,6 +182,7 @@ function disposeWebAudioNodes(nodes) {
 		// уже остановлен
 	}
 	nodes.source?.disconnect();
+	nodes.filter?.disconnect();
 	nodes.gain?.disconnect();
 	nodes.panner?.disconnect();
 }
@@ -273,6 +275,7 @@ function trimGlitchSounds(maxCount, replaceFadeMs = GLITCH_SOUND_REPLACE_FADE_MS
  * @param {number} [volumeGain]
  */
 async function playTimedSound(soundId, durationMs, slot, fadeOutMs = DIGITAL_SOUND_FADE_OUT_S * 1000, onComplete, panOverride, volumeGain = 1, spatialPosition, options = {}) {
+	const letters = options.letterSnake === true ? LETTER_SNAKE_SOUND : null;
 	const finish = () => {
 		removeGlitchSlot(slot);
 		onComplete?.();
@@ -310,12 +313,16 @@ async function playTimedSound(soundId, durationMs, slot, fadeOutMs = DIGITAL_SOU
 		return;
 	}
 
-	if (slot.cancelled) {
+	if (slot.cancelled || !isPageSoundAllowed() || (letters && isSiteSoundMuteFading())) {
 		finish();
 		return;
 	}
 
-	const bufferDurationMs = buffer.duration * 1000;
+	// A late decode must not play after its visual snake has already finished.
+	if (letters) durationMs = Math.min(durationMs, slot.plannedEndAt - performance.now());
+	if (durationMs <= 0) { finish(); return; }
+	const rate = letters?.rate ?? 1;
+	const bufferDurationMs = buffer.duration / rate * 1000;
 	const loopToDuration = options.loopToDuration === true && durationMs > bufferDurationMs;
 	const playDurationMs = loopToDuration ? durationMs : Math.min(durationMs, bufferDurationMs);
 	const fadeMs = Math.min(fadeOutMs, playDurationMs);
@@ -329,13 +336,23 @@ async function playTimedSound(soundId, durationMs, slot, fadeOutMs = DIGITAL_SOU
 	const source = ctx.createBufferSource();
 	source.buffer = buffer;
 	source.loop = loopToDuration;
-	source.connect(gain);
+	source.playbackRate.value = rate;
+	const filter = letters ? ctx.createBiquadFilter() : null;
+	if (filter) {
+		filter.type = "lowpass"; filter.frequency.value = letters.cutoff; filter.Q.value = letters.q;
+		source.connect(filter); filter.connect(gain);
+	} else source.connect(gain);
 
-	const instance = { source, gain, panner, stopTimer: null, disposed: false };
+	const instance = { source, gain, filter, panner, stopTimer: null, disposed: false };
 	slot.instance = instance;
 	const startedAt = ctx.currentTime;
 
+	if (letters) {
+		gain.gain.setValueAtTime(0, startedAt);
+		gain.gain.linearRampToValueAtTime(volumeGain, startedAt + Math.min(letters.attack, fadeStartSec));
+	}
 	source.start(0);
+	source.stop(startedAt + stopSec);
 
 	if (fadeMs > 0 && fadeMs < playDurationMs) {
 		gain.gain.setValueAtTime(volumeGain, startedAt + fadeStartSec);
@@ -352,7 +369,7 @@ async function playTimedSound(soundId, durationMs, slot, fadeOutMs = DIGITAL_SOU
 }
 
 /**
- * Digital-звук под глитч текста.
+ * The sphere's letter sound for every timed DOM / GPU text snake.
  * - hover / menu: cooldown при быстром проведении; если новый глитч длиннее — перезапуск сразу
  * - route: один звук на весь enter/exit (без cooldown)
  * @param {number} durationMs
@@ -361,7 +378,7 @@ async function playTimedSound(soundId, durationMs, slot, fadeOutMs = DIGITAL_SOU
  * @param {{ loopToDuration?: boolean, volumeGain?: number }} [options]
  */
 export function playGlitchTextSound(durationMs, intent = "hover", panOverride, spatialPosition, options = {}) {
-	if (!isPageSoundAllowed() || durationMs <= 0) {
+	if (!isPageSoundAllowed() || isSiteSoundMuteFading() || durationMs <= 0) {
 		return;
 	}
 
@@ -401,20 +418,23 @@ export function playGlitchTextSound(durationMs, intent = "hover", panOverride, s
 	};
 	activeGlitchSounds.push(slot);
 
-	const pan = panOverride ?? (intent === "menu" ? LEFT_MENU_GLITCH_SOUND_PAN : undefined);
+	const pan = panOverride ?? (intent === "menu" ? LEFT_MENU_GLITCH_SOUND_PAN : getSoundPan("digital_sound"));
 	const volumeGain = typeof options.volumeGain === "number" ? options.volumeGain : intent === "menu" ? LEFT_MENU_GLITCH_SOUND_GAIN : 1;
 
-	playTimedSound("digital_sound", durationMs, slot, DIGITAL_SOUND_FADE_OUT_S * 1000, undefined, pan, volumeGain, spatialPosition, options).catch(() => {
+	playTimedSound(LETTER_SNAKE_SOUND.soundId, durationMs, slot,
+		durationMs * LETTER_SNAKE_SOUND.tail, undefined, pan,
+		volumeGain * LETTER_SNAKE_SOUND.volume, spatialPosition,
+		{ ...options, letterSnake: true, loopToDuration: true }).catch(() => {
 		removeGlitchSlot(slot);
 	});
 }
 
-/** Digital-звук под appear/disappear подписи левого меню — всегда с левого канала. */
+/** Common letter sound for the left menu's appear/disappear animation. */
 export function playLeftMenuGlitchSound(durationMs) {
 	playGlitchTextSound(durationMs, "menu");
 }
 
-/** Тот же digital_sound и gain, что в левом меню, но из правого канала. */
+/** Same letter voice and gain as the left menu, panned to the right. */
 export function playRightNavigatorGlitchSound(durationMs) {
 	playGlitchTextSound(durationMs, "menu", RIGHT_NAV_GLITCH_SOUND_PAN);
 }

@@ -1,8 +1,10 @@
 import * as THREE from "three";
 import { getGraphicsTier } from "../../../../functions/getGraphicsTier.js";
 import { buildSyntheticCoreHardware } from "./syntheticCoreHardware.js";
+import { batchSyntheticCoreDraws } from "./batchSyntheticCoreDraws.js";
 import { createReactorEnvironment } from "./syntheticCoreMaterials.js";
 import { SyntheticCoreHud } from "./SyntheticCoreHud.js";
+import { createSyntheticCoreNetwork } from "./createSyntheticCoreNetwork.js";
 
 const SYNTHETIC_CORE_CONFIG = { camera: [0, 0.5, 11.8], build: "core" };
 
@@ -73,6 +75,11 @@ export class SyntheticCoreWorld {
 		this.interactionSphere.radius = 3.25;
 		await buildSyntheticCoreHardware(this, assembly, () => this.disposed);
 		if (this.disposed) return;
+		await batchSyntheticCoreDraws(this.group, () => this.disposed);
+		if (this.disposed) return;
+		const networkTime = { value: 0 };
+		this.group.add(createSyntheticCoreNetwork({ time: networkTime, assembly: this.assemblyUniform, detail: this.detail }));
+		this.timeUniforms.push(networkTime);
 		await SyntheticCoreHud.prepare();
 		if (this.disposed) return;
 		this.hud = new SyntheticCoreHud(this.group, assembly.getObjectByName("contained-energy-lens"), renderer.domElement);

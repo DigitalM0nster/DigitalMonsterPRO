@@ -202,12 +202,13 @@ class UnderwaterSoundController {
 			return;
 		}
 
-		audio.pause();
+		// Inactive scenes still tick: do not repeatedly pause/seek an idle decoder.
+		if (!audio.paused) audio.pause();
 		this._playing = false;
 
 		if (reset) {
 			try {
-				audio.currentTime = 0;
+				if (audio.currentTime !== 0) audio.currentTime = 0;
 			} catch {
 				// ignore
 			}

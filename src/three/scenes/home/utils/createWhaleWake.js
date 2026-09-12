@@ -18,6 +18,11 @@ const _awayLocal = new THREE.Vector3();
 const _manualDriftDir = new THREE.Vector3();
 const _driftDir = new THREE.Vector3();
 const _invWhaleMatrix = new THREE.Matrix4();
+const _bodyAnchor = new THREE.Vector3();
+
+function readBodyPosition(body, index, target) {
+	return body.getPosition ? body.getPosition(index, target) : target.fromArray(body.positions, index * 3);
+}
 
 function smoothstep01(t) {
 	const x = THREE.MathUtils.clamp(t, 0, 1);
@@ -87,7 +92,7 @@ function pickAnchorIndex(body, cfg) {
 
 	for (let attempt = 0; attempt < 20; attempt++) {
 		const index = Math.floor(Math.random() * body.count);
-		const t = bodyTFromX(body, body.positions[index * 3]);
+		const t = bodyTFromX(body, readBodyPosition(body, index, _bodyAnchor).x);
 		if (t >= spawnMin && t <= spawnMax) {
 			return index;
 		}
@@ -106,7 +111,7 @@ function resetWakeParticle(state, index, body, cfg) {
 	if (body.mode === "particles") {
 		state.anchorIndex[index] = pickAnchorIndex(body, cfg);
 		const anchorIndex = state.anchorIndex[index];
-		state.spawnBodyT[index] = bodyTFromX(body, body.positions[anchorIndex * 3]);
+		state.spawnBodyT[index] = bodyTFromX(body, readBodyPosition(body, anchorIndex, _bodyAnchor).x);
 		state.offsetA[index] = 0;
 		state.offsetB[index] = 0;
 		return;
@@ -140,10 +145,7 @@ function bboxPosition(body, normT, offsetA, offsetB, wander, phase, time, bodyLe
 }
 
 function particleWakePosition(body, anchorIndex, drift, wander, phase, time, target) {
-	const baseIndex = anchorIndex * 3;
-	const px = body.positions[baseIndex];
-	const py = body.positions[baseIndex + 1];
-	const pz = body.positions[baseIndex + 2];
+	const { x: px, y: py, z: pz } = readBodyPosition(body, anchorIndex, _bodyAnchor);
 
 	const wobbleScale = wander * body.bodyLength * 0.012;
 	const wobbleAlong = Math.sin(time * 1.1 + phase * 0.7) * wander * body.bodyLength * 0.006;
@@ -277,6 +279,11 @@ function resolveWakeCount(cfg, tier = getGraphicsTier()) {
 
 function resolveBody(getBodySamples, whaleRoot) {
 	const samples = getBodySamples?.();
+	if (samples?.getPosition && samples.count > 0) {
+		const { min, max } = samples.getXBounds();
+		return { mode: "particles", count: samples.count, getPosition: samples.getPosition,
+			headX: min, tailX: max, bodyLength: Math.max(max - min, 1e-3) };
+	}
 	if (samples?.positions && samples.count > 0) {
 		return resolveBodyFromParticlePositions(samples.positions, samples.count);
 	}

@@ -1,3 +1,5 @@
+import { canAdvanceSceneText } from "./sceneTextLocale.js";
+
 export const NARRATIVE_COPY = {
 	lightTrails: [
 		[
@@ -27,6 +29,8 @@ export const NARRATIVE_COPY = {
 };
 
 export const NARRATIVE_DELAY = 1.5;
+export const CORE_NARRATIVE_DELAY = 0.15;
+export const CORE_NARRATIVE_LABEL = ["ЗА ГРАНЬЮ ПРИВЫЧНОГО", "BEYOND THE ORDINARY", "超越寻常"];
 export const TRAIL_PHRASE_DURATION = 6.8;
 export const TRAIL_VISIBLE_DURATION = 6.1;
 
@@ -39,12 +43,14 @@ export function trailNarrativeWallPosition(side, radius) {
 	};
 }
 
-export function advanceNarrative(elapsed, delta, { started, current, transitioning }) {
-	return started && current && !transitioning ? elapsed + Math.max(0, Math.min(delta, 0.05)) : elapsed;
+export function advanceNarrative(elapsed, delta, state, variant = "lightTrails") {
+	const reveal = narrativeFrame(elapsed, variant).reveal;
+	return canAdvanceSceneText(state, reveal > 0 && reveal < 1)
+		? elapsed + Math.max(0, Math.min(delta, 0.05)) : elapsed;
 }
 
 export function narrativeFrame(elapsed, variant) {
-	const age = Math.max(0, elapsed - NARRATIVE_DELAY);
+	const age = Math.max(0, elapsed - (variant === "syntheticCore" ? CORE_NARRATIVE_DELAY : NARRATIVE_DELAY));
 	if (variant === "syntheticCore") return { state: 0, reveal: Math.min(1, age / 1.15), progress: 0, side: 1 };
 	const state = Math.floor(age / TRAIL_PHRASE_DURATION) % NARRATIVE_COPY.lightTrails[0].length;
 	const phase = age % TRAIL_PHRASE_DURATION;

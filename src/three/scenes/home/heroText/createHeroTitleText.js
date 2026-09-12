@@ -27,7 +27,8 @@ import {
 	HERO_SUBTITLE_FONT,
 } from "./heroTitleConfig.js";
 import { createHeroLocaleSwitchController } from "./heroLocaleSwitch.js";
-import { HeroScrollHintMesh } from "./HeroScrollHintMesh.js";
+import { HeroGpuTextMesh } from "./gpu/HeroGpuTextMesh.js";
+import { HeroGpuScrollHintMesh } from "./gpu/HeroGpuScrollHintMesh.js";
 
 function resolveSubtitleOffsetY(title, position) {
 	return title.getBlockBottomOffsetY() + position.subtitleGapVw;
@@ -71,7 +72,7 @@ export function createHeroTitleText(renderer, scene) {
 
 	const initialLocale = getHeroLocale();
 
-	const subtitle = new HeroTextMesh({
+	const subtitle = new HeroGpuTextMesh({
 		renderer,
 		scene,
 		canvasWidth: isDesktop ? layout.canvasWidth * subtitleMultiplier : layout.canvasWidth,
@@ -89,7 +90,7 @@ export function createHeroTitleText(renderer, scene) {
 		useGlitchSnake: true,
 	});
 
-	const stack = new HeroTextMesh({
+	const stack = new HeroGpuTextMesh({
 		renderer,
 		scene,
 		canvasWidth: isDesktop ? layout.canvasWidth * stackMultiplier : layout.canvasWidth,
@@ -109,7 +110,7 @@ export function createHeroTitleText(renderer, scene) {
 		revealSeed: heroTextRevealConfig.subtitleRevealSeed + 0.11,
 		useGlitchSnake: true,
 	});
-	const scrollHint = new HeroScrollHintMesh(renderer, scene);
+	const scrollHint = new HeroGpuScrollHintMesh(renderer, scene);
 
 	let showTimeoutId = 0;
 	let subtitleTimeoutId = 0;
@@ -162,6 +163,7 @@ export function createHeroTitleText(renderer, scene) {
 		title,
 		subtitle,
 		stack,
+		readyPromise: Promise.all([title.readyPromise, subtitle.readyPromise, stack.readyPromise, scrollHint.readyPromise]),
 		applyShaderConfig() {
 			title.applyShaderConfig();
 			subtitle.applyShaderConfig();
@@ -285,20 +287,31 @@ export function createHeroTitleText(renderer, scene) {
 			stack.dispose();
 			scrollHint.dispose();
 		},
-		/** After final screen blit — sharp scroll-hint label overlay. */
+		/** Prepared Home text overlays; High/Medium keep tagline/stack sharp after bloom. */
 		getWarmupOverlays() {
-			return [scrollHint];
+			return [...(title.crispTitle ? [title] : []), scrollHint, subtitle, stack];
 		},
 		renderScrollHintOverlay(renderer) {
+			title.renderScreenOverlay(renderer);
 			scrollHint.renderScreenOverlay(renderer);
+			subtitle.renderScreenOverlay?.(renderer);
+			stack.renderScreenOverlay?.(renderer);
 		},
 		/** Idle: screen overlay. Hex: embed label in models RT. */
 		setScrollHintComposeMode(mode) {
+			title.setComposeMode(mode);
 			scrollHint.setComposeMode(mode);
+			subtitle.setComposeMode?.(mode);
+			stack.setComposeMode?.(mode);
 		},
 		/** Hide «листайте вниз» when carousel has left home (titles may linger for hex). */
 		hideScrollHint() {
+			title.setComposeMode("models");
 			scrollHint.reset();
+			subtitle.setComposeMode?.("models");
+			stack.setComposeMode?.("models");
+			subtitle.finishLocaleSwitch?.();
+			stack.finishLocaleSwitch?.();
 		},
 		/**
 		 * Restore scroll hint when returning to home while title stayed live

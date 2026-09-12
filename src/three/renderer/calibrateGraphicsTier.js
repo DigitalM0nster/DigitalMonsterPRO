@@ -3,10 +3,13 @@ import * as THREE from "three";
 import { getForcedGraphicsTierFromUrl } from "@/functions/getGraphicsTier.js";
 
 const TIER_RANK = { low: 0, medium: 1, high: 2 };
-const CACHE_PREFIX = "digitalmonster_gpu_tier_v2";
+const CACHE_PREFIX = "digitalmonster_gpu_tier_v4";
 const SOFTWARE_RENDERER_RE = /swiftshader|llvmpipe|software|microsoft basic render/i;
 const INTEGRATED_RENDERER_RE = /intel(?:\(r\))?\s+(?:uhd|hd|iris)|radeon\s+vega/i;
-const HIGH_DISCRETE_RENDERER_RE = /(?:geforce\s+(?:rtx|gtx)|radeon\s+rx|apple\s+m[1-9])/i;
+// Only the desktop GPU exercised in our production route profile bypasses the
+// noisy startup probe. A product family alone is not evidence of site performance.
+const VERIFIED_HIGH_RENDERER_RE = /\bgeforce\s+rtx\s+3070\s+ti\b/i;
+const MOBILE_GPU_RE = /laptop|mobile|max-q/i;
 
 function lowerTier(a, b) {
 	return TIER_RANK[a] <= TIER_RANK[b] ? a : b;
@@ -75,6 +78,7 @@ function runFillRateProbe(renderer) {
 
 	const previousTarget = renderer.getRenderTarget();
 	let perPassMs = Number.POSITIVE_INFINITY;
+	let cpuSubmitMs = null;
 	try {
 		renderer.setRenderTarget(target);
 		for (let i = 0; i < 2; i += 1) {
@@ -86,6 +90,9 @@ function runFillRateProbe(renderer) {
 		for (let i = 0; i < passes; i += 1) {
 			renderer.render(scene, camera);
 		}
+		// CPU + driver submission, excluding the explicit GPU completion wait.
+		// This is diagnostic, not a pure CPU benchmark or a calibrated tier cutoff.
+		cpuSubmitMs = (performance.now() - startedAt) / passes;
 		gl.finish();
 		perPassMs = (performance.now() - startedAt) / passes;
 	} finally {
@@ -94,7 +101,7 @@ function runFillRateProbe(renderer) {
 		mesh.geometry.dispose();
 		material.dispose();
 	}
-	return perPassMs;
+	return { perPassMs, cpuSubmitMs };
 }
 
 /**
@@ -119,16 +126,17 @@ export function calibrateGraphicsTier(renderer, hardwareTier) {
 
 	let measuredTier = hardwareTier;
 	let perPassMs = null;
+	let cpuSubmitMs = null;
 	if (SOFTWARE_RENDERER_RE.test(rendererName)) {
 		measuredTier = "low";
-	} else if (HIGH_DISCRETE_RENDERER_RE.test(rendererName)) {
+	} else if (VERIFIED_HIGH_RENDERER_RE.test(rendererName) && !MOBILE_GPU_RE.test(rendererName)) {
 		// A single synchronous fill-rate sample is noisy when the browser is compiling,
-		// warming or sharing the GPU. Known discrete GPUs must not be demoted by that
+		// warming or sharing the GPU. Keep the verified desktop GPU exempt from that
 		// transient spike; the hardware/CPU score still caps the final tier.
 		measuredTier = "high";
 	} else {
 		try {
-			perPassMs = runFillRateProbe(renderer);
+			({ perPassMs, cpuSubmitMs } = runFillRateProbe(renderer));
 			if (!Number.isFinite(perPassMs) || perPassMs > 5.5) {
 				measuredTier = "low";
 			} else if (perPassMs > 2.2 || INTEGRATED_RENDERER_RE.test(rendererName)) {
@@ -138,10 +146,14 @@ export function calibrateGraphicsTier(renderer, hardwareTier) {
 			}
 		} catch (error) {
 			console.warn("[graphics] GPU calibration failed; keeping hardware tier", error);
+			// A failed probe is not a GPU measurement; allow a retry on the next load.
+			return { tier: hardwareTier, renderer: rendererName, perPassMs: null, cached: false };
 		}
 	}
 
 	const tier = lowerTier(hardwareTier, measuredTier);
-	writeCachedTier(cacheKey, tier);
-	return { tier, renderer: rendererName, perPassMs, cached: false };
+	// Cache GPU capability separately from this load's CPU/mobile cap. Otherwise
+	// a medium startup in a narrow window also caps later desktop reloads.
+	writeCachedTier(cacheKey, measuredTier);
+	return { tier, renderer: rendererName, perPassMs, cpuSubmitMs, cached: false };
 }

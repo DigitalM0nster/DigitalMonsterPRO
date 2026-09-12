@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <pattern id="grid" width="48" height="48" patternUnits="userSpaceOnUse"><path d="M48 0H0V48" fill="none" stroke="#438aa3" stroke-opacity=".55" stroke-width="1.6"/></pattern>
+    <radialGradient id="fade"><stop stop-color="white" stop-opacity=".1"/><stop offset=".62" stop-color="white" stop-opacity=".85"/><stop offset="1" stop-color="white" stop-opacity="0"/></radialGradient>
+    <mask id="gridFade"><rect x="40" y="148" width="944" height="704" fill="url(#fade)"/></mask>
+    <linearGradient id="contour" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#63c9e6" stop-opacity=".65"/><stop offset=".36" stop-color="#225e79" stop-opacity=".28"/><stop offset="1" stop-color="#369bbc" stop-opacity=".65"/></linearGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#91d3ef" stop-opacity="0"/><stop offset=".8" stop-color="#91d3ef" stop-opacity=".035"/><stop offset="1" stop-color="#91d3ef" stop-opacity=".13"/></linearGradient>
+    <clipPath id="bounds"><rect x="32" y="128" width="960" height="760" rx="10"/></clipPath>
+  </defs>
+  <rect x="40" y="148" width="944" height="704" fill="url(#grid)" mask="url(#gridFade)"/>
+  <rect x="203" y="203" width="618" height="618" rx="94" fill="none" stroke="url(#contour)" stroke-width="1.5"/>
+  <rect x="215" y="215" width="594" height="594" rx="84" fill="none" stroke="#255166" stroke-opacity=".2"/>
+  <g clip-path="url(#bounds)"><path d="M970 85H1070L468 922H368Z" fill="url(#sheen)"/><path d="M940 85H961L359 922H338Z" fill="#77c6e8" fill-opacity=".018"/></g>
+  <g fill="none" stroke="#56b6d1" stroke-opacity=".64" stroke-width="1.4"><path d="M51 177H97M74 154V201M928 177H974M951 154V201M51 847H97M74 824V871M928 847H974M951 824V871"/></g>
+  <path d="M58 951H89M104 951H116" stroke="#6bc6df" stroke-width="2" opacity=".6"/>
+</svg>

@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { HUD_MARKER_GLSL } from "../../../objects/sceneHud/sceneHudShaders.js";
+import { advanceMarkerMagnet } from "../../../objects/sceneHud/sceneMarkerMagnet.js";
 import { Mmk1HotspotLabels } from "./Mmk1HotspotLabels.js";
 import { Mmk1HotspotDetails } from "./Mmk1HotspotDetails.js";
 import { MMK1_CAMERA_HOTSPOTS, MMK1_CAMERA_HOTSPOT_MOTION } from "./mmk1CameraHotspotsConfig.js";
@@ -79,6 +80,9 @@ export class Mmk1CameraHotspots {
 			sprite.userData.hotspotDefinition = definition;
 			sprite.userData.rotationPhase = [0, 2.7, 6.3, 8.4][index];
 			sprite.userData.anchor = new THREE.Vector3().fromArray(definition.point);
+			sprite.userData.screenAnchor = new THREE.Vector3();
+			sprite.userData.magnetOffset = new THREE.Vector2();
+			sprite.userData.magnetVelocity = new THREE.Vector2();
 			this.group.add(sprite);
 			return sprite;
 		});
@@ -128,15 +132,21 @@ export class Mmk1CameraHotspots {
 		this.inputElement?.addEventListener("click", this._onClick);
 	}
 
-	async prepareLabels() {
+	prepareLabels() {
+		return this._labelsPromise ??= this._prepareLabels();
+	}
+
+	async _prepareLabels() {
 		await Promise.all([
 			document.fonts?.load('500 16px ManifoldExtended'),
 			document.fonts?.load('400 14px MazzardM'),
 			document.fonts?.load('500 80px ManifoldExtended'),
 		]);
 		if (this.disposed || this.labels || !this.renderer) return;
-		this.labels = new Mmk1HotspotLabels(this.group, this.markers, this.renderer);
-		this.details = new Mmk1HotspotDetails(this.group, this.markers, this.renderer);
+		this.labels = await Mmk1HotspotLabels.create(this.group, this.markers, this.renderer, () => this.disposed);
+		if (this.disposed) { this.labels?.dispose(); this.labels = null; return; }
+		this.details = await Mmk1HotspotDetails.create(this.group, this.markers, this.renderer, this.modelsParent, () => this.disposed);
+		if (this.disposed) { this.details?.dispose(); this.details = null; }
 	}
 
 	/** Keep the crane pass camera separate from other scenes' shared camera. */
@@ -191,7 +201,7 @@ export class Mmk1CameraHotspots {
 		}
 	}
 
-	_layoutMarkers(camera) {
+	_layoutMarkers(camera, layoutText = true) {
 		this._syncBoundAnchors();
 		this.renderer?.getSize(this.viewport);
 		const scale = MMK1_CAMERA_HOTSPOT_MOTION.markerSize * 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov * 0.5)) / this.viewport.y;
@@ -205,16 +215,19 @@ export class Mmk1CameraHotspots {
 			}
 			const clampedX = THREE.MathUtils.clamp(this.projected.x, -0.92, 0.92);
 			const clampedY = THREE.MathUtils.clamp(this.projected.y, -0.86, 0.72);
-			const offscreen = clampedX !== this.projected.x || clampedY !== this.projected.y;
-			if (offscreen) {
-				this.clampedProjected.set(clampedX, clampedY, this.projected.z).unproject(camera);
-				marker.position.copy(this.clampedProjected);
-			} else {
-				marker.position.copy(marker.userData.anchor);
-			}
+			marker.userData.screenAnchor.set(clampedX, clampedY, this.projected.z);
+			this._positionMarker(marker, camera);
 		}
-		this.labels?.layout(camera, this.viewport);
+		if (layoutText) this.labels?.layout(camera, this.viewport);
 		this.details?.layout(this.viewport);
+	}
+
+	_positionMarker(marker, camera) {
+		const { screenAnchor, magnetOffset } = marker.userData;
+		this.clampedProjected.copy(screenAnchor);
+		this.clampedProjected.x += magnetOffset.x * 2 / this.viewport.x;
+		this.clampedProjected.y += magnetOffset.y * 2 / this.viewport.y;
+		marker.position.copy(this.clampedProjected.unproject(camera));
 	}
 
 	setPointerState({ pointerDown = false, pointerBlocked = false } = {}) {
@@ -299,6 +312,8 @@ export class Mmk1CameraHotspots {
 			uniforms.uHover.value = 0;
 			marker.material.opacity = 1;
 			marker.visible = true;
+			marker.userData.magnetOffset.set(0, 0);
+			marker.userData.magnetVelocity.set(0, 0);
 		}
 	}
 
@@ -333,7 +348,7 @@ export class Mmk1CameraHotspots {
 		}
 
 		if (this.camera) {
-			this._layoutMarkers(this.camera);
+			this._layoutMarkers(this.camera, false);
 		}
 
 		if (this.active) {
@@ -354,6 +369,12 @@ export class Mmk1CameraHotspots {
 		}
 
 		for (const marker of this.markers) {
+			const { screenAnchor, magnetOffset, magnetVelocity } = marker.userData;
+			const attracted = marker === this.hovered && marker.visible && !this.pointerDown && !frame?.pointerDown;
+			advanceMarkerMagnet(magnetOffset, magnetVelocity,
+				attracted ? (this.pointer.x - screenAnchor.x) * this.viewport.x * .5 : 0,
+				attracted ? (this.pointer.y - screenAnchor.y) * this.viewport.y * .5 : 0, safeDelta);
+			if (this.camera && marker.visible) this._positionMarker(marker, this.camera);
 			const uniforms = marker.material.userData.hotspotUniforms;
 			const opacityTarget = marker.name === this.selectedId ? 0 : 1;
 			marker.material.opacity = THREE.MathUtils.damp(marker.material.opacity, opacityTarget, 12, safeDelta);
@@ -361,6 +382,7 @@ export class Mmk1CameraHotspots {
 			uniforms.uTime.value = this.elapsed + marker.userData.rotationPhase;
 			uniforms.uHover.value = THREE.MathUtils.damp(uniforms.uHover.value, marker === this.hovered ? 1 : 0, 8, safeDelta);
 		}
+		if (this.camera) this.labels?.layout(this.camera, this.viewport);
 		this.labels?.update(safeDelta, this.hovered, locale);
 		this.details?.update(safeDelta, this.selectedId, this.flight, locale, textState);
 

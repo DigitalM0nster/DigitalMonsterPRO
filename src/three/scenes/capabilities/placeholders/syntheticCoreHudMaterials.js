@@ -30,20 +30,29 @@ const PANEL_FRAGMENT = /* glsl */ `
 	varying vec2 vUv;
 	${HUD_MARKER_GLSL}
 	${hudSnakeGlsl(6)}
-	vec4 assemblyLabel(vec2 uv,float state){
-		if(uOpen<0.001)return snakeLabel(uv,state);
-		if(uOpen>0.999)return snakeLabel(uv,state+1.0);
-		return mix(snakeLabel(uv,state),snakeLabel(uv,state+1.0),uOpen);
+	float settledMix(float progress){
+		// Preserve the old endpoint shortcuts, including their strict thresholds.
+		if(progress<0.001)return 0.0;
+		if(progress>0.999)return 1.0;
+		return progress;
 	}
 	vec4 activeLabel(vec2 uv){
 		if(uv.y>0.60)return label(uv,0.0);
-		if(uProbe>0.999)return assemblyLabel(uv,4.0);
-		vec4 normal;
-		if(uCoreHover<0.001)normal=assemblyLabel(uv,0.0);
-		else if(uCoreHover>0.999)normal=assemblyLabel(uv,2.0);
-		else normal=mix(assemblyLabel(uv,0.0),assemblyLabel(uv,2.0),uCoreHover);
-		if(uProbe<0.001)return normal;
-		return mix(normal,assemblyLabel(uv,4.0),uProbe);
+		if(uSnake<=0.0)return vec4(0.0);
+		float opened=settledMix(uOpen);
+		float hovered=settledMix(uCoreHover);
+		float probed=settledMix(uProbe);
+		// mix(mix(idle,hover,H),probe,P): the same RGBA weights as before.
+		vec3 modes=vec3((1.0-probed)*(1.0-hovered),(1.0-probed)*hovered,probed);
+		vec4 result=vec4(0.0);
+		// One snakeLabel call site instead of nested copies in every mix branch.
+		// Each pair is closed/open; inactive states do not sample any textures.
+		for(int state=0;state<6;state++){
+			float assembly=mod(float(state),2.0)<0.5?1.0-opened:opened;
+			float weight=modes[state/2]*assembly;
+			if(weight>0.0)result+=weight*snakeLabel(uv,float(state));
+		}
+		return result;
 	}
 	void main(){
 		vec2 px=vUv*uViewport-uOrigin+vec2(36.0,154.0);

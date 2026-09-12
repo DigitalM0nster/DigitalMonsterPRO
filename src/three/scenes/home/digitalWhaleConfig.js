@@ -340,9 +340,33 @@ if (!digitalWhaleConfig.whale.particleFade?.region) {
 	};
 }
 
-/** Пресет для tier (medium — как high). */
+// Same particle art direction as High. Point sizes are in drawing-buffer pixels:
+// Medium's DPR 1 needs smaller sprites than High's DPR 2, not double-sized dots.
+const MEDIUM_WHALE_PRESET = {
+	...DIGITAL_WHALE_PRESETS.high,
+	ocean: { ...DIGITAL_WHALE_PRESETS.high.ocean, pointScale: 7, pointGlow: 8, pointAlpha: 1.2, gridAlpha: 1.5 },
+	whale: { ...DIGITAL_WHALE_PRESETS.high.whale, edgeSpacing: 0.34 },
+};
+
+// Low keeps the composition with fewer ocean points and bounded whale particles.
+// Local halos replace fullscreen bloom.
+const LOW_WHALE_PRESET = {
+	...DIGITAL_WHALE_PRESETS.high,
+	fog: { color: "#00060f", near: 8, far: 95 },
+	ocean: { ...DIGITAL_WHALE_PRESETS.high.ocean, gridCols: 192, gridRows: 64,
+		pointScale: 6, pointAlpha: 0.9, pointGlow: 1, gridAlpha: 0.32,
+		pointColor: "#28baff", gridColor: "#005aa8" },
+	whale: { ...DIGITAL_WHALE_PRESETS.high.whale, edgeSpacing: 0.65, pointScale: 5,
+		opacity: 0.8, wake: { ...DIGITAL_WHALE_PRESETS.high.whale.wake, count: 96, alpha: 0.2 } },
+	ambient: { ...DIGITAL_WHALE_PRESETS.high.ambient, deepPointScale: 2.2,
+		deepAlpha: 0.2, deepGlow: 1, deepScrollSpeed: 3,
+		whaleAmbientPointScale: 2, whaleAmbientAlpha: 0.12, whaleAmbientGlow: 1 },
+};
+
+/** Tier-specific rendering budgets, with shared composition and animation. */
 export function getDigitalWhalePresetForTier(tier = getGraphicsTier()) {
-	return tier === "low" ? DIGITAL_WHALE_PRESETS.low : DIGITAL_WHALE_PRESETS.high;
+	if (tier === "medium") return MEDIUM_WHALE_PRESET;
+	return tier === "low" ? LOW_WHALE_PRESET : DIGITAL_WHALE_PRESETS.high;
 }
 
 /** Подставляет tier-пресет в digitalWhaleConfig до создания сцены. */

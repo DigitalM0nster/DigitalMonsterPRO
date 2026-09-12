@@ -2,32 +2,55 @@
 
 import { underwaterPointGrainGlsl } from "@/three/shaders/underwaterPointGrain.glsl.js";
 import { oceanSwimWakeRippleGlsl } from "./oceanSwimWakeRipple.glsl.js";
+import { whaleParticleSkinningGlsl } from "./whaleParticleSkinning.glsl.js";
 
 export const whaleMeshParticleVertexShader = /* glsl */ `
 #include <common>
 #include <fog_pars_vertex>
 
+${whaleParticleSkinningGlsl}
+
 uniform float uTime;
 uniform float uPointScale;
+uniform float uRasterScale;
 
 attribute float aIntensity;
+uniform vec3 uRegionMin;
+uniform vec3 uRegionMax;
+uniform float uRegionFade;
 
 varying float vIntensity;
 varying float vPulse;
 varying vec3 vLocalPos;
+#ifdef LOW_LOCAL_PARTICLE
+varying float vLowDepth;
+#endif
 
 void main() {
-	vec3 pos = position;
+	vec3 pos = whaleParticlePosition();
 	vLocalPos = pos;
 
 	float breathe = sin(uTime * 1.1 + pos.x * 0.22 + pos.y * 0.15) * 0.04;
 	pos += normalize(pos + vec3(0.001)) * breathe;
 
 	vIntensity = aIntensity;
+	if (all(greaterThanEqual(vLocalPos, uRegionMin)) && all(lessThanEqual(vLocalPos, uRegionMax))) {
+		vIntensity *= uRegionFade;
+	}
 	vPulse = 0.5 + 0.5 * sin(uTime * 1.6 + pos.x * 0.5 + pos.z * 0.35);
 
 	vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
-	gl_PointSize = uPointScale;
+#ifdef LOW_LOCAL_PARTICLE
+	vLowDepth = -mvPosition.z;
+#endif
+	gl_PointSize = uPointScale * uRasterScale;
+#ifdef LOW_LOCAL_PARTICLE
+	// Extra raster space for the halo; the fragment shader preserves core size.
+	gl_PointSize *= 2.0;
+#endif
+#ifdef LOW_BLOOM_MASK
+	gl_PointSize = 3.0;
+#endif
 	gl_Position = projectionMatrix * mvPosition;
 
 	#include <fog_vertex>
@@ -38,13 +61,24 @@ export const whaleMeshParticleFragmentShader = /* glsl */ `
 #include <common>
 #include <fog_pars_fragment>
 
+#ifndef MEDIUM_ROUND_PARTICLE
 ${underwaterPointGrainGlsl}
+#endif
 
 uniform vec3 uColor;
 uniform float uAlphaMult;
 uniform float uGlow;
 uniform float uGrainBlurRadius;
 uniform float uPointScale;
+uniform float uRasterScale;
+#ifdef LOW_LOCAL_PARTICLE
+uniform vec2 uLowFogRange;
+varying float vLowDepth;
+#endif
+#ifdef MEDIUM_ROUND_PARTICLE
+uniform vec3 uMediumColor;
+uniform float uMediumEmission, uMediumRadiance;
+#endif
 uniform float uMuteStrength;
 uniform vec3 uMuteCenter;
 uniform vec3 uMuteRadius;
@@ -63,6 +97,7 @@ float particleZoneFade(vec3 localPos) {
 	return mix(1.0 - uMuteStrength, 1.0, smoothstep(0.3, 1.0, dist));
 }
 
+#ifndef MEDIUM_ROUND_PARTICLE
 vec4 sampleWhaleParticle(vec2 pointCoord, float grainSoft, float zoneFade) {
 	vec2 uv = pointCoord - 0.5;
 	float dist = length(uv);
@@ -79,8 +114,65 @@ vec4 sampleWhaleParticle(vec2 pointCoord, float grainSoft, float zoneFade) {
 
 	return vec4(color, alpha);
 }
+#endif
 
 void main() {
+#ifdef LOW_BLOOM_MASK
+	{
+	float r = length(gl_PointCoord * 2.0 - 1.0);
+	if (r >= 1.0) discard;
+	float fog = 1.0 - smoothstep(uLowFogRange.x, uLowFogRange.y, vLowDepth);
+	float light = exp2(-6.0 * r * r) * (1.0 - smoothstep(0.7, 1.0, r));
+	vec3 hue = uColor / max(max(uColor.r, uColor.g), max(uColor.b, 0.001));
+	float energy = light * (0.4 + vIntensity * 0.6) * uAlphaMult * particleZoneFade(vLocalPos) * fog;
+	gl_FragColor = vec4(hue * energy * 0.55, 0.0);
+	return;
+	}
+#endif
+#ifdef LOW_LOCAL_PARTICLE
+	{
+	// Compact cyan core and a wider dim halo, already resolved in LDR. MAX
+	// blending retains detail in dense fins without whitening overlapping lights.
+	float radius = length(gl_PointCoord * 2.0 - 1.0) * 2.0;
+	if (radius >= 2.0) discard;
+	float core = exp2(-14.0 * radius * radius);
+	float halo = exp2(-2.5 * radius * radius) * (1.0 - smoothstep(1.2, 2.0, radius));
+	float depthFade = 1.0 - smoothstep(uLowFogRange.x, uLowFogRange.y, vLowDepth);
+	float fade = clamp((0.4 + vIntensity * 0.6) * particleZoneFade(vLocalPos) * uAlphaMult, 0.0, 1.0) * depthFade;
+	vec3 hue = uColor / max(max(uColor.r, uColor.g), max(uColor.b, 0.001));
+	vec3 light = mix(hue, vec3(0.38, 0.83, 1.0), core * 0.35);
+	vec3 radiance = light * (core + halo * 0.65) * fade * (0.92 + vPulse * 0.08);
+	float peak = max(max(radiance.r, radiance.g), radiance.b);
+	radiance *= min(1.0, 0.98 / max(peak, 0.001));
+	gl_FragColor = vec4(radiance, 1.0);
+	gl_FragColor.a = clamp((core + halo * 0.65) * fade, 0.0, 1.0);
+	return;
+	}
+#endif
+#ifdef MEDIUM_ROUND_PARTICLE
+	// A small HDR core drives bloom. MAX color blending preserves the brightest
+	// prepared light without accumulating unbounded HDR energy in dense areas.
+	vec2 uv = gl_PointCoord * 2.0 - 1.0;
+	float radius = length(uv);
+	if (radius >= 1.0) discard;
+	float feather = min(0.45, 2.0 / max(uPointScale * uRasterScale, 1.0));
+	float coverage = 1.0 - smoothstep(1.0 - feather, 1.0, radius);
+	// A narrow radial light profile, without a flat 2x2 HDR plateau at DPR 1.
+	// The sprite stays 6 px; its half-bright core is about 2 px wide.
+	float core = exp2(-8.0 * radius * radius);
+	float halo = 1.0 - smoothstep(0.40, 1.0, radius);
+	float fade = vIntensity * particleZoneFade(vLocalPos);
+	float pulse = (0.94 + vPulse * 0.06) * (0.85 + min(uGlow, 24.0) * 0.0125);
+	float opacity = clamp(uAlphaMult * 4.0 * fade * pulse, 0.0, 1.0);
+	float alpha = (core + (1.0 - core) * halo * 0.08) * opacity * coverage;
+	if (alpha < 0.001) discard;
+	// Color selects hue; emission controls energy independently of HEX brightness.
+	vec3 color = uMediumColor / max(max(uMediumColor.r, uMediumColor.g), max(uMediumColor.b, 0.001));
+	// Keep the tiny core emissive through the home scene's underwater fog.
+	// The post-fog cap below bounds bloom even when many points overlap.
+	color *= 1.0 + core * uMediumEmission;
+	gl_FragColor = vec4(color, alpha);
+#else
 	vec3 accumColor = vec3(0.0);
 	float accumAlpha = 0.0;
 	vec4 tap;
@@ -114,8 +206,17 @@ void main() {
 	}
 
 	gl_FragColor = vec4(accumColor, accumAlpha);
+#endif
 
 	#include <fog_fragment>
+#ifdef MEDIUM_ROUND_PARTICLE
+	// Limit light before coverage: clipping after alpha flattens the antialiased
+	// circle into equally bright 2x2 blocks when the HDR core reaches its cap.
+	vec3 radiance = gl_FragColor.rgb;
+	// Scale all channels together: clipping each channel bleaches the cyan hue.
+	float peak = max(max(radiance.r, radiance.g), radiance.b);
+	gl_FragColor.rgb = radiance * min(1.0, uMediumRadiance / max(peak, 0.001)) * gl_FragColor.a;
+#endif
 }
 `;
 
@@ -130,6 +231,7 @@ export const whaleHologramVertexShader = /* glsl */ `
 void main() {
 	#include <begin_vertex>
 	#include <morphtarget_vertex>
+	#include <skinbase_vertex>
 	#include <skinning_vertex>
 
 	vec4 mvPosition = modelViewMatrix * vec4(transformed, 1.0);
@@ -246,6 +348,20 @@ void main() {
 
 	float core = 1.0 - smoothstep(0.0, 0.14, dist);
 	float glow = 1.0 - smoothstep(0.1, 0.46, dist);
+
+#ifdef LOW_OCEAN_LIGHT
+	{
+		float r = dist * 2.0;
+		float dotCore = exp2(-18.0 * r * r);
+		float halo = exp2(-4.5 * r * r) * (1.0 - smoothstep(0.7, 1.0, r));
+		float crest = smoothstep(-0.15, 0.5, vWave);
+		vec3 hue = uColor / max(max(uColor.r, uColor.g), max(uColor.b, 0.001));
+		vec3 light = mix(hue, vec3(0.32, 0.85, 1.0), dotCore * 0.4);
+		gl_FragColor = vec4(light, (dotCore * 0.9 + halo * 0.3) * uAlphaMult * (0.55 + crest * 0.45));
+		#include <fog_fragment>
+		return;
+	}
+#endif
 
 	// Whale-like controlled HDR core (max 1.35x) plus a visible color floor for
 	// the halo. The old 4-5x multiplier is what burned selected points to white.
@@ -377,9 +493,8 @@ void main() {
 	float stepZ = uSurfaceDepth / max(uGridRows, 1.0);
 	float scrolledX = vSurfaceLocalXZ.x - uScrollPhase.x;
 	float scrolledZ = vSurfaceLocalXZ.y - uScrollPhase.y;
-	float periodX = mod(scrolledX + uSurfaceWidth, uSurfaceWidth);
 	float zFromNear = uSurfaceZNear - scrolledZ;
-	vec2 g = vec2(periodX, zFromNear);
+	vec2 g = vec2(scrolledX, zFromNear);
 	vec2 cellCoord = vec2((g.x - stepX * 0.5) / stepX, (g.y - stepZ * 0.5) / stepZ);
 
 	vec2 cellId = floor(cellCoord);
@@ -387,7 +502,8 @@ void main() {
 	float coordDdx = length(dFdx(cellCoord));
 	float coordDdy = length(dFdy(cellCoord));
 	float pxPerCell = 1.0 / max(max(coordDdx, coordDdy), 0.0001);
-	float distCenterPx = length(distFromCenter) * pxPerCell;
+	vec2 pixelFootprint = max(fwidth(cellCoord), vec2(0.0001));
+	float distCenterPx = length(distFromCenter / pixelFootprint);
 	float seed = oceanHash(cellId);
 	// Fade sub-pixel cells instead of allowing perspective aliasing to merge
 	// them into thick luminous bands near the horizon.
@@ -395,22 +511,29 @@ void main() {
 	float radiusPx = mix(0.55, 1.2, seed) * clamp(uPointScale * 0.52, 0.65, 1.25);
 	float core = 1.0 - smoothstep(radiusPx * 0.35, radiusPx * 0.35 + 0.9, distCenterPx);
 	float glow = 1.0 - smoothstep(radiusPx * 0.5, radiusPx + 2.2, distCenterPx);
-	float rareNode = smoothstep(0.94, 0.995, seed);
+	float rareNode = smoothstep(0.97, 0.995, seed);
 	float flow = pow(0.5 + 0.5 * sin(cellId.x * 0.13 + cellId.y * 0.21 - uTime * 0.85), 5.0);
 	float waveBoost = 0.72 + smoothstep(-0.1, 0.4, vWave) * 0.28;
 	float energy = (0.38 + seed * 0.34 + flow * 0.42 + rareNode * 2.4) * waveBoost;
 	// Match the high-tier point sprite: controlled HDR core and a colored halo,
 	// without the old unbounded energy multiplier.
-	float maxColorChannel = max(max(uPointColor.r, uPointColor.g), max(uPointColor.b, 0.0001));
-	float hueSafeLight = min(0.42 + core * 0.93, 1.35 / maxColorChannel);
-	vec3 color = uPointColor * hueSafeLight;
-	float alpha = clamp((core * 0.72 + glow * (0.08 + rareNode * 0.18)) * uAlphaMult * energy * resolved, 0.0, 1.0);
+	vec3 hue = uPointColor / max(max(uPointColor.r, uPointColor.g), max(uPointColor.b, 0.0001));
+	vec2 lineDistancePx = distFromCenter / pixelFootprint;
+	float line = max(1.0 - smoothstep(0.2, 1.1, lineDistancePx.x),
+		(1.0 - smoothstep(0.15, 0.85, lineDistancePx.y)) * 0.45);
+	float crest = smoothstep(0.0, 0.65, vWave);
+	float node = (core * 0.8 + glow * (0.13 + rareNode * 0.12)) * energy;
+	vec3 color = hue * node + uGridColor * line * uGridAlpha * (0.45 + crest * 0.55);
+	color *= uAlphaMult * resolved;
+	float peak = max(max(color.r, color.g), color.b);
+	color *= min(1.0, 0.95 / max(peak, 0.001));
+	float alpha = clamp(peak, 0.0, 1.0);
 
 	if (alpha < 0.0001) {
 		discard;
 	}
 
-	gl_FragColor = vec4(color, alpha);
+	gl_FragColor = vec4(color, 1.0);
 
 	#include <fog_fragment>
 }

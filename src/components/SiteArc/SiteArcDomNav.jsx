@@ -3,7 +3,7 @@
  * Track / nodes / glow — WebGL. Labels — CanvasGlitchText snake (hub list engine).
  * Num/title offsets match caseStudyCanvasDraw (absolute around node Y).
  */
-import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import PropTypes from "prop-types";
 import { useLocation } from "react-router-dom";
 import { useSnapshot } from "valtio";
@@ -41,8 +41,8 @@ function clearCanvas(canvas) {
 	if (!(canvas instanceof HTMLCanvasElement)) {
 		return;
 	}
-	canvas.width = 1;
-	canvas.height = 1;
+	if (canvas.width !== 1) canvas.width = 1;
+	if (canvas.height !== 1) canvas.height = 1;
 	canvas.style.width = "0px";
 	canvas.style.height = "0px";
 	canvas.style.top = "0px";
@@ -61,16 +61,32 @@ export default function SiteArcDomNav({
 	const { pathname } = useLocation();
 	const snap = useSnapshot(store);
 	const hostRef = useRef(/** @type {HTMLDivElement | null} */ (null));
-	const itemRefs = useRef(/** @type {Array<HTMLDivElement | null>} */ ([]));
+	const itemRefs = useRef([]);
+	// Slot children are fixed for this mount. Resolve them once, not on every
+	// animation/snake repaint. Stable callbacks also survive route re-renders.
+	const itemRefCallbacks = useMemo(() => SLOT_KEYS.map((_, index) => (element) => {
+		itemRefs.current[index] = element ? {
+			element,
+			numCanvas: element.querySelector("canvas[data-arc-num]"),
+			titleCanvases: element.querySelectorAll("canvas[data-arc-title-line]"),
+			labelHit: element.querySelector("[data-arc-label-hit]"),
+			empty: false,
+		} : null;
+	}), []);
 	const layoutRef = useRef(/** @type {ReturnType<typeof buildSiteArcNavLayout> | null} */ (null));
+	const viewportRef = useRef({ width: 0, height: 0 });
+	const measureViewport = useCallback(() => {
+		viewportRef.current.width = hostRef.current?.clientWidth || window.innerWidth;
+		viewportRef.current.height = hostRef.current?.clientHeight || window.innerHeight;
+	}, []);
 
 	const syncDom = useCallback(() => {
 		const host = hostRef.current;
 		if (!host) {
 			return;
 		}
-		const w = host.clientWidth || window.innerWidth;
-		const h = host.clientHeight || window.innerHeight;
+		const w = viewportRef.current.width || window.innerWidth;
+		const h = viewportRef.current.height || window.innerHeight;
 		const layout = buildSiteArcNavLayout(w, h, w < 768);
 		const viewportOpacity = getSiteArcViewportOpacity(w);
 		host.style.opacity = String(viewportOpacity);
@@ -88,16 +104,18 @@ export default function SiteArcDomNav({
 		const stackGap = layout.stackGap ?? 8;
 
 		for (let i = 0; i < MAX_ITEMS; i += 1) {
-			const el = itemRefs.current[i];
-			if (!el) {
+			const slot = itemRefs.current[i];
+			if (!slot) {
 				continue;
 			}
+			const { element: el, numCanvas, titleCanvases, labelHit } = slot;
 			const item = items[i] ?? null;
-			const numCanvas = el.querySelector("canvas[data-arc-num]");
-			const titleCanvases = el.querySelectorAll("canvas[data-arc-title-line]");
-			const labelHit = el.querySelector("[data-arc-label-hit]");
 
 			if (!item) {
+				// Hidden slots were cleared on their first empty frame. Clear again
+				// only after actual content occupied the slot (e.g. another route).
+				if (slot.empty) continue;
+				slot.empty = true;
 				el.hidden = true;
 				el.dataset.projectId = "";
 				el.style.opacity = "0";
@@ -110,10 +128,12 @@ export default function SiteArcDomNav({
 				}
 				continue;
 			}
+			slot.empty = false;
 
 			const color = item.isActive ? activeColor : inactiveColor;
 			const titleColor = item.isActive ? SITE_ARC_TEXT_COLOR : inactiveColor;
 			const titleLines = item.titleLines?.length ? item.titleLines : [item.title];
+			let maxLabelWidth = 48;
 
 			el.hidden = false;
 			el.dataset.projectId = item.id;
@@ -134,7 +154,7 @@ export default function SiteArcDomNav({
 				// anchor the positive compensation puts the glyph edge (not the
 				// transparent canvas edge) next to the node.
 				numCanvas.style.top = `${-(stackGap / 2) - indexFont - SNAKE_PAD_Y}px`;
-				paintSiteArcNavSnakeDomLabel(numCanvas, `${item.id}::num`, item.chapterNum, {
+				const metrics = paintSiteArcNavSnakeDomLabel(numCanvas, `${item.id}::num`, item.chapterNum, {
 					fontSize: indexFont,
 					fontWeight: 500,
 					letterSpacing: NUM_LETTER_SPACING_EM,
@@ -142,6 +162,7 @@ export default function SiteArcDomNav({
 					color,
 					uppercase: false,
 				});
+				maxLabelWidth = Math.max(maxLabelWidth, metrics?.width ?? 0);
 				// The item is a zero-width right-edge anchor. CSS `right` keeps this
 				// stable even while CanvasGlitchText changes the canvas width.
 				numCanvas.style.left = "auto";
@@ -160,7 +181,7 @@ export default function SiteArcDomNav({
 				}
 				// caseStudyCanvasDraw: y = stackGap/2 + lineIndex * titleLineH (minus glow pad)
 				canvas.style.top = `${stackGap / 2 + line * titleLineH - SNAKE_PAD_Y}px`;
-				paintSiteArcNavSnakeDomLabel(canvas, `${item.id}::${line}`, lineText, {
+				const metrics = paintSiteArcNavSnakeDomLabel(canvas, `${item.id}::${line}`, lineText, {
 					fontSize: titleFont,
 					fontWeight: 500,
 					letterSpacing: TITLE_LETTER_SPACING_EM,
@@ -168,6 +189,7 @@ export default function SiteArcDomNav({
 					color: titleColor,
 					uppercase: true,
 				});
+				maxLabelWidth = Math.max(maxLabelWidth, metrics?.width ?? 0);
 				canvas.style.left = "auto";
 				canvas.style.right = `${-SNAKE_PAD_X}px`;
 			}
@@ -182,15 +204,9 @@ export default function SiteArcDomNav({
 				const padY = 4;
 				const top = Math.min(numTop, 0) - padY;
 				const bottom = Math.max(titleBottom, 0) + padY;
-				let maxW = 48;
-				if (numCanvas instanceof HTMLCanvasElement) {
-					maxW = Math.max(maxW, numCanvas.clientWidth || 0);
-				}
-				titleCanvases.forEach((c) => {
-					if (c instanceof HTMLCanvasElement) {
-						maxW = Math.max(maxW, c.clientWidth || 0);
-					}
-				});
+				// These widths were just computed by the painter. Reading clientWidth
+				// here after style writes forces layout once per label stack.
+				const maxW = Math.round(maxLabelWidth);
 				const gap = Math.max(0, item.labelGap ?? 30);
 				const nodeHitR = 18;
 				const left = -(maxW + 8);
@@ -203,6 +219,7 @@ export default function SiteArcDomNav({
 	}, []);
 
 	useLayoutEffect(() => {
+		measureViewport();
 		registerSiteArcPaint(syncDom);
 		const unregisterSnake = registerSiteArcNavSnakeRepaint(syncDom);
 		syncDom();
@@ -212,16 +229,22 @@ export default function SiteArcDomNav({
 			unregisterSnake();
 			disposeSiteArcNavSnakeIfOrphaned();
 		};
-	}, [syncDom]);
+	}, [syncDom, measureViewport]);
 
 	useEffect(() => {
 		const onResize = () => {
+			measureViewport();
 			markSiteArcDirty();
 			wakeCaseStudyAnimationFrame();
 		};
 		window.addEventListener("resize", onResize);
-		return () => window.removeEventListener("resize", onResize);
-	}, []);
+		const observer = new ResizeObserver(onResize);
+		if (hostRef.current) observer.observe(hostRef.current);
+		return () => {
+			window.removeEventListener("resize", onResize);
+			observer.disconnect();
+		};
+	}, [measureViewport]);
 
 	useEffect(() => {
 		markSiteArcDirty();
@@ -244,7 +267,7 @@ export default function SiteArcDomNav({
 	}, [activeItemId, onActivateItem]);
 
 	const onHoverSnake = useCallback((index) => {
-		const el = itemRefs.current[index];
+		const el = itemRefs.current[index]?.element;
 		const projectId = el?.dataset?.projectId;
 		if (!projectId || el?.hidden) {
 			return;
@@ -257,9 +280,7 @@ export default function SiteArcDomNav({
 			{SLOT_KEYS.map((key, index) => (
 				<div
 					key={key}
-					ref={(el) => {
-						itemRefs.current[index] = el;
-					}}
+					ref={itemRefCallbacks[index]}
 					className={styles.item}
 					hidden
 					onPointerEnter={() => onHoverSnake(index)}

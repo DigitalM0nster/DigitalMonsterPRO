@@ -65,7 +65,6 @@ export class CityDistrictHighlight {
 	}
 
 	update(delta, frame, interactionOwned) {
-		this.markers.update(delta);
 		this.pointerActive = Boolean(interactionOwned && !frame?.pointerDown && frame?.camera && frame?.pointer);
 		if (frame?.camera) {
 			this.mesh.updateWorldMatrix(true, false);
@@ -74,6 +73,7 @@ export class CityDistrictHighlight {
 		// A building or a road never opens a card: only a visible circle is interactive.
 		this.hovered = this.pointerActive ? this.markers.pick(frame.pointer) : -1;
 		this.markers.hovered = this.hovered;
+		this.markers.update(delta, this.pointerActive ? frame.pointer : null);
 		if (this.hovered >= 0) this.focus.copy(this.markers.anchors[this.hovered]);
 		for (let i = 0; i < this.levels.length; i++) {
 			this.levels[i] = THREE.MathUtils.damp(this.levels[i], i === this.hovered ? 1 : 0, 7, delta);
@@ -82,7 +82,7 @@ export class CityDistrictHighlight {
 		return this.hovered >= 0;
 	}
 
-	reset() { this.hovered = -1; this.markers.hovered = -1; this.pointerActive = false; this.levels.fill(0); }
+	reset() { this.hovered = -1; this.markers.reset(); this.pointerActive = false; this.levels.fill(0); }
 	beginWarmupDraw() { this.levels.fill(0.01); }
 	endWarmupDraw() { this.reset(); }
 	dispose() { this.markers.dispose(); this.mesh.removeFromParent(); this.mesh.geometry.dispose(); this.mesh.material.dispose(); }

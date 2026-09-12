@@ -46,21 +46,35 @@ export const MMK1_HOTSPOT_DETAILS = [
 ];
 
 export const MMK1_OVERVIEW = {
-	center: [0.34, 0.64],
-	headlines: { ru: ["ИДЕИ", "В ОБЪЁМЕ"], en: ["IDEAS", "IN DIMENSION"], zh: ["让想象", "拥有维度"] },
-	copy: {
-		ru: ["Идеи в объёме", "Сайт может стать целым миром.", "Оглянитесь. Приблизьтесь. Исследуйте.", "Каждый круг — новая точка зрения."],
-		en: ["Ideas in dimension", "A website can become a whole world.", "Look around. Move closer. Explore.", "Each circle opens a new perspective."],
-		zh: ["让想象拥有维度", "网站也可以成为一个完整的世界。", "环顾四周。走近一点。自由探索。", "每一个圆点，都开启一种新视角。"],
+	headlines: {
+		ru: ["ПОДНИМАЕМ ИДЕИ", "НА НОВЫЙ УРОВЕНЬ"],
+		en: ["TAKING IDEAS", "TO NEW HEIGHTS"],
+		zh: ["让创意", "再上新高度"],
+	},
+	guide: {
+		ru: "НАЖМИТЕ НА КРУГ",
+		en: "SELECT A CIRCLE",
+		zh: "轻触圆点，探索细节",
 	},
 };
 
+// Keep the prepared quad close to the slogan and its single-line interaction cue.
+export const MMK1_OVERVIEW_VIEW = { height: 176, uvBottom: 0.275, uvTop: 0.825 };
+
 export function getMmk1DetailLayout(index, width, height) {
 	const compact = width < 700;
+	if (index === 4) {
+		const scale = Math.min(1, (width - (compact ? 48 : 330)) / MMK1_DETAIL_SIZE.width);
+		const panelWidth = MMK1_DETAIL_SIZE.width * scale;
+		const panelHeight = MMK1_OVERVIEW_VIEW.height * scale;
+		const x = compact ? 24 : Math.min(width - 170 - panelWidth, Math.max(160, width * 0.145));
+		const y = compact ? 142 : Math.max(48, height * 0.58 - panelHeight);
+		return { x, y, scale, width: panelWidth, height: panelHeight };
+	}
 	const scale = Math.min(1, (width - (compact ? 32 : 330)) / MMK1_DETAIL_SIZE.width);
 	const panelWidth = MMK1_DETAIL_SIZE.width * scale;
 	const panelHeight = MMK1_DETAIL_SIZE.height * scale;
-	const [cx, cy] = (MMK1_HOTSPOT_DETAILS[index] ?? MMK1_OVERVIEW).center;
+	const [cx, cy] = MMK1_HOTSPOT_DETAILS[index].center;
 	const left = compact ? 16 : 160;
 	const right = compact ? 16 : 170;
 	const x = compact ? (width - panelWidth) / 2 : Math.max(left, Math.min(width - right - panelWidth, width * cx - panelWidth / 2));

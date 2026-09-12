@@ -2,10 +2,12 @@ import * as THREE from "three";
 import { sceneOwnsHexHitAtClientY } from "@/three/render/overlay/hexHitOwnership.js";
 import { InfiniteLightTrailsWorld } from "./lightTrails/InfiniteLightTrailsWorld.js";
 import { SyntheticCoreWorld } from "./placeholders/SyntheticCoreWorld.js";
+import { warmSyntheticCoreGeometry } from "./placeholders/warmSyntheticCoreGeometry.js";
 import { SyntheticCoreSound } from "./placeholders/SyntheticCoreSound.js";
 import { CityModelWorld } from "./city/CityModelWorld.js";
 import { CapabilityNarrative } from "./typography/CapabilityNarrative.js";
 import { CapabilitySceneSound } from "@/sounds/CapabilitySceneSound.js";
+import { getLoaderCurtainRemainingMs } from "@/app/config/loaderCurtain.js";
 import { isRingDormantReason } from "@/three/scenes/lifecycle/sceneLifecycle.js";
 import { PortfolioFreeCameraController } from "@/three/scenes/portfolio/hub/PortfolioFreeCameraController.js";
 
@@ -54,6 +56,12 @@ export class CapabilityWorldScene {
 
 	getScene() {
 		return this.threeScene;
+	}
+
+	async prepareResourcesUnderCurtain(renderer, scheduler) {
+		if (this.capability.sceneVariant !== "syntheticCore" || this._geometryWarmed || this._disposed) return;
+		await warmSyntheticCoreGeometry(renderer, this.threeScene, scheduler);
+		this._geometryWarmed = true;
 	}
 
 	async _prepareNarrative() {
@@ -177,16 +185,22 @@ export class CapabilityWorldScene {
 		const current = frame?.activeSceneId === this.sceneId;
 		const visibility = current ? 1 - Math.min(1, Math.abs(this.store?.hexShaderProgress ?? 0)) : 0;
 		const soundEnabled = current && this.store?.appStarted === true;
+		const interactionSoundEnabled = this.store?.appStarted === true
+			&& getLoaderCurtainRemainingMs(this.store.appStartedAt) === 0
+			&& interactionOwned && Boolean(frame?.camera) && this.root.visible;
 		// Read the just-painted lens/HUD state; dormant and warmup worlds stay silent.
 		this.world.sound?.update(delta, this.world.assemblyUniform.value, this.world.elapsed, {
-			enabled: soundEnabled, visibility, hud: this.world.hud,
+			enabled: soundEnabled, visibility, hud: this.world.hud, pointer: interactionOwned ? frame?.pointer : null,
+			interactionEnabled: interactionSoundEnabled,
+			interactionVisibility: interactionSoundEnabled ? 1 : 0,
 		});
 		const title = this.narrative ?? this.world.title;
 		this.sceneSound.update(delta, {
 			enabled: soundEnabled,
+			hudEnabled: interactionSoundEnabled,
+			hudVisibility: 1,
 			reveal: title?.getSoundReveal() ?? 0,
-			hudReveal: (this.world.hud?.uniforms?.uSnake?.value ?? 0) * visibility,
-			hudVolume: this.capability.sceneVariant === "syntheticCore" ? 0.65 : 0.2,
+			hudReveal: this.world.hud?.uniforms?.uSnake?.value ?? 0,
 			pan: this.capability.sceneVariant === "lightTrails" ? (this.narrative?.frame.side ?? 1) * 0.5 : -0.35,
 			flightWorld: this.capability.sceneVariant === "lightTrails" ? this.world : null,
 			visibility,

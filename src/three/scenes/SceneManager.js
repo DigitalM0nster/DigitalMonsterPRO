@@ -1,3 +1,4 @@
+import { getScenePixelRatio } from "@/three/renderer/renderResolution.js";
 import * as THREE from "three";
 import { compileSceneChunked } from "../renderer/compileSceneChunked.js";
 import { PreparationScheduler } from "../app/preparationScheduler.js";
@@ -34,7 +35,7 @@ function attachWarmupRoots(sceneObj) {
 }
 
 function createLayerRenderTarget(renderer, width, height, gfx) {
-	const dpr = renderer.getPixelRatio();
+	const dpr = getScenePixelRatio(renderer);
 	const useHdr = gfx?.bloomHdr !== false;
 	const target = new THREE.WebGLRenderTarget(Math.floor(width * dpr), Math.floor(height * dpr), {
 		type: useHdr ? THREE.HalfFloatType : THREE.UnsignedByteType,
@@ -304,6 +305,8 @@ export class SceneManager {
 			nextFrame: () => this._yieldWarmupBreath(), cancelled: () => this.disposed,
 		});
 		const onlyIds = Array.isArray(options.sceneIds) && options.sceneIds.length ? new Set(options.sceneIds) : null;
+		const total = [...this.scenes].filter(([id, scene]) => (!onlyIds || onlyIds.has(id)) && scene.getScene?.()).length;
+		let completed = 0;
 		const cameraState = {
 			position: this.camera.position.clone(),
 			quaternion: this.camera.quaternion.clone(),
@@ -353,6 +356,7 @@ export class SceneManager {
 					}
 					restoreRoots();
 				}
+				options.onProgress?.(++completed, total);
 			}
 		} finally {
 			this.camera.position.copy(cameraState.position);
@@ -386,7 +390,7 @@ export class SceneManager {
 		const carousel = getSceneCarousel();
 		const cssW = this.size.w || window.innerWidth;
 		const cssH = this.size.h || window.innerHeight;
-		const dpr = this.renderer.getPixelRatio();
+		const dpr = getScenePixelRatio(this.renderer);
 
 		return {
 			camera: this.camera,
@@ -408,7 +412,7 @@ export class SceneManager {
 		if (width <= 0 || height <= 0) {
 			return;
 		}
-		const dpr = this.renderer.getPixelRatio();
+		const dpr = getScenePixelRatio(this.renderer);
 		if (this.size.w === width && this.size.h === height && this.size.dpr === dpr) {
 			return;
 		}
@@ -492,7 +496,7 @@ export class SceneManager {
 		const warmToken = sceneObj.beginWarmupDraw?.() ?? null;
 		try {
 			if (scheduler) {
-				await scheduler.run(() => this._warmupSceneUpdate(sceneId, sceneObj));
+				await scheduler.run(() => this._warmupSceneUpdate(sceneId, sceneObj), { cpuSceneId: sceneId });
 			} else {
 				this._warmupSceneUpdate(sceneId, sceneObj);
 				await yieldFn();
@@ -735,6 +739,7 @@ export class SceneManager {
 		sceneObj.applyCamera?.(this.camera, layerFrame);
 		this.sceneDragOrbit.apply(this.camera, sceneId, {
 			orbitTarget: sceneObj.getDragOrbitTarget?.(this.camera, layerFrame) ?? null,
+			preserveTarget: sceneObj.dragOrbitAroundTarget === true,
 		});
 
 		const prevTarget = this.renderer.getRenderTarget();
@@ -748,12 +753,13 @@ export class SceneManager {
 		this.renderer.setClearColor(0x000000, 0);
 		this.renderer.clear(true, true, true);
 		this.renderer.render(threeScene, this.camera);
+		const finishedTexture = sceneObj.finishSceneLayer?.(this.renderer, this.camera, target);
 
 		this.renderer.toneMapping = prevToneMapping;
 		this.renderer.setRenderTarget(prevTarget);
 		this.renderer.autoClear = prevAutoClear;
 
-		return target.texture;
+		return finishedTexture ?? target.texture;
 	}
 
 	_getSceneToRender() {

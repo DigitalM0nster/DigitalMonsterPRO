@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { SceneTextLocale } from "../typography/sceneTextLocale.js";
 import { advanceHudSnake } from "../../../objects/sceneHud/sceneHudShaders.js";
 import { createHudQuad } from "./syntheticCoreHudMaterials.js";
 import { createHudAtlas } from "./syntheticCoreHudAtlas.js";
@@ -10,6 +11,7 @@ export class SyntheticCoreHud {
 
 	constructor(parent, lens, inputElement) {
 		this.lens = lens;
+		this.localeMotion = new SceneTextLocale();
 		this.inputElement = inputElement;
 		this.pixelRatio = Math.max(1, Math.min(2, inputElement.width / Math.max(1, inputElement.clientWidth)));
 		this.viewport = new THREE.Vector2(inputElement.clientWidth, inputElement.clientHeight);
@@ -86,7 +88,8 @@ export class SyntheticCoreHud {
 		const scanning = this.probeAge < 3.4;
 		const detailsRequested = this.hovered || this.sphereHovered || scanning;
 		// A single reversible playhead: quick re-entry continues from the painted position.
-		u.uSnake.value = advanceHudSnake(u.uSnake.value, detailsRequested, delta);
+		const natural = this.localeMotion.busy ? u.uSnake.value : advanceHudSnake(u.uSnake.value, detailsRequested, delta);
+		u.uSnake.value = this.localeMotion.update(delta, locale, natural, detailsRequested);
 		u.uTime.value = time;
 		u.uHover.value = THREE.MathUtils.damp(u.uHover.value, this.hovered ? 1 : 0, 8, delta);
 		u.uCoreHover.value = THREE.MathUtils.damp(u.uCoreHover.value, this.sphereHovered ? 1 : 0, 7, delta);
@@ -96,7 +99,7 @@ export class SyntheticCoreHud {
 		u.uProbe.value = THREE.MathUtils.damp(u.uProbe.value, scanning ? 1 : 0, 7, delta);
 		u.uLink.value = THREE.MathUtils.damp(u.uLink.value, !dragging && (this.hovered || scanning) ? 1 : 0, 6, delta);
 		u.uPulse.value = scanning ? this.probeAge / 0.8 : -1;
-		u.uLocale.value = locale === "en" ? 1 : locale === "zh" ? 2 : 0;
+		u.uLocale.value = this.localeMotion.locale;
 		const lens = this.lens.material.uniforms;
 		lens.uFocus.value = u.uCoreHover.value;
 		lens.uProbe.value = Math.exp(-Math.pow((this.probeAge - 0.95) * 3.0, 2));

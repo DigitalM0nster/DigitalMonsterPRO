@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { createGLTFLoader } from "@/three/assets/gltfLoader.js";
+import { getGraphicsTier } from "@/functions/getGraphicsTier.js";
 
 import { smoothSinePhase } from "../heroCamera.js";
 import { createWhaleParticles } from "./createWhaleParticles.js";
@@ -71,15 +72,15 @@ export function rebuildWhaleParticles(root, particleMeshes, previousParticles, o
 }
 
 /**
- * Загружает FBX-кита: particles (high) или hologram mesh (low/medium).
+ * Загружает подготовленного кита для high/medium; low пока использует исходный FBX.
  * @param {{ edgeSpacing?: number, renderMode?: 'particles' | 'hologram' }} [options]
  */
 export async function loadAnimatedWhale(options = {}) {
 	const renderMode = options.renderMode === "hologram" ? "hologram" : "particles";
 	let root;
-	if (renderMode === "particles") {
-		// Same vertex order, edges, skeleton and SWIM deformation, prepared offline.
-		// Other FBX clips/materials are not used by the high particle presentation.
+	if (renderMode === "particles" || getGraphicsTier() === "medium") {
+		// Same topology, skeleton and SWIM deformation, prepared offline.
+		// High and Medium share the particle path; unused FBX clips stay out.
 		const gltf = await createGLTFLoader().loadAsync(HIGH_WHALE_URL);
 		root = gltf.scene.children[0];
 		root.animations = gltf.animations;

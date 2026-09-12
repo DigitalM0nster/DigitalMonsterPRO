@@ -29,10 +29,11 @@ import { getGraphicsTier } from "@/functions/getGraphicsTier.js";
 import { createHeroTitleText } from "./heroText/createHeroTitleText.js";
 import { isRingDormantReason } from "@/three/scenes/lifecycle/sceneLifecycle.js";
 import { getSceneCarousel } from "@/three/render/transition/carouselPage.js";
+import { LowWhaleBloom } from "./utils/LowWhaleBloom.js";
 
 /**
  * Hero-сцена: цифровой океан + FBX кит.
- * low/medium — shader-плоскость; high — Points + LineSegments.
+ * Low — shader-плоскость; Medium/High — Points + LineSegments.
  */
 export class DigitalWhaleScene {
 	constructor() {
@@ -140,6 +141,16 @@ export class DigitalWhaleScene {
 		this.readyPromise = this._loadWhale();
 	}
 
+	async prepareResourcesUnderCurtain(renderer, scheduler) {
+		if (getGraphicsTier() !== "low" || !this.whaleParticles || this.lowWhaleBloom) return;
+		this.lowWhaleBloom = new LowWhaleBloom(this.whaleParticles);
+		await this.lowWhaleBloom.prepare(renderer, scheduler);
+	}
+
+	finishSceneLayer(renderer, camera, target) {
+		if (this.whaleParticles) return this.lowWhaleBloom?.render(renderer, camera, target, this.whaleParticles);
+	}
+
 	/** Screen-space hero title (digital-monster TextMesh). */
 	initHeroText(renderer) {
 		this._heroRenderer = renderer;
@@ -154,12 +165,13 @@ export class DigitalWhaleScene {
 	 */
 	prepareHeroTextUnderCurtain() {
 		if (!this._heroRenderer || this.heroTitle) {
-			return;
+			return this.heroTitle?.readyPromise;
 		}
 		this.heroTitle = createHeroTitleText(this._heroRenderer, this.threeScene);
 		// prepareHidden / scrollHint reset — meshes stay in the graph for warmupPrograms.
 		this.heroTitle.reset();
 		this._heroTitleHiddenForLeave = true;
+		return this.heroTitle.readyPromise;
 	}
 
 	_showHeroTitle({ waitForLoaderCurtain = false } = {}) {
@@ -426,8 +438,10 @@ export class DigitalWhaleScene {
 
 	_getGridSize() {
 		const o = digitalWhaleConfig.ocean;
-		return resolveOceanGridSize(o.gridCols, o.gridRows, getGraphicsTier(), {
-			bypassTierCap: import.meta.env.DEV,
+		const tier = getGraphicsTier();
+		return resolveOceanGridSize(o.gridCols, o.gridRows, tier, {
+			// Medium tuning must preview the production density and bloom energy.
+			bypassTierCap: import.meta.env.DEV && tier === "high",
 		});
 	}
 
@@ -474,7 +488,7 @@ export class DigitalWhaleScene {
 	_getMeshSegments() {
 		const o = digitalWhaleConfig.ocean;
 		return resolveOceanMeshSegments(o.gridCols, o.gridRows, getGraphicsTier(), {
-			bypassTierCap: import.meta.env.DEV,
+			bypassTierCap: import.meta.env.DEV && getGraphicsTier() !== "low",
 		});
 	}
 
@@ -777,12 +791,8 @@ export class DigitalWhaleScene {
 			whaleRoot,
 			getCameraWorldPosition: () => this._wakeCameraWorld,
 			getBodySamples: () => {
-				const positionAttr = this.whaleParticles?.geometry?.attributes?.position;
-				if (positionAttr?.array && positionAttr.count > 0) {
-					return {
-						positions: positionAttr.array,
-						count: positionAttr.count,
-					};
+				if (this.whaleParticles?.bodySamples.count > 0) {
+					return this.whaleParticles.bodySamples;
 				}
 
 				return { whaleRoot: this.whaleRoot ?? whaleRoot };
@@ -938,7 +948,8 @@ export class DigitalWhaleScene {
 		const o = digitalWhaleConfig.ocean;
 
 		if (this.whaleGroup && o.rippleFollowWhale !== false) {
-			this.whaleGroup.updateMatrixWorld(true);
+			// localToWorld updates this transform and its parents, without walking
+			// the whale skeleton and particle children just to locate the ripple.
 			this._rippleLocalOffset.set(o.rippleCenterX, 0, o.rippleCenterZ);
 			this._rippleWorld.copy(this._rippleLocalOffset);
 			this.whaleGroup.localToWorld(this._rippleWorld);
@@ -954,7 +965,6 @@ export class DigitalWhaleScene {
 			this._rippleWakeDir.set(-this._swimForward.x, -this._swimForward.z);
 		} else {
 			this._rippleWorld.set(o.rippleCenterX, 0, o.rippleCenterZ);
-			this.oceanGroup.updateMatrixWorld(true);
 			this.oceanGroup.localToWorld(this._rippleWorld);
 
 			// Фиксированная рябь: направление = поток океана (вправо +X, от камеры −Z).
@@ -1065,6 +1075,8 @@ export class DigitalWhaleScene {
 		this.heroTitle?.dispose();
 		this.heroTitle = null;
 
+		this.lowWhaleBloom?.dispose();
+		this.lowWhaleBloom = null;
 		if (this.whaleRoot) {
 			disposeWhaleRoot(this.whaleRoot);
 		}

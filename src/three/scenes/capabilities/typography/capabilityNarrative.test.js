@@ -1,18 +1,36 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { NARRATIVE_COPY, NARRATIVE_DELAY, TRAIL_PHRASE_DURATION, TRAIL_VISIBLE_DURATION, advanceNarrative, narrativeFrame, coreNarrativeLayout, trailNarrativeWallPosition } from "./capabilityNarrativeContent.js";
+import { NARRATIVE_COPY, NARRATIVE_DELAY, CORE_NARRATIVE_DELAY, TRAIL_PHRASE_DURATION, TRAIL_VISIBLE_DURATION, advanceNarrative, narrativeFrame, coreNarrativeLayout, trailNarrativeWallPosition } from "./capabilityNarrativeContent.js";
 
-test("narratives wait for an active, settled scene; warmup and interrupted transitions do not consume reading time", () => {
+test("narrative reading time waits for the active scene, but a running reveal finishes through a mix", () => {
 	const active = { started: true, current: true, transitioning: false };
 	for (const flags of [{ started: false }, { current: false }, { transitioning: true }]) {
 		assert.equal(advanceNarrative(3, 0.02, { ...active, ...flags }), 3);
 	}
 	assert.equal(advanceNarrative(3, 0.02, active), 3.02);
 	assert.equal(advanceNarrative(3, 10, active), 3.05);
-	for (const variant of Object.keys(NARRATIVE_COPY)) {
-		assert.equal(narrativeFrame(NARRATIVE_DELAY, variant).reveal, 0);
-		assert.equal(narrativeFrame(NARRATIVE_DELAY + 1.2, variant).reveal, 1);
+	for (const variant of ["lightTrails", "syntheticCore"]) {
+		const start = (variant === "syntheticCore" ? CORE_NARRATIVE_DELAY : NARRATIVE_DELAY) + 0.2;
+		for (const current of [true, false]) {
+			const next = advanceNarrative(start, 0.02, { ...active, current, transitioning: true }, variant);
+			assert.ok(narrativeFrame(next, variant).reveal > narrativeFrame(start, variant).reveal);
+		}
 	}
+	const disappearing = NARRATIVE_DELAY + TRAIL_VISIBLE_DURATION - 0.4;
+	assert.ok(narrativeFrame(advanceNarrative(disappearing, 0.02, { ...active, transitioning: true }), "lightTrails").reveal
+		< narrativeFrame(disappearing, "lightTrails").reveal);
+	for (const variant of Object.keys(NARRATIVE_COPY)) {
+		const delay = variant === "syntheticCore" ? CORE_NARRATIVE_DELAY : NARRATIVE_DELAY;
+		assert.equal(narrativeFrame(delay, variant).reveal, 0);
+		assert.equal(narrativeFrame(delay + 1.2, variant).reveal, 1);
+	}
+});
+
+test("core text starts promptly without changing the tunnel caption timing", () => {
+	assert.equal(narrativeFrame(0, "syntheticCore").reveal, 0);
+	assert.ok(narrativeFrame(0.3, "syntheticCore").reveal > 0.1);
+	assert.equal(narrativeFrame(1.3, "syntheticCore").reveal, 1);
+	assert.equal(narrativeFrame(1.3, "lightTrails").reveal, 0);
 });
 
 test("all six phrases alternate sides, leave a blank gap, and repeat without a visible cut", () => {

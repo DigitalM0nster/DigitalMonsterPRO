@@ -4,6 +4,11 @@ import { store as appStore } from "@/app/store.jsx";
 import { CONTACTS_HUB_PROJECTS } from "@/pages/contacts/contactsChannels.js";
 import { createContactsHubStore } from "@/pages/contacts/contactsInteraction.js";
 import { sceneOwnsHexHitAtClientY } from "@/three/render/overlay/hexHitOwnership.js";
+import { getGraphicsTier } from "@/functions/getGraphicsTier.js";
+import { ContactsGpuTextLayer } from "./text/ContactsGpuTextLayer.js";
+import { ContactsPlateFinish } from "./ContactsPlateFinish.js";
+import { warmContactsTextures } from "./warmContactsTextures.js";
+import { portfolioHubPlatesConfig } from "../portfolio/hub/portfolioHubConfig.js";
 
 /** Same scene, camera, lights, plate motion and WebGL snake HUD; only content/action differ. */
 export class ContactsScene extends PortfolioHubScene {
@@ -12,16 +17,23 @@ export class ContactsScene extends PortfolioHubScene {
 			store: createContactsHubStore(store),
 			projects: CONTACTS_HUB_PROJECTS,
 			sceneId: "contacts",
+			// Medium needs the same prepared atlas path: Canvas snakes upload on every frame.
+			createProjectsTextLayer: getGraphicsTier() !== "low" ? () => new ContactsGpuTextLayer() : undefined,
 			isHubPath: (path) => String(path ?? "").replace(/\/+$/, "") === "/contacts",
 			isCasePath: () => false,
 			getProjectByPath: () => null,
 			externalLinks: true,
 			logoOptions: {
 				scale: 0.5,
-				// Keep brand colours below the HDR bloom gate; the existing reveal fades all layers.
-				emissiveBoost: { front: 1, back: 1, frontFloat: 1 },
+				// Preserve the flat dark fill and keep the thin cyan outline readable at scene scale.
+				emissiveBoost: { front: 1, back: 1, frontFloat: 1.6 },
 			},
 			getActionLabel: (locale) => ({ ru: "Перейти", en: "Open", zh: "打开" })[locale] ?? "Open",
+		});
+		this.plateFinish = new ContactsPlateFinish(this.plates, portfolioHubPlatesConfig);
+		this.readyPromise = Promise.all([this.readyPromise, this.plateFinish.readyPromise]).then(([sceneReady, finishReady]) => {
+			if (!sceneReady || !finishReady) throw new Error("Contacts plate finish was not prepared");
+			return true;
 		});
 		this._appStore = store;
 		this._linkCamera = new THREE.PerspectiveCamera();
@@ -53,6 +65,63 @@ export class ContactsScene extends PortfolioHubScene {
 		this._linkCamera?.copy(camera);
 	}
 
+	async prepareResourcesUnderCurtain(renderer, scheduler) {
+		await super.prepareResourcesUnderCurtain(renderer, scheduler);
+		await warmContactsTextures(renderer, this.threeScene, scheduler, this.centerPlateLogos?.textures.values());
+	}
+
+	beginWarmupDraw() {
+		const token = super.beginWarmupDraw();
+		token.contactsFinish = this.plateFinish?.beginWarmupDraw();
+		// The focused plate changes at runtime. Warm every existing label/button,
+		// including their geometry and locale maps, in the scheduled scene draw.
+		token.contactsPlateNodes = [];
+		for (const owner of [this.plateProjectLabels, this.plateDetailsButtons]) {
+			for (const { entry } of owner.attachments) {
+				entry.group.traverse(node => token.contactsPlateNodes.push({
+					node, visible: node.visible, frustumCulled: node.frustumCulled,
+				}));
+			}
+		}
+		this._contactsWarmPlateNodes = token.contactsPlateNodes;
+		const layers = this.screenTitle.projectsColumn.layers.filter(layer => layer instanceof ContactsGpuTextLayer);
+		if (!layers.length) return token;
+		const hud = this.screenTitle;
+		token.contactsText = {
+			rootVisible: hud.root.visible, rightVisible: hud.rightGroup.visible,
+			layers: layers.map(layer => {
+				const u = layer.mainMaterial.uniforms;
+				const saved = { layer, mode: u.uMode.value, time: u.uTime.value, timing: u.uTiming.value.clone(), opacity: u.opacity.value };
+				// A mixed hover frame draws both clean glyphs and replacements, including
+				// the instanced attributes and the atlas, before the curtain can open.
+				u.uMode.value = 3; u.uTime.value = 80; u.uTiming.value.set(75, 50, 100, 1); u.opacity.value = 1;
+				layer.syncPassVisibility();
+				return saved;
+			}),
+		};
+		hud.root.visible = hud.rightGroup.visible = true;
+		return token;
+	}
+
+	endWarmupDraw(token) {
+		super.endWarmupDraw(token);
+		this.plateFinish?.endWarmupDraw(token?.contactsFinish);
+		for (const { node, visible, frustumCulled } of token?.contactsPlateNodes ?? []) {
+			node.visible = visible;
+			node.frustumCulled = frustumCulled;
+		}
+		this._contactsWarmPlateNodes = null;
+		const saved = token?.contactsText;
+		if (!saved) return;
+		this.screenTitle.root.visible = saved.rootVisible;
+		this.screenTitle.rightGroup.visible = saved.rightVisible;
+		for (const { layer, mode, time, timing, opacity } of saved.layers) {
+			const u = layer.mainMaterial.uniforms;
+			u.uMode.value = mode; u.uTime.value = time; u.uTiming.value.copy(timing); u.opacity.value = opacity;
+			layer.syncPassVisibility();
+		}
+	}
+
 	_getLinkHit(event) {
 		if (!this._appStarted || !this.showHub || !sceneOwnsHexHitAtClientY("contacts", event.clientY)) return -1;
 		if (event.target instanceof Element && event.target.closest("a, button, input, textarea, select, [role='button']")) return -1;
@@ -78,6 +147,13 @@ export class ContactsScene extends PortfolioHubScene {
 
 	update(delta, frame) {
 		super.update(delta, frame);
+		this.plateFinish?.update(this.centerPlateLogos);
+		// The normal update hides unfocused labels; override only until this warm draw
+		// finishes. endWarmupDraw restores all visibility/culling flags, even on failure.
+		for (const { node } of this._contactsWarmPlateNodes ?? []) {
+			node.visible = true;
+			node.frustumCulled = false;
+		}
 		if (frame?.interactionEnabled && !frame.pointerBlocked) {
 			for (const key of ["caseHovered", "projectListHovered", "caseNavHovered", "screenGalleryHovered", "screenGalleryDragging"]) {
 				this._appStore.cursor[key] = this.store.cursor[key] === true;
@@ -86,6 +162,7 @@ export class ContactsScene extends PortfolioHubScene {
 	}
 
 	dispose() {
+		this.plateFinish?.dispose();
 		window.removeEventListener("pointerdown", this._onLinkDown);
 		window.removeEventListener("pointerup", this._onLinkUp);
 		window.removeEventListener("pointercancel", this._onLinkCancel);

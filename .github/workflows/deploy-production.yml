@@ -1,0 +1,69 @@
+name: Deploy production
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: digital-monster-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+      RELEASE_ID: ${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Validate deployment scripts
+        run: bash -n scripts/deploy/install-release.sh
+      - name: Build committed source
+        run: npm run build
+      - name: Package release
+        run: |
+          test -s dist/index.html
+          test -d dist/assets
+          printf '{"commit":"%s","release":"%s"}\n' "$GITHUB_SHA" "$RELEASE_ID" > dist/__release.json
+          tar -czf "$RUNNER_TEMP/$RELEASE_ID.tar.gz" -C dist .
+      - name: Configure SSH
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          test -n "$DEPLOY_HOST"
+          test -n "$DEPLOY_SSH_KEY"
+          test -n "$DEPLOY_KNOWN_HOSTS"
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/id_ed25519
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
+      - name: Upload and activate release
+        run: |
+          scp -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 \
+            "$RUNNER_TEMP/$RELEASE_ID.tar.gz" "deploy@$DEPLOY_HOST:incoming/"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 \
+            "deploy@$DEPLOY_HOST" bash -s -- "$RELEASE_ID" < scripts/deploy/install-release.sh
+      - name: Verify public release
+        run: |
+          curl --fail --silent --show-error --retry 3 --max-time 30 \
+            "http://$DEPLOY_HOST/__release.json" -o "$RUNNER_TEMP/live-release.json"
+          cmp dist/__release.json "$RUNNER_TEMP/live-release.json"
+          printf 'Published `%s` to http://%s\n' "$GITHUB_SHA" "$DEPLOY_HOST" >> "$GITHUB_STEP_SUMMARY"
+      - name: Remove runner credentials
+        if: always()
+        run: rm -f ~/.ssh/id_ed25519 ~/.ssh/known_hosts

@@ -1482,9 +1482,16 @@
 		filter: none;
 	}
 
+	.digitalMonsterLoader {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
 	.digitalMonsterLoaderOrb {
-		width: min(92vw, 88vh);
-		min-width: 0;
+		/* Keep all three language buttons inside the rings, even on short screens. */
+		width: min(120vw, 88vh);
+		min-width: 480px;
 	}
 
 	.digitalMonsterLoaderBrand {

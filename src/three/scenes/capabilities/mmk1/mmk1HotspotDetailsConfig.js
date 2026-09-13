@@ -10,11 +10,11 @@ export const MMK1_DETAIL_TYPE = {
 export const MMK1_HOTSPOT_DETAILS = [
 	{
 		center: [0.42, 0.74],
-		headlines: { ru: ["ВЫХОДИМ", "ЗА ПРИВЫЧНОЕ"], en: ["GOING BEYOND", "THE FAMILIAR"], zh: ["突破惯常", "打开全新可能"] },
+		headlines: { ru: ["РАСКРЫВАЕМ", "ВАШ ПРОДУКТ"], en: ["SHOWCASING", "YOUR PRODUCT"], zh: ["展现", "您的产品"] },
 		copy: {
-			ru: ["Выходим за привычное", "Превращаем смелую идею в мир,", "который хочется исследовать."],
-			en: ["Going beyond the familiar", "Turning a bold idea into a world", "you want to explore."],
-			zh: ["突破惯常", "让大胆的创意成为一个", "令人想要探索的世界。"],
+			ru: ["Раскрываем ваш продукт", "Показываем его возможности так,", "чтобы человек увидел пользу для себя."],
+			en: ["Showcasing your product", "We show what it can do,", "so people see how it can help them."],
+			zh: ["展现您的产品", "展示产品的功能，", "让用户看见它能为自己带来的价值。"],
 		},
 	},
 	{

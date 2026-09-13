@@ -19,11 +19,11 @@ export const MMK1_HOTSPOT_DETAILS = [
 	},
 	{
 		center: [0.31, 0.45],
-		headlines: { ru: ["СЛОЖНОЕ", "ДЕЛАЕМ ПРОСТЫМ"], en: ["MAKING COMPLEX", "FEEL SIMPLE"], zh: ["让复杂", "变得简单"] },
+		headlines: { ru: ["СЛОЖНОЕ", "ДЕЛАЕМ ПОНЯТНЫМ"], en: ["MAKING THE COMPLEX", "CLEAR"], zh: ["复杂的产品", "清晰易懂"] },
 		copy: {
-			ru: ["Сложное делаем простым", "Всё продумано до деталей.", "Вам остаётся только действовать."],
-			en: ["Making complex feel simple", "Every detail is thought through.", "Your next move feels natural."],
-			zh: ["让复杂变得简单", "每一处细节都经过深思熟虑。", "你只需自然而然地行动。"],
+			ru: ["Сложное делаем понятным", "Помогаем разобраться в продукте", "без лишних усилий."],
+			en: ["Making the complex clear", "We help you understand the product", "without unnecessary effort."],
+			zh: ["让复杂的产品清晰易懂", "帮用户轻松理解产品，", "无需花费多余精力。"],
 		},
 	},
 	{

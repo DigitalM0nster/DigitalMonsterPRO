@@ -1,4 +1,7 @@
+/* eslint-disable react/prop-types */
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import styles from "./ThreeCanvasHost.module.scss";
 import { store as appStore } from "@/app/store.jsx";
 import { useRouteTransitionContext } from "@/app/context/RouteTransitionContext.jsx";
 import { DigitalMonsterThreeApp } from "./DigitalMonsterThreeApp.js";
@@ -17,6 +20,7 @@ export default function ThreeCanvasHost(props) {
 	const appRef = useRef(null);
 	const routeTransition = useRouteTransitionContext();
 	const [webglState, setWebglState] = useState(() => (isWebGLSessionBlocked() ? "blocked" : "pending"));
+	const [failure, setFailure] = useState(null);
 
 	const markWebGLFailed = (error, phase) => {
 		if (isWebGLBlockedError(error)) {
@@ -27,7 +31,9 @@ export default function ThreeCanvasHost(props) {
 		}
 
 		console.error(`[three] WebGL unavailable (${phase})`, error);
-		props.setRendered(true);
+		setFailure({ phase, message: error instanceof Error ? error.message : String(error) });
+		// A failed/lost context cannot satisfy the full-warm gate.
+		props.setRendered(false);
 	};
 
 	useEffect(() => {
@@ -75,6 +81,13 @@ export default function ThreeCanvasHost(props) {
 		}
 
 		appRef.current = app;
+		void app.preparePromise.then((prepared) => {
+			if (!cancelled && !prepared && !app._webglLost) {
+				markWebGLFailed(app.prepareError ?? new Error("Scene preparation failed"), "prepare");
+			}
+		}).catch((error) => {
+			if (!cancelled) markWebGLFailed(error, "prepare");
+		});
 		clearWebGLSessionBlock();
 		app.setProps({
 			currentPage: props.currentPage,
@@ -94,6 +107,8 @@ export default function ThreeCanvasHost(props) {
 			app?.dispose();
 			appRef.current = null;
 		};
+	// Mount owns the renderer; route/Start props are synchronized separately below.
+	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
 	useEffect(() => {
@@ -112,6 +127,8 @@ export default function ThreeCanvasHost(props) {
 			routeTransition,
 			startApp: props.startApp,
 		});
+	// Force carousel alignment only on Start, never on an ordinary route change.
+	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [props.startApp]);
 
 	useEffect(() => {
@@ -127,5 +144,25 @@ export default function ThreeCanvasHost(props) {
 		.filter(Boolean)
 		.join(" ");
 
-	return <div ref={containerRef} className={hostClassName} data-webgl={webglState} />;
+	const retryWithLowGraphics = () => {
+		clearWebGLSessionBlock();
+		const url = new URL(window.location.href);
+		url.searchParams.set("tier", "low");
+		window.location.assign(url.href);
+	};
+
+	return <>
+		<div ref={containerRef} className={hostClassName} data-webgl={webglState} />
+		{failure && createPortal(
+			<div className={styles.failure} role="alert">
+				<div className={styles.message}>
+					<p className={styles.brand}>DIGITAL MONSTER</p>
+					<h1>Не удалось открыть 3D</h1>
+					<p>Графика не запустилась. Повторите загрузку с уменьшенной нагрузкой.</p>
+					<button type="button" onClick={retryWithLowGraphics}>Повторить загрузку</button>
+					<details><summary>Информация об ошибке</summary><p>{failure.phase}: {failure.message}</p></details>
+				</div>
+			</div>, document.body,
+		)}
+	</>;
 }

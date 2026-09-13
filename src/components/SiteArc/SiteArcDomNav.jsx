@@ -87,6 +87,12 @@ export default function SiteArcDomNav({
 		}
 		const w = viewportRef.current.width || window.innerWidth;
 		const h = viewportRef.current.height || window.innerHeight;
+		if (w <= 1024 || h <= 600) {
+			host.style.visibility = "hidden";
+			host.style.pointerEvents = "none";
+			return;
+		}
+		host.style.pointerEvents = "";
 		const layout = buildSiteArcNavLayout(w, h, w < 768);
 		const viewportOpacity = getSiteArcViewportOpacity(w);
 		host.style.opacity = String(viewportOpacity);

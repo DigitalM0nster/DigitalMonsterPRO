@@ -30,7 +30,7 @@ export default function DigitalMonsterLoader(props) {
 	const progressStoppedRef = useRef(false);
 	const progressRef = useRef(initialProgressRef.current);
 	const intervalIdRef = useRef(null);
-	const loaderRootRef = useRef(null);
+	const progressTrackRef = useRef(null);
 	// Keep 0 as a valid bootstrap value — `||` would wrongly jump tail/head to progress.
 	const snakeTailRef = useRef(readBootstrapNumber(window.__loaderBootstrapSnakeTail, 0));
 	const snakeHeadRef = useRef(
@@ -231,7 +231,7 @@ export default function DigitalMonsterLoader(props) {
 	const barVisuallyFullRef = useRef(false);
 	const [barVisuallyFull, setBarVisuallyFull] = useState(false);
 
-	const applySnakeCssVars = (root = loaderRootRef.current) => {
+	const applySnakeCssVars = (root = progressTrackRef.current) => {
 		if (!root) {
 			return;
 		}
@@ -257,7 +257,7 @@ export default function DigitalMonsterLoader(props) {
 
 		const tick = (now) => {
 			snakeRafRef.current = requestAnimationFrame(tick);
-			const root = loaderRootRef.current;
+			const root = progressTrackRef.current;
 			if (!root) {
 				return;
 			}
@@ -415,16 +415,9 @@ export default function DigitalMonsterLoader(props) {
 	return (
 		<>
 			<div
-				ref={loaderRootRef}
 				className={`digitalMonsterLoader${removeLoader ? " removed" : ""}`}
 				style={{
-					// Must list snake vars every render: a partial style object lets the
-					// first paint (and style reconciliation) fall back to 0% while % text stays.
 					"--loader-animation-offset": animationOffsetRef.current,
-					"--loader-progress": `${Math.min(100, Math.max(0, progressRef.current))}%`,
-					"--loader-snake-head": `${Math.min(100, Math.max(0, snakeHeadRef.current))}%`,
-					"--loader-snake-tail": `${Math.min(100, Math.max(0, snakeTailRef.current))}%`,
-					"--loader-tip-opacity": snakeHeadRef.current >= 99.9 ? "0" : "1",
 				}}
 			>
 				<div className="digitalMonsterLoaderOrb">
@@ -498,7 +491,14 @@ export default function DigitalMonsterLoader(props) {
 								>
 									<strong>{progressPercent}%</strong>
 									<span>ЗАГРУЗКА / LOADING</span>
-									<div className="digitalMonsterLoaderTrack" aria-hidden="true">
+									<div ref={progressTrackRef} className="digitalMonsterLoaderTrack" aria-hidden="true" style={{
+										// Scope frame-changing variables to the bar: inheriting them from the
+										// loader root invalidates WebKit's large masked/glowing orbit layers.
+										"--loader-progress": `${Math.min(100, Math.max(0, progressRef.current))}%`,
+										"--loader-snake-head": `${Math.min(100, Math.max(0, snakeHeadRef.current))}%`,
+										"--loader-snake-tail": `${Math.min(100, Math.max(0, snakeTailRef.current))}%`,
+										"--loader-tip-opacity": snakeHeadRef.current >= 99.9 ? "0" : "1",
+									}}>
 										<i />
 										<span className="digitalMonsterLoaderSnake" />
 									</div>

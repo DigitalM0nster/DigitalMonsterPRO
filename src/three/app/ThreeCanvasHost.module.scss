@@ -1,0 +1,39 @@
+.failure {
+	position: fixed;
+	inset: 0;
+	z-index: 2147483647;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 24px;
+	background: #02060c;
+	color: #e5f8ff;
+	pointer-events: auto;
+	overflow: auto;
+}
+
+.message {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 20px;
+	width: min(100%, 440px);
+	line-height: 1.5;
+
+	h1, p { margin: 0; }
+	h1 { font-size: clamp(24px, 6vw, 32px); line-height: 1.2; }
+	button {
+		padding: 12px 18px;
+		border: 1px solid #51d4ff;
+		border-radius: 6px;
+		background: #082135;
+		color: inherit;
+		font: inherit;
+		cursor: pointer;
+	}
+	button:focus-visible { outline: 2px solid #fff; outline-offset: 4px; }
+	details { font-size: 12px; color: #a0b8c5; overflow-wrap: anywhere; }
+	summary { cursor: pointer; }
+}
+
+.brand { color: #51d4ff; font-size: 13px; letter-spacing: 0.15em; }

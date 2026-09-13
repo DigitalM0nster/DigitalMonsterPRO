@@ -67,3 +67,34 @@ test("High and Medium retain their fast dev readiness", async () => {
 		pending.resolve();
 	}
 });
+
+test("full warm rejects an unusable shader but permits driver warnings", async () => {
+	const fullPrepare = vm.runInNewContext(`({${method}})._prepareApplication`, {
+		console: { error() {} }, yieldToNextPaint: async () => {},
+		warmCasePanelHudUnderCurtain: async () => {}, warmAboutPanelHudUnderCurtain: async () => {},
+		prepareSceneCanvasInterfaces: async () => {},
+	});
+	for (const runnable of [false, true, undefined]) {
+		let draws = 0;
+		const home = { readyPromise: Promise.resolve() };
+		const app = {
+			fullWarm: true, ready: false,
+			renderer: { info: { programs: [{ name: "home", diagnostics: runnable === undefined ? undefined : { runnable } }] } },
+			sceneManager: {
+				scenes: new Map([["home", home]]), readyPromise: home.readyPromise,
+				getSceneById: () => home, warmupRenderTargets() {}, warmupPrograms: async () => {},
+			},
+			backgroundPipeline: { readyPromise: Promise.resolve() },
+			preparationScheduler: { run: async job => job() },
+			_warmupScreenOverlays: async () => {}, _warmupRenderPipeline: async () => { draws++; },
+			_setPreparationProgress(value) { this.progress = value; },
+		};
+		assert.equal(await fullPrepare.call(app), runnable !== false);
+		assert.equal(draws, 1, "readiness still waits for real pipeline warm");
+		assert.equal(app.ready, runnable !== false);
+		if (runnable === false) {
+			assert.match(app.prepareError.message, /home.*could not compile/);
+			assert.ok(app.progress < 1);
+		} else assert.equal(app.progress, 1);
+	}
+});

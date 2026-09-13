@@ -5,17 +5,10 @@ import { getSiteArcPreviewProjectId } from "./siteArcProjects.js";
 import { siteArcRuntime } from "./siteArcConfig.js";
 import { shortestDegDelta } from "./siteArcCycle.js";
 import { isCapabilitySceneId } from "@/pages/capabilities/data/capabilities.js";
-import { getHexShaderProgress } from "@/three/render/overlay/hexShaderProgress.js";
 
-/** The film fills compact viewports; the bottom menu remains the site navigation. */
-export function getSiteArcViewportOpacity(width) {
-	if (width >= 768) return 1;
-	const carousel = getSceneCarousel();
-	const { sourceId, targetId } = carousel.getMixSourceTargetIds();
-	const progress = Math.max(0, Math.min(1, getHexShaderProgress()));
-	const from = sourceId === "portfolioHub" ? 0 : 1;
-	const to = targetId === "portfolioHub" ? 0 : 1;
-	return from + (to - from) * progress;
+/** Compact viewports use a context toolbar and a dock instead of the orbit. */
+export function getSiteArcViewportOpacity(width, height = typeof window === "undefined" ? 1080 : window.innerHeight) {
+	return width <= 1024 || height <= 600 ? 0 : 1;
 }
 
 const CAROUSEL_SCENE_TO_SITE_ARC_ID = {

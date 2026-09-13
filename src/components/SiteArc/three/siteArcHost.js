@@ -235,7 +235,7 @@ export function buildSiteArcGpuState(viewportW, viewportH, isMobile = false) {
 	);
 	const glowStrength = 1;
 	const cfg = siteArcConfig;
-	const introOpacity = Math.max(0, Math.min(1, siteArcRuntime.introOpacity ?? 1)) * getSiteArcViewportOpacity(viewportW);
+	const introOpacity = Math.max(0, Math.min(1, siteArcRuntime.introOpacity ?? 1)) * getSiteArcViewportOpacity(viewportW, viewportH);
 
 	const nodeAngles = [];
 	const nodeHighlights = [];
@@ -327,6 +327,12 @@ export function syncSiteArcOverlay(arc, {
 	isMobile = false,
 } = {}) {
 	if (!arc) {
+		return;
+	}
+	// The compact layout has no orbit. Avoid constructing invisible node arrays,
+	// project layouts and glow state; a desktop resize rebuilds the current state.
+	if (getSiteArcViewportOpacity(viewportW, viewportH) < 0.01) {
+		if (arc.visible) arc.setVisible(false);
 		return;
 	}
 

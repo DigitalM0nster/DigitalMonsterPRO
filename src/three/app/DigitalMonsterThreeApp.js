@@ -331,6 +331,8 @@ export class DigitalMonsterThreeApp {
 			// another late prepare step that creates new ShaderMaterials).
 			await this._warmupRenderPipeline();
 			if (!this.disposed && !this._webglLost) {
+				const failedProgram = this.renderer.info.programs.find((program) => program.diagnostics?.runnable === false);
+				if (failedProgram) throw new Error(`Shader program ${failedProgram.name || failedProgram.id} could not compile`);
 				this.ready = true;
 				this._setPreparationProgress(1);
 				return true;
@@ -900,7 +902,7 @@ export class DigitalMonsterThreeApp {
 			this._renderFrameInner(delta);
 		} catch (error) {
 			console.error("[three] render frame failed", error);
-			this._handleWebGLContextLost("render");
+			this._handleWebGLContextLost(`render: ${error instanceof Error ? error.message : String(error)}`);
 		}
 	}
 

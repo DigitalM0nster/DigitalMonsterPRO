@@ -482,6 +482,12 @@ export class DigitalWhaleScene {
 	}
 
 	_measureWhaleBodyBounds() {
+		if (this.whaleRoot?.userData.mobileBounds) {
+			const bounds = this.whaleRoot.userData.mobileBounds;
+			this._whaleBodyBounds.set(new THREE.Vector3().fromArray(bounds.min), new THREE.Vector3().fromArray(bounds.max));
+			this._whaleBodyBounds.getCenter(this._whaleLocalCenter);
+			return;
+		}
 		// Only prepared body samples: wake/ambient bounds cover the entire ocean.
 		// Sampling is bounded and happens once, never during animation or resize.
 		const body = this.whaleParticles?.bodySamples;
@@ -500,6 +506,8 @@ export class DigitalWhaleScene {
 
 	_updateMobileWhaleLayout() {
 		const width = window.innerWidth, height = window.innerHeight;
+		const authoredMobile = !!this.whaleRoot?.userData.mobileWhale;
+		this._mobileWhaleRotation = null;
 		const portrait = width <= 768 && height > width;
 		const shortLandscape = width <= 1024 && height < 480 && width > height;
 		// Keep the prepared surface for desktop resize; phones draw only the whale
@@ -524,11 +532,11 @@ export class DigitalWhaleScene {
 		this._mobileWhaleFit = portrait ? .7 : shortLandscape ? .7 : 1;
 		this._mobileWhaleOffset.set(0, 0, 0);
 		if ((!portrait && !shortLandscape) || this._whaleBodyBounds.isEmpty()) return;
-		const targetX = shortLandscape ? .55 : 1.12;
-		const targetY = shortLandscape ? -.15 : height < 640 ? -.54 : -.50;
-		const maxWidth = shortLandscape ? 2.2 : 4.2;
-		// Framing is intentionally wider than the viewport: retain the sense of scale.
-		const maxHeight = shortLandscape ? 1.55 : 1.8;
+		const targetX = authoredMobile ? (shortLandscape ? .48 : height < 640 ? .05 : .65) : shortLandscape ? .55 : 1.12;
+		const targetY = authoredMobile ? (shortLandscape ? -.05 : height < 640 ? -.46 : -.40) : shortLandscape ? -.15 : height < 640 ? -.54 : -.50;
+		const maxWidth = authoredMobile ? (shortLandscape ? .84 : 3.6) : shortLandscape ? 2.2 : 4.2;
+		// Portrait echoes the reference close-up: head/fin in frame, tail beyond the right edge.
+		const maxHeight = authoredMobile ? (shortLandscape ? 1.12 : height < 640 ? .64 : 1.12) : shortLandscape ? 1.55 : 1.8;
 		const w = digitalWhaleConfig.whale, o = digitalWhaleConfig.ocean;
 		// Build a stationary reference from configuration, not the currently swaying,
 		// scrolling or entering world. One correction is shared by both intro endpoints.
@@ -543,6 +551,11 @@ export class DigitalWhaleScene {
 		camera.lookAt(HERO_LOOK_AT.x, HERO_LOOK_AT.y, HERO_LOOK_AT.z);
 		camera.updateMatrixWorld();
 		const rotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(w.rotationX, w.rotationY, w.rotationZ));
+		if (authoredMobile) {
+			rotation.setFromRotationMatrix(parent).invert().multiply(camera.quaternion)
+				.multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(.40, .28, shortLandscape ? .10 : .30)));
+			this._mobileWhaleRotation = new THREE.Euler().setFromQuaternion(rotation);
+		}
 		const matrix = new THREE.Matrix4(), position = new THREE.Vector3(), scale = new THREE.Vector3();
 		const projected = new THREE.Box3(), point = new THREE.Vector3(), center = new THREE.Vector3();
 		const from = new THREE.Vector3(), to = new THREE.Vector3();
@@ -550,9 +563,10 @@ export class DigitalWhaleScene {
 		for (const x of [this._whaleBodyBounds.min.x, this._whaleBodyBounds.max.x])
 			for (const y of [this._whaleBodyBounds.min.y, this._whaleBodyBounds.max.y])
 				for (const z of [this._whaleBodyBounds.min.z, this._whaleBodyBounds.max.z]) corners.push(new THREE.Vector3(x, y, z));
-		// Keep the near head large; the body and tail deliberately continue beyond
-		// the viewport. These few projections run only on prepare/resize.
-		for (let pass = 0; pass < 4; pass++) {
+		// Sampled swim bounds keep this crop stable across poses. The desktop
+		// source keeps its previous close-up. Projections run only on prepare/resize.
+		const fitPasses = authoredMobile ? 8 : 4;
+		for (let pass = 0; pass < fitPasses; pass++) {
 			position.set(w.posX, w.posY, w.posZ).add(this._mobileWhaleOffset);
 			matrix.compose(position, rotation, scale.setScalar(w.scale * this._mobileWhaleFit)).premultiply(parent);
 			projected.makeEmpty();
@@ -562,8 +576,8 @@ export class DigitalWhaleScene {
 			from.set(center.x, center.y, point.z).unproject(camera).applyMatrix4(parentInverse);
 			to.set(targetX, targetY, point.z).unproject(camera).applyMatrix4(parentInverse);
 			this._mobileWhaleOffset.add(to.sub(from));
-			if (pass < 3) {
-				const fit = Math.min(1, maxWidth / Math.max(projected.max.x - projected.min.x, 1e-6), maxHeight / Math.max(projected.max.y - projected.min.y, 1e-6));
+			if (pass < fitPasses - 1) {
+				const fit = Math.min(authoredMobile ? 1.5 : 1, maxWidth / Math.max(projected.max.x - projected.min.x, 1e-6), maxHeight / Math.max(projected.max.y - projected.min.y, 1e-6));
 				this._mobileWhaleFit *= fit;
 			}
 		}
@@ -937,11 +951,13 @@ export class DigitalWhaleScene {
 		this._updateWhaleBodySway(0);
 
 		if (this.whaleSwimAction) {
-			this.whaleSwimAction.timeScale = w.swimSpeed;
+			this.whaleSwimAction.timeScale = this.whaleRoot?.userData.mobileWhale ? 1 : w.swimSpeed;
 		}
 	}
 
 	_initWhaleWake(whaleRoot) {
+		// The mobile asset owns a small prepared GPU trail in its local coordinates.
+		if (whaleRoot.userData.mobileWhale) return;
 		if (this.whaleWake) {
 			this.whaleWake.points.removeFromParent();
 			this.whaleWake.dispose();
@@ -974,9 +990,11 @@ export class DigitalWhaleScene {
 		const rollX = Math.sin(elapsed * (sway.rollSpeed ?? 0.58) + 1.2) * (sway.rollAmp ?? 0);
 		const yawY = smoothSinePhase(elapsed * (sway.yawSpeed ?? 0), sway.yawSmooth ?? 0) * (sway.yawAmp ?? 0);
 
+		const rotation = this._mobileWhaleRotation ?? this._whaleBaseRot;
+		const swayScale = this._mobileWhaleRotation ? .3 : 1;
 		this.whaleGroup.scale.setScalar(w.scale * this._mobileWhaleFit);
-		this.whaleGroup.position.set(this._whaleBasePos.x, this._whaleBasePos.y + bobY, this._whaleBasePos.z).add(this._mobileWhaleOffset);
-		this.whaleGroup.rotation.set(this._whaleBaseRot.x + rollX, this._whaleBaseRot.y + yawY, this._whaleBaseRot.z + pitchZ);
+		this.whaleGroup.position.set(this._whaleBasePos.x, this._whaleBasePos.y + bobY * swayScale, this._whaleBasePos.z).add(this._mobileWhaleOffset);
+		this.whaleGroup.rotation.set(rotation.x + rollX * swayScale, rotation.y + yawY * swayScale, rotation.z + pitchZ * swayScale);
 
 		this._syncWhaleAnchorPositions();
 	}
@@ -997,6 +1015,14 @@ export class DigitalWhaleScene {
 		const w = digitalWhaleConfig.whale;
 
 		if (this.whaleRenderMode === "hologram" && this.whaleHologramMaterial) {
+			if (this.whaleRoot.userData.mobileWhale) {
+				const u = this.whaleHologramMaterial.uniforms;
+				const tier = getGraphicsTier();
+				u.uOpacity.value = .92;
+				// Lower-resolution bloom concentrates nearby dots; preserve their separation.
+				u.uGlow.value = tier === "medium" ? .9 : tier === "high" ? 1.8 : 2.8;
+				return;
+			}
 			applyWhaleHologramVisuals(this.whaleHologramMaterial, {
 				colorTint: w.colorTint,
 				emissiveIntensity: w.emissiveIntensity,

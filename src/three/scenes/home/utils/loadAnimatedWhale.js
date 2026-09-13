@@ -6,6 +6,7 @@ import { smoothSinePhase } from "../heroCamera.js";
 import { createWhaleParticles } from "./createWhaleParticles.js";
 import { applyWhaleHologram } from "./whaleHologramMaterial.js";
 import { loadFbxQuiet } from "./loadFbxQuiet.js";
+import { loadMobileWhale, usesMobileWhale } from "../mobileWhale/loadMobileWhale.js";
 
 export const ANIMATED_WHALE_URL = "/models/allModels/FBX/animated_whale_01.fbx";
 export const HIGH_WHALE_URL = "/models/home/whale-high.glb";
@@ -76,6 +77,7 @@ export function rebuildWhaleParticles(root, particleMeshes, previousParticles, o
  * @param {{ edgeSpacing?: number, renderMode?: 'particles' | 'hologram' }} [options]
  */
 export async function loadAnimatedWhale(options = {}) {
+	if (usesMobileWhale(window.innerWidth, window.innerHeight)) return loadMobileWhale();
 	const renderMode = options.renderMode === "hologram" ? "hologram" : "particles";
 	let root;
 	if (renderMode === "particles" || getGraphicsTier() === "medium") {
@@ -172,8 +174,10 @@ export function disposeWhaleRoot(root) {
 	}
 
 	const disposedMaterials = new Set();
+	const skeletons = new Set();
 
 	root.traverse((object) => {
+		if (object.skeleton) skeletons.add(object.skeleton);
 		object.geometry?.dispose?.();
 		const materials = Array.isArray(object.material) ? object.material : [object.material];
 		for (const material of materials) {
@@ -184,4 +188,5 @@ export function disposeWhaleRoot(root) {
 			disposeMaterial(material);
 		}
 	});
+	for (const skeleton of skeletons) skeleton.dispose();
 }

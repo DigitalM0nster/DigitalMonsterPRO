@@ -316,6 +316,7 @@ export class DigitalMonsterThreeApp {
 				renderer: this.renderer,
 			});
 			await prepareSceneCanvasInterfaces(this.sceneManager, this.renderer);
+			await this.siteArc.labels.prepare(this.renderer);
 			this._setPreparationProgress(0.35);
 			if (this.disposed) {
 				return false;
@@ -388,7 +389,8 @@ export class DigitalMonsterThreeApp {
 		for (const scene of this.sceneManager.scenes.values()) {
 			if (scene.canvasInterface) jobs.push(() => warmScreenOverlay(scene.canvasInterface, this.renderer, camera, scheduler, [this.sceneManager.layerTargets.a, null]));
 			for (const overlay of [scene.panelHud, scene.world?.hud, scene._cameraHotspots]) {
-				if (overlay) jobs.push(() => warmScreenOverlay(overlay, this.renderer, camera, scheduler));
+				if (overlay) jobs.push(() => warmScreenOverlay(overlay, this.renderer, camera, scheduler,
+					overlay === scene.panelHud ? [this.sceneManager.layerTargets.a, null] : [null]));
 			}
 			for (const overlay of scene.heroTitle?.getWarmupOverlays?.() ?? []) {
 				jobs.push(() => warmScreenOverlay(overlay, this.renderer, camera, scheduler, [this.sceneManager.layerTargets.a, null], scene.getScene()));
@@ -831,7 +833,7 @@ export class DigitalMonsterThreeApp {
 		if (texture.colorSpace !== THREE.NoColorSpace) {
 			texture.colorSpace = THREE.NoColorSpace;
 		}
-		return texture;
+		return aboutHud;
 	}
 
 	/**

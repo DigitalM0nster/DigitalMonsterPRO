@@ -1,3 +1,4 @@
+import { SiteArcLabels } from "./SiteArcLabels.js";
 import * as THREE from "three";
 import { SITE_MAIN_RGB } from "@/app/config/siteMainColor.js";
 import {
@@ -10,7 +11,7 @@ import {
  * After-bloom screen overlay: procedural right-arc track / nodes / glow.
  * Shared chrome for all cases — never hex-cut.
  * Additive blending matches Canvas2D `lighter` bloom.
- * Typography stays on Canvas2D (labels + hit).
+ * Typography uses prepared GPU glyph atlases; hit targets remain DOM.
  */
 export class SiteArcMesh {
 	constructor() {
@@ -18,6 +19,7 @@ export class SiteArcMesh {
 		this.composeMode = "screen";
 
 		this.overlayScene = new THREE.Scene();
+		this.labels = new SiteArcLabels(this.overlayScene);
 		this.overlayCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 
 		const nodeAngles = new Float32Array(SITE_ARC_MAX_NODES);
@@ -89,9 +91,12 @@ export class SiteArcMesh {
 		this.mesh.visible = false;
 	}
 
+	beginScreenWarmupDraw() { return this.labels.beginScreenWarmupDraw(); }
+
 	setVisible(visible) {
 		this.visible = Boolean(visible);
 		this.mesh.visible = this.visible;
+		this.labels.sync(this.visible);
 	}
 
 	setComposeMode(mode) {
@@ -190,6 +195,7 @@ export class SiteArcMesh {
 
 	/** @param {THREE.WebGLRenderer} renderer */
 	renderScreenOverlay(renderer) {
+		this.labels.sync(this.visible);
 		if (this.composeMode !== "screen" || !this.visible || !this.mesh.visible) {
 			return;
 		}
@@ -200,6 +206,7 @@ export class SiteArcMesh {
 	}
 
 	dispose() {
+		this.labels.dispose();
 		this.mesh.removeFromParent();
 		this.mesh.geometry.dispose();
 		this.material.dispose();

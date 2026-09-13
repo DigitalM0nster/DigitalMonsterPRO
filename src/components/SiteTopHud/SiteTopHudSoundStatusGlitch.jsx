@@ -17,6 +17,8 @@ import { getTopHudSoundStatus } from "@/app/localization/interfaceTranslations.j
 import { notifySoundStatusSnakeSettled } from "@/sounds/siteSoundToggle.js";
 
 import { normalizeSiteLocale, SITE_LOCALES } from "@/functions/siteLocale.js";
+import { useSiteLocaleGlitch } from "@/hooks/useSiteLocaleGlitch.js";
+import { isSiteLocaleTransitionActive } from "@/functions/siteLocaleTransitionState.js";
 
 import "@/components/GlitchText/glitchBilingualText.scss";
 
@@ -301,6 +303,14 @@ export default function SiteTopHudSoundStatusGlitch({ active, locale, playSound 
 
 
 	const tryStartLocaleSwitch = () => {
+		if (isSiteLocaleTransitionActive()) {
+			abortGlitchSnake(rootRef.current);
+			displayedLocaleRef.current = desiredLocaleRef.current;
+			setDisplayedLocale(desiredLocaleRef.current);
+			syncDisplayedVisibility(rootRef.current, displayedStateRef.current, desiredLocaleRef.current);
+			isAnimatingRef.current = false;
+			return;
+		}
 
 		const root = rootRef.current;
 
@@ -512,6 +522,9 @@ export default function SiteTopHudSoundStatusGlitch({ active, locale, playSound 
 
 
 
+	useSiteLocaleGlitch(rootRef, normalizedLocale, {
+		scope: () => groupRefs.current[groupKey(displayedStateRef.current, displayedLocaleRef.current)],
+	});
 	return (
 
 		<div

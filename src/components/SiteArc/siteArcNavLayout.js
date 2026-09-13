@@ -49,7 +49,7 @@ const LABEL_COLLISION_PAD = 6;
  * @param {string} title
  * @param {number} maxCharsPerLine
  */
-function wrapTitleLines(title, maxCharsPerLine = 12) {
+export function wrapTitleLines(title, maxCharsPerLine = 12) {
 	const words = String(title ?? "").toUpperCase().split(/\s+/).filter(Boolean);
 	if (words.length === 0) {
 		return [""];

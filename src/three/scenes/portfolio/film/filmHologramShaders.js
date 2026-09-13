@@ -7,6 +7,7 @@ float filmHash(vec2 p){vec3 p3=fract(vec3(p.xyx)*.1031);p3+=dot(p3,p3.yzx+33.33)
 
 export const hologramVertex = `
 uniform float uProgress;uniform float uDirection;uniform float uReduced;uniform float uGlitchTime;
+uniform float uLocaleReveal;
 attribute vec4 aRect;attribute float aSeed;
 varying vec2 vUv;varying vec2 vBlockUv;varying float vPhase;varying float vBurst;varying float vSeed;
 ${signalNoise}
@@ -14,7 +15,8 @@ ${filmSurfaceGLSL}
 void main(){
  vUv=aRect.xy+uv*aRect.zw;vBlockUv=uv;vSeed=aSeed;
  float seed2=filmHash(vec2(aSeed,21.7));
- float phase=clamp((uProgress-(.015+aSeed*.70))/(.16+seed2*.12),0.,1.);
+ float progress=max(uProgress,1.-uLocaleReveal);
+ float phase=clamp((progress-(.015+aSeed*.70))/(.16+seed2*.12),0.,1.);
  vPhase=mix(phase,uProgress,uReduced);
  vBurst=smoothstep(0.,.18,phase)*(1.-smoothstep(.74,1.,phase))*(1.-uReduced);
  // Progress owns every break and re-lock: cancelling a scroll retraces the same glitch.
@@ -35,6 +37,7 @@ uniform sampler2D uFrom;uniform sampler2D uTo;
 uniform float uFromAspect;uniform float uToAspect;
 uniform vec2 uFromInfo;uniform vec2 uToInfo;
 uniform float uOpacity;uniform float uProgress;uniform float uReduced;uniform float uTime;uniform float uLow;
+uniform float uLocaleReveal;
 uniform float uHolotileSize;uniform float uFocus;
 uniform float uHoloscanlines;uniform float uHoloraster;uniform float uHoloecho;uniform float uHolobrightness;uniform float uHoloopacity;
 uniform float uHolotint;uniform float uHologlitchTint;
@@ -85,7 +88,7 @@ vec3 picture(sampler2D tex,float aspect,vec2 offset,vec2 info){
 }
 void main(){
  // The existing expand animation owns clarity too; no alternate material or source reload.
- if(uFromInfo.x>0.&&uProgress<=.00001){
+ if(uFromInfo.x>0.&&uProgress<=.00001&&uLocaleReveal>=1.){
   vec3 clean=picture(uFrom,uFromAspect,vec2(0.),uFromInfo);
   clean=mix(clean/12.92,pow((clean+.055)/1.055,vec3(2.4)),step(vec3(.04045),clean));
   gl_FragColor=vec4(clean,uOpacity);
@@ -160,6 +163,8 @@ void main(){
  // Prepared typography is a clean, opaque reading side at rest. During the
  // same digital mosaic it inherits the existing tears and electrical seams.
  gl_FragColor=mix(gl_FragColor,vec4(cleanInfo*signal+filmAccent*shardEdge*.35,uOpacity),infoWeight);
+ float localePhase=clamp(((1.-uLocaleReveal)-(.015+vSeed*.70))/(.16+filmHash(vec2(vSeed,21.7))*.12),0.,1.);
+ gl_FragColor.a*=1.-smoothstep(.40,.59,localePhase);
  #include <colorspace_fragment>
 }`;
 

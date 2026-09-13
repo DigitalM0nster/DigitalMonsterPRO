@@ -7,19 +7,20 @@ import {
 } from "@/functions/siteLocale.js";
 import LeftMenuUtilityButton from "./LeftMenuUtilityButton.jsx";
 import styles from "./LeftMenu.module.scss";
+import { cycleSiteLocale } from "@/functions/siteLocaleTransition.js";
 
 export default function LeftMenuLanguageButton() {
 	const store = useStore();
 	const currentLocale = normalizeSiteLocale(store.siteLocale);
-	const nextLocale = getNextSiteLocale(currentLocale);
+	const nextLocale = getNextSiteLocale(store.siteLocaleRequested ?? currentLocale);
 
 	useEffect(() => {
 		document.documentElement.lang = currentLocale;
 	}, [currentLocale]);
 
 	const handleToggle = useCallback(() => {
-		store.siteLocale = getNextSiteLocale(store.siteLocale);
-	}, [store]);
+		void cycleSiteLocale();
+	}, []);
 
 	return (
 		<LeftMenuUtilityButton

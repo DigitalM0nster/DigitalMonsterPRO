@@ -1,3 +1,4 @@
+import { siteLocaleReveal } from "@/functions/siteLocaleTransitionState.js";
 import * as THREE from "three";
 import {
 	getCasePanelHudEnterProgress,
@@ -36,6 +37,8 @@ void main() {
  */
 const fragmentShader = /* glsl */ `
 precision highp float;
+uniform float uSiteLocaleReveal;
+uniform vec4 uMapRegion;
 uniform sampler2D mapFrom;
 uniform sampler2D mapTo;
 uniform float mixProgress;
@@ -67,7 +70,9 @@ vec3 sRGBToLinear(vec3 c) {
 }
 
 vec4 sampleHud(sampler2D map, vec2 uv) {
-	vec4 color = texture2D(map, uv);
+	vec2 mapped = (uv - uMapRegion.xy) / uMapRegion.zw;
+	if (mapped.x < 0.0 || mapped.y < 0.0 || mapped.x > 1.0 || mapped.y > 1.0) return vec4(0.0);
+	vec4 color = texture2D(map, mapped);
 	if (uWorkingLinear > 0.5) {
 		color.rgb = sRGBToLinear(color.rgb);
 	}
@@ -165,18 +170,18 @@ vec4 sampleEnterHud(vec2 uv) {
 	return result;
 }
 
-void mosaicReveal(float ep) {
+void mosaicReveal(float ep, vec2 hudUv) {
 	float lpGuess;
 	vec2 fromOffGuess;
 	vec2 toOffGuess;
-	tileMotion(cellId(vUv), ep, lpGuess, fromOffGuess, toOffGuess);
+	tileMotion(cellId(hudUv), ep, lpGuess, fromOffGuess, toOffGuess);
 
-	vec2 toSrcGuess = vUv + toOffGuess;
+	vec2 toSrcGuess = hudUv + toOffGuess;
 	float lpTo;
 	vec2 fromOffUnused;
 	vec2 toOff;
 	tileMotion(cellId(toSrcGuess), ep, lpTo, fromOffUnused, toOff);
-	vec2 toSample = vUv + toOff;
+	vec2 toSample = hudUv + toOff;
 	vec4 toColor = (inTex(toSample) && inMosaic(toSample)) ? sampleEnterHud(toSample) : vec4(0.0);
 	gl_FragColor = hudIdleStyle(toColor, lpTo);
 }
@@ -193,14 +198,14 @@ vec4 sampleIdleHudAt(vec2 uv) {
 	return result;
 }
 
-void main() {
-	if (!inClip(vUv)) {
+void paintHud(vec2 hudUv) {
+	if (!inClip(hudUv)) {
 		discard;
 	}
 
 	// Hex owns the fragment while a cell is wiping — same UV warp as models overlay.
 	// Hard-threshold keep: soft alpha over bloom reads as filled black/ghost hexes on text.
-	vec3 hexWarp = hexCutHudSourceWarpPack(vUv);
+	vec3 hexWarp = hexCutHudSourceWarpPack(hudUv);
 	if (hexWarp.z >= 0.0) {
 		if (hexWarp.z < 0.5) {
 			discard;
@@ -221,14 +226,14 @@ void main() {
 			return;
 		}
 		if (ep >= 0.9999) {
-			gl_FragColor = hudIdleStyle(sampleEnterHud(vUv), 1.0);
+			gl_FragColor = hudIdleStyle(sampleEnterHud(hudUv), 1.0);
 			return;
 		}
-		if (!inMosaic(vUv)) {
-			gl_FragColor = hudIdleStyle(sampleEnterHud(vUv), ep);
+		if (!inMosaic(hudUv)) {
+			gl_FragColor = hudIdleStyle(sampleEnterHud(hudUv), ep);
 			return;
 		}
-		mosaicReveal(ep);
+		mosaicReveal(ep, hudUv);
 		return;
 	}
 
@@ -239,36 +244,36 @@ void main() {
 	if (uLayerMode > 0.5) {
 		// Chrome path unused for WebGL left band — keep for shader symmetry.
 		if (p <= mixIdleEps) {
-			gl_FragColor = hudIdleStyle(sampleHud(mapFrom, vUv), 1.0);
+			gl_FragColor = hudIdleStyle(sampleHud(mapFrom, hudUv), 1.0);
 			return;
 		}
 		if (p >= 1.0 - mixIdleEps) {
-			gl_FragColor = hudIdleStyle(sampleHud(mapTo, vUv), 1.0);
+			gl_FragColor = hudIdleStyle(sampleHud(mapTo, hudUv), 1.0);
 			return;
 		}
 		gl_FragColor = hudOverIdle(
-			sampleHud(mapFrom, vUv),
+			sampleHud(mapFrom, hudUv),
 			1.0 - p,
-			sampleHud(mapTo, vUv),
+			sampleHud(mapTo, hudUv),
 			p
 		);
 		return;
 	}
 
 	if (p <= mixIdleEps) {
-		gl_FragColor = hudIdleStyle(sampleHud(mapFrom, vUv), 1.0);
+		gl_FragColor = hudIdleStyle(sampleHud(mapFrom, hudUv), 1.0);
 		return;
 	}
 	if (p >= 1.0 - mixIdleEps) {
-		gl_FragColor = hudIdleStyle(sampleHud(mapTo, vUv), 1.0);
+		gl_FragColor = hudIdleStyle(sampleHud(mapTo, hudUv), 1.0);
 		return;
 	}
 
-	if (!inMosaic(vUv)) {
+	if (!inMosaic(hudUv)) {
 		gl_FragColor = hudOverIdle(
-			sampleHud(mapFrom, vUv),
+			sampleHud(mapFrom, hudUv),
 			1.0 - p,
-			sampleHud(mapTo, vUv),
+			sampleHud(mapTo, hudUv),
 			p
 		);
 		return;
@@ -277,26 +282,38 @@ void main() {
 	float lpGuess;
 	vec2 fromOffGuess;
 	vec2 toOffGuess;
-	tileMotion(cellId(vUv), p, lpGuess, fromOffGuess, toOffGuess);
+	tileMotion(cellId(hudUv), p, lpGuess, fromOffGuess, toOffGuess);
 
-	vec2 fromSrcGuess = vUv + fromOffGuess;
+	vec2 fromSrcGuess = hudUv + fromOffGuess;
 	float lpFrom;
 	vec2 fromOff;
 	vec2 toOffUnused;
 	tileMotion(cellId(fromSrcGuess), p, lpFrom, fromOff, toOffUnused);
-	vec2 fromSample = vUv + fromOff;
+	vec2 fromSample = hudUv + fromOff;
 	vec4 fromColor = (inTex(fromSample) && inMosaic(fromSample)) ? sampleHud(mapFrom, fromSample) : vec4(0.0);
 
-	vec2 toSrcGuess = vUv + toOffGuess;
+	vec2 toSrcGuess = hudUv + toOffGuess;
 	float lpTo;
 	vec2 fromOffUnused;
 	vec2 toOff;
 	tileMotion(cellId(toSrcGuess), p, lpTo, fromOffUnused, toOff);
-	vec2 toSample = vUv + toOff;
+	vec2 toSample = hudUv + toOff;
 	vec4 toColor = (inTex(toSample) && inMosaic(toSample)) ? sampleHud(mapTo, toSample) : vec4(0.0);
 
 	gl_FragColor = hudOverIdle(fromColor, 1.0 - lpFrom, toColor, lpTo);
 }
+void main() {
+	float reveal = clamp(uSiteLocaleReveal, 0.0, 1.0);
+	if (reveal <= 0.0001) discard;
+	if (reveal >= 0.9999) { paintHud(vUv); return; }
+	float p; vec2 fromOffset; vec2 toOffset;
+	tileMotion(cellId(vUv), reveal, p, fromOffset, toOffset);
+	vec2 guess = vUv + toOffset;
+	tileMotion(cellId(guess), reveal, p, fromOffset, toOffset);
+	paintHud(vUv + toOffset);
+	gl_FragColor.a *= p;
+}
+
 `;
 
 function syncTexture(existing, canvas, needsUpload) {
@@ -316,6 +333,7 @@ function syncTexture(existing, canvas, needsUpload) {
 	}
 	existing?.dispose();
 	const texture = new THREE.CanvasTexture(canvas);
+	texture.userData.screenRegion = canvas.screenRegion;
 	texture.colorSpace = THREE.NoColorSpace;
 	texture.minFilter = THREE.NearestFilter;
 	texture.magFilter = THREE.NearestFilter;
@@ -337,6 +355,8 @@ const DEFAULT_MOSAIC = {
 function createHudMaterial(layerMode) {
 	return new THREE.ShaderMaterial({
 		uniforms: {
+			uSiteLocaleReveal: siteLocaleReveal,
+			uMapRegion: { value: new THREE.Vector4(0, 0, 1, 1) },
 			mapFrom: { value: null },
 			mapTo: { value: null },
 			mixProgress: { value: 0 },
@@ -518,6 +538,16 @@ export class CaseStudyPanelHudMesh {
 		if (!canvas?.width || !canvas?.height) {
 			return null;
 		}
+		// About retains one viewport's three locales, not a growing history of resize buffers.
+		const region = canvas.screenRegion;
+		if (this._useAboutBridge && region) {
+			for (const [oldCanvas, oldTexture] of this._texturePool) {
+				const old = oldCanvas.screenRegion;
+				if (old && (old.viewportWidth !== region.viewportWidth || old.viewportHeight !== region.viewportHeight)) {
+					oldTexture.dispose(); this._texturePool.delete(oldCanvas);
+				}
+			}
+		}
 		let texture = this._texturePool.get(canvas) ?? null;
 		const created = !texture;
 		texture = syncTexture(texture, canvas, needsUpload || created);
@@ -547,7 +577,7 @@ export class CaseStudyPanelHudMesh {
 		}
 		this.keepAliveTextures = true;
 		for (const canvas of poolCanvases) {
-			this._poolTexture(canvas, true, renderer);
+			this._poolTexture(canvas, false, renderer);
 		}
 	}
 
@@ -653,10 +683,20 @@ export class CaseStudyPanelHudMesh {
 		renderer.autoClear = prevAutoClear;
 	}
 
+	/** Draw the same prepared stage/locale material into the existing hex layer RT. */
+	renderToLayer(renderer) {
+		const visible = this.contentMesh.visible, linear = this.contentMaterial.uniforms.uWorkingLinear.value;
+		this.contentMesh.visible = true;
+		// Match the existing NoColorSpace UI blit in the hex layer.
+		this.contentMaterial.uniforms.uWorkingLinear.value = 0;
+		try { renderer.render(this.overlayScene, this.overlayCamera); }
+		finally { this.contentMesh.visible = visible; this.contentMaterial.uniforms.uWorkingLinear.value = linear; }
+	}
+
 	_layoutFingerprint(mosaic, canvas, clipRect) {
 		const cfg = mosaic ?? DEFAULT_MOSAIC;
-		const width = Math.max(1, canvas?.width || cfg.canvasWidth || 1920);
-		const height = Math.max(1, canvas?.height || cfg.canvasHeight || 1080);
+		const width = Math.max(1, canvas?.screenWidthPx || canvas?.width || cfg.canvasWidth || 1920);
+		const height = Math.max(1, canvas?.screenHeightPx || canvas?.height || cfg.canvasHeight || 1080);
 		const rect = clipRect ?? {};
 		return [
 			width,
@@ -676,8 +716,8 @@ export class CaseStudyPanelHudMesh {
 
 	_applyLayerUniforms(material, mosaic, canvas, clipRect, mosaicRect) {
 		const cfg = mosaic ?? DEFAULT_MOSAIC;
-		const width = Math.max(1, canvas?.width || cfg.canvasWidth || 1920);
-		const height = Math.max(1, canvas?.height || cfg.canvasHeight || 1080);
+		const width = Math.max(1, canvas?.screenWidthPx || canvas?.width || cfg.canvasWidth || 1920);
+		const height = Math.max(1, canvas?.screenHeightPx || canvas?.height || cfg.canvasHeight || 1080);
 		material.uniforms.uGrid.value.set(
 			Math.max(1, cfg.columns ?? DEFAULT_MOSAIC.columns),
 			Math.max(1, cfg.rows ?? DEFAULT_MOSAIC.rows),
@@ -690,6 +730,9 @@ export class CaseStudyPanelHudMesh {
 		setRectUniform(material.uniforms.uClipRect, clipRect);
 		setRectUniform(material.uniforms.uMosaicRect, mosaicRect ?? clipRect);
 		material.uniforms.uFollowEnter.value = 1;
+		const region = canvas?.screenRegion;
+		if (region) material.uniforms.uMapRegion.value.set(region.x / region.viewportWidth, 1 - (region.y + region.height) / region.viewportHeight, region.width / region.viewportWidth, region.height / region.viewportHeight);
+		else material.uniforms.uMapRegion.value.set(0, 0, 1, 1);
 	}
 
 	/**

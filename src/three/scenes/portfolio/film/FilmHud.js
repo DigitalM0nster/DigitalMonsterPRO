@@ -9,6 +9,7 @@ import { FilmProjectPicker } from "./FilmProjectPicker.js";
 import { getGraphicsTier } from "@/functions/getGraphicsTier.js";
 import { loadFilmMsdf, createFilmMsdfGeometry } from "./filmMsdfText.js";
 import { filmInfoCopy } from "@/pages/portfolio/data/filmProjectInfo.js";
+import { siteLocaleReveal } from "@/functions/siteLocaleTransitionState.js";
 
 let fontReady;
 const prepareFont = () => fontReady ??= Promise.all([
@@ -45,7 +46,7 @@ export class FilmHud {
   texture.minFilter=texture.magFilter=THREE.LinearFilter;
   const material=new THREE.ShaderMaterial({
    defines:geometry?{FILM_MSDF:1}:{},
-   uniforms:{uMap:{value:texture},uRect:{value:new THREE.Vector4()},uOpacity:{value:0},uGain:{value:gain},uInk:{value:new THREE.Color(color)},
+   uniforms:{uLocaleReveal:siteLocaleReveal,uMap:{value:texture},uRect:{value:new THREE.Vector4()},uOpacity:{value:0},uGain:{value:gain},uInk:{value:new THREE.Color(color)},
     uMsdfRange:{value:new THREE.Vector2((this.msdf?.atlas.distanceRange??1)/(this.msdf?.atlas.width??1),(this.msdf?.atlas.distanceRange??1)/(this.msdf?.atlas.height??1))}},
    vertexShader:filmHudVertex,fragmentShader:filmHudTextFragment,transparent:true,depthTest:false,depthWrite:false,toneMapped:false,
   });

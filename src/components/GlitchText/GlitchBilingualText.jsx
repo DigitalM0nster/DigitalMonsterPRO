@@ -8,6 +8,8 @@ import {
 } from "./glitchSnakeAnimation.js";
 import { getLanguageGroupLocale, normalizeSiteLocale, SITE_LOCALES } from "@/functions/siteLocale.js";
 import "./glitchBilingualText.scss";
+import { useSiteLocaleGlitch } from "@/hooks/useSiteLocaleGlitch.js";
+import { isSiteLocaleTransitionActive } from "@/functions/siteLocaleTransitionState.js";
 
 function getLetterCaseClass(letter) {
 	if (letter.toLowerCase() === letter.toUpperCase()) {
@@ -278,9 +280,9 @@ export default function GlitchBilingualText({
 		desiredLocaleRef.current = normalizedLocale;
 		window.clearTimeout(switchDelayTimerRef.current);
 
-		if (managedLocaleTransition) {
+		if (managedLocaleTransition || isSiteLocaleTransitionActive()) {
 			applyLocaleInstant(normalizedLocale);
-			if (prepareManagedLocaleAppear) {
+			if (prepareManagedLocaleAppear || isSiteLocaleTransitionActive()) {
 				prepareGlitchAppearInScope(groupRefs.current[normalizedLocale]);
 			}
 			return undefined;
@@ -338,6 +340,7 @@ export default function GlitchBilingualText({
 		};
 	}, []);
 
+	useSiteLocaleGlitch(rootRef, normalizedLocale, { timing: { timeBudgetMs, playSound, soundIntent, soundPan } });
 	return (
 		<div
 			ref={rootRef}

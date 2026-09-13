@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useSyncExternalStore } from "react"
 import { createPortal } from "react-dom";
 import { useSnapshot } from "valtio";
 import { store } from "@/app/store.jsx";
+import { siteLocaleReveal } from "@/functions/siteLocaleTransitionState.js";
 import { sceneOwnsHexHitAtClientY } from "@/three/render/overlay/hexHitOwnership.js";
 import { registerSceneCanvasInput } from "@/three/interaction/sceneCanvasInput.js";
 import { attachFilmInfoView, getFilmUiSnapshot, requestFilmAction, subscribeFilmUi } from "./filmInteraction.js";
@@ -41,6 +42,7 @@ export default function FilmProjectInfo() {
    contentRatio.current = frame.contentRatio;
   }
   Object.assign(hint.current.style, { left: `${frame.left + frame.width / 2}px`, top: `${frame.top + frame.height + 6}px`,
+   opacity: siteLocaleReveal.value,
    visibility: frame.infoVisible && frame.contentRatio > 1.01 && surface.current.scrollTop < surface.current.scrollHeight - surface.current.clientHeight - 4 ? "visible" : "hidden" });
  }), []);
  useEffect(() => registerSceneCanvasInput({

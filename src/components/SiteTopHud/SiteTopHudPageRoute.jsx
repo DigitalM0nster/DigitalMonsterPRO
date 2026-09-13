@@ -17,6 +17,7 @@ import { resolveTopHudCaseCrumb, resolveTopHudPageTitle } from "./siteTopHudPage
 import { requestHexNavigation } from "@/functions/hexNavigation.js";
 import { getHeroGlitchSnakeRunOptions } from "@/three/scenes/home/heroText/heroTextGlitchConfig.js";
 import styles from "./SiteTopHud.module.scss";
+import { isSiteLocaleTransitionActive } from "@/functions/siteLocaleTransitionState.js";
 
 const TOP_HUD_CRUMB_SNAKE_OPTIONS = getHeroGlitchSnakeRunOptions({ playSound: false });
 const TOP_HUD_CRUMB_SOUND_GAIN = 0.5;
@@ -35,20 +36,6 @@ function countGlitchLetters(...groups) {
 		}
 		return total + group.querySelectorAll(".letterContainer:not(.space)").length;
 	}, 0);
-}
-
-function estimateGroupSnakeDuration(group, snakeLength) {
-	if (!group) {
-		return 0;
-	}
-	const letters = [...group.querySelectorAll(".letterContainer:not(.space)")];
-	if (letters.length === 0) {
-		return 0;
-	}
-	const lastIndex = letters.length - 1;
-	const replacementCount = letters[lastIndex].querySelectorAll(".additionalLetter").length;
-	return getLetterStartDelay(lastIndex, snakeLength, replacementCount, TOP_HUD_CRUMB_SNAKE_OPTIONS)
-		+ getLetterAnimDuration(replacementCount, TOP_HUD_CRUMB_SNAKE_OPTIONS);
 }
 
 function estimateTitleSnakeDuration(title) {
@@ -71,8 +58,8 @@ function estimateTitleSnakeDuration(title) {
 export default function SiteTopHudPageRoute({ pathname, locale }) {
 	const navigate = useNavigate();
 	const normalizedLocale = normalizeSiteLocale(locale);
-	const [breadcrumbLocale, setBreadcrumbLocale] = useState(normalizedLocale);
-	const [managedLocaleAppear, setManagedLocaleAppear] = useState(false);
+	// Every crumb consumes the locale committed by the site transaction.
+	const breadcrumbLocale = normalizedLocale;
 	const [displayedPathname, setDisplayedPathname] = useState(pathname);
 	const [titlePaintReady, setTitlePaintReady] = useState(true);
 	const [caseCrumbPaintReady, setCaseCrumbPaintReady] = useState(true);
@@ -87,11 +74,6 @@ export default function SiteTopHudPageRoute({ pathname, locale }) {
 	const waitingAppearScopeRef = useRef("title");
 	const timeoutRef = useRef(0);
 	const caseCrumbPaintRafRef = useRef(0);
-	const languageTimersRef = useRef([]);
-	const languageSwitchingRef = useRef(false);
-	const desiredLocaleRef = useRef(normalizedLocale);
-	const languageSwitchStarterRef = useRef(null);
-	const languageSnakeLengthRef = useRef(2);
 
 	const getActiveTitleGroup = useCallback(() => {
 		return titleRootRef.current?.querySelector(`.languageGroup.${breadcrumbLocale}`) ?? null;
@@ -101,7 +83,7 @@ export default function SiteTopHudPageRoute({ pathname, locale }) {
 	}, [breadcrumbLocale]);
 
 	const playCrumbHover = useCallback((rootRef) => {
-		if (languageSwitchingRef.current) {
+		if (isSiteLocaleTransitionActive()) {
 			return;
 		}
 		const root = rootRef.current;
@@ -119,115 +101,6 @@ export default function SiteTopHudPageRoute({ pathname, locale }) {
 			navigate(targetPath);
 		}
 	}, [navigate]);
-
-	const clearLanguageTimers = useCallback(() => {
-		languageTimersRef.current.forEach(window.clearTimeout);
-		languageTimersRef.current = [];
-	}, []);
-
-	const scheduleLanguageStep = useCallback((callback, delay) => {
-		const id = window.setTimeout(callback, Math.max(0, delay));
-		languageTimersRef.current.push(id);
-	}, []);
-
-	const startBreadcrumbLanguageSwitch = useCallback(() => {
-		if (languageSwitchingRef.current || desiredLocaleRef.current === breadcrumbLocale) {
-			return;
-		}
-
-		languageSwitchingRef.current = true;
-		const targetLocale = desiredLocaleRef.current;
-		const baseOld = titleRootRef.current?.querySelector(`.languageGroup.${breadcrumbLocale}`);
-		const separatorOld = caseSeparatorRootRef.current?.querySelector(`.languageGroup.${breadcrumbLocale}`);
-		const caseOld = caseCrumbRootRef.current?.querySelector(`.languageGroup.${breadcrumbLocale}`);
-		const baseNew = titleRootRef.current?.querySelector(`.languageGroup.${targetLocale}`);
-		const separatorNew = caseSeparatorRootRef.current?.querySelector(`.languageGroup.${targetLocale}`);
-		const caseNew = caseCrumbRootRef.current?.querySelector(`.languageGroup.${targetLocale}`);
-		const totalCrumbLetters = Math.max(
-			countGlitchLetters(baseOld, separatorOld, caseOld),
-			countGlitchLetters(baseNew, separatorNew, caseNew),
-		);
-		const sharedSnakeLength = getSnakeLength(totalCrumbLetters);
-		languageSnakeLengthRef.current = sharedSnakeLength;
-		const soundDuration =
-			estimateGroupSnakeDuration(baseOld, sharedSnakeLength)
-			+ Math.max(
-				estimateGroupSnakeDuration(separatorOld, sharedSnakeLength),
-				estimateGroupSnakeDuration(caseOld, sharedSnakeLength),
-			)
-			+ estimateGroupSnakeDuration(baseNew, sharedSnakeLength)
-			+ Math.max(
-				estimateGroupSnakeDuration(separatorNew, sharedSnakeLength),
-				estimateGroupSnakeDuration(caseNew, sharedSnakeLength),
-			);
-		if (soundDuration > 0) {
-			playGlitchTextSound(
-				soundDuration,
-				"route",
-				TOP_HUD_GLITCH_SOUND_PAN,
-				{ x: -0.45, y: 2.2, z: -0.45 },
-				{ loopToDuration: true, volumeGain: TOP_HUD_CRUMB_SOUND_GAIN },
-			);
-		}
-		const baseDisappearMs = runTopHudCrumbSnake(baseOld, "disappear", sharedSnakeLength);
-
-		scheduleLanguageStep(() => {
-			const separatorDisappearMs = runTopHudCrumbSnake(separatorOld, "disappear", sharedSnakeLength);
-			const caseDisappearMs = Math.max(
-				separatorDisappearMs,
-				runTopHudCrumbSnake(caseOld, "disappear", sharedSnakeLength),
-			);
-			scheduleLanguageStep(() => {
-				setManagedLocaleAppear(true);
-				setBreadcrumbLocale(targetLocale);
-			}, caseDisappearMs);
-		}, baseDisappearMs);
-	}, [breadcrumbLocale, scheduleLanguageStep]);
-	languageSwitchStarterRef.current = startBreadcrumbLanguageSwitch;
-
-	useEffect(() => {
-		desiredLocaleRef.current = normalizedLocale;
-		// Defer past the click frame so home hero 4K canvas snakes can start without HTML glitch storm.
-		let raf2 = 0;
-		const raf1 = requestAnimationFrame(() => {
-			raf2 = requestAnimationFrame(() => {
-				startBreadcrumbLanguageSwitch();
-			});
-		});
-		return () => {
-			cancelAnimationFrame(raf1);
-			if (raf2) {
-				cancelAnimationFrame(raf2);
-			}
-		};
-	}, [normalizedLocale, startBreadcrumbLanguageSwitch]);
-
-	useLayoutEffect(() => {
-		if (!managedLocaleAppear) {
-			return;
-		}
-
-		// Children have already selected the new locale and prepared its letters
-		// as hidden. Start the two appear snakes strictly from left to right.
-		queueMicrotask(() => {
-			const baseNew = titleRootRef.current?.querySelector(`.languageGroup.${breadcrumbLocale}`);
-			const sharedSnakeLength = languageSnakeLengthRef.current;
-			const baseAppearMs = runTopHudCrumbSnake(baseNew, "appear", sharedSnakeLength);
-			scheduleLanguageStep(() => {
-				const separatorNew = caseSeparatorRootRef.current?.querySelector(`.languageGroup.${breadcrumbLocale}`);
-				const caseNew = caseCrumbRootRef.current?.querySelector(`.languageGroup.${breadcrumbLocale}`);
-				const caseAppearMs = Math.max(
-					runTopHudCrumbSnake(separatorNew, "appear", sharedSnakeLength),
-					runTopHudCrumbSnake(caseNew, "appear", sharedSnakeLength),
-				);
-				scheduleLanguageStep(() => {
-					setManagedLocaleAppear(false);
-					languageSwitchingRef.current = false;
-					languageSwitchStarterRef.current?.();
-				}, caseAppearMs);
-			}, baseAppearMs);
-		});
-	}, [breadcrumbLocale, managedLocaleAppear, scheduleLanguageStep]);
 
 	const startRouteSwitch = useCallback(() => {
 		if (switchingRef.current || desiredPathnameRef.current === displayedPathnameRef.current) {
@@ -310,7 +183,7 @@ export default function SiteTopHudPageRoute({ pathname, locale }) {
 			displayedPathnameRef.current = targetPathname;
 			setDisplayedPathname(targetPathname);
 		}, disappearDuration);
-	}, [getActiveCaseCrumbGroup, getActiveTitleGroup, locale]);
+	}, [breadcrumbLocale, getActiveCaseCrumbGroup, getActiveTitleGroup, locale]);
 
 	useEffect(() => {
 		desiredPathnameRef.current = pathname;
@@ -353,17 +226,16 @@ export default function SiteTopHudPageRoute({ pathname, locale }) {
 			switchingRef.current = false;
 			startRouteSwitch();
 		}, appearDuration);
-	}, [displayedPathname, getActiveCaseCrumbGroup, getActiveTitleGroup, startRouteSwitch]);
+	}, [breadcrumbLocale, displayedPathname, getActiveCaseCrumbGroup, getActiveTitleGroup, startRouteSwitch]);
 
 	useEffect(() => {
 		const root = titleRootRef.current;
 		return () => {
 			window.clearTimeout(timeoutRef.current);
 			window.cancelAnimationFrame(caseCrumbPaintRafRef.current);
-			clearLanguageTimers();
 			root?.querySelectorAll(".languageGroup").forEach((group) => abortGlitchSnake(group));
 		};
-	}, [clearLanguageTimers]);
+	}, []);
 
 	const pageTitleTexts = useMemo(() => {
 		const texts = {};
@@ -394,6 +266,7 @@ export default function SiteTopHudPageRoute({ pathname, locale }) {
 				texts={TOP_HUD_PAGE_LABEL_TRANSLATIONS}
 				locale={normalizedLocale}
 				className={styles.pageLabel}
+				managedLocaleTransition
 				alignEnd
 			/>
 			<span className={styles.pageSep} aria-hidden="true">
@@ -415,7 +288,6 @@ export default function SiteTopHudPageRoute({ pathname, locale }) {
 						hideActiveLettersOnTextMount={!titlePaintReady}
 						sizeToActiveLocale
 						managedLocaleTransition
-						prepareManagedLocaleAppear={managedLocaleAppear}
 					/>
 				</button>
 				{caseCrumbTexts[normalizedLocale] && (
@@ -434,7 +306,6 @@ export default function SiteTopHudPageRoute({ pathname, locale }) {
 								renderActiveLettersHidden={caseCrumbRenderHidden}
 								sizeToActiveLocale
 								managedLocaleTransition
-								prepareManagedLocaleAppear={managedLocaleAppear}
 							/>
 						</span>
 						<span
@@ -450,7 +321,6 @@ export default function SiteTopHudPageRoute({ pathname, locale }) {
 								renderActiveLettersHidden={caseCrumbRenderHidden}
 								sizeToActiveLocale
 								managedLocaleTransition
-								prepareManagedLocaleAppear={managedLocaleAppear}
 							/>
 						</span>
 					</button>

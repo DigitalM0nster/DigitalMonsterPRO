@@ -54,7 +54,7 @@ void main(){
 }`;
 
 // A tangent plane, like play/fullscreen: its own depth gives real perspective parallax.
-const triggerVertex=`uniform vec4 uRect;varying vec2 vUv;
+const triggerVertex=`uniform vec4 uRect;varying vec2 vUv;varying vec2 vTextUv;
 #ifdef FILM_MSDF
 attribute vec4 aGlyphRect,aGlyphUv;
 #endif
@@ -64,6 +64,7 @@ void main(){
  local=aGlyphRect.xy+uv*aGlyphRect.zw-.5;
  vUv=aGlyphUv.xy+uv*aGlyphUv.zw;
  #endif
+ vTextUv=local+.5;
  vec3 p=vec3(uRect.xy+local*uRect.zw,0.);
  gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.);}`;
 

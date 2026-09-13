@@ -6,6 +6,7 @@ import { filmPaletteGLSL } from "./filmPalette.js";
 export const filmHudVertex = `
 uniform vec4 uRect;
 varying vec2 vUv;
+varying vec2 vTextUv;
 #ifdef FILM_MSDF
 attribute vec4 aGlyphRect,aGlyphUv;
 #endif
@@ -20,6 +21,7 @@ void main(){
  local=aGlyphRect.xy+uv*aGlyphRect.zw-.5;
  vUv=aGlyphUv.xy+uv*aGlyphUv.zw;
  #endif
+ vTextUv=local+.5;
  #if defined(FILM_LOW) && defined(FILM_RULE_GLOW)
  // Give the rule's local halo space without changing its luminous core width.
  local*=mix(vec2(1.,6.),vec2(6.,1.),uVertical);
@@ -32,8 +34,11 @@ void main(){
 
 export const filmHudTextFragment = `
 uniform sampler2D uMap;uniform float uOpacity;uniform float uGain;
+uniform float uLocaleReveal;
 uniform vec3 uInk;uniform vec2 uMsdfRange;
 varying vec2 vUv;
+varying vec2 vTextUv;
+float localeHash(vec2 p){vec3 p3=fract(vec3(p.xyx)*.1031);p3+=dot(p3,p3.yzx+33.33);return fract((p3.x+p3.y)*p3.z);}
 void main(){
  vec4 ink=texture2D(uMap,vUv);
  #ifdef FILM_MSDF
@@ -50,6 +55,13 @@ void main(){
  ink.rgb=uInk;
  #endif
  gl_FragColor=vec4(ink.rgb*gain,ink.a*uOpacity);
+ // Same unequal digital tile dropout as FilmScreen, reversed for reassembly.
+ // Local coordinates keep MSDF glyphs inside their prepared atlas cells.
+ float seed=localeHash(floor(vTextUv*vec2(32.,8.)));
+ float phase=clamp(((1.-uLocaleReveal)-(.015+seed*.70))/(.16+localeHash(vec2(seed,21.7))*.12),0.,1.);
+ float head=smoothstep(0.,.18,phase)*(1.-smoothstep(.74,1.,phase));
+ gl_FragColor.rgb+=vec3(0.,.25,.4)*head;
+ gl_FragColor.a*=1.-smoothstep(.40,.59,phase);
  #include <colorspace_fragment>
 }`;
 

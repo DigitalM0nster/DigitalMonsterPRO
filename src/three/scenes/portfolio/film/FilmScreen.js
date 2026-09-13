@@ -7,6 +7,7 @@ import { getGraphicsTier } from "@/functions/getGraphicsTier.js";
 import { hologramVertex, hologramFragment, hologramFrameFragment } from "./filmHologramShaders.js";
 import { hologramFields, loadHologramSettings } from "./filmHologramConfig.js";
 import { FilmHologramDevTools } from "./FilmHologramDevTools.js";
+import { siteLocaleReveal } from "@/functions/siteLocaleTransitionState.js";
 
 export class FilmScreen {
  constructor(media,reducedMotion,infoTextures) {
@@ -25,7 +26,7 @@ export class FilmScreen {
   this.uniforms={uFrom:{value:media.get(0)},uTo:{value:media.get(0)},uFromAspect:{value:media.aspect(0)},uToAspect:{value:media.aspect(0)},
    uFromInfo:{value:new THREE.Vector2()},uToInfo:{value:new THREE.Vector2()},
    uProgress:{value:0},uDirection:{value:1},uOpacity:{value:1},uReduced:{value:reducedMotion?1:0},
-   uTime:{value:0},uGlitchTime:{value:0},uFocus:{value:0},uDpr:{value:1},uLow:{value:getGraphicsTier()==="low"?1:0},uHeaderEnd:{value:-.378}};
+   uTime:{value:0},uGlitchTime:{value:0},uFocus:{value:0},uDpr:{value:1},uLow:{value:getGraphicsTier()==="low"?1:0},uHeaderEnd:{value:-.378},uLocaleReveal:{value:1}};
   for(const [key] of hologramFields)this.uniforms[`uHolo${key}`]={value:this.hologramValues[key]};
   this.material=new THREE.ShaderMaterial({uniforms:this.uniforms,vertexShader:hologramVertex,fragmentShader:hologramFragment,
    extensions:{derivatives:true},transparent:true,depthWrite:false,side:THREE.DoubleSide,
@@ -57,6 +58,7 @@ export class FilmScreen {
   return geometry;
  }
  update(motion,reveal,focus,layout,pointer,reduced,delta=0,locale="ru"){
+  this.uniforms.uLocaleReveal.value=motion.info||motion.destinationInfo?siteLocaleReveal.value:1;
   const u=this.uniforms;if(!reduced)u.uTime.value+=Math.min(delta,.05);
   u.uFocus.value=focus;
   const target=this.hologramSettings;

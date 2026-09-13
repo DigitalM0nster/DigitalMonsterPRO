@@ -1,3 +1,4 @@
+import { siteLocaleReveal, siteLocaleTransitionState } from "../../../../functions/siteLocaleTransitionState.js";
 const localeIndex = locale => locale === "en" ? 1 : locale === "zh" ? 2 : 0;
 
 /** A visible animation keeps ticking through a mix; idle/dormant text does not. */
@@ -17,12 +18,20 @@ export class SceneTextLocale {
 		this.reset();
 	}
 
-	get busy() { return this.phase !== 0; }
+	get busy() { return this.phase !== 0 || this.siteCycle === true || siteLocaleTransitionState.phase !== "idle"; }
 
-	reset() { this.phase = 0; this.reveal = 0; this.initialized = false; }
+	reset() { this.siteCycle = false; this.phase = 0; this.reveal = 0; this.initialized = false; }
 
 	update(delta, locale, naturalReveal, requested = true) {
 		const desired = localeIndex(locale);
+		if (siteLocaleTransitionState.phase !== "idle") {
+			if (!this.siteCycle) this.siteNaturalReveal = naturalReveal;
+			this.siteCycle = true; this.phase = 0; this.initialized = true;
+			this.locale = desired;
+			this.reveal = Math.min(this.siteNaturalReveal, siteLocaleReveal.value);
+			return this.reveal;
+		}
+		this.siteCycle = false;
 		if (!this.initialized) { this.locale = desired; this.initialized = true; }
 		const step = Number.isFinite(delta) ? Math.max(0, Math.min(delta, 0.05)) : 0;
 		if (!this.busy) {

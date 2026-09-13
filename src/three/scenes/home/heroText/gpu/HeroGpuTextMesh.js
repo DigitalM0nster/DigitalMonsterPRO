@@ -13,6 +13,8 @@ import { getHeroLocale, getHeroStackFontFamily, getHeroSubtitleFontFamily, HERO_
 import { getHeroResponsiveLayout } from "../heroResponsiveLayout.js";
 import { resolveReplacementGlowMetrics } from "@/components/GlitchText/drawGlitchText.js";
 import { playGlitchTextSound } from "@/sounds/soundDesign.js";
+import { siteLocaleReveal } from "@/functions/siteLocaleTransitionState.js";
+import { resolveHeroGpuSnakeTiming } from "./heroGpuSnakeTiming.js";
 
 /** Home-only GPU text: stable glyph instances, one finite locale playhead. */
 export class HeroGpuTextMesh {
@@ -25,6 +27,7 @@ export class HeroGpuTextMesh {
 		this.overlayScene = new THREE.Scene();
 		this.overlayCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 		this.uniforms = {
+			uSiteLocaleReveal: siteLocaleReveal, uSiteLocaleDuration: { value: 1 },
 			uTexture: { value: null }, uResolution: { value: new THREE.Vector2(this.width, this.height) },
 			uAtlasSize: { value: new THREE.Vector2(1, 1) }, uGlyphSharpness: { value: -1 },
 			uGlyphBrightness: { value: 1 }, uGlyphDensity: { value: 1 },
@@ -95,6 +98,10 @@ export class HeroGpuTextMesh {
 		this.uniforms.uAtlasSize.value.set(atlas.width, atlas.height);
 		this.uniforms.uTexture.value = atlas.texture;
 		this.motion = new HeroGpuSnakeMotion(this.uniforms, atlas.variants, getHeroGlitchSnakeRunOptions);
+		const timing = resolveHeroGpuSnakeTiming(atlas.variants.flatMap(copy => copy.lines), getHeroGlitchSnakeRunOptions());
+		this.uniforms.uSnakeTiming.value.set(timing.letters, timing.symbols, timing.fade, 0);
+		timing.scales.forEach((line, i) => { this.uniforms.uLineScales.value[i] = line.scale; });
+		this.uniforms.uSiteLocaleDuration.value = Math.max(...timing.scales.map(line => line.duration)) + timing.fade + 1;
 		this._syncResponsiveCopy();
 		const makeMaterial = pass => new THREE.ShaderMaterial({
 			defines: this.shaderProfile === "hint" ? { HERO_SCROLL_LABEL: 1 } : (this.msdf ? { HERO_STACK_MSDF: 1 } : {}),

@@ -2,14 +2,20 @@ import * as THREE from "three";
 import { store } from "@/app/store.jsx";
 import { sceneOwnsHexHitAtClientY } from "@/three/render/overlay/hexHitOwnership.js";
 import { registerSceneCanvasInput } from "../../interaction/sceneCanvasInput.js";
+import { siteLocaleReveal } from "@/functions/siteLocaleTransitionState.js";
 
 const vertexShader = `uniform vec2 viewport;uniform vec4 rect;varying vec2 vUv;varying vec2 pixel;
 void main(){vUv=uv;pixel=rect.xy+vec2(uv.x,1.-uv.y)*rect.zw;
 gl_Position=vec4(pixel.x/viewport.x*2.-1.,1.-pixel.y/viewport.y*2.,0.,1.);}`;
-const fragmentShader = `uniform sampler2D map;uniform float textured;uniform vec3 color;uniform float opacity;uniform vec4 clip;uniform vec4 rect;uniform float focused;
+const fragmentShader = `uniform float localeReveal;uniform float localeDigital;uniform sampler2D map;uniform float textured;uniform vec3 color;uniform float opacity;uniform vec4 clip;uniform vec4 rect;uniform float focused;
 varying vec2 vUv;varying vec2 pixel;
 void main(){if(pixel.x<clip.x||pixel.y<clip.y||pixel.x>clip.z||pixel.y>clip.w)discard;
 vec4 c=textured>.5?texture2D(map,vUv):vec4(1.);
+if(localeDigital>.5 && textured>.5 && localeReveal<1.){
+ vec2 cell=floor(vUv*vec2(32.,8.));float seed=fract(sin(dot(cell,vec2(127.1,311.7)))*43758.5453);
+ float phase=clamp((1.-localeReveal-.2*seed)/.8,0.,1.);
+ c.rgb=mix(c.rgb,vec3(.1,.76,1.),sin(phase*3.14159)*.45);c.a*=1.-smoothstep(.4,.59,phase);
+}
 vec2 edge=min(pixel-rect.xy,rect.xy+rect.zw-pixel);float ring=focused*(1.-smoothstep(1.,2.,min(edge.x,edge.y)));
 gl_FragColor=vec4(mix(c.rgb*color,vec3(0.,.66,1.),ring),max(c.a*opacity,ring));}`;
 
@@ -95,7 +101,7 @@ export class SceneCanvasInterface {
 	add(id, options = {}) {
 		const material = new THREE.ShaderMaterial({ vertexShader, fragmentShader, transparent: true,
 			depthTest: false, depthWrite: false, toneMapped: false,
-			uniforms: { viewport: { value: new THREE.Vector2(1, 1) }, rect: { value: new THREE.Vector4() },
+			uniforms: { localeReveal: siteLocaleReveal, localeDigital: {value:this.sceneId === "portfolioHub" ? 1 : 0}, viewport: { value: new THREE.Vector2(1, 1) }, rect: { value: new THREE.Vector4() },
 				clip: { value: new THREE.Vector4(-1e5, -1e5, 1e5, 1e5) }, map: { value: null },
 				textured: { value: options.paint ? 1 : 0 }, focused: { value: 0 }, color: { value: new THREE.Color(1, 1, 1) }, opacity: { value: 1 } } });
 		const mesh = new THREE.Mesh(this.geometry, material); mesh.frustumCulled = false;
@@ -144,7 +150,9 @@ export class SceneCanvasInterface {
 		const item = this.elements.get(id); if (!item) return;
 		item.mesh.visible = this.enabled && opacity > .001 && width > 0 && height > 0;
 		const u = item.material.uniforms; u.rect.value.set(x, y, width, height); u.viewport.value.set(this.width, this.height);
-		u.opacity.value = opacity; u.color.value.setHex(color, THREE.LinearSRGBColorSpace);
+		// Prepared text changes only at the shared hidden commit. Preserve the
+		// element's existing reveal/opacity; geometry and hit ownership stay local.
+		u.opacity.value = opacity * (item.paint && this.sceneId !== "portfolioHub" ? siteLocaleReveal.value : 1); u.color.value.setHex(color, THREE.LinearSRGBColorSpace);
 		if (key != null) u.map.value = item.textures.get(String(key)) ?? item.textures.values().next().value;
 		if (item.button) {
 			const label = item.ariaLabel ?? item.values?.[key] ?? item.values?.default ?? id;

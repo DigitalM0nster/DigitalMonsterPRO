@@ -1,3 +1,4 @@
+import { siteLocaleReveal, siteLocaleTransitionState } from "@/functions/siteLocaleTransitionState.js";
 import * as THREE from "three";
 import { subscribeKey } from "valtio/utils";
 import { store } from "@/app/store.jsx";
@@ -338,8 +339,11 @@ export class AboutEpicTextController {
 		if (!variant) return;
 		const a = THREE.MathUtils.clamp(state.appear ?? 0, 0, 1);
 		const e = THREE.MathUtils.clamp(state.exit ?? 0, 0, 1);
-		const locale = THREE.MathUtils.clamp(state.locale ?? 0, 0, 1);
-		const role = Number(state.role) || 0;
+		const phase = siteLocaleTransitionState.phase;
+		const active = phase !== "idle";
+		const outgoing = phase === "disappearing" || phase === "swapping";
+		const locale = active ? (outgoing ? 1 - siteLocaleReveal.value : siteLocaleReveal.value) : THREE.MathUtils.clamp(state.locale ?? 0, 0, 1);
+		const role = active ? (outgoing ? 1 : 2) : Number(state.role) || 0;
 		for (const mat of [variant.fillMat, variant.strokeMat]) {
 			if (!mat?.uniforms) continue;
 			mat.uniforms.uAppear.value = a;

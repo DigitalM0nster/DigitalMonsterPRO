@@ -191,7 +191,11 @@ export class ScreenCompositor {
 			gl.render(edgeShadeScene, screenCamera);
 		}
 
-		if (overlayTexture) {
+		if (overlayTexture?.renderToLayer) {
+			gl.setRenderTarget(renderTarget);
+			gl.autoClear = false;
+			overlayTexture.renderToLayer(gl);
+		} else if (overlayTexture) {
 			applyScreenTextureColorSpace(overlayTexture, gl);
 			const overlayUniforms = this.overlayMaterial.uniforms;
 			overlayUniforms.maskEnabled.value = 0;

@@ -66,6 +66,37 @@ let emptyCanvas = null;
 let mosaic = null;
 /** @type {string} */
 let paintKey = "";
+const preparedLocales = new Map();
+const pendingLocalePaints = new Map();
+let preparedViewport = "";
+const nextPaint = () => new Promise(resolve => requestAnimationFrame(resolve));
+
+export function selectPreparedAboutPanelHudLocale(locale, width = window.innerWidth, height = window.innerHeight) {
+	const buffers = preparedLocales.get(`${normalizeSiteLocale(locale)}|${width}x${height}`);
+	if (!buffers) return false;
+	({ text1Canvas, text2Canvas, text3Canvas, emptyCanvas, mosaic, paintKey } = buffers);
+	contentPairKey = "none";
+	return true;
+}
+
+export function clearPreparedAboutPanelHudLocales() {
+	preparedLocales.clear(); preparedViewport = "";
+}
+
+function cropAboutCanvas(source, bounds, viewportW, viewportH) {
+	const sx = source.width / viewportW, sy = source.height / viewportH;
+	const x = Math.max(0, Math.floor((bounds.x - 4) * sx));
+	const y = Math.max(0, Math.floor((bounds.y - 4) * sy));
+	const right = Math.min(source.width, Math.ceil((bounds.x + bounds.width + 4) * sx));
+	const bottom = Math.min(source.height, Math.ceil((bounds.y + bounds.height + 4) * sy));
+	const canvas = document.createElement("canvas");
+	canvas.width = Math.max(1, right - x); canvas.height = Math.max(1, bottom - y);
+	canvas.getContext("2d").drawImage(source, x, y, canvas.width, canvas.height, 0, 0, canvas.width, canvas.height);
+	canvas.screenWidthPx = source.width; canvas.screenHeightPx = source.height;
+	canvas.screenRegion = { x: x / sx, y: y / sy, width: canvas.width / sx, height: canvas.height / sy, viewportWidth: viewportW, viewportHeight: viewportH };
+	source.width = source.height = 1;
+	return canvas;
+}
 /** @type {string} */
 let contentPairKey = "none";
 /** @type {number} */
@@ -224,7 +255,17 @@ function applyIdleEnterForStoryPair(from, mix) {
  *   shouldCommit?: () => boolean,
  * }} [opts]
  */
-export async function ensureAboutPanelHudCanvases(opts = {}) {
+export function ensureAboutPanelHudCanvases(opts = {}) {
+	const key = `${normalizeSiteLocale(opts.locale ?? store.siteLocale)}|${opts.viewportW ?? window.innerWidth}x${opts.viewportH ?? window.innerHeight}`;
+	if (pendingLocalePaints.has(key)) return pendingLocalePaints.get(key);
+	const job = paintAboutPanelHudCanvases(opts);
+	pendingLocalePaints.set(key, job);
+	const release = () => { if (pendingLocalePaints.get(key) === job) pendingLocalePaints.delete(key); };
+	job.then(release, release);
+	return job;
+}
+
+async function paintAboutPanelHudCanvases(opts = {}) {
 	if (typeof document === "undefined") {
 		return false;
 	}
@@ -233,16 +274,9 @@ export async function ensureAboutPanelHudCanvases(opts = {}) {
 	const viewportW = Math.max(1, opts.viewportW ?? window.innerWidth);
 	const viewportH = Math.max(1, opts.viewportH ?? window.innerHeight);
 	const nextKey = `${locale}|${viewportW}x${viewportH}`;
-	if (
-		!opts.force
-		&& paintKey === nextKey
-		&& text1Canvas?.width
-		&& text2Canvas?.width
-		&& text3Canvas?.width
-		&& emptyCanvas?.width
-	) {
-		return true;
-	}
+	const viewportKey = `${viewportW}x${viewportH}`;
+	if (preparedViewport !== viewportKey) { preparedLocales.clear(); preparedViewport = viewportKey; }
+	if (selectPreparedAboutPanelHudLocale(locale, viewportW, viewportH)) return true;
 
 	await ensureCaseStudyCanvasFonts();
 	if (opts.shouldCommit?.() === false) {
@@ -287,7 +321,8 @@ export async function ensureAboutPanelHudCanvases(opts = {}) {
 		return false;
 	}
 
-	painter({
+	await nextPaint();
+	const secondResult = painter({
 		...paintArgs,
 		canvas: c2,
 		frame: buildFrame("text2", locale, 1),
@@ -295,7 +330,8 @@ export async function ensureAboutPanelHudCanvases(opts = {}) {
 	if (opts.shouldCommit?.() === false) {
 		return false;
 	}
-	painter({
+	await nextPaint();
+	const thirdResult = painter({
 		...paintArgs,
 		canvas: c3,
 		frame: buildFrame("text3", locale, 2),
@@ -312,12 +348,16 @@ export async function ensureAboutPanelHudCanvases(opts = {}) {
 		return false;
 	}
 
-	text1Canvas = c1;
-	text2Canvas = c2;
-	text3Canvas = c3;
-	emptyCanvas = empty;
-	mosaic = buildMosaic(c1, fromResult.mosaicBounds ?? null, viewportW);
-	paintKey = nextKey;
+	const bounds = [fromResult, secondResult, thirdResult].map(result => result?.mosaicBounds).filter(Boolean);
+	const left = Math.min(...bounds.map(b => b.x)), top = Math.min(...bounds.map(b => b.y));
+	const right = Math.max(...bounds.map(b => b.x + b.width)), bottom = Math.max(...bounds.map(b => b.y + b.height));
+	const crop = bounds.length ? { x: left, y: top, width: right - left, height: bottom - top } : { x: 0, y: 0, width: viewportW, height: viewportH };
+	const preparedMosaic = buildMosaic(c1, fromResult.mosaicBounds ?? null, viewportW);
+	const cropped = [];
+	for (const canvas of [c1, c2, c3, empty]) { await nextPaint(); cropped.push(cropAboutCanvas(canvas, crop, viewportW, viewportH)); }
+	const buffers = { text1Canvas: cropped[0], text2Canvas: cropped[1], text3Canvas: cropped[2], emptyCanvas: cropped[3], mosaic: preparedMosaic, paintKey: nextKey };
+	preparedLocales.set(nextKey, buffers);
+	selectPreparedAboutPanelHudLocale(locale, viewportW, viewportH);
 	return true;
 }
 

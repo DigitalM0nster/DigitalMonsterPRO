@@ -1,4 +1,5 @@
 import { store } from "@/app/store.jsx";
+import { isSiteLocaleTransitionActive } from "./siteLocaleTransitionState.js";
 import { getSceneCarousel } from "@/three/render/transition/carouselPage.js";
 import { isCapabilitySceneId } from "@/pages/capabilities/data/capabilities.js";
 
@@ -14,6 +15,7 @@ import { isCapabilitySceneId } from "@/pages/capabilities/data/capabilities.js";
  * @param {string} sceneId ring scene id (home | portfolioHub | capabilities:* | about | contacts)
  */
 export function shouldAnimateSiteLocaleForRingScene(sceneId) {
+	if (isSiteLocaleTransitionActive()) return false;
 	if (store.openedCase) {
 		return false;
 	}
@@ -22,6 +24,7 @@ export function shouldAnimateSiteLocaleForRingScene(sceneId) {
 
 /** Case HUD / arc / project-nav chrome — animate only while a case is open. */
 export function shouldAnimateSiteLocaleForCaseChrome() {
+	if (isSiteLocaleTransitionActive()) return false;
 	if (store.openedCase) {
 		return true;
 	}

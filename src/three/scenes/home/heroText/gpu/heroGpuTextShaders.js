@@ -3,6 +3,7 @@ import { heroPageRevealFunctionsGlsl, heroPageRevealUniformsGlsl } from "@/three
 export const heroGpuTextVertex = /* glsl */ `
 uniform vec2 uResolution, uOrigin, uBlockSize, uBlockPad;
 uniform float uLocaleFrom, uLocaleTo, uSnakeTime, uDecorationWidth, uPass, uLayoutDpr;
+uniform float uSiteLocaleReveal, uSiteLocaleDuration;
 uniform vec4 uSnakeTiming;
 uniform float uLineScales[32];
 uniform float uTextScale;
@@ -23,12 +24,13 @@ void main() {
 	vAlpha=1.0; vDecoration=step(aLetter.x,-0.5); vSymbol=vDecoration;
 	float frame=0.0;
 	if(vDecoration<0.5){
-		if(uSnakeTime<0.0){ vAlpha=1.0-step(0.1,abs(aLetter.x-uLocaleFrom)); }
+		bool siteCycle=uSiteLocaleReveal<1.0;
+		if(uSnakeTime<0.0 && !siteCycle){ vAlpha=1.0-step(0.1,abs(aLetter.x-uLocaleFrom)); }
 		else {
-			bool incoming=abs(aLetter.x-uLocaleTo)<0.1;
-			bool outgoing=abs(aLetter.x-uLocaleFrom)<0.1;
+			bool incoming=abs(aLetter.x-(siteCycle?uLocaleFrom:uLocaleTo))<0.1;
+			bool outgoing=!siteCycle && abs(aLetter.x-uLocaleFrom)<0.1;
 			float scale=uLineScales[int(aLetter.y)];
-			float clock=uSnakeTime-(incoming?uSnakeTiming.w:0.0);
+			float clock=siteCycle?uSiteLocaleReveal*uSiteLocaleDuration-.01:uSnakeTime-(incoming?uSnakeTiming.w:0.0);
 			float delay=floor((aLetter.z*aSymbols*uSnakeTiming.y+aLetter.w*uSnakeTiming.x)*scale+0.5);
 			float duration=floor(aSymbols*uSnakeTiming.y*scale+0.5);
 			float local=clock-delay;

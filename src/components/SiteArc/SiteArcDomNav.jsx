@@ -1,6 +1,7 @@
+import { siteArcLabelBridge } from "./three/SiteArcLabels.js";
 /**
  * Right-arc project labels + hit targets as DOM.
- * Track / nodes / glow — WebGL. Labels — CanvasGlitchText snake (hub list engine).
+ * Track, nodes and prepared glyph-snake labels — WebGL. Hit targets remain DOM.
  * Num/title offsets match caseStudyCanvasDraw (absolute around node Y).
  */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from "react";
@@ -16,13 +17,12 @@ import {
 import { syncArcGlowTargetFromScroll } from "./siteArcGlowMotion.js";
 import { setSiteArcPreviewProjectId } from "./siteArcProjects.js";
 import { buildSiteArcNavLayout } from "./siteArcNavLayout.js";
-import { SITE_ARC_DISPLAY_FONT, SITE_ARC_TEXT_COLOR } from "./siteArcConfig.js";
+import { SITE_ARC_DISPLAY_FONT } from "./siteArcConfig.js";
 import {
 	disposeSiteArcNavSnakeIfOrphaned,
 	paintSiteArcNavSnakeDomLabel,
 	playSiteArcNavSnakeHover,
 	registerSiteArcNavSnakeRepaint,
-	syncSiteArcNavSnakeLines,
 } from "./siteArcNavSnake.js";
 import styles from "./SiteArcDomNav.module.scss";
 import { getSiteArcViewportOpacity } from "./siteArcCarouselMotion.js";
@@ -31,7 +31,6 @@ const MAX_ITEMS = 16;
 const MAX_TITLE_LINES = 2;
 const SLOT_KEYS = Array.from({ length: MAX_ITEMS }, (_, i) => `arc-slot-${i}`);
 /** Em letter-spacing for CanvasGlitchText (not px). Hub titles ~0.08–0.12; arc needs more air at 9px. */
-const TITLE_LETTER_SPACING_EM = 0.16;
 const NUM_LETTER_SPACING_EM = 0.06;
 /** Matches siteArcNavSnake CanvasGlitchText padding — cancel so glyphs stay on the node stack. */
 const SNAKE_PAD_X = 10;
@@ -98,6 +97,7 @@ export default function SiteArcDomNav({
 		host.style.opacity = String(viewportOpacity);
 		host.style.visibility = viewportOpacity > 0.01 ? "visible" : "hidden";
 		layoutRef.current = layout;
+		Object.assign(siteArcLabelBridge, {layout, width:w, height:h, opacity:viewportOpacity});
 		host.style.setProperty("--arc-active", layout.activeColor);
 
 		const items = layout.items;
@@ -137,7 +137,6 @@ export default function SiteArcDomNav({
 			slot.empty = false;
 
 			const color = item.isActive ? activeColor : inactiveColor;
-			const titleColor = item.isActive ? SITE_ARC_TEXT_COLOR : inactiveColor;
 			const titleLines = item.titleLines?.length ? item.titleLines : [item.title];
 			let maxLabelWidth = 48;
 
@@ -152,7 +151,6 @@ export default function SiteArcDomNav({
 			el.style.opacity = String(item.opacity);
 			el.classList.toggle(styles.itemActive, item.isActive);
 
-			syncSiteArcNavSnakeLines(item.id, titleLines.length);
 
 			if (numCanvas instanceof HTMLCanvasElement) {
 				// caseStudyCanvasDraw: y = -stackGap/2 - indexFontSize (minus glow pad)
@@ -175,30 +173,9 @@ export default function SiteArcDomNav({
 				numCanvas.style.right = `${-SNAKE_PAD_X}px`;
 			}
 
-			for (let line = 0; line < MAX_TITLE_LINES; line += 1) {
-				const canvas = titleCanvases[line];
-				const lineText = titleLines[line] ?? "";
-				if (!(canvas instanceof HTMLCanvasElement)) {
-					continue;
-				}
-				if (!lineText) {
-					clearCanvas(canvas);
-					continue;
-				}
-				// caseStudyCanvasDraw: y = stackGap/2 + lineIndex * titleLineH (minus glow pad)
-				canvas.style.top = `${stackGap / 2 + line * titleLineH - SNAKE_PAD_Y}px`;
-				const metrics = paintSiteArcNavSnakeDomLabel(canvas, `${item.id}::${line}`, lineText, {
-					fontSize: titleFont,
-					fontWeight: 500,
-					letterSpacing: TITLE_LETTER_SPACING_EM,
-					fontFamily: SITE_ARC_DISPLAY_FONT,
-					color: titleColor,
-					uppercase: true,
-				});
-				maxLabelWidth = Math.max(maxLabelWidth, metrics?.width ?? 0);
-				canvas.style.left = "auto";
-				canvas.style.right = `${-SNAKE_PAD_X}px`;
-			}
+			// The GPU owner paints prepared labels after bloom; these fixed DOM slots only keep hits.
+			titleCanvases.forEach(canvas => { canvas.style.visibility = "hidden"; });
+			maxLabelWidth = Math.max(maxLabelWidth, siteArcLabelBridge.owner?.width(item.id) ?? 48);
 
 			// One hit region spans the left-growing labels, the gap and the node.
 			if (labelHit instanceof HTMLElement) {
@@ -278,6 +255,7 @@ export default function SiteArcDomNav({
 		if (!projectId || el?.hidden) {
 			return;
 		}
+		siteArcLabelBridge.owner?.hover(projectId);
 		playSiteArcNavSnakeHover(projectId);
 	}, []);
 

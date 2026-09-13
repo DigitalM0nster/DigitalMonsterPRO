@@ -8,6 +8,7 @@ import { requestSharedAnimationFrame } from "@/functions/sharedAnimationFrame.js
 import { ensureCaseStudyCanvasFonts } from "@/pages/portfolio/ui/CaseStudyCanvas/caseStudyCanvasText.js";
 import {
 	ensureAboutPanelHudCanvases,
+	clearPreparedAboutPanelHudLocales,
 	getAboutPanelHudSessionBuffers,
 	publishAboutPanelHudContentMode,
 	resetAboutPanelHudStorySession,
@@ -84,14 +85,15 @@ export async function warmAboutPanelHudUnderCurtain({ sceneManager, renderer }) 
 				viewportH,
 				force: true,
 			});
-			if (!ok) {
-				continue;
-			}
-			if (locale === activeLocale) {
-				uploadAboutWarm(sceneManager, renderer);
+			if (!ok) throw new Error("About locale paint did not finish");
+			const buffers = getAboutPanelHudSessionBuffers();
+			const hud = sceneManager.getSceneById?.("about")?.panelHud;
+			for (const canvas of [buffers.text1Canvas, buffers.text2Canvas, buffers.text3Canvas, buffers.emptyCanvas]) {
+				await yieldToNextPaint();
+				hud?.warmTexturePool([canvas], renderer);
 			}
 		} catch (error) {
-			console.warn("[aboutPanelHud] warm paint failed", locale, error);
+			throw new Error(`[aboutPanelHud] warm paint failed for ${locale}`, { cause: error });
 		}
 	}
 
@@ -161,4 +163,5 @@ export async function rewarmAboutPanelHudGpuForLocale(locale) {
 export function clearWarmAboutPanelHud() {
 	warmSceneManager = null;
 	warmRenderer = null;
+	clearPreparedAboutPanelHudLocales();
 }

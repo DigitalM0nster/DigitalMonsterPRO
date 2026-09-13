@@ -7,6 +7,8 @@ import {
 	runAtenCharSnake,
 } from "./atenCharSnakeAnimation.js";
 import "./leftMenuGlitchText.scss";
+import { useSiteLocaleGlitch } from "@/hooks/useSiteLocaleGlitch.js";
+import { isSiteLocaleTransitionActive } from "@/functions/siteLocaleTransitionState.js";
 
 /** Все glitch-символы буквы — как replacements в hub GlitchSnakeEngine (обычно 3). */
 function getAtenSymbols(letter) {
@@ -78,6 +80,10 @@ const LeftMenuGlitchLabel = forwardRef(function LeftMenuGlitchLabel(
 	const isDisplayedRef = useRef(isDisplayed);
 	activeRef.current = active;
 	isDisplayedRef.current = isDisplayed;
+	useSiteLocaleGlitch(rootRef, text, {
+		scope: () => isDisplayedRef.current ? rootRef.current : null,
+		hide: prepareAtenHidden, run: runAtenCharSnake, timing: { reverseOrder: reverse },
+	});
 
 	useLayoutEffect(() => {
 		// Hidden labels: skip Aten rebuild/hide pass on locale (home hitch).
@@ -96,12 +102,14 @@ const LeftMenuGlitchLabel = forwardRef(function LeftMenuGlitchLabel(
 			playAppear(options = {}) {
 				// Locale may have updated while hidden without prepareAtenHidden.
 				prepareAtenHidden(rootRef.current);
+				if (isSiteLocaleTransitionActive()) return 0;
 				return runAtenCharSnake(rootRef.current, "appear", { ...options, reverseOrder: reverse });
 			},
 			playDisappear(options = {}) {
 				return runAtenCharSnake(rootRef.current, "disappear", { ...options, reverseOrder: reverse });
 			},
 			playHover(options = {}) {
+				if (isSiteLocaleTransitionActive()) return 0;
 				return runAtenCharSnake(rootRef.current, "hover", { ...options, reverseOrder: reverse });
 			},
 			cancelAndHide() {

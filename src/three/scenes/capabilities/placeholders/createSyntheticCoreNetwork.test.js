@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createSyntheticCoreNetwork } from "./createSyntheticCoreNetwork.js";
+import { setScenePixelRatio } from "../../../renderer/renderResolution.js";
 
 test("every moving link endpoint uses the exact node position and animation seed on every tier", () => {
 	for (const [detail, count] of [[0.5, 21], [0.75, 27], [1, 36]]) {
@@ -19,7 +20,7 @@ test("every moving link endpoint uses the exact node position and animation seed
 			assert.ok(nodeKeys.has(other), "ribbon direction must track the other moving node");
 		}
 		lines.onBeforeRender({ getCurrentViewport: target => target.set(0, 0, 320, 640) });
-		nodes.onBeforeRender({ getPixelRatio: () => 2 });
+		nodes.onBeforeRender({ getPixelRatio: () => 2, getRenderTarget: () => null });
 		assert.deepEqual(lines.material.uniforms.uViewport.value.toArray(), [320, 640]);
 		assert.equal(nodes.material.uniforms.uPixelRatio.value, 2);
 		for (const object of group.children) {
@@ -35,4 +36,21 @@ test("every moving link endpoint uses the exact node position and animation seed
 			object.geometry.dispose(); object.material.dispose();
 		}
 	}
+});
+
+test("mobile scene targets do not inherit the sharper output canvas point size; High and screen draws retain their DPR", () => {
+	const group = createSyntheticCoreNetwork({ time: { value: 0 }, assembly: { value: 0 } });
+	const nodes = group.children[1];
+	let target = {};
+	const renderer = { getPixelRatio: () => 2, getRenderTarget: () => target };
+	for (const sceneRatio of [1, 2]) {
+		setScenePixelRatio(renderer, sceneRatio);
+		target = {};
+		nodes.onBeforeRender(renderer);
+		assert.equal(nodes.material.uniforms.uPixelRatio.value, sceneRatio);
+		target = null;
+		nodes.onBeforeRender(renderer);
+		assert.equal(nodes.material.uniforms.uPixelRatio.value, 2);
+	}
+	for (const object of group.children) { object.geometry.dispose(); object.material.dispose(); }
 });

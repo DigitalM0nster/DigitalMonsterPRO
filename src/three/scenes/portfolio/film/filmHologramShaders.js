@@ -233,7 +233,14 @@ void main(){
   float ends=smoothstep(railBottom-.001,railBottom+.001,p.y)*(1.-smoothstep(railTop-.001,railTop+.001,p.y));
   float filled=1.-smoothstep(max(.005,uReadingScroll.x),max(.005,uReadingScroll.x)+.002,along);
   float track=core*.23*ends;
-  float light=(core*(1.3+uReadingScroll.w*.6)+exp(-distance*.85)*.30)*filled*ends;
+  #ifdef FILM_LOW
+  // Low tier has no bloom pass: preserve the light with two soft falloff widths.
+  float light=(core*(2.8+uReadingScroll.w*.6)+exp(-distance*.40)*.65+exp(-distance*.13)*.12)*filled*ends;
+  #else
+  // The blue core must exceed the scene's HDR luminance threshold after downsampling.
+  // Leave the unfilled track below that threshold; only reading progress blooms.
+  float light=(core*(3.2+uReadingScroll.w*.8)+exp(-distance*.42)*.28)*filled*ends*filmUiGain;
+  #endif
   float cueScale=pixels.x<500.?.78:1.;
   vec2 cue=(p-vec2(railX-26./pixels.x,0.))*pixels/cueScale;
   float travel=10.*sin(uReadingScroll.z*2.24399475);

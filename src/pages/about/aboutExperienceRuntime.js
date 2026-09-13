@@ -690,7 +690,9 @@ function createAboutExperienceRuntime() {
 		const freshGesture = reversing || now - lastWheelAt > WHEEL_IDLE_MS;
 		lastWheelAt = now;
 		wheelDirection = direction;
-		if (freshGesture) {
+		// A burst can start while the last pose is still settling. Recheck until
+		// that pose reaches the boundary, so continued wheel input can leave.
+		if (freshGesture || !wheelBoundaryGesture) {
 			wheelBoundaryGesture = isRouteEdgeStory(target)
 				|| (direction < 0 && current <= 1e-4 && target <= 0)
 				|| (direction > 0 && current >= STORY_MAX - 1e-4 && target >= STORY_MAX);

@@ -81,6 +81,7 @@ test("the last spring frame sends zero delta before rAF stops, including a snapp
 			isCompactAboutStory: () => false, touchId: null,
 			CAROUSEL_PROGRESS_COMMIT_EPS: 1e-4, CAROUSEL_PROGRESS_COMMIT_SNAP_ZONE: 0.01,
 			applyStageTargetRest: () => story, getStoryChaseConfig: () => ({}),
+			storyMotion: { velocity: 0 }, isRouteEdgeStory: () => false, chaseAboutStoryValue: () => story,
 			chaseSegmentValue: () => story, snapStoryPair: () => ({ current: story, target: story }),
 			syncBoundaryDrive() {}, tryCommitRouteLeave: () => false, publish() {},
 			storyNeedsAnimation: () => false, updateMotionSounds: delta => updates.push(delta),

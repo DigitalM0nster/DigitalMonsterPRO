@@ -18,7 +18,7 @@ import {
 	getAbsChaseSmoothMul,
 } from "@/three/render/transition/segmentScrollSpring.js";
 import states, { ABOUT_STAGE_COUNT } from "./states.js";
-import { ABOUT_OPEN_STORY_ANCHOR, getAboutStorySegment } from "./aboutStoryTiming.js";
+import { ABOUT_STORY_STOPS, getAboutStoryStepTarget, getAboutStorySegment, chaseAboutStoryValue } from "./aboutStoryTiming.js";
 import { isSceneDevToolsWheelTarget } from "@/three/dev/sceneDevPanelUtils.js";
 import {
 	armAboutPanelHudForRoute,
@@ -82,8 +82,6 @@ import { requestSiteArcScrollRepaint } from "@/pages/portfolio/core/caseStudyAni
 
 const LEGACY_STAGE_INTERVALS = Math.max(1, ABOUT_STAGE_COUNT - 1);
 const ABOUT_WHEEL_STRENGTH = 1.5;
-const ABOUT_OPEN_STAGE_WHEEL_MULTIPLIER = 1.5;
-const ABOUT_FINAL_STAGE_WHEEL_MULTIPLIER = 2;
 /** Softer than carousel — interior stages only. */
 const ABOUT_SPRING_RATES = {
 	returnSmooth: 0.7,
@@ -94,7 +92,7 @@ const ABOUT_SPRING_RATES = {
 const ABOUT_PROGRESS_SMOOTH = 2.2;
 const ABOUT_PROGRESS_CHASE_FINAL_SMOOTH_MUL = 1.35;
 const ABOUT_COMPACT_SPRING_RATES = { returnSmooth: 1.8, advanceSmooth: 1.8, retreatSmooth: 1.8, finalMul: 6 };
-const ABOUT_COMPACT_STOPS = [0, 1, 2, 4];
+
 /** Route-edge leave uses default carousel rates (empty → segmentScrollSpring defaults). */
 const CAROUSEL_EDGE_SPRING_RATES = {};
 const WHEEL_IDLE_MS = 180;
@@ -146,12 +144,9 @@ function isCompactAboutStory() {
 	return typeof window !== "undefined" && window.innerWidth <= 1024;
 }
 
-/** Four meaningful reading stops; the empty assembly pose is passed in motion. */
+/** Desktop and touch visit the same six authored model poses. */
 function getRuntimeStorySegment(story) {
-	if (!isCompactAboutStory()) return getAboutStorySegment(story);
-	const start = story >= 2 ? 2 : Math.floor(story);
-	const span = story >= 2 ? 2 : 1;
-	return { start, span, local: (story - start) / span };
+	return getAboutStorySegment(story);
 }
 
 /** Same px → unit as SceneCarousel page transitions. */
@@ -183,15 +178,8 @@ function getPixelsPerStoryUnit(storyTarget, deltaPixels, inputSource) {
 		const span = getRuntimeStorySegment(storyTarget - (deltaPixels < 0 ? 1e-6 : 0)).span;
 		return clamp(window.innerHeight * 0.78, 320, 700) / span;
 	}
-	const afterThirdStage = storyTarget > 3 || (storyTarget === 3 && deltaPixels > 0);
-	const openingStage = storyTarget < ABOUT_OPEN_STORY_ANCHOR
-		|| (storyTarget === ABOUT_OPEN_STORY_ANCHOR && deltaPixels < 0);
-	let wheelMultiplier = 1;
-	if (inputSource === "wheel") {
-		if (openingStage) wheelMultiplier = ABOUT_OPEN_STAGE_WHEEL_MULTIPLIER;
-		else if (afterThirdStage) wheelMultiplier = ABOUT_FINAL_STAGE_WHEEL_MULTIPLIER;
-	}
-	return getPixelsPerStage() / wheelMultiplier;
+	const { span } = getRuntimeStorySegment(storyTarget - (deltaPixels < 0 ? 1e-6 : 0));
+	return getPixelsPerStage() / span;
 }
 
 function clamp(value, min, max) {
@@ -279,8 +267,10 @@ function getStoryChaseConfig(storyProgress, storyTarget = storyProgress) {
 	} else {
 		absLocal = getRuntimeStorySegment(storyProgress).local;
 	}
+	const smooth = onEdge ? CAROUSEL_PROGRESS_SMOOTH : isCompactAboutStory() ? 4.6 : ABOUT_PROGRESS_SMOOTH;
+	const finalModelTransition = !onEdge && storyProgress >= 3 && storyTarget >= 3;
 	return {
-		smooth: onEdge ? CAROUSEL_PROGRESS_SMOOTH : isCompactAboutStory() ? 4.6 : ABOUT_PROGRESS_SMOOTH,
+		smooth: smooth * (finalModelTransition ? 0.5 : 1),
 		chaseMul: getAbsChaseSmoothMul(absLocal, {
 			threshold: CAROUSEL_PROGRESS_CHASE_FINAL_THRESHOLD,
 			mul: onEdge ? CAROUSEL_PROGRESS_CHASE_FINAL_SMOOTH_MUL : ABOUT_PROGRESS_CHASE_FINAL_SMOOTH_MUL,
@@ -293,13 +283,7 @@ function snapStoryPair(current, target) {
 	let nextTarget = target;
 	let nextCurrent = current;
 
-	const restPoints = [CAROUSEL_PROGRESS_SEGMENT_BACK_END];
-	if (isCompactAboutStory()) restPoints.push(...ABOUT_COMPACT_STOPS);
-	else {
-		restPoints.push(ABOUT_OPEN_STORY_ANCHOR);
-		for (let i = 0; i <= STORY_MAX; i += 1) restPoints.push(i);
-	}
-	restPoints.push(STORY_MAX + 1);
+	const restPoints = [CAROUSEL_PROGRESS_SEGMENT_BACK_END, ...ABOUT_STORY_STOPS, STORY_MAX + 1];
 
 	for (let i = 0; i < restPoints.length; i += 1) {
 		const rest = restPoints[i];
@@ -313,10 +297,9 @@ function snapStoryPair(current, target) {
 			) {
 				nextCurrent = rest;
 			} else if (
-				rest > 0
+				rest >= 0 && rest <= STORY_MAX
 				&& nextTarget === rest
-				&& nextCurrent >= rest - CAROUSEL_PROGRESS_COMMIT_SNAP_ZONE
-				&& (rest !== ABOUT_OPEN_STORY_ANCHOR || nextCurrent <= rest + CAROUSEL_PROGRESS_COMMIT_SNAP_ZONE)
+				&& Math.abs(nextCurrent - rest) <= 0.001
 			) {
 				nextCurrent = rest;
 			}
@@ -396,12 +379,16 @@ function createAboutExperienceRuntime() {
 	const entry = resolveEntryStory();
 	let current = entry.initialStory;
 	let target = entry.initialTarget;
+	const storyMotion = { velocity: 0 };
 	let rafId = 0;
 	let snapTimerId = 0;
 	let previousFrameAt = performance.now();
 	let lastPublishedStage = -1;
 	let touchId = null;
 	let touchY = 0;
+	let lastWheelAt = -Infinity;
+	let wheelDirection = 0;
+	let wheelBoundaryGesture = false;
 	let disposed = false;
 	/** @type {'forward' | 'backward' | null} */
 	let scrollIntent = null;
@@ -580,11 +567,17 @@ function createAboutExperienceRuntime() {
 		if (!(isCompactAboutStory() && touchId !== null)) target = applyStageTargetRest(target, dt);
 
 		const chase = getStoryChaseConfig(current, target);
-		current = chaseSegmentValue(current, target, dt, chase);
+		if (isRouteEdgeStory(current) || isRouteEdgeStory(target)) {
+			storyMotion.velocity = 0;
+			current = chaseSegmentValue(current, target, dt, chase);
+		} else {
+			current = chaseAboutStoryValue(current, target, dt, chase.smooth, storyMotion);
+		}
 
 		const snapped = snapStoryPair(current, target);
 		current = snapped.current;
 		target = snapped.target;
+		if (current === target) storyMotion.velocity = 0;
 
 		/** Snap forward leave like carousel when target already on segment end. */
 		if (
@@ -658,46 +651,17 @@ function createAboutExperienceRuntime() {
 		getSceneCarousel().clearAboutBoundaryDrive();
 		target = clamp(nextStory, 0, STORY_MAX);
 		current = target;
+		storyMotion.velocity = 0;
 		publish();
 		startAnimation();
 	};
 
 	const jumpByStage = (direction) => {
-		if (isCompactAboutStory()) {
-			const next = direction > 0
-				? ABOUT_COMPACT_STOPS.find(value => value > target + 0.02)
-				: ABOUT_COMPACT_STOPS.findLast(value => value < target - 0.02);
-			scrollIntent = direction > 0 ? "forward" : "backward";
-			target = next ?? (direction > 0 ? STORY_TARGET_MAX : STORY_TARGET_MIN);
-			publish(); startAnimation();
-			return;
-		}
-		if (direction > 0 && target < ABOUT_OPEN_STORY_ANCHOR - CAROUSEL_PROGRESS_COMMIT_EPS) {
-			jumpToStory(ABOUT_OPEN_STORY_ANCHOR);
-			return;
-		}
-		if (direction < 0 && target > ABOUT_OPEN_STORY_ANCHOR + CAROUSEL_PROGRESS_COMMIT_EPS && target <= 1) {
-			jumpToStory(ABOUT_OPEN_STORY_ANCHOR);
-			return;
-		}
-		if (direction < 0 && target > 0 && target <= ABOUT_OPEN_STORY_ANCHOR + CAROUSEL_PROGRESS_COMMIT_EPS) {
-			jumpToStory(0);
-			return;
-		}
-		const stageIndex = storyToStageIndex(clampStoryVisual(target));
-		const nextStageIndex = stageIndex + direction;
-		if (states[nextStageIndex]) {
-			jumpToStory(nextStageIndex);
-			return;
-		}
-
-		/** Keyboard route leave: push target into overshoot like a strong wheel. */
 		scrollIntent = direction > 0 ? "forward" : "backward";
-		if (direction < 0) {
-			target = STORY_TARGET_MIN;
-		} else {
-			target = STORY_TARGET_MAX;
-		}
+		const next = getAboutStoryStepTarget(target, direction);
+		target = next === target
+			? (direction > 0 ? STORY_TARGET_MAX : STORY_TARGET_MIN)
+			: next;
 		publish();
 		startAnimation();
 	};
@@ -718,7 +682,27 @@ function createAboutExperienceRuntime() {
 			return;
 		}
 		event.preventDefault();
-		applyInputPixels(delta, "wheel");
+		const now = performance.now();
+		const direction = Math.sign(delta);
+		const reversing = wheelDirection !== 0 && direction !== wheelDirection;
+		const freshGesture = reversing || now - lastWheelAt > WHEEL_IDLE_MS;
+		lastWheelAt = now;
+		wheelDirection = direction;
+		if (freshGesture) {
+			wheelBoundaryGesture = isRouteEdgeStory(target)
+				|| (direction < 0 && current <= 1e-4 && target <= 0)
+				|| (direction > 0 && current >= STORY_MAX - 1e-4 && target >= STORY_MAX);
+		}
+		if (wheelBoundaryGesture) {
+			applyInputPixels(delta, "wheel");
+		} else if (freshGesture) {
+			// One burst (including trackpad inertia) selects one pose. Reverse from
+			// the painted pose immediately; never teleport the rendered progress.
+			target = getAboutStoryStepTarget(reversing ? current : target, direction);
+			scrollIntent = direction > 0 ? "forward" : "backward";
+			publish();
+			startAnimation();
+		}
 	};
 
 	const onKeyDown = (event) => {
@@ -838,7 +822,7 @@ function createAboutExperienceRuntime() {
 
 	liveStoryStepHandler = (direction) => {
 		if (!direction || !ownsInput() || getSceneCarousel().isInteractionLocked()) return false;
-		const anchors = isCompactAboutStory() ? ABOUT_COMPACT_STOPS : [0, ABOUT_OPEN_STORY_ANCHOR, ...Array.from({ length: STORY_MAX }, (_, i) => i + 1)];
+		const anchors = ABOUT_STORY_STOPS;
 		const next = direction > 0 ? anchors.find(value => value > target + .02) : anchors.findLast(value => value < target - .02);
 		if (next == null) return false;
 		scrollIntent = null;
@@ -851,6 +835,7 @@ function createAboutExperienceRuntime() {
 		if (disposed) return;
 		current = clamp(entryStory, 0, STORY_MAX);
 		target = current;
+		storyMotion.velocity = 0;
 		scrollIntent = null;
 		getSceneCarousel().clearAboutBoundaryDrive();
 		publish();
@@ -866,11 +851,9 @@ function createAboutExperienceRuntime() {
 		sceneId: "about",
 		snapshot: () => {
 			const segment = getRuntimeStorySegment(target);
-			const rest = isCompactAboutStory() && target >= 0 && target < STORY_MAX
+			const rest = target >= 0 && target < STORY_MAX
 				? segment.start + resolveStoryRest(segment.local, 1) * segment.span
-				: target >= 0 && target < 1
-					? resolveStoryRest(target / ABOUT_OPEN_STORY_ANCHOR, 2) * ABOUT_OPEN_STORY_ANCHOR
-					: resolveStoryRest(target, STORY_MAX);
+				: resolveStoryRest(target, STORY_MAX);
 			const carousel = getSceneCarousel();
 			if (rest < 0) {
 				return {
@@ -907,6 +890,7 @@ function createAboutExperienceRuntime() {
 		apply: (value, delta) => {
 			current = value;
 			target = value;
+			storyMotion.velocity = 0;
 			scrollIntent = value < 0 ? "backward" : value > STORY_MAX ? "forward" : null;
 			syncBoundaryDrive();
 			publish();

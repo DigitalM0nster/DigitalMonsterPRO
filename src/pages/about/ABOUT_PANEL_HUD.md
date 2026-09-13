@@ -29,20 +29,17 @@ Do not drive leave with both mosaic `enterProgress` exit and hex warp. Stage scr
 ## Story → pair map (strict)
 
 `story` is About story progress in `0…4` (stage `i` owns `i → i+1`).  
-**Synchronized story motion:** text and model use the same painted story progress throughout each text transition. Text1→text2 spans story `0→0.5`, ending together with the model at the intact-front opening anchor. The model/camera scrub the authored story directly, without an early cap/hold. Scrolling beyond the anchor keeps text2 settled while the front dissolves (`0.5→1`). Text2→text3 completes over story `1→1⅓`: its HUD-only speed matches the opening wipe including the opening desktop wheel gain of 1.5×. Text3 then holds until story 2. Text3→empty spans its full model segment. The spring, later model poses, route boundaries and final wheel sensitivity remain unchanged. Canonical timing: `aboutStoryTiming.js`.
+**Five-step sequence (user reference screenshots):** six authored model poses at story 0, 0.5, 1, 2, 3, 4. Each wheel gesture selects exactly one adjacent pose. Events within the same 180ms-idle wheel burst, including inertial tails and large deltas, do not select further poses. A direction reversal immediately selects the previous pose from painted progress. Only the existing story target changes; the canonical spring animates painted progress, with no pose teleport or second animation owner. Interior story motion uses a critically damped exponential chase with retained velocity: starts and reversals ease continuously instead of jumping in speed. The doubled chase coefficient compensates for the soft start; forward settling time stays within 6% of the previous response across 30/60/144fps, while the final 3↔4 step remains twice as long. Endpoint snap is limited to 0.001 story units. Route-edge motion retains the shared carousel chase. Keyboard arrows follow the same sequence. Touch retains continuous spring-driven input, with equal normalized distance for each of these five segments.
 
-| Story range | `from` | `to` | `mixProgress` | Meaning |
-|-------------|--------|------|---------------|---------|
-| `0 → 0.5` | text1 | text2 | `story × 2` | Text and model move together to the opening anchor; desktop wheel sensitivity ×1.5 in both directions |
-| `0.5 → 1` | text1 | text2 | `1` | Hold text2 during front dissolve |
-| `1 → 1⅓` | text2 | text3 | `(story − 1) × 3` | HUD wipe matches opening scroll distance; model timing is unchanged |
-| `1⅓ → 2` | text2 | text3 | `1` | Hold text3 |
-| `2 → 3` | text3 | empty | `story − 2` | Text wipes out during the model segment |
-| `≥ 3` | empty | empty | `1` | No left band |
+| Gesture | Story interval | Model result | Left text |
+|---------|----------------|--------------|-----------|
+| 1 | 0 → 0.5 | Opening pose, front intact (screenshot 1) | text1 → text2, mix = story / 0.5 |
+| 2 | 0.5 → 1 | Front cleared (screenshot 2) | text2 stays fully shown; no mosaic |
+| 3 | 1 → 2 | Next assembly pose (screenshot 3) | text2 → text3, mix = story − 1 |
+| 4 | 2 → 3 | Close assembly pose (screenshot 4) | text3 → empty, mix = story − 2 |
+| 5 | 3 → 4 | Final pose (screenshot 5), half chase speed / twice the duration, also on reverse | Left band stays empty; prepared epic text appears through its existing 3.55→4 timeline |
 
-At an integer stop `n ∈ {0,1,2}` the active band is fully `from` of the next segment (`mix = 0` on that segment’s pair). At `story = 0`, text1 is idle full show. At `story = 1` / `2` the previous segment already held `mix = 1`, so the pair swap stays seamless.
-
-Reverse scroll uses the same map. Text2 holds through the front-dissolve zone; text3 holds over story `2→1⅓`, then reverses the accelerated text wipe. The opening anchor uses the existing segment spring with local threshold `0.5`, including reverse, keyboard navigation and menu settle; it never starts a second progress owner. The visible left rail contains only text stops 1–3 and fades with text3→empty; later 3D/route stops never add rail nodes.
+At story 0.5 the first pair remains at mix 1 throughout the second gesture. At story 1 the text2→text3 pair starts at mix 0, without changing settled text2 pixels. Story 2 and 3 boundaries are equally seamless. Reverse uses the same mapping and restores the text2 hold. No content is repainted or uploaded for these animations. After the final step settles, a subsequent outward wheel gesture uses the existing About→contacts boundary spring; its inertial tail cannot leave About during step 5.
 
 ---
 

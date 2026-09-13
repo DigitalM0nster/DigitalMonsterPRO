@@ -6,7 +6,7 @@ import * as THREE from "three";
 import { resolveAboutResponsiveLayout } from "../../../pages/about/aboutResponsiveLayout.js";
 import { createAboutCompactFraming, fitAboutCompactCamera } from "./aboutCompactFraming.js";
 import * as spring from "../../render/transition/segmentScrollSpring.js";
-import { ABOUT_OPEN_STORY_ANCHOR, getAboutStorySegment } from "../../../pages/about/aboutStoryTiming.js";
+import { ABOUT_OPEN_STORY_ANCHOR, ABOUT_STORY_STOPS, getAboutStoryStepTarget, getAboutStorySegment, chaseAboutStoryValue } from "../../../pages/about/aboutStoryTiming.js";
 
 const source = readFileSync(new URL("./AboutScene.js", import.meta.url), "utf8");
 const start = source.indexOf("\t_applyCompactCamera(camera, sceneProgress) {");
@@ -19,7 +19,7 @@ const runtimeHelpers = runtimeSource.slice(0, runtimeSource.indexOf("function en
 function createScrollRuntime(width, height) {
 	const viewport = { innerWidth: width, innerHeight: height };
 	const runtime = vm.runInNewContext(`${runtimeHelpers}\n({getPixelsPerStoryUnit,getRuntimeStorySegment,applyStageTargetRest,getStoryChaseConfig,snapStoryPair,storyNeedsAnimation})`, {
-		...spring, window: viewport, ABOUT_STAGE_COUNT: 4, ABOUT_OPEN_STORY_ANCHOR, getAboutStorySegment,
+		...spring, window: viewport, ABOUT_STAGE_COUNT: 4, ABOUT_OPEN_STORY_ANCHOR, ABOUT_STORY_STOPS, getAboutStorySegment,
 		CAROUSEL_WHEEL_PROGRESS_FACTOR: 0.001, CAROUSEL_PROGRESS_COMMIT_EPS: 1e-4,
 		CAROUSEL_PROGRESS_COMMIT_SNAP_ZONE: .005, CAROUSEL_PROGRESS_TARGET_MIN: -1.5, CAROUSEL_PROGRESS_TARGET_MAX: 1.5,
 	});
@@ -129,58 +129,102 @@ test("About full desktop keeps its authored camera projection", () => {
 	assert.deepEqual(camera.projectionMatrix.elements, before.elements);
 });
 
-test("desktop opening wheel transition is 1.5 times faster in both directions without changing other intervals", () => {
-	const { runtime } = createScrollRuntime(1440, 900);
-	const baseline = runtime.getPixelsPerStoryUnit(1, 100, "wheel");
-	for (const [story, delta] of [[0, 100], [0.2, 100], [0.2, -100], [0.5, -100]]) {
-		assert.equal(runtime.getPixelsPerStoryUnit(story, delta, "wheel"), baseline / 1.5);
-		assert.equal(runtime.getPixelsPerStoryUnit(story, delta, "touch"), baseline);
-	}
-	assert.equal(runtime.getPixelsPerStoryUnit(0.5, 100, "wheel"), baseline);
-	assert.equal(runtime.getPixelsPerStoryUnit(2, -100, "wheel"), baseline);
-	assert.equal(runtime.getPixelsPerStoryUnit(3, 100, "wheel"), baseline / 2);
-	assert.equal(runtime.getPixelsPerStoryUnit(0, -100, "wheel"), 1000);
-	assert.equal(runtime.getPixelsPerStoryUnit(4, 100, "wheel"), 1000);
+test("five wheel gestures visit every model pose; inertia and large deltas cannot skip steps", () => {
+ const start = runtimeSource.indexOf("\tconst onWheel = (event) => {");
+ const end = runtimeSource.indexOf("\n\tconst onKeyDown", start);
+ let now = 0;
+ const state = { current: 0, target: 0, lastWheelAt: -Infinity, wheelDirection: 0, wheelBoundaryGesture: false,
+  scrollIntent: null, WHEEL_IDLE_MS: 180, STORY_MAX: 4,
+  sceneCanvasOwnsInput: () => false, ownsInput: () => true, isSceneDevToolsWheelTarget: () => false,
+  normalizeWheelDelta: e => e.deltaY, getSceneCarousel: () => ({ isInteractionLocked: () => false }),
+  performance: { now: () => now }, isRouteEdgeStory: s => s < 0 || s > 4,
+  getAboutStoryStepTarget, publish() {}, startAnimation() {}, boundaryCalls: 0,
+ };
+ state.applyInputPixels = () => { state.boundaryCalls++; };
+ const context = vm.createContext(state);
+ const onWheel = vm.runInContext(runtimeSource.slice(start, end) + "\nonWheel", context);
+ const wheel = delta => onWheel({ deltaY: delta, deltaX: 0, preventDefault() {} });
+ for (const expected of [.5, 1, 2, 3, 4]) {
+  now += 400; wheel(120);
+  assert.equal(state.target, expected);
+  for (const delta of [120, 60, 10, 2, 9999]) { now += 20; wheel(delta); assert.equal(state.target, expected); }
+  assert.notEqual(state.current, state.target, "input must not teleport rendered progress");
+  state.current = state.target;
+ }
+ assert.equal(state.boundaryCalls, 0, "fifth gesture must finish About before route leave");
+ now += 400; wheel(120); assert.equal(state.boundaryCalls, 1);
+ // Reverse midway through 1→2: return to pose 1, with no jump in rendered progress.
+ state.target = 2; state.current = 1.4; state.wheelDirection = 1; state.wheelBoundaryGesture = false;
+ now += 20; wheel(-120); assert.equal(state.target, 1); assert.equal(state.current, 1.4);
+ state.current = 1;
+ for (const expected of [.5, 0]) { now += 400; wheel(-120); assert.equal(state.target, expected); state.current = expected; }
 });
 
-test("Compact About has four reversible swipe stops and equally reachable touch boundaries", () => {
-	for (const [width, height] of [[330, 568], [330, 740], [768, 1024], [980, 800], [640, 360]]) {
-		const { runtime, viewport } = createScrollRuntime(width, height);
-		const unit = runtime.getPixelsPerStoryUnit(0, 100, "touch");
-		assert.ok(unit >= 320 && unit <= 700);
-		assert.equal(runtime.getPixelsPerStoryUnit(1, -100, "touch"), unit);
-		assert.equal(runtime.getPixelsPerStoryUnit(2, -100, "touch"), unit);
-		assert.equal(runtime.getPixelsPerStoryUnit(2, 100, "touch") * 2, unit);
-		assert.equal(runtime.getPixelsPerStoryUnit(4, -100, "touch") * 2, unit);
-		assert.equal(runtime.getPixelsPerStoryUnit(0, -100, "touch"), unit);
-		assert.equal(runtime.getPixelsPerStoryUnit(4, 100, "touch"), unit);
-		assert.equal(runtime.getPixelsPerStoryUnit(-.2, -100, "touch"), unit);
-		assert.equal(runtime.getPixelsPerStoryUnit(4.2, 100, "touch"), unit);
-		assert.equal(runtime.getPixelsPerStoryUnit(0, -100, "wheel"), 1000);
-		assert.equal(runtime.getPixelsPerStoryUnit(4, 100, "wheel"), 1000);
-		const settle = (current, target) => {
-			for (let frame = 0; frame < 240; frame += 1) {
-				target = runtime.applyStageTargetRest(target, 1 / 60);
-				current = spring.chaseSegmentValue(current, target, 1 / 60, runtime.getStoryChaseConfig(current, target));
-				({ current, target } = runtime.snapStoryPair(current, target));
+test("the final model transition takes twice as long in either direction", () => {
+	for (const width of [390, 1440]) {
+		const { runtime } = createScrollRuntime(width, 900);
+		const duration = (from, target) => {
+			let current = from;
+			const motion = { velocity: 0 };
+			for (let frame = 1; frame < 3000; frame++) {
+				current = chaseAboutStoryValue(current, target, 1 / 120, runtime.getStoryChaseConfig(current, target).smooth, motion);
+				({ current } = runtime.snapStoryPair(current, target));
+				if (current === target) return frame;
 			}
-			return { current, target };
+			assert.fail("transition did not settle");
 		};
-		for (const [from, target, expected] of [[0, .7, 1], [1, 1.7, 2], [2, 3.4, 4], [4, 2.6, 2], [2, 1.3, 1], [1, .3, 0], [0, .2, 0], [3.2, 2.6, 2]]) {
-			assert.equal(settle(from, target).current, expected);
-		}
-		const swipe = unit * .61;
-		assert.equal(settle(4, 4 + swipe / runtime.getPixelsPerStoryUnit(4, swipe, "touch")).current, 5, "Next swipe completes the contacts HEX");
-		assert.equal(settle(0, -swipe / runtime.getPixelsPerStoryUnit(0, -swipe, "touch")).current, -1, "Reverse swipe completes the preceding HEX");
-		if (width === 330 && height === 568) {
-			assert.equal(settle(4, 4 + 240 * 1.12 / unit).current, 5, "The measured 240px phone swipe leaves About");
-		}
-		assert.equal(runtime.applyStageTargetRest(5.3, 1 / 60), 5.3, "Leave overshoot remains owned by the ring handoff");
-		for (const stop of [0, 1, 2, 4]) assert.equal(runtime.applyStageTargetRest(stop, 1 / 60), stop);
-		viewport.innerWidth = 1440; viewport.innerHeight = 900;
-		assert.equal(runtime.getRuntimeStorySegment(.3).span, .5, "Desktop retains its opening stop");
-		for (const stop of [0, 1, 2, 4]) assert.equal(runtime.applyStageTargetRest(stop, 1 / 60), stop, "Resize does not reset settled progress");
-		assert.equal(runtime.getPixelsPerStoryUnit(1, 100, "touch"), 2000);
-		assert.equal(runtime.getPixelsPerStoryUnit(4, 100, "touch"), 1000, "Desktop retains its original ring input scale");
+		assert.ok(Math.abs(duration(3, 4) - duration(2, 3) * 2) <= 3);
+		assert.ok(Math.abs(duration(4, 3) - duration(3, 2) * 2) <= 3);
+		assert.equal(runtime.getStoryChaseConfig(3.5, 4.1).smooth, runtime.getStoryChaseConfig(0, -0.1).smooth);
 	}
+});
+
+test("all six poses settle on desktop and touch with equal swipe distance and stable route boundaries", () => {
+ for (const [width, height] of [[390, 740], [768, 1024], [1440, 900]]) {
+  const { runtime } = createScrollRuntime(width, height);
+  const settle = (current, target) => {
+   const motion = { velocity: 0 };
+   for (let frame = 0; frame < 900; frame++) {
+    target = runtime.applyStageTargetRest(target, 1 / 60);
+    current = chaseAboutStoryValue(current, target, 1 / 60, runtime.getStoryChaseConfig(current, target).smooth, motion);
+    ({current, target} = runtime.snapStoryPair(current, target));
+   }
+   return current;
+  };
+  for (let i = 0; i < ABOUT_STORY_STOPS.length - 1; i++) {
+   const a = ABOUT_STORY_STOPS[i], b = ABOUT_STORY_STOPS[i + 1], span = b - a;
+   assert.equal(settle(a, b), b); assert.equal(settle(b, a), a);
+   const distance = runtime.getPixelsPerStoryUnit(a, 100, "touch") * span;
+   assert.equal(distance, width <= 1024 ? Math.max(320, Math.min(700, height * .78)) : 2000);
+   assert.equal(runtime.getPixelsPerStoryUnit(b, -100, "touch") * span, distance);
+   assert.equal(settle(a, a + span * .7), b);
+   assert.equal(settle(b, a + span * .3), a);
+  }
+  assert.equal(runtime.getPixelsPerStoryUnit(0, -100, "wheel"), 1000);
+  assert.equal(runtime.getPixelsPerStoryUnit(4, 100, "wheel"), 1000);
+  assert.equal(runtime.applyStageTargetRest(5.3, 1/60), 5.3);
+ }
+});
+
+test("eased starts preserve forward step duration within 6% at different frame rates", () => {
+ for (const width of [390, 1440]) for (const fps of [30, 60, 144]) {
+  const { runtime } = createScrollRuntime(width, 900);
+  for (let i = 0; i < ABOUT_STORY_STOPS.length - 1; i++) {
+   const from = ABOUT_STORY_STOPS[i], target = ABOUT_STORY_STOPS[i + 1];
+   const duration = eased => {
+    let current = from; const motion = { velocity: 0 };
+    for (let frame = 1; frame < fps * 20; frame++) {
+     const cfg = runtime.getStoryChaseConfig(current, target);
+     current = eased ? chaseAboutStoryValue(current, target, 1 / fps, cfg.smooth, motion)
+      : spring.chaseSegmentValue(current, target, 1 / fps, cfg);
+     if (eased) ({current} = runtime.snapStoryPair(current, target));
+     else if (Math.abs(target - current) <= .005) current = target;
+     if (current === target) return frame / fps;
+    }
+    assert.fail("did not settle");
+   };
+   const before = duration(false), after = duration(true);
+   assert.ok(Math.abs(after - before) <= before * .06 + 1 / fps, JSON.stringify({fps, width, from, before, after}));
+  }
+ }
 });

@@ -220,9 +220,7 @@ export function resolveAboutPanelHudStoryPair(story) {
 		return { from: "text1", to: "text2", mix: stageLocalToHudMix(s, ABOUT_OPEN_STORY_ANCHOR) };
 	}
 	if (s < 2) {
-		// Match the opening half-segment's wipe, including its 1.5× wheel gain.
-		// Only HUD timing changes; the model still scrubs the full story segment.
-		return { from: "text2", to: "text3", mix: stageLocalToHudMix(s - 1, ABOUT_OPEN_STORY_ANCHOR / 1.5) };
+		return { from: "text2", to: "text3", mix: stageLocalToHudMix(s - 1) };
 	}
 	if (s < 3) {
 		return { from: "text3", to: "empty", mix: stageLocalToHudMix(s - 2) };

@@ -20,6 +20,8 @@ import { ContactsScene } from "./contacts/ContactsScene.js";
 import { SceneDragOrbitController } from "./interaction/SceneDragOrbitController.js";
 import { PORTFOLIO_ENABLED } from "@/app/config/routeAvailability.js";
 import { isCarouselTouchOrbitBlocked, isCarouselTouchSceneBlocked } from "../render/transition/carouselTouch.js";
+import { isMobileGraphicsDevice } from "../../functions/getGraphicsTier.js";
+import { MobileHexLayers } from "./mobileHexLayers.js";
 
 /** Detached reusable decorations must participate before their first live attach. */
 function attachWarmupRoots(sceneObj) {
@@ -74,6 +76,12 @@ export class SceneManager {
 		this.activeId = "home";
 		/** Универсальные model-layer RT: A = source/single, B = target во время mix. */
 		this.layerTargets = { a: null, b: null };
+		this._mobileHexLayersEnabled = options.mobileHexLayers ?? (typeof window === "undefined"
+			|| new URLSearchParams(window.location.search).get("hexLayers") !== "full");
+		this._mobileHexLayers = new MobileHexLayers(
+			(id, target) => this._renderSceneLayer(id, target),
+			(id) => this._getMobileHexLayerState(id),
+		);
 		this.size = { w: 0, h: 0, dpr: 0 };
 		this.lastDelta = 0;
 		/** @type {string | null} */
@@ -424,6 +432,7 @@ export class SceneManager {
 			scene.onViewportResize?.(width, height);
 		}
 
+		this._mobileHexLayers?.reset();
 		for (const key of ["a", "b"]) {
 			this.layerTargets[key]?.dispose();
 			this.layerTargets[key] = createLayerRenderTarget(this.renderer, width, height, this.gfx);
@@ -659,6 +668,10 @@ export class SceneManager {
 		const { sourceId, targetId } = carousel.getMixSourceTargetIds();
 		const hexProgress = options.hexProgress ?? getHexShaderProgress();
 		const skipIdleTarget = hexProgress <= 0.0001 || options.skipIdleTargetLayer === true;
+		if (this._mobileHexLayersEnabled && this.routeState.appStarted && this.layerTargets.a && this.layerTargets.b && isMobileGraphicsDevice()) {
+			return this._mobileHexLayers.render(sourceId, targetId, this.layerTargets, skipIdleTarget);
+		}
+		this._mobileHexLayers?.reset();
 
 		const sourceModels = this._renderSceneLayer(sourceId, this._getMixLayerRenderTarget(sourceId, "a"));
 		const targetModels = sourceId === targetId || skipIdleTarget
@@ -671,6 +684,18 @@ export class SceneManager {
 			sourceModels,
 			targetModels,
 		};
+	}
+
+	_getMobileHexLayerState(id) {
+		const scene = this.scenes.get(id);
+		// A screen→models handoff changes what belongs in the cached RT. It must
+		// be redrawn immediately, including on the first positive scroll frame.
+		return (scene?.shouldRender?.() !== false ? 1 : 0)
+			| (scene?.canvasInterface?.enabled ? 2 : 0)
+			| (scene?.canvasInterface?.composeMode === "screen" ? 4 : 0)
+			| (scene?.world?.hud?.composeMode === "screen" ? 8 : 0)
+			| (scene?._cameraHotspots?.composeMode === "screen" ? 16 : 0)
+			| (scene?.heroTitle?.getWarmupOverlays?.().some(overlay => overlay.composeMode === "screen") ? 32 : 0);
 	}
 
 	/**
@@ -705,6 +730,8 @@ export class SceneManager {
 	_renderSceneLayer(sceneId, layerTarget, options = {}) {
 		const sceneObj = this.scenes.get(sceneId);
 		const target = layerTarget ?? this._getLayerRenderTarget();
+		// Warm/active draws outside the alternating path also overwrite this RT.
+		this._mobileHexLayers?.invalidate(target);
 		if (!sceneObj || !target) {
 			return null;
 		}
@@ -799,6 +826,7 @@ export class SceneManager {
 
 	dispose() {
 		this.disposed = true;
+		this._mobileHexLayers?.reset();
 		this.sceneDragOrbit?.dispose();
 		for (const scene of this.scenes.values()) {
 			scene.canvasInterface?.dispose();

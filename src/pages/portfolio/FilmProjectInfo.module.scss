@@ -12,10 +12,6 @@
  &:focus-visible { outline: 1px solid #00a9ff55; outline-offset: -2px; }
 }
 .readable { pointer-events: auto; visibility: inherit; }
-@media (min-width: 1025px) and (min-height: 601px) {
- // Keep the screen's project selector live above the native reading surface.
- .surface { clip-path: polygon(0 0, 65% 0, 65% 15%, 100% 15%, 100% 100%, 0 100%); }
-}
 .accessibleText { position: absolute; width: 1px; height: 1px; padding: 0; border: 0; overflow: hidden; clip-path: inset(50%); pointer-events: none; }
 .hint {
  position: absolute; transform: translateX(-50%); visibility: hidden;

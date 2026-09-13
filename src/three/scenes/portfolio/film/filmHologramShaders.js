@@ -36,6 +36,7 @@ ${filmPaletteGLSL}
 uniform sampler2D uFrom;uniform sampler2D uTo;
 uniform float uFromAspect;uniform float uToAspect;
 uniform vec2 uFromInfo;uniform vec2 uToInfo;
+uniform vec2 uInfoViewport;uniform float uScreenAspect;
 uniform float uOpacity;uniform float uProgress;uniform float uReduced;uniform float uTime;uniform float uLow;
 uniform float uLocaleReveal;
 uniform float uHolotileSize;uniform float uFocus;
@@ -80,9 +81,14 @@ vec3 signalSlip(vec2 uv){
  return vec3(fill,trace,slip*fill*mix(.65,1.15,ragged));
 }
 vec3 picture(sampler2D tex,float aspect,vec2 offset,vec2 info){
- if(info.x>0.)return texture2D(tex,vec2(clamp(vUv.x+offset.x,0.,1.),1.-((1.-vUv.y)*info.x+info.y*(1.-info.x)))).rgb;
+ if(info.x>0.){
+  float y=((1.-vUv.y)-uInfoViewport.x)/uInfoViewport.y;
+  float contentY=y*info.x+info.y*max(0.,1.-info.x);
+  if(y<0.||y>1.||contentY>1.)return vec3(.015686,.047059,.086275);
+  return texture2D(tex,vec2(clamp(vUv.x+offset.x,0.,1.),1.-contentY)).rgb;
+ }
  // Fit the complete presentation inside the wider curved screen.
- vec2 uv=(vUv+offset-.5)*vec2(max(1.,2.05/aspect),max(1.,aspect/2.05))+.5;
+ vec2 uv=(vUv+offset-.5)*vec2(max(1.,uScreenAspect/aspect),max(1.,aspect/uScreenAspect))+.5;
  if(any(lessThan(uv,vec2(0.)))||any(greaterThan(uv,vec2(1.))))return vec3(0.);
  return texture2D(tex,uv).rgb;
 }

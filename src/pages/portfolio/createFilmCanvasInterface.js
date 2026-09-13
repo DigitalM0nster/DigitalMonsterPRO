@@ -73,30 +73,32 @@ export function createFilmCanvasInterface(renderer, scene) {
 	ui.scroll = delta => { if (!ui.projectsOpen) return false; ui.sheetScroll = Math.max(0, Math.min(ui.sheetMax ?? 0, ui.sheetScroll + delta)); return true; };
 	ui.key = key => { if (key === "Escape" && (ui.projectsOpen || ui.volumeOpen)) { ui.projectsOpen = ui.volumeOpen = false; return true; } return false; };
 	ui.layout = () => {
-		const layout = resolveFilmPresentation(ui.width, ui.height); ui.enabled = !!layout;
+		const infoAmount = scene.screen?.infoAmount || 0, videoOpacity = 1 - infoAmount;
+		const layout = resolveFilmPresentation(ui.width, ui.height, infoAmount); ui.enabled = !!layout;
 		if (!layout) { ui.projectsOpen = ui.volumeOpen = false; return; }
 		const locale = store.siteLocale || "ru", index = scene.motion.index, media = scene.media;
 		const { heading, panel, directory } = layout, x = panel.left, y = panel.top, w = panel.width;
 		ui.place("heading", heading.left, heading.top, 260, 28, { key: locale });
 		ui.place("count", heading.left + heading.width - 70, heading.top, 70, 28, { key: index });
 		const nameWidth = Math.min(240, w - 78);
-		ui.place("name", x + (w - nameWidth) / 2, y - (layout.wide ? 14 : 4), nameWidth, 58, { key: index });
-		ui.place("detail", x + (w - Math.min(280, w)) / 2, y + (layout.wide ? 14 : 40), Math.min(280, w), 54, { key: `${locale}${index}` });
+		ui.place("name", x + (w - nameWidth) / 2, y - (layout.wide ? 14 : 4), nameWidth, 58, { key: index, opacity: videoOpacity });
+		ui.place("detail", x + (w - Math.min(280, w)) / 2, y + (layout.wide ? 14 : 40), Math.min(280, w), 54, { key: `${locale}${index}`, opacity: videoOpacity });
 		const infoWidth = Math.min(224, w), infoX = x + (w - infoWidth) / 2;
-		const infoY = Math.min(ui.height - 58, y + (layout.wide ? 24 : 90));
+		const infoY = Math.min(ui.height - 58, y + (layout.wide ? 24 : 90) * videoOpacity);
 		ui.place("info", infoX, infoY, infoWidth, 44, { key: `${locale}${scene.infoOpen ? "Back" : ""}` });
 		info.button.setAttribute("aria-expanded", String(scene.infoOpen));
 		info.button.setAttribute("aria-controls", "film-project-info");
 		ui.place("prev", layout.wide ? x + w - 96 : x, y + 2, 44, 44); ui.place("next", x + w - 44, y + 2, 44, 44);
-		const seekY = y + (layout.wide ? -1 : 141), controlsY = y + (layout.wide ? 4 : 153);
-		ui.place("seekTrack", x, seekY, w, 1, { color: 0x204453 });
-		ui.place("seekValue", x, seekY - 1, Math.max(1, w * (media.progress || 0)), 2, { color: 0x00a9ff });
-		ui.place("seek", x, seekY - 12, w, 24, { opacity: .002, color: 0x000000 });
-		ui.place("play", x, controlsY, 44, 44, { key: media.playing ? "pause" : "play", opacity: filmProjects[index].video ? 1 : .3 });
-		ui.place("volume", x + 44, controlsY, 44, 44, { opacity: media.volumeLevel > 0 ? 1 : .5 });
-		ui.place("inspect", x + 88, controlsY, 44, 44);
-		if (!layout.wide) ui.place("projects", x + w - 164, controlsY, 164, 44, { key: locale });
-		if (ui.volumeOpen) {
+		const controlsOffset = infoAmount * (layout.landscape ? 0 : 100);
+		const seekY = y + (layout.wide ? -1 : 141) - controlsOffset, controlsY = y + (layout.wide ? 4 : 153) - controlsOffset;
+		ui.place("seekTrack", x, seekY, w, 1, { color: 0x204453, opacity: videoOpacity });
+		ui.place("seekValue", x, seekY - 1, Math.max(1, w * (media.progress || 0)), 2, { color: 0x00a9ff, opacity: videoOpacity });
+		ui.place("seek", x, seekY - 12, w, 24, { opacity: .002 * videoOpacity, color: 0x000000 });
+		ui.place("play", x, controlsY, 44, 44, { key: media.playing ? "pause" : "play", opacity: (filmProjects[index].video ? 1 : .3) * videoOpacity });
+		ui.place("volume", x + 44, controlsY, 44, 44, { opacity: (media.volumeLevel > 0 ? 1 : .5) * videoOpacity });
+		ui.place("inspect", x + 88, controlsY, 44, 44, { opacity: videoOpacity });
+		if (!layout.wide) ui.place("projects", x + w - 164, controlsY, 164, 44, { key: locale, opacity: videoOpacity });
+		if (ui.volumeOpen && infoAmount < .001) {
 			ui.place("volumeBg", x + 8, controlsY - 80, 220, 80, { color: 0x040c13 });
 			ui.place("mute", x + 20, controlsY - 76, 160, 32, { key: locale });
 			ui.place("volumeTrack", x + 24, controlsY - 24, 184, 1, { color: 0x305365 });

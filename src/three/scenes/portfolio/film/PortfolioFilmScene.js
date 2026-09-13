@@ -4,7 +4,7 @@ import * as THREE from "three";
 import { filmProjects } from "@/pages/portfolio/data/filmProjects.js";
 import { getPortfolioLocale } from "@/pages/portfolio/data/portfolioProjectsCopy.js";
 import { attachFilmActions, publishFilmUi, getFilmUiSnapshot, updateFilmInfoView } from "@/pages/portfolio/filmInteraction.js";
-import { resolveFilmInfoPresentation } from "@/pages/portfolio/filmPresentationLayout.js";
+import { resolveFilmInfoPresentation, resolveFilmPresentation } from "@/pages/portfolio/filmPresentationLayout.js";
 import { filmSurfacePoint } from "./filmSurface.js";
 import { getSceneCarousel } from "../../../render/transition/carouselPage.js";
 import { addCarouselWheelDelta } from "../../../render/transition/carouselScroll.js";
@@ -37,7 +37,7 @@ export class PortfolioFilmScene {
 		this.infoOpen = false;
 		this.infoEpoch = 0;
 		this.infoPoint = new THREE.Vector3();
-		this.layout = getFilmLayout(window.innerWidth / window.innerHeight, window.innerWidth, window.innerHeight);
+		this.onViewportResize(window.innerWidth, window.innerHeight);
 		this.reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 		this.reveal = 0;
 		this.focus = 0;
@@ -93,7 +93,15 @@ export class PortfolioFilmScene {
 	shouldKeepUpdating() { return false; }
 	getModelsBloomLogoReveal() { return this.warming ? 1 : this.reveal; }
 	getModelsGrainBlurConfig() { return { enabled: false }; }
-	onViewportResize(width, height) { this.layout = getFilmLayout(width / height, width, height); }
+	onViewportResize(width, height) {
+  this.layout = getFilmLayout(width / height, width, height);
+  const reading = resolveFilmPresentation(width, height, 1);
+  const viewHeight = this.layout.viewWidth / (width / height);
+  this.readingLayout = reading ? {
+   y: (.5 - (reading.screen.top + reading.screen.bottom) / 2 / height) * viewHeight,
+   height: (reading.screen.bottom - reading.screen.top) / height * viewHeight,
+  } : null;
+ }
 	setRouteState(state) {
 		const started = this.appStarted;
 		this.appStarted = state.appStarted === true;
@@ -312,7 +320,7 @@ export class PortfolioFilmScene {
 		this.media.select(this.motion.index);
 		this.pointerSmooth.lerp(frame.visualPointer ?? (frame.interactionEnabled && !frame.pointerBlocked ? frame.pointer : { x: 0, y: 0 }), ease);
 		const reveal = this.warming ? 1 : this.reveal;
-		this.screen.update(this.motion, reveal, this.focus, this.layout, this.pointerSmooth, this.reduced, this.warming ? 0 : delta, getPortfolioLocale());
+		this.screen.update(this.motion, reveal, this.focus, this.layout, this.pointerSmooth, this.reduced, this.warming ? 0 : delta, getPortfolioLocale(), this.readingLayout);
 		this.transitionSound.update(delta, this.motion, this.appStarted && this.routeActive && current && !inMix && !this.warming && reveal > .1);
 		this.hud.update({ motion: this.motion, reveal, focus: this.focus, layout: this.layout, locale: getPortfolioLocale(), infoOpen: this.infoOpen, warm: this.warming, delta, reduced: this.reduced });
 		this.hud.root.visible = !this.layout.mobile;
@@ -343,13 +351,13 @@ export class PortfolioFilmScene {
 	}
 	updateInfoView(current, inMix) {
 		const width = window.innerWidth, height = window.innerHeight;
-		const project = (x, y) => {
+		const project = (x, y, surface = this.screen.art) => {
 			this.infoPoint.set(...filmSurfacePoint(x, y, .025));
-			this.screen.root.localToWorld(this.infoPoint); this.infoPoint.project(this.camera);
+			surface.localToWorld(this.infoPoint); this.infoPoint.project(this.camera);
 			return { x: (this.infoPoint.x + 1) * width / 2, y: (1 - this.infoPoint.y) * height / 2 };
 		};
-		const left = project(-.49, 0), right = project(.49, 0), top = project(0, .239), bottom = project(0, -.239), anchor = project(0, this.hud.infoY);
-		const box = resolveFilmInfoPresentation(width, height, { left: left.x, right: right.x, top: top.y, bottom: bottom.y, anchorX: anchor.x, anchorY: anchor.y });
+		const left = project(-.49, 0), right = project(.49, 0), top = project(0, (.5 - this.screen.infoInset) / 2.05), bottom = project(0, -.5 / 2.05), anchor = project(0, this.hud.infoY, this.screen.root);
+		const box = resolveFilmInfoPresentation(width, height, { left: left.x, right: right.x, top: top.y, bottom: bottom.y, anchorX: anchor.x, anchorY: anchor.y }, this.screen.infoAmount);
 		const { sourceId, targetId } = getSceneCarousel().getMixSourceTargetIds();
 		let clipTop = 0, clipBottom = 0;
 		if (inMix) {
@@ -361,7 +369,7 @@ export class PortfolioFilmScene {
 		const info = this.infoTextures.get(this.motion.index, getPortfolioLocale(), this.layout.mobile);
 		const infoVisible = this.motion.info && !this.motion.busy;
 		updateFilmInfoView({ ...box, left: left.x, top: top.y, width: right.x - left.x, height: bottom.y - top.y,
-			contentRatio: info.height / info.viewportHeight, infoVisible, clipTop, clipBottom, mobile: this.layout.mobile,
+			contentRatio: Math.max(1, info.height / (info.viewportHeight * this.screen.infoViewportScale)), infoVisible, clipTop, clipBottom, mobile: this.layout.mobile,
 			opacity: this.appStarted && belongs ? this.reveal : 0 });
 		const snapshot = getFilmUiSnapshot();
 		if (snapshot.index !== this.motion.index || snapshot.infoOpen !== this.infoOpen || snapshot.infoVisible !== infoVisible || snapshot.infoEpoch !== this.infoEpoch)

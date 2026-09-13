@@ -50,3 +50,26 @@ test("compact information remains readable and reachable in portrait and short l
 		assert.ok(card.height >= 100);
 	}
 });
+
+test("portrait reading uses available height and leaves its return/navigation row reachable", () => {
+ for (const [width, height] of [[390, 844], [330, 568], [768, 1024]]) {
+  const video = resolveFilmPresentation(width, height), reading = resolveFilmPresentation(width, height, 1);
+  assert.ok(reading.screen.bottom - reading.screen.top > (video.screen.bottom - video.screen.top) * 1.6);
+  assert.ok(reading.screen.top >= 100);
+  assert.ok(reading.screen.bottom + 40 <= reading.panel.top);
+  assert.ok(reading.panel.top + 44 <= height - 72);
+  assert.equal(reading.screen.left, video.screen.left);
+  assert.equal(reading.screen.right, video.screen.right);
+ }
+});
+
+test("the reading geometry follows the same reversible mix without an endpoint jump", () => {
+ for (const [width, height] of [[390, 844], [844, 390], [1280, 360]]) {
+  const start = resolveFilmPresentation(width, height, 0), end = resolveFilmPresentation(width, height, 1);
+  for (const progress of [.001, .25, .5, .75, .999]) {
+   const mixed = resolveFilmPresentation(width, height, progress);
+   for (const key of ["top", "bottom"]) assert.ok(Math.abs(mixed.screen[key] - (start.screen[key] + (end.screen[key] - start.screen[key]) * progress)) < .00001);
+  }
+ }
+ assert.equal(resolveFilmPresentation(1280, 720, 1), null, "authored desktop composition is unchanged");
+});

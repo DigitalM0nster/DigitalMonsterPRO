@@ -25,6 +25,7 @@ export class FilmScreen {
   this.hologramValues={...this.hologramSettings};
   this.uniforms={uFrom:{value:media.get(0)},uTo:{value:media.get(0)},uFromAspect:{value:media.aspect(0)},uToAspect:{value:media.aspect(0)},
    uFromInfo:{value:new THREE.Vector2()},uToInfo:{value:new THREE.Vector2()},
+   uInfoViewport:{value:new THREE.Vector2(0,1)},uScreenAspect:{value:2.05},
    uProgress:{value:0},uDirection:{value:1},uOpacity:{value:1},uReduced:{value:reducedMotion?1:0},
    uTime:{value:0},uGlitchTime:{value:0},uFocus:{value:0},uDpr:{value:1},uLow:{value:getGraphicsTier()==="low"?1:0},uHeaderEnd:{value:-.378},uLocaleReveal:{value:1}};
   for(const [key] of hologramFields)this.uniforms[`uHolo${key}`]={value:this.hologramValues[key]};
@@ -57,10 +58,19 @@ export class FilmScreen {
   geometry.setAttribute("aSeed",new THREE.InstancedBufferAttribute(seeds,1));geometry.instanceCount=blocks.length;
   return geometry;
  }
- update(motion,reveal,focus,layout,pointer,reduced,delta=0,locale="ru"){
+ update(motion,reveal,focus,layout,pointer,reduced,delta=0,locale="ru",readingLayout=null){
   this.uniforms.uLocaleReveal.value=motion.info||motion.destinationInfo?siteLocaleReveal.value:1;
   const u=this.uniforms;if(!reduced)u.uTime.value+=Math.min(delta,.05);
   u.uFocus.value=focus;
+  this.infoAmount=THREE.MathUtils.lerp(Number(!!motion.info),Number(!!motion.destinationInfo),THREE.MathUtils.smoothstep(Math.abs(motion.progress),0,1));
+  const rootScale=layout.width*layout.compositionScale*(1+focus*(layout.compact?.02:.15));
+  const readingScale=readingLayout?readingLayout.height/(rootScale/2.05):1;
+  this.art.scale.y=THREE.MathUtils.lerp(1,readingScale,this.infoAmount);
+  this.infoInset=layout.mobile?0:.16;
+  this.infoViewportScale=this.art.scale.y*(1-this.infoInset);
+  u.uScreenAspect.value=2.05/this.art.scale.y;
+  u.uInfoViewport.value.set(this.infoInset,1-this.infoInset);
+
   const target=this.hologramSettings;
   const tuneMix=1-Math.exp(-Math.min(delta,.05)*12);
   for(const [key] of hologramFields){
@@ -73,13 +83,14 @@ export class FilmScreen {
   u.uFromAspect.value=this.media.aspect(motion.index);u.uToAspect.value=this.media.aspect(motion.destination);
   for(const [side,index,info] of [["From",motion.index,motion.info],["To",motion.destination,motion.destinationInfo]]){
    const entry=info?this.infoTextures.get(index,locale,layout.mobile):null;
-   u[`u${side}Info`].value.set(entry?entry.viewportHeight/entry.height:0,this.infoScroll);
+   u[`u${side}Info`].value.set(entry?entry.viewportHeight*this.infoViewportScale/entry.height:0,this.infoScroll);
    if(entry){u[`u${side}`].value=entry.texture;u[`u${side}Aspect`].value=2.05;}
   }
   u.uProgress.value=Math.abs(motion.progress);u.uDirection.value=Math.sign(motion.progress)||1;u.uOpacity.value=reveal;
   this.root.position.set(layout.x,layout.y-(1-reveal)*.22,0).multiplyScalar(layout.compositionScale);
-  this.root.scale.setScalar(layout.width*layout.compositionScale*(1+focus*(layout.compact?.02:.15)));
-  this.root.rotation.set((.075+pointer.y*.012)*(1-focus)*(reduced?0:1),(-.14+pointer.x*.022)*(1-focus)*(layout.compact||reduced?0:1),0);
+  if(readingLayout)this.root.position.y=THREE.MathUtils.lerp(layout.y*layout.compositionScale,readingLayout.y,this.infoAmount)-(1-reveal)*.22*layout.compositionScale;
+  this.root.scale.setScalar(rootScale);
+  this.root.rotation.set((.075+pointer.y*.012)*(1-focus)*(reduced?0:1)*(layout.mobile?1-this.infoAmount:1),(-.14+pointer.x*.022)*(1-focus)*(layout.compact||reduced?0:1),0);
   this.projection.update(delta,reveal,focus);
  }
  dispose(){this.hologramDevTools?.dispose();this.controls.dispose();this.projection.dispose();this.geometry.dispose();this.frameGeometry.dispose();this.hitGeometry.dispose();this.material.dispose();this.frameMaterial.dispose();this.hit.material.dispose();}

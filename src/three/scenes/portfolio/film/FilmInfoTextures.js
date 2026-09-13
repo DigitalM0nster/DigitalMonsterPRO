@@ -34,7 +34,8 @@ function createInfoEntry(canvas, viewportHeight) {
 // aligned chapters. The reading order stays identical on desktop and mobile.
 function paintNipigasInfo(project, content, locale, mobile) {
 	const width = mobile ? 640 : 1536, viewportHeight = Math.round(width / 2.05);
-	const padding = mobile ? 40 : 94, available = width - padding * 2;
+	// The scene scrollbar and its cue share a reserved gutter on every locale.
+	const padding = mobile ? 40 : 94, available = width - padding - (mobile ? 116 : 154);
 	const canvas = document.createElement("canvas"), ctx = canvas.getContext("2d");
 	const heading = size => `${locale === "zh" ? 600 : 400} ${size}px FilmHeading, "Microsoft YaHei", sans-serif`;
 	const body = size => `400 ${size}px FilmReading, "Microsoft YaHei", sans-serif`;
@@ -124,7 +125,7 @@ export class FilmInfoTextures {
 			if (line) lines.push(line);
 			return lines;
 		};
-		const titleSize = mobile ? 44 : 64, available = width - padding * 2;
+		const titleSize = mobile ? 44 : 64, available = width - padding - (mobile ? 116 : 154);
 		const title = wrap(project.name.toUpperCase(), titleSize, available);
 		const titleY = mobile ? 36 : 54;
 		const headerBottom = titleY + title.length * titleSize * 1.15 + (mobile ? 48 : 76);

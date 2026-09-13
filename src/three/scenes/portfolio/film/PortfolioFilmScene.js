@@ -155,6 +155,7 @@ export class PortfolioFilmScene {
 	act(action) {
 		if (!this.ready) return;
 		if (action?.type === "info-focus") { this.hud.setInfoFocus(action.value === true); return; }
+		if (action?.type === "info-scroll-focus") { this.screen.scrollFocused = action.value === true; return; }
 		if (action === "info-close") { this.setInfoOpen(false); return; }
 		if (action === "info") {
 			this.setInfoOpen(!this.infoOpen);
@@ -170,7 +171,7 @@ export class PortfolioFilmScene {
 			return;
 		}
 		if (["prev", "next"].includes(action) || typeof action === "number") this.setInfoOpen(false, false);
-		else if (["projects", "projects-open", "inspect"].includes(action)) this.setInfoOpen(false);
+		else if (["projects", "projects-open"].includes(action)) this.setInfoOpen(false);
 		if (typeof action === "object" && action?.type === "seek") { this.media.seek(action.progress); return; }
 		if (typeof action === "object" && action?.type === "volume") { this.media.setVolume(action.value); return; }
 		if (action === "projects") { this.hud.picker.state.toggle(); return; }
@@ -369,6 +370,7 @@ export class PortfolioFilmScene {
 		const info = this.infoTextures.get(this.motion.index, getPortfolioLocale(), this.layout.mobile);
 		const infoVisible = this.motion.info && !this.motion.busy;
 		updateFilmInfoView({ ...box, left: left.x, top: top.y, width: right.x - left.x, height: bottom.y - top.y,
+			scrollRailTop: project(.476, .230), scrollRailBottom: project(.476, -.230), scrollProgress: this.screen.infoScroll,
 			contentRatio: Math.max(1, info.height / (info.viewportHeight * this.screen.infoViewportScale)), infoVisible, clipTop, clipBottom, mobile: this.layout.mobile,
 			opacity: this.appStarted && belongs ? this.reveal : 0 });
 		const snapshot = getFilmUiSnapshot();

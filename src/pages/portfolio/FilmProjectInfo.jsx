@@ -2,7 +2,6 @@ import { useEffect, useLayoutEffect, useRef, useSyncExternalStore } from "react"
 import { createPortal } from "react-dom";
 import { useSnapshot } from "valtio";
 import { store } from "@/app/store.jsx";
-import { siteLocaleReveal } from "@/functions/siteLocaleTransitionState.js";
 import { sceneOwnsHexHitAtClientY } from "@/three/render/overlay/hexHitOwnership.js";
 import { registerSceneCanvasInput } from "@/three/interaction/sceneCanvasInput.js";
 import { attachFilmInfoView, getFilmUiSnapshot, requestFilmAction, subscribeFilmUi } from "./filmInteraction.js";
@@ -18,7 +17,8 @@ export default function FilmProjectInfo() {
  const project = filmProjects[state.index] || filmProjects[0];
  const content = filmProjectInfo[project.id]?.[locale] || filmProjectInfo[project.id]?.en;
  const open = !!state.infoOpen, readable = !!state.infoVisible;
- const layer = useRef(null), trigger = useRef(null), surface = useRef(null), spacer = useRef(null), hint = useRef(null);
+ const layer = useRef(null), trigger = useRef(null), surface = useRef(null), spacer = useRef(null), rail = useRef(null);
+ const railAxis = useRef(null), dragging = useRef(null), readingPress = useRef(null);
  const wasReadable = useRef(false), available = useRef(false);
  const contentRatio = useRef(null);
  useLayoutEffect(() => attachFilmInfoView(frame => {
@@ -41,17 +41,35 @@ export default function FilmProjectInfo() {
    surface.current.scrollTop = scrollFraction * Math.max(0, surface.current.scrollHeight - surface.current.clientHeight);
    contentRatio.current = frame.contentRatio;
   }
-  Object.assign(hint.current.style, { left: `${frame.left + frame.width / 2}px`, top: `${frame.top + frame.height + 6}px`,
-   opacity: siteLocaleReveal.value,
-   visibility: frame.infoVisible && frame.contentRatio > 1.01 && surface.current.scrollTop < surface.current.scrollHeight - surface.current.clientHeight - 4 ? "visible" : "hidden" });
+  const railTop = frame.scrollRailTop, railBottom = frame.scrollRailBottom;
+  if (railTop && railBottom) {
+   const dx = railBottom.x - railTop.x, dy = railBottom.y - railTop.y;
+   const enabled = frame.infoVisible && frame.contentRatio > 1.01;
+   railAxis.current = { x: railTop.x, y: railTop.y, dx, dy, length2: dx * dx + dy * dy, enabled };
+   Object.assign(rail.current.style, { left: `${railTop.x - 16}px`, top: `${railTop.y}px`,
+    height: `${Math.hypot(dx, dy)}px`, transform: `rotate(${Math.atan2(-dx, dy)}rad)`, pointerEvents: enabled ? "auto" : "none" });
+   rail.current.tabIndex = enabled ? 0 : -1;
+   rail.current.setAttribute("aria-hidden", String(!enabled));
+   rail.current.setAttribute("aria-valuenow", String(Math.round(frame.scrollProgress * 100)));
+  }
  }), []);
  useEffect(() => registerSceneCanvasInput({
   reading: true,
   owns: event => !!event.target?.closest?.("[data-film-project-info]") && sceneOwnsHexHitAtClientY("portfolioHub", event.clientY),
  }), []);
  useEffect(() => {
+  const element = rail.current;
+  const wheel = event => {
+   if (!railAxis.current?.enabled || !sceneOwnsHexHitAtClientY("portfolioHub", event.clientY)) return;
+   event.preventDefault(); event.stopPropagation();
+   surface.current.scrollTop += event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? surface.current.clientHeight : 1);
+  };
+  element.addEventListener("wheel", wheel, { passive: false });
+  return () => element.removeEventListener("wheel", wheel);
+ }, []);
+ useEffect(() => {
   if (readable) surface.current.focus({ preventScroll: true });
-  else if (wasReadable.current && available.current && surface.current.contains(document.activeElement)) {
+  else if (wasReadable.current && available.current && (surface.current.contains(document.activeElement) || rail.current.contains(document.activeElement))) {
    const button = trigger.current.hidden ? document.querySelector("[data-film-info-trigger]") : trigger.current;
    button?.focus({ preventScroll: true });
   }
@@ -61,6 +79,36 @@ export default function FilmProjectInfo() {
  const act = event => {
   const y = event.detail ? event.clientY : event.currentTarget.getBoundingClientRect().top;
   if (sceneOwnsHexHitAtClientY("portfolioHub", y)) requestFilmAction("info");
+ };
+ const setRailProgress = event => {
+  const axis = railAxis.current;
+  if (!axis?.enabled || !sceneOwnsHexHitAtClientY("portfolioHub", event.clientY)) return;
+  const progress = Math.max(0, Math.min(1, ((event.clientX - axis.x) * axis.dx + (event.clientY - axis.y) * axis.dy) / Math.max(1, axis.length2)));
+  surface.current.scrollTop = progress * Math.max(0, surface.current.scrollHeight - surface.current.clientHeight);
+ };
+ const railDown = event => {
+  if (event.button !== 0 || !railAxis.current?.enabled || !sceneOwnsHexHitAtClientY("portfolioHub", event.clientY)) return;
+  event.preventDefault(); event.stopPropagation();
+  dragging.current = event.pointerId; event.currentTarget.setPointerCapture(event.pointerId);
+  event.currentTarget.focus({ preventScroll: true }); setRailProgress(event);
+ };
+ const railMove = event => { if (dragging.current === event.pointerId) { event.stopPropagation(); setRailProgress(event); } };
+ const railEnd = event => {
+  if (dragging.current !== event.pointerId) return;
+  event.stopPropagation(); dragging.current = null;
+  if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+ };
+ const railKey = event => {
+  const el = surface.current, step = el.clientHeight * .8;
+  if (event.key === "Escape") { event.preventDefault(); requestFilmAction("info-close"); return; }
+  const deltas = { ArrowDown: 40, ArrowUp: -40, PageDown: step, PageUp: -step, Home: -el.scrollHeight, End: el.scrollHeight };
+  if (event.key in deltas) { event.preventDefault(); event.stopPropagation(); el.scrollTop += deltas[event.key]; }
+ };
+ const readingDown = event => { readingPress.current = { x: event.clientX, y: event.clientY, scroll: surface.current.scrollTop }; };
+ const readingClick = event => {
+  const press = readingPress.current; readingPress.current = null;
+  if (!press || Math.hypot(event.clientX - press.x, event.clientY - press.y) > 6 || Math.abs(surface.current.scrollTop - press.scroll) > 2) return;
+  if (sceneOwnsHexHitAtClientY("portfolioHub", event.clientY)) requestFilmAction("inspect");
  };
  return createPortal(
   <div ref={layer} className={styles.layer}>
@@ -72,6 +120,7 @@ export default function FilmProjectInfo() {
    <div ref={surface} id="film-project-info" role="region" aria-label={`${copy.about}: ${project.name}`}
     aria-hidden={!readable} {...(!readable ? { inert: "" } : {})} data-film-project-info data-canvas-pointer-blocker="true"
     className={`${styles.surface} ${readable ? styles.readable : ""}`} tabIndex={readable ? 0 : -1}
+    onPointerDown={readingDown} onPointerCancel={() => { readingPress.current = null; }} onClick={readingClick}
     onScroll={event => {
      const el = event.currentTarget;
      requestFilmAction({ type: "info-scroll", value: el.scrollTop / Math.max(1, el.scrollHeight - el.clientHeight) });
@@ -85,7 +134,12 @@ export default function FilmProjectInfo() {
      {content?.closing && <p>{content.closing}</p>}
     </div>
    </div>
-   <span ref={hint} className={styles.hint} aria-hidden="true">{copy.scroll}</span>
+   <div ref={rail} className={styles.scrollRail} role="scrollbar" aria-label={copy.scroll}
+    aria-controls="film-project-info" aria-orientation="vertical" aria-valuemin={0} aria-valuemax={100} aria-valuenow={0}
+    tabIndex={-1} data-film-project-info data-canvas-pointer-blocker="true"
+    onPointerDown={railDown} onPointerMove={railMove} onPointerUp={railEnd} onPointerCancel={railEnd} onKeyDown={railKey}
+    onFocus={() => requestFilmAction({ type: "info-scroll-focus", value: true })}
+    onBlur={() => requestFilmAction({ type: "info-scroll-focus", value: false })} />
   </div>, document.body,
  );
 }

@@ -177,6 +177,8 @@ void main(){
 export const hologramFrameFragment = `
 ${filmPaletteGLSL}
 uniform float uOpacity;uniform float uDpr;uniform float uLow;uniform float uHeaderEnd;uniform float uHoloframeGlow;
+uniform vec4 uReadingScroll;
+uniform vec2 uReadingPixels;
 varying vec2 vUv;
 float segment(vec2 p,vec2 a,vec2 b){vec2 v=b-a;return length(p-a-v*clamp(dot(p-a,v)/dot(v,v),0.,1.));}
 void main(){
@@ -219,5 +221,41 @@ void main(){
  #else
  gl_FragColor=vec4(rgb*filmUiGain*uHoloframeGlow/max(a,.00001),a*uOpacity*(1.-serialGap));
  #endif
+
+ // Reading chrome is emitted by the existing curved frame. No overlay texture.
+ if(uReadingScroll.y>.001&&p.x>.30&&p.x<.50){
+  vec2 pixels=uReadingPixels;
+  float railX=.476,railTop=.230,railBottom=-.230;
+  float along=clamp((railTop-p.y)/(railTop-railBottom),0.,1.);
+  float distance=abs((p.x-railX)*pixels.x);
+  float lineAA=max(fwidth((p.x-railX)*pixels.x),.55);
+  float core=1.-smoothstep(.55,.55+lineAA,distance);
+  float ends=smoothstep(railBottom-.001,railBottom+.001,p.y)*(1.-smoothstep(railTop-.001,railTop+.001,p.y));
+  float filled=1.-smoothstep(max(.005,uReadingScroll.x),max(.005,uReadingScroll.x)+.002,along);
+  float track=core*.23*ends;
+  float light=(core*(1.3+uReadingScroll.w*.6)+exp(-distance*.85)*.30)*filled*ends;
+  float cueScale=pixels.x<500.?.78:1.;
+  vec2 cue=(p-vec2(railX-26./pixels.x,0.))*pixels/cueScale;
+  float travel=10.*sin(uReadingScroll.z*2.24399475);
+  vec2 ringPoint=cue-vec2(0.,travel);
+  float radius=length(ringPoint),angle=atan(ringPoint.y,ringPoint.x);
+  float ringAA=max(fwidth(radius),.7);
+  float ring=(1.-smoothstep(.45,.45+ringAA,abs(radius-9.)))*.30;
+  float arcs=(1.-smoothstep(.55,.55+ringAA,abs(radius-12.)))*smoothstep(.35,.50,abs(sin(angle+.61)));
+  float dotLight=1.-smoothstep(1.2,2.2,radius);
+  float thread=(1.-smoothstep(.4,1.3,abs(cue.x)))*(1.-smoothstep(20.,28.,abs(cue.y)))*smoothstep(12.,14.,abs(cue.y-travel));
+  float cueLight=ring+arcs*.72+dotLight+thread*.24+exp(-abs(radius-10.)*.55)*.09;
+  float energy=track+light+cueLight;
+  float coverage=max(track,max(core*filled*ends,clamp(cueLight,0.,1.)));
+  #ifdef FILM_LOW
+  vec4 reading=filmLowLight(energy,coverage,uReadingScroll.y*uOpacity);
+  #else
+  float readingCoverage=max(coverage,sqrt(clamp(energy*.18,0.,1.)));
+  vec4 reading=vec4(filmAccent*energy/max(readingCoverage,.0001),readingCoverage*uReadingScroll.y*uOpacity);
+  #endif
+  float combined=max(gl_FragColor.a,reading.a);
+  gl_FragColor=vec4((gl_FragColor.rgb*gl_FragColor.a+reading.rgb*reading.a)/max(combined,.0001),combined);
+ }
+
  #include <colorspace_fragment>
 }`;

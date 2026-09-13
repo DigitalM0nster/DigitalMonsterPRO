@@ -4,6 +4,7 @@ import { SceneTextLocale } from "../typography/sceneTextLocale.js";
 import { createSceneHudAtlas, createSceneHudAtlasChunked } from "../../../objects/sceneHud/sceneHudAtlas.js";
 import { advanceHudSnake, hudSnakeGlsl } from "../../../objects/sceneHud/sceneHudShaders.js";
 import { MMK1_CAMERA_HOTSPOTS } from "./mmk1CameraHotspotsConfig.js";
+import { MMK1_HOTSPOT_DETAILS } from "./mmk1HotspotDetailsConfig.js";
 
 const VERTEX = /* glsl */ `
 	uniform vec2 uViewport,uOrigin,uLeaderStart,uLeaderEnd;
@@ -23,12 +24,23 @@ const FRAGMENT = /* glsl */ `
 	uniform float uSnake,uGlyphCount,uLocale,uState,uDetails,uLeader;
 	uniform vec2 uLeaderStart,uLeaderEnd;
 	varying vec2 vUv;
-	${hudSnakeGlsl(4)}
+	${hudSnakeGlsl(4, [96, 74, 38])}
+	float clickIcon(vec2 p){
+		vec2 q=abs(p)-vec2(3.5,6.0);
+		float shell=length(max(q,0.0))+min(max(q.x,q.y),0.0)-4.0;
+		float outline=1.0-smoothstep(0.55,1.25,abs(shell));
+		float button=(1.0-smoothstep(-0.7,0.2,shell))*step(p.x,-0.7)*step(1.0,p.y);
+		float seam=(1.0-smoothstep(0.35,1.0,abs(p.x)))*step(1.0,p.y)*step(p.y,9.0);
+		float split=(1.0-smoothstep(0.35,1.0,abs(p.y-1.0)))*step(abs(p.x),7.0);
+		return max(max(outline,button*0.8),max(seam,split));
+	}
 	void main(){
 		if(uSnake<=0.0)discard;
 		vec2 px=vUv*vec2(300.0,200.0);
 		bool inPanel=px.x>=0.0&&px.x<=300.0&&px.y>=0.0&&px.y<=110.0;
 		vec4 text=inPanel?snakeLabel(vUv,uState):vec4(0.0);
+		float icon=clickIcon(px-vec2(mix(23.0,263.0,uLeader),38.0))*smoothstep(0.60,0.94,uSnake);
+		text=vec4(mix(text.rgb,vec3(0.38,0.88,1.0),icon),max(text.a,icon));
 		float backing=inPanel?uDetails*(1.0-smoothstep(255.0,299.0,px.x))*smoothstep(4.0,24.0,px.y)*0.65:0.0;
 		vec2 ab=uLeaderEnd-uLeaderStart;
 		float t=clamp(dot(px-uLeaderStart,ab)/max(dot(ab,ab),1.0),0.0,1.0);
@@ -95,10 +107,12 @@ export class Mmk1HotspotLabels {
 			const y = (this.projected.y + 1) * height / 2;
 			const right = x + 334 < width - margin;
 			const linked = marker.userData.hotspotDefinition.labelPlacement === "left";
-			const stacked = linked && x - 342 < margin;
+			// The cab caption sits closer to its own ring, clear of the hook below-left.
+			const linkedOffset = i === 1 ? 312 : 342;
+			const stacked = linked && x - linkedOffset < margin;
 			const u = panel.material.uniforms;
 			u.uOrigin.value.set(
-				THREE.MathUtils.clamp(linked ? x - (stacked ? 270 : 342) : right ? x + 34 : x - 334, margin, Math.max(margin, width - 314)),
+				THREE.MathUtils.clamp(linked ? x - (stacked ? 270 : linkedOffset) : right ? x + 34 : x - 334, margin, Math.max(margin, width - 314)),
 				THREE.MathUtils.clamp(y - (stacked ? 170 : 100), bottom, Math.max(bottom, height - top - 110)),
 			).multiplyScalar(this.pixelRatio).round().divideScalar(this.pixelRatio);
 			u.uLeaderStart.value.set(stacked ? x - u.uOrigin.value.x : 278, stacked ? 110 : 96);
@@ -141,9 +155,26 @@ export class Mmk1HotspotLabels {
 }
 
 function createLabelStates() {
-	return ["ru", "en", "zh"].map((locale) => MMK1_CAMERA_HOTSPOTS.map(({ label, labelPlacement }) => [
-		{ text: label[locale][0], x: 15, y: 104, size: 14, color: "#d3f3ff", row: 0 },
-		{ text: label[locale][1], x: 15, y: 131, size: 10, color: "#9bcddd", row: 1 },
-		{ text: locale === "en" ? "CLICK · EXPLORE" : locale === "zh" ? "点击 · 查看细节" : "НАЖМИТЕ · ПРИБЛИЗИТЬ", x: 15, y: 164, size: 10, color: "#b2cbd5", row: 2 },
-	].map((line) => labelPlacement === "left" ? { ...line, x: 270, align: "right" } : line)));
+	// Fit both headline rows together during preparation, never during hover.
+	const ctx = document.createElement("canvas").getContext("2d");
+	ctx.font = '500 16px ManifoldExtended, "Segoe UI", sans-serif';
+	return ["ru", "en", "zh"].map((locale) => MMK1_CAMERA_HOTSPOTS.map(({ labelPlacement }, index) => {
+		const left = labelPlacement === "left";
+		const headlines = MMK1_HOTSPOT_DETAILS[index].headlines[locale];
+		const maxWidth = Math.max(...headlines.map(text => Array.from(text).reduce((sum, char) =>
+			sum + (char === " " ? 6.72 : ctx.measureText(char).width + 0.45), 0)));
+		const size = Math.floor(16 * Math.min(1, 254 / maxWidth) * 10) / 10;
+		return [
+			...headlines.map((text, row) => ({
+				text, x: left ? 270 : 15, y: 104 + row * 22, size,
+				tracking: 0.45, space: size * 0.42, color: "#d3f3ff", row,
+				align: left ? "right" : "left",
+			})),
+			{
+				text: locale === "en" ? "LEARN MORE" : locale === "zh" ? "了解更多" : "ПОДРОБНЕЕ",
+				x: left ? 241 : 44, y: 162, size: 14, tracking: 0.65, space: 5.9,
+				color: "#d3f3ff", row: 2, align: left ? "right" : "left",
+			},
+		];
+	}));
 }

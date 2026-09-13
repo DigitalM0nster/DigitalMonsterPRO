@@ -78,6 +78,24 @@ test("hover text reverses from its current letter phase and settles in both dire
 	assert.equal(advanceHudSnake(progress, false, 1), 0);
 });
 
+test("the left boom circle below the desktop header remains visible and clickable", () => {
+	const { hotspots, camera, frame } = createFixture();
+	const marker = hotspots.markers[0];
+	const depth = marker.userData.anchor.clone().project(camera).z;
+	marker.userData.anchor.set(490 / 720 - 1, 1 - 89 / 450, depth).unproject(camera);
+	hotspots.syncCamera(camera);
+	for (let tick = 0; tick < 100; tick++) hotspots.update(1 / 60, frame);
+	assert.equal(marker.userData.layoutVisible, true);
+	assert.equal(marker.visible, true);
+	assert.equal(marker.material.opacity, 1);
+	marker.userData.magnetOffset.set(0, 9);
+	hotspots._positionMarker(marker, hotspots.camera);
+	const displayed = marker.position.clone().project(hotspots.camera);
+	assert.equal(hotspots._pickMarker(hotspots.camera, displayed, 1440, 900), marker);
+	assert.ok(Math.abs((1 - displayed.y) * 450 - 80) < 1e-8);
+	hotspots.dispose();
+});
+
 test("screen composition and hex baking reuse all crane markers at a fixed pixel size", () => {
 	const { hotspots, scene, camera } = createFixture();
 	const markers = [...hotspots.markers];

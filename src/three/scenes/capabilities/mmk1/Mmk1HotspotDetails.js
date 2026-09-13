@@ -67,8 +67,11 @@ function createDetailStates(measureContext) {
 				text, x: 8, y: 98 + row * 44, color: row ? "#d5ebf4" : "#98bfce",
 				...fitHeadline(measureContext, text, titleSize, 528),
 			})),
-			{ text: MMK1_OVERVIEW.guide[locale], x: 54, y: 192, color: "#819ba5",
-				...fitHeadline(measureContext, MMK1_OVERVIEW.guide[locale], compact ? 26 : 13, 480) },
+			...MMK1_OVERVIEW.description[locale].map((text, row) => ({
+				text, x: 8, y: 185 + row * 24, color: "#a3b8c2",
+				...MMK1_DETAIL_TYPE.body,
+				...(compact ? { size: 26, font: '400 26px MazzardM, "Segoe UI", sans-serif' } : {}),
+			})),
 		];
 	}), ...detail(locale, true)]);
 }
@@ -112,7 +115,7 @@ export class Mmk1HotspotDetails {
 					uPanelSize: { value: new THREE.Vector2(MMK1_DETAIL_SIZE.width, view.height) },
 					uUvBounds: { value: new THREE.Vector4(0, view.uvBottom, 1, view.uvTop) },
 					uSnake: { value: 0 }, uReveal: { value: 0 }, uState: { value: index }, uLocale: { value: 0 }, uDetails: { value: 0 },
-					uMarkerTime: { value: 4.2 }, uStateCount: { value: 10 },
+					uStateCount: { value: 10 },
 				},
 				vertexShader: VERTEX, fragmentShader: overview ? MMK1_INTRO_FRAGMENT : DETAIL_FRAGMENT,
 				extensions: { derivatives: overview },
@@ -151,7 +154,6 @@ export class Mmk1HotspotDetails {
 	}
 
 	update(delta, selectedId, flight, locale, { started = false, current = false, transitioning = false } = {}) {
-		if (started && current) this.panels[4].material.uniforms.uMarkerTime.value += Math.max(0, delta);
 		for (let i = 0; i < this.panels.length; i++) {
 			const u = this.panels[i].material.uniforms;
 			const reveal = i === 4 ? u.uReveal : u.uSnake;

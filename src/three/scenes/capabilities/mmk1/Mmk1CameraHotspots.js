@@ -213,10 +213,13 @@ export class Mmk1CameraHotspots {
 		const scale = MMK1_CAMERA_HOTSPOT_MOTION.markerSize * 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov * .5)) / height;
 		const adapted = width < 1280 || height <= 600;
 		const short = height <= 480;
-		// Include the complete ring and its existing 9px cursor attraction.
-		const padding = MMK1_CAMERA_HOTSPOT_MOTION.markerSize * .5 + 12;
+		// The ink occupies a 28px radius, inside the transparent 72px sprite.
+		// Reserve its 9px cursor attraction without culling the left tip below the header.
+		const padding = 28 + 9;
 		const left = width <= 1024 ? 0 : 120, right = width <= 1024 ? 0 : 96;
-		const top = adapted ? (short ? 66 : 84) : 64;
+		// Desktop chrome has no full-width backing: a circle below it must not
+		// disappear merely because its transparent sprite enters the header band.
+		const top = adapted ? (short ? 66 : 84) : 0;
 		const bottom = adapted ? (short ? 50 : 64) : 30;
 		if (adapted && (this._detailLayoutWidth !== width || this._detailLayoutHeight !== height || this._detailLayoutSelected !== this.selectedId)) {
 			this._detailLayoutWidth = width; this._detailLayoutHeight = height;

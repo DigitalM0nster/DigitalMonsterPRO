@@ -28,20 +28,20 @@ export const MMK1_HOTSPOT_DETAILS = [
 	},
 	{
 		center: [0.59, 0.60],
-		headlines: { ru: ["СОЗДАЁМ", "ПРИТЯЖЕНИЕ"], en: ["CREATING", "ATTRACTION"], zh: ["创造", "吸引力"] },
+		headlines: { ru: ["ДЕЛАЕМ", "ЗАПОМИНАЮЩИМСЯ"], en: ["MAKING YOU", "MEMORABLE"], zh: ["让您", "令人难忘"] },
 		copy: {
-			ru: ["Создаём притяжение", "Первый взгляд цепляет.", "Каждое движение раскрывает больше."],
-			en: ["Creating attraction", "The first glance draws you in.", "Every move reveals something new."],
-			zh: ["创造吸引力", "第一眼就引人入胜。", "每一次互动，都有新的发现。"],
+			ru: ["Делаем запоминающимся", "Находим выразительную форму,", "в которой узнают именно вас"],
+			en: ["Making you memorable", "We find a distinctive form", "that people recognize as yours."],
+			zh: ["让您令人难忘", "找到独特的表达形式，", "让人一眼认出您。"],
 		},
 	},
 	{
 		center: [0.64, 0.40],
-		headlines: { ru: ["СМЕЛЫЙ ДИЗАЙН", "ТОЧНАЯ РАБОТА"], en: ["BOLD DESIGN", "PRECISE EXECUTION"], zh: ["大胆设计", "精准实现"] },
+		headlines: { ru: ["НАХОДИМ СПОСОБ", "РЕАЛИЗОВАТЬ"], en: ["FINDING A WAY", "TO MAKE IT HAPPEN"], zh: ["找到方法", "实现构想"] },
 		copy: {
-			ru: ["Смелый дизайн. Точная работа.", "Впечатление снаружи.", "Продуманная система внутри."],
-			en: ["Bold design. Precise execution.", "A striking first impression.", "Thoughtful engineering beneath."],
-			zh: ["大胆设计，精准实现", "外在令人印象深刻。", "内在由严谨的技术支撑。"],
+			ru: ["Находим способ реализовать", "Подбираем технологии под вашу задумку,", "даже когда готового решения ещё нет"],
+			en: ["Finding a way to make it happen", "We choose technology to fit your idea,", "even when no ready-made solution exists."],
+			zh: ["找到实现构想的方法", "为您的创意选择合适的技术，", "即使还没有现成的解决方案。"],
 		},
 	},
 ];
@@ -52,15 +52,15 @@ export const MMK1_OVERVIEW = {
 		en: ["TAKING IDEAS", "TO NEW HEIGHTS"],
 		zh: ["让创意", "再上新高度"],
 	},
-	guide: {
-		ru: "НАЖМИТЕ НА КРУГ",
-		en: "SELECT A CIRCLE",
-		zh: "轻触圆点，探索细节",
+	description: {
+		ru: ["Находим в вашем продукте то, что", "заслуживает внимания, и превращаем это", "в опыт, который увлекает людей"],
+		en: ["We find what deserves attention", "in your product and turn it into", "an experience that draws people in."],
+		zh: ["发现您产品中值得关注的亮点，", "将它们转化为", "引人入胜的体验。"],
 	},
 };
 
-// Keep the prepared quad close to the slogan and its single-line interaction cue.
-export const MMK1_OVERVIEW_VIEW = { height: 176, uvBottom: 0.275, uvTop: 0.825 };
+// The same bounded quad holds the slogan and its three-line studio description.
+export const MMK1_OVERVIEW_VIEW = { height: 176, uvBottom: 0.2125, uvTop: 0.7625 };
 
 export function getMmk1DetailLayout(index, width, height) {
 	const adapted = width < 1280 || height <= 600;

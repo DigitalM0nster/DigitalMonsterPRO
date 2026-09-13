@@ -124,7 +124,9 @@ export class FilmHud {
  update({motion,reveal,focus,layout,locale,infoOpen=false,warm=false,delta=1/60,reduced=false}) {
   const {compact}=layout;
   const titleY=compact?-.345:-.298,titleHeight=compact?.088:.047,titleLimit=compact?.54:.40;
-  const alpha=reveal*(1-focus*.92);
+  // Clear the caption before the reading control moves into its space.
+  const alpha=reveal*(1-THREE.MathUtils.smoothstep(focus,0,.4));
+  const infoFocus=THREE.MathUtils.smoothstep(focus,.35,1);
   this.infoY=compact?-.52:-.391;
   for(const layer of this.layers)layer.setVisibility(warm?.02:0);
   this.picker.update({layout,locale,motion,alpha,focus,delta,warm,reduced});
@@ -159,15 +161,16 @@ export class FilmHud {
   // projection or texture repaint is involved in its perspective, hover or reveal.
   const info=this.info,hovered=this.hovered==="info"||info.focused;
   info.hover+=(Number(hovered)-info.hover)*(reduced?1:1-Math.exp(-Math.min(delta,.05)*14));
-  const infoY=this.infoY,infoHeight=compact?.052:.032;
-  const infoAlpha=reveal*(1-focus*.72),label=infoOpen?copy.back:copy.info;
-  const iconSize=compact?.052:.034,gap=compact?.022:.012;
-  const infoWidth=this.placeSurface(label,-(iconSize+gap)/2,infoY,infoHeight,compact?.40:.25,infoAlpha*(.9+info.hover*.1));
+  this.infoY=THREE.MathUtils.lerp(this.infoY,-.305,infoFocus);
+  const infoY=this.infoY,infoScale=1+infoFocus*.25,infoHeight=(compact?.052:.032)*infoScale;
+  const infoAlpha=reveal,label=infoOpen?copy.back:copy.info;
+  const iconSize=(compact?.052:.034)*infoScale,gap=compact?.022:.012;
+  const infoWidth=this.placeSurface(label,-(iconSize+gap)/2,infoY,infoHeight,(compact?.40:.25)*infoScale,infoAlpha*(.9+info.hover*.1));
   label.mesh.material.uniforms.uGain.value=1.08+info.hover*.12;
   rule(info.icon,(infoWidth+gap)/2,infoY,iconSize,iconSize,infoAlpha);
   info.icon.material.uniforms.uHover.value=info.hover;
   info.icon.material.uniforms.uReturn.value=Number(infoOpen);
-  this.placeHit(info.hit,0,infoY,infoWidth+gap+iconSize+.024,compact?.09:.060,reveal>.1);
+  this.placeHit(info.hit,0,infoY,infoWidth+gap+iconSize+.024,(compact?.09:.060)*infoScale,reveal>.1);
   rule(this.leftRail,-.522,-.020,.003,.32,compact?0:alpha*.65);
   rule(this.leftRailShort,-.534,.115,.003,.035,compact?0:alpha*.55);
   rule(this.leftDash,-.567,-.205,.014,.003,compact?0:alpha*.65);

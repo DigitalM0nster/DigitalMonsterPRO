@@ -308,6 +308,22 @@
 				opacity: 0.7;
 			}
 			@media (max-width: 900px), (max-height: 720px) {
+				/* Match loader.css before React mounts: original arcs + prepared halos. */
+				.loaderOuterOrbitCore,
+				.loaderOuterOrbitGlowSource {
+					display: none;
+				}
+				.loaderOuterOrbitGlowNear {
+					inset: -20%;
+					filter: none;
+					background: url("/images/loader/outer-glow.webp") center / 100% 100% no-repeat;
+				}
+				.loaderMiddleOrbit .loaderOuterOrbitGlowNear {
+					background-image: url("/images/loader/middle-glow.webp");
+				}
+				.digitalMonsterLoaderSnake::before {
+					filter: none;
+				}
 				.digitalMonsterLoaderOrb {
 					width: min(92vw, 88vh);
 					min-width: 0;

@@ -1433,24 +1433,22 @@
 }
 
 @media (max-width: 900px), (max-height: 720px) {
-	/* Rotating gradient masks + chained shadows contend with WebGL preparation
-	   in WebKit. Compact viewports rotate two simple, cacheable border arcs. */
+	/* Original arcs + halos baked at 400px / 2x, with 80px padding, lossless WebP.
+	   Only the parent transform animates: no live mask/filter stack during warm.
+	   Keep bootstrap index.html in sync. */
 	.loaderOuterOrbitCore,
-	.loaderOuterOrbitGlow {
+	.loaderOuterOrbitGlowSource {
 		display: none;
 	}
 
-	.loaderOuterOrbit,
-	.loaderMiddleOrbit {
-		box-sizing: border-box;
-		border: 1px solid rgba(0, 128, 255, 0.16);
-		border-top: 2px solid #36cfff;
-		border-left: 2px solid rgba(0, 174, 255, 0.48);
+	.loaderOuterOrbitGlowNear {
+		inset: -20%;
+		filter: none;
+		background: url("/images/loader/outer-glow.webp") center / 100% 100% no-repeat;
 	}
 
-	.loaderMiddleOrbit {
-		border-top-color: rgba(0, 174, 255, 0.48);
-		border-left-color: transparent;
+	.loaderMiddleOrbit .loaderOuterOrbitGlowNear {
+		background-image: url("/images/loader/middle-glow.webp");
 	}
 
 	.digitalMonsterLoaderSnake::before {

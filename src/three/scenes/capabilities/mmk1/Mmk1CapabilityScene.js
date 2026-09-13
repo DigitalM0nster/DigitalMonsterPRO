@@ -417,9 +417,10 @@ export class Mmk1CapabilityScene extends Case3Scene {
 		}) ?? false;
 		this.sceneSound.update(delta, {
 			enabled: current && this.store.appStarted === true && !transitioning,
-			// Hotspots already enforce the scene's pointer Y-band during hex entry.
-			hoverEnabled: textStarted && this._cameraHotspots?.active === true,
-			hudEnabled: textStarted && this._cameraHotspots?.active === true,
+			// Painted locale reveals continue while the language control owns the pointer.
+			// Audio follows their progress, independently of hotspot hit availability.
+			hoverEnabled: textStarted && (current || transitioning),
+			hudEnabled: textStarted && (current || transitioning),
 			reveal: this._cameraHotspots?.details?.getSoundReveal(true) ?? 0,
 			titleSampleRange: INTRO_SOUND_SAMPLE_RANGE,
 			hudReveal: this._cameraHotspots?.details?.getSoundReveal() ?? 0,

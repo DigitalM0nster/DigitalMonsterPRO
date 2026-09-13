@@ -107,9 +107,9 @@ function buildFrame(blockId, locale, index) {
 			maxFeatures: Math.max(5, features.length),
 			// About stages use the full text width: no decorative 1/2/3 column.
 			featureShowNumbers: false,
-			traitListTopSize: 16,
-			traitListBottomSize: 14,
-			traitListTextGap: 5,
+			traitListTopSize: blockId === "text1" ? 22 : 16,
+			traitListBottomSize: blockId === "text1" ? 20 : 14,
+			traitListTextGap: blockId === "text1" ? 10 : 5,
 			traitListRowPadY: 13,
 			// Match case reference panel: muted description (not white @ 0.78).
 			descriptionUseThemeMuted: true,

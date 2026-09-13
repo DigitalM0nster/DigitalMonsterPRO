@@ -27,21 +27,13 @@ const ABOUT_PANEL_COPY = {
 			pathTitle: "СТУДИЯ",
 			title: "DIGITAL\nMONSTER",
 			descriptionParagraphs: [
-				"Нам мало, чтобы работало.",
-				"Человеку должно нравиться этим пользоваться.",
+				"Мы создаём сайты, веб-приложения и интерактивные презентации. Нам важно всё: первое впечатление, понятные действия, удобство в мелочах. Доводим до ощущения: «Будто сделали специально для меня».",
+				"Здесь человек чувствует, что его поняли: всё удобно, понятно, отвечает тому, что ему нужно.",
 			],
 			listItems: [
 				{
-					title: "КОНЦЕПЦИЯ",
-					subtitle: "Сильная идея становится основой каждого решения.",
-				},
-				{
-					title: "ДИЗАЙН",
-					subtitle: "Интерфейс, визуальный язык и движение работают как одно целое.",
-				},
-				{
-					title: "ТЕХНОЛОГИИ",
-					subtitle: "Сложные решения остаются быстрыми, понятными и надёжными.",
+					title: "«Нам мало, чтобы работало.",
+					subtitle: "Человеку должно нравиться этим пользоваться»",
 				},
 			],
 		},
@@ -49,21 +41,13 @@ const ABOUT_PANEL_COPY = {
 			pathTitle: "STUDIO",
 			title: "DIGITAL\nMONSTER",
 			descriptionParagraphs: [
-				"Just working isn't enough for us.",
-				"People should enjoy using it.",
+				"We create websites, web applications, and interactive presentations. Every detail matters to us: the first impression, clear actions, and everyday ease of use. We refine it until it feels “made just for me.”",
+				"People feel understood here: everything is easy to use, clear, and meets their needs.",
 			],
 			listItems: [
 				{
-					title: "CONCEPT",
-					subtitle: "A strong idea becomes the foundation of every solution.",
-				},
-				{
-					title: "DESIGN",
-					subtitle: "Interface, visual language, and motion work as one.",
-				},
-				{
-					title: "TECHNOLOGY",
-					subtitle: "Complex solutions stay fast, clear, and reliable.",
+					title: "“Just working isn't enough for us.",
+					subtitle: "People should enjoy using it.”",
 				},
 			],
 		},
@@ -71,21 +55,13 @@ const ABOUT_PANEL_COPY = {
 			pathTitle: "工作室",
 			title: "DIGITAL\nMONSTER",
 			descriptionParagraphs: [
-				"对我们来说，能用还不够。",
-				"用起来还得让人喜欢。",
+				"我们打造网站、网页应用和互动演示。我们在意每个细节：第一印象、清晰的操作，以及日常使用的便利。不断打磨，直到让人觉得：“仿佛是专门为我做的。”",
+				"在这里，人们感到自己被理解：一切都方便、清楚，也符合自己的需要。",
 			],
 			listItems: [
 				{
-					title: "概念",
-					subtitle: "强有力的想法成为每个方案的基础。",
-				},
-				{
-					title: "设计",
-					subtitle: "界面、视觉语言与动效作为一个整体运作。",
-				},
-				{
-					title: "技术",
-					subtitle: "复杂方案依然保持快速、清晰与可靠。",
+					title: "“对我们来说，能用还不够。",
+					subtitle: "用起来还得让人喜欢。”",
 				},
 			],
 		},

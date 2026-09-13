@@ -4,6 +4,14 @@ export function resolveFilmPresentation(width, height, info = 0) {
  const progress = Math.max(0, Math.min(1, info));
  const mix = (from, to) => from + (to - from) * progress;
  const short = height <= 480, top = short ? 64 : 84, bottom = layout.wide ? 28 : short ? 54 : 72;
+ if (!layout.wide) {
+  const screenBottom = height - bottom - 64;
+  return { ...layout,
+   heading: { ...layout.heading, top: mix(layout.heading.top, top) },
+   screen: { ...layout.screen, top: mix(layout.screen.top, top + 56), bottom: mix(layout.screen.bottom, screenBottom) },
+   panel: { ...layout.panel, top: mix(layout.panel.top, screenBottom + 10) },
+  };
+ }
  const portrait = !layout.landscape && !layout.wide;
  const panelTop = portrait ? height - bottom - 60 : (layout.screen.top + layout.screen.bottom) / 2 - 22;
  const screenTop = portrait ? top + 48 : layout.screen.top + 10;
@@ -32,18 +40,16 @@ function resolveFilmVideoPresentation(width, height) {
 			panel: { left, top: height - bottom - 56, width: right - left },
 			directory: { left: right + 52, top: top + Math.max(0, (available - 352) / 2), width: total * .40 - 68, height: Math.min(352, available) } };
 	}
-	if (landscape) {
-		const left = 16, right = width * .49;
-		return { wide, landscape, heading: { left, top: top + 4, width: right - left },
-			screen: { left, right, top: top + 28, bottom: height - bottom - 12 },
-			panel: { left: width * .53, top: top + Math.max(0, (available - 196) / 2), width: width * .47 - 16 } };
-	}
-	const screenHeight = Math.min((width - 32) * .5184, Math.max(96, available - 254));
-	const blockHeight = screenHeight + 238;
+	const screenHeight = Math.min((width - 32) * .5184, Math.max(80, available - 120));
+	const screenWidth = Math.min(width - 32, screenHeight / .5184);
+	const left = (width - screenWidth) / 2, right = width - left;
+	const controlsWidth = Math.max(screenWidth, Math.min(width - 32, 320));
+	const controlsLeft = (width - controlsWidth) / 2;
+	const blockHeight = screenHeight + 120;
 	const start = top + Math.max(0, (available - blockHeight) / 2);
-	return { wide, landscape, heading: { left: 20, top: start, width: width - 40 },
-		screen: { left: 16, right: width - 16, top: start + 32, bottom: start + 32 + screenHeight },
-		panel: { left: 16, top: start + 48 + screenHeight, width: width - 32 } };
+	return { wide, landscape, heading: { left: controlsLeft, top: start, width: controlsWidth },
+		screen: { left, right, top: start + 56, bottom: start + 56 + screenHeight },
+		panel: { left: controlsLeft, top: start + 66 + screenHeight, width: controlsWidth } };
 }
 
 /** Information stays inside the video on desktop; phones use a compact reading card. */

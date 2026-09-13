@@ -27,8 +27,8 @@ const ABOUT_PANEL_COPY = {
 			pathTitle: "СТУДИЯ",
 			title: "DIGITAL\nMONSTER",
 			descriptionParagraphs: [
-				"Digital Monster — интерактивная digital-студия для компаний, которым недостаточно стандартных решений.",
-				"Мы соединяем сильную концепцию, выразительный дизайн и сложную разработку, превращая идеи и технологии в цельный цифровой опыт.",
+				"Нам мало, чтобы работало.",
+				"Человеку должно нравиться этим пользоваться.",
 			],
 			listItems: [
 				{
@@ -49,8 +49,8 @@ const ABOUT_PANEL_COPY = {
 			pathTitle: "STUDIO",
 			title: "DIGITAL\nMONSTER",
 			descriptionParagraphs: [
-				"Digital Monster is an interactive digital studio for companies that need more than standard solutions.",
-				"We unite a strong concept, expressive design, and complex engineering — turning ideas and technology into a cohesive digital experience.",
+				"Just working isn't enough for us.",
+				"People should enjoy using it.",
 			],
 			listItems: [
 				{
@@ -71,8 +71,8 @@ const ABOUT_PANEL_COPY = {
 			pathTitle: "工作室",
 			title: "DIGITAL\nMONSTER",
 			descriptionParagraphs: [
-				"Digital Monster 是一家互动数字工作室，服务那些不满足于标准方案的企业。",
-				"我们将强有力的概念、富有表现力的设计与复杂开发结合，把想法与技术转化为完整统一的数字体验。",
+				"对我们来说，能用还不够。",
+				"用起来还得让人喜欢。",
 			],
 			listItems: [
 				{

@@ -108,7 +108,7 @@ export default function FilmProjectInfo() {
  const readingClick = event => {
   const press = readingPress.current; readingPress.current = null;
   if (!press || Math.hypot(event.clientX - press.x, event.clientY - press.y) > 6 || Math.abs(surface.current.scrollTop - press.scroll) > 2) return;
-  if (sceneOwnsHexHitAtClientY("portfolioHub", event.clientY)) requestFilmAction("inspect");
+  if (sceneOwnsHexHitAtClientY("portfolioHub", event.clientY)) requestFilmAction({ type: "reading-click", clientX: event.clientX, clientY: event.clientY });
  };
  return createPortal(
   <div ref={layer} className={styles.layer}>

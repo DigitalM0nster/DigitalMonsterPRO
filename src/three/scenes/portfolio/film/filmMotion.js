@@ -30,7 +30,7 @@ export class FilmMotion {
 	select(index, direction = 0) {
 		if (!Number.isInteger(index) || index < 0 || index >= this.count) return false;
 		this.requestedIndex = index;
-		this.requestedInfo = false;
+		this.requestedInfo = this.selectionInfo;
 		this.requestedDirection = Math.sign(direction);
 		if (!this.busy) this.continueSelection();
 		return true;

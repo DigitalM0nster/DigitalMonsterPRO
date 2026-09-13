@@ -15,3 +15,12 @@ export function publishFilmUi(next) {
 	snapshot = next;
 	for (const listener of listeners) listener();
 }
+
+// A small DOM information card follows the existing scene frame. No React frame
+// subscription or text texture is needed for its screen position.
+let infoView = null;
+export function attachFilmInfoView(view) {
+	infoView = view;
+	return () => { if (infoView === view) infoView = null; };
+}
+export function updateFilmInfoView(frame) { infoView?.(frame); }

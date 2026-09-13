@@ -1,4 +1,5 @@
 import { plannedPortfolioProjects } from "./plannedProjects.js";
+import { filmProjectInfo } from "./filmProjectInfo.js";
 
 const media = {
  nipigas: { video: "/video/portfolio/nipigas-presentation-v11-1080.mp4", videoLow: "/video/portfolio/nipigas-presentation-v11-540.mp4", detail: "Интерактивные проекты", en: "Interactive experiences", zh: "互动项目", accent: "#b19a76", sideCopy: { ru: "ИСТОРИЯ\nЛЮДИ\nСОБЫТИЯ", en: "HISTORY\nPEOPLE\nEVENTS", zh: "历史\n人物\n活动" } },
@@ -14,6 +15,9 @@ const media = {
 export const filmProjects = plannedPortfolioProjects.filter(({ id }) => media[id]).map((project) => ({
 	...project,
 	...media[project.id],
+	detail: filmProjectInfo[project.id].ru.summary,
+	en: filmProjectInfo[project.id].en.summary,
+	zh: filmProjectInfo[project.id].zh.summary,
 	poster: `/images/portfolio/film/${project.id}.webp`,
 }));
 

@@ -19,12 +19,34 @@ export function resolveFilmPresentation(width, height) {
 		const left = 16, right = width * .49;
 		return { wide, landscape, heading: { left, top: top + 4, width: right - left },
 			screen: { left, right, top: top + 28, bottom: height - bottom - 12 },
-			panel: { left: width * .53, top: top + Math.max(0, (available - 152) / 2), width: width * .47 - 16 } };
+			panel: { left: width * .53, top: top + Math.max(0, (available - 196) / 2), width: width * .47 - 16 } };
 	}
-	const screenHeight = Math.min((width - 32) * .5184, Math.max(96, available - 210));
-	const blockHeight = screenHeight + 194;
+	const screenHeight = Math.min((width - 32) * .5184, Math.max(96, available - 254));
+	const blockHeight = screenHeight + 238;
 	const start = top + Math.max(0, (available - blockHeight) / 2);
 	return { wide, landscape, heading: { left: 20, top: start, width: width - 40 },
 		screen: { left: 16, right: width - 16, top: start + 32, bottom: start + 32 + screenHeight },
 		panel: { left: 16, top: start + 48 + screenHeight, width: width - 32 } };
+}
+
+/** Information stays inside the video on desktop; phones use a compact reading card. */
+export function resolveFilmInfoPresentation(width, height, projected) {
+	const mobile = resolveFilmPresentation(width, height);
+	if (mobile) {
+		const { panel, screen, wide } = mobile;
+		const cardTop = mobile.landscape ? Math.max(76, screen.top) : Math.max(76, screen.bottom - 310);
+		const cardBottom = Math.min(screen.bottom, height - 76);
+		const cardWidth = Math.min(420, mobile.landscape ? screen.right - screen.left : width - 24);
+		return {
+			anchorX: panel.left + panel.width / 2,
+			anchorY: Math.min(height - 36, panel.top + (wide ? 46 : 112)),
+			left: mobile.landscape ? screen.left + (screen.right - screen.left - cardWidth) / 2 : (width - cardWidth) / 2,
+			top: cardTop, width: cardWidth,
+			height: Math.max(100, Math.min(390, cardBottom - cardTop)),
+		};
+	}
+	const cardWidth = Math.min(460, (projected.right - projected.left) * .7);
+	return { anchorX: projected.anchorX, anchorY: projected.anchorY,
+		left: (projected.left + projected.right - cardWidth) / 2,
+		top: projected.top + 12, width: cardWidth, height: Math.max(100, projected.bottom - projected.top - 24) };
 }

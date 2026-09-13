@@ -22,7 +22,7 @@ export function createFilmCanvasInterface(renderer, scene) {
 	ui.text("prev", { default: "‹" }, { size: 27, width: 44, height: 44, align: "center", action: () => scene.act("prev") });
 	ui.text("next", { default: "›" }, { size: 27, width: 44, height: 44, align: "center", action: () => scene.act("next") });
 	ui.text("projects", { ru: "ВСЕ ПРОЕКТЫ  ↗", en: "ALL PROJECTS  ↗", zh: "所有项目  ↗" }, { size: 13, width: 164, height: 44, align: "right",
-		action: () => { ui.projectsOpen = true; ui.sheetScroll = 0; ui.volumeOpen = false; } });
+		action: () => { scene.act("info-close"); ui.projectsOpen = true; ui.sheetScroll = 0; ui.volumeOpen = false; } });
 	ui.text("play", { play: "▶", pause: "Ⅱ" }, { size: 20, width: 44, height: 44, align: "center", action: () => scene.act("play") });
 	ui.add("volume", { width: 44, height: 44, values: { default: "" }, ariaLabel: "Громкость видео", action: () => { ui.volumeOpen = !ui.volumeOpen; }, paint(ctx) {
 		ctx.strokeStyle = "#e2e9ed"; ctx.lineWidth = 1.5; ctx.lineJoin = "round";
@@ -65,7 +65,7 @@ export function createFilmCanvasInterface(renderer, scene) {
 		ui.place("name", x + (w - nameWidth) / 2, y - (layout.wide ? 14 : 4), nameWidth, 58, { key: index });
 		ui.place("detail", x + (w - Math.min(280, w)) / 2, y + (layout.wide ? 14 : 40), Math.min(280, w), 54, { key: `${locale}${index}` });
 		ui.place("prev", layout.wide ? x + w - 96 : x, y + 2, 44, 44); ui.place("next", x + w - 44, y + 2, 44, 44);
-		const seekY = y + (layout.wide ? -1 : 97), controlsY = y + (layout.wide ? 4 : 109);
+		const seekY = y + (layout.wide ? -1 : 141), controlsY = y + (layout.wide ? 4 : 153);
 		ui.place("seekTrack", x, seekY, w, 1, { color: 0x204453 });
 		ui.place("seekValue", x, seekY - 1, Math.max(1, w * (media.progress || 0)), 2, { color: 0x00a9ff });
 		ui.place("seek", x, seekY - 12, w, 24, { opacity: .002, color: 0x000000 });

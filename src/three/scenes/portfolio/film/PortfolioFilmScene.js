@@ -3,11 +3,13 @@ import { getGraphicsTier } from "@/functions/getGraphicsTier.js";
 import * as THREE from "three";
 import { filmProjects } from "@/pages/portfolio/data/filmProjects.js";
 import { getPortfolioLocale } from "@/pages/portfolio/data/portfolioProjectsCopy.js";
-import { attachFilmActions, publishFilmUi } from "@/pages/portfolio/filmInteraction.js";
+import { attachFilmActions, publishFilmUi, getFilmUiSnapshot, updateFilmInfoView } from "@/pages/portfolio/filmInteraction.js";
+import { resolveFilmInfoPresentation } from "@/pages/portfolio/filmPresentationLayout.js";
+import { filmSurfacePoint } from "./filmSurface.js";
 import { getSceneCarousel } from "../../../render/transition/carouselPage.js";
 import { addCarouselWheelDelta } from "../../../render/transition/carouselScroll.js";
 import { sceneOwnsHexHitAtClientY } from "../../../render/overlay/hexHitOwnership.js";
-import { getHexShaderProgress } from "../../../render/overlay/hexShaderProgress.js";
+import { getHexShaderProgress, getHexRevealFromTop } from "../../../render/overlay/hexShaderProgress.js";
 import { isRingDormantReason } from "../../lifecycle/sceneLifecycle.js";
 import { applySceneProgressToCamera } from "../../utils/applySceneProgressToCamera.js";
 import { FilmMedia } from "./FilmMedia.js";
@@ -30,6 +32,8 @@ export class PortfolioFilmScene {
 		this.pointer = new THREE.Vector2();
 		this.pointerSmooth = new THREE.Vector2();
 		this.pointerSeen = false;
+		this.infoOpen = false;
+		this.infoPoint = new THREE.Vector3();
 		this.layout = getFilmLayout(window.innerWidth / window.innerHeight, window.innerWidth, window.innerHeight);
 		this.reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 		this.reveal = 0;
@@ -86,6 +90,7 @@ export class PortfolioFilmScene {
 		this.routeActive = state.currentPage === "/portfolio";
 		if (!started && this.appStarted && state.currentPage === "/portfolio") this.playEnterAnimation();
 		if (!this.appStarted || state.currentPage !== "/portfolio") {
+			this.setInfoOpen(false);
 			this.pointerSeen = false;
 			this.hud.picker?.close();
 			this.transitionSound.stop();
@@ -97,6 +102,7 @@ export class PortfolioFilmScene {
 	}
 	resetCarouselState({ reason }) {
 		if (!isRingDormantReason(reason)) return;
+		this.setInfoOpen(false);
 		this.hud.picker?.close();
 		this.transitionSound.stop();
 		this.cancelScrub();
@@ -108,7 +114,7 @@ export class PortfolioFilmScene {
 		this.screen?.controls.setHover(null);
 	}
 	prepareCarouselMixTarget() { this.enterPending = false; }
-	prepareCarouselMixSource() { this.hud.picker?.close(); this.hud.setHover(null); this.screen?.controls.setHover(null); }
+	prepareCarouselMixSource() { this.setInfoOpen(false); this.hud.picker?.close(); this.hud.setHover(null); this.screen?.controls.setHover(null); }
 	playEnterAnimation() { this.enterPending = false; }
 	beginWarmupDraw() { const previous = this.warming; this.warming = true; if (this.screen) this.screen.warming = true; return previous; }
 	endWarmupDraw(previous) { this.warming = previous; if (this.screen) this.screen.warming = previous; }
@@ -117,8 +123,25 @@ export class PortfolioFilmScene {
 		camera.updateMatrixWorld();
 		this.camera.copy(camera);
 	}
+	setInfoOpen(open) {
+		if (open === this.infoOpen) return;
+		this.infoOpen = open;
+		if (open) { this.hud.picker.close(); this.cancelScrub(); this.media.setAllowed(false); }
+		publishFilmUi({ ...getFilmUiSnapshot(), index: this.motion.index, infoOpen: open });
+	}
 	act(action) {
 		if (!this.ready) return;
+		if (action === "info-close") { this.setInfoOpen(false); return; }
+		if (action === "info") {
+			if (!this.motion.busy) this.setInfoOpen(!this.infoOpen);
+			return;
+		}
+		if (this.infoOpen && action === "play") {
+			this.setInfoOpen(false);
+			if (this.media.active?.paused) this.media.toggle();
+			return;
+		}
+		if (["prev", "next", "projects", "projects-open", "inspect"].includes(action) || typeof action === "number") this.setInfoOpen(false);
 		if (typeof action === "object" && action?.type === "seek") { this.media.seek(action.progress); return; }
 		if (typeof action === "object" && action?.type === "volume") { this.media.setVolume(action.value); return; }
 		if (action === "projects") { this.hud.picker.state.toggle(); return; }
@@ -231,8 +254,8 @@ export class PortfolioFilmScene {
 		window.addEventListener("blur", this.onCancel);
 		this.onKey = (event) => {
 			if (!this.appStarted || getSceneCarousel().currentId !== "portfolioHub" || getSceneCarousel().isInteractionLocked()) return;
-			if (event.key === "Escape") { this.hud.picker.close(); this.focusTarget = 0; return; }
-			if (event.target instanceof Element && event.target.closest("input, textarea, select, button, a, [contenteditable='true']")) return;
+			if (event.key === "Escape") { if (this.infoOpen) { this.setInfoOpen(false); return; } this.hud.picker.close(); this.focusTarget = 0; return; }
+			if (event.target instanceof Element && event.target.closest("input, textarea, select, button, a, [contenteditable='true'], [role='dialog']")) return;
 			if (event.key.toLowerCase() === "m" && !event.ctrlKey && !event.metaKey && !event.altKey) { event.preventDefault(); this.media.toggleMute(); return; }
 			if ((event.key === "ArrowUp" || event.key === "ArrowDown") && ["volume", "mute"].includes(this.screen.controls.hovered)) {
 				event.preventDefault(); this.media.setVolume(this.media.volumeLevel + (event.key === "ArrowUp" ? .05 : -.05)); return;
@@ -249,6 +272,7 @@ export class PortfolioFilmScene {
 		const carousel = getSceneCarousel();
 		const current = carousel.currentId === "portfolioHub";
 		const inMix = getHexShaderProgress() > 0.001;
+		if (inMix || !current) this.setInfoOpen(false);
 		const visible = current || inMix;
 		if (visible && this.enterPending && inMix) this.enterPending = false;
 		const ease = 1 - Math.exp(-Math.min(delta, 0.05) * 7);
@@ -268,7 +292,7 @@ export class PortfolioFilmScene {
 		this.hud.root.visible = !this.layout.mobile;
 		this.screen.uniforms.uHeaderEnd.value = this.hud.headerEnd;
 		const play = this.appStarted && this.routeActive && !this.warming && current && !inMix && !carousel.isInteractionLocked() && !!filmProjects[this.motion.index].video && !this.motion.busy;
-		this.media.setAllowed(play && !this.hud.picker.state.pinned);
+		this.media.setAllowed(play && !this.hud.picker.state.pinned && !this.infoOpen);
 		if (!this.warming && frame.interactionEnabled && !frame.pointerBlocked && reveal > 0.1) {
 			const target = this.hitTargetAt(frame.pointer);
 			const hit = target?.userData.filmAction ?? null;
@@ -280,16 +304,42 @@ export class PortfolioFilmScene {
 		this.media.updateSound(delta, this.store.soundsActive);
 		this.screen.controls.update({ layout: this.layout, reveal, playing: this.media.playing, video: !!filmProjects[this.motion.index].video, focus: this.focus, reduced: this.reduced, delta, warm: this.warming, progress: this.media.progress, seekable: this.media.seekable && !this.motion.busy, duration: this.media.video?.duration, volume: this.media.volumeLevel, muted: !this.store.soundsActive || this.media.volumeLevel === 0 });
 		this.screen.controls.root.visible = !this.layout.mobile;
+		if (!this.warming) this.updateInfoView(current, inMix);
 		if (this.layout.mobile && !this.warming && current) {
 			this._uiElapsed = (this._uiElapsed ?? 0) + delta;
 			if (this._uiElapsed >= .25) {
 				this._uiElapsed = 0;
-				publishFilmUi({ index: this.motion.index, playing: this.media.playing, progress: Math.round(this.media.progress * 1000) / 1000, muted: this.media.volumeLevel === 0,
+				publishFilmUi({ ...getFilmUiSnapshot(), index: this.motion.index, playing: this.media.playing, progress: Math.round(this.media.progress * 1000) / 1000, muted: this.media.volumeLevel === 0,
 					volume: Math.round(this.media.volumeLevel * 100) / 100, focused: this.focusTarget > .5, seekable: this.media.seekable && !this.motion.busy });
 			}
 		}
 	}
+	updateInfoView(current, inMix) {
+		const width = window.innerWidth, height = window.innerHeight;
+		const project = (x, y) => {
+			this.infoPoint.set(...filmSurfacePoint(x, y, .025));
+			this.screen.root.localToWorld(this.infoPoint); this.infoPoint.project(this.camera);
+			return { x: (this.infoPoint.x + 1) * width / 2, y: (1 - this.infoPoint.y) * height / 2 };
+		};
+		const left = project(-.43, 0), right = project(.43, 0), top = project(0, .205), bottom = project(0, -.19), anchor = project(0, -.391);
+		const box = resolveFilmInfoPresentation(width, height, { left: left.x, right: right.x, top: top.y, bottom: bottom.y, anchorX: anchor.x, anchorY: anchor.y });
+		const { sourceId, targetId } = getSceneCarousel().getMixSourceTargetIds();
+		let clipTop = 0, clipBottom = 0;
+		if (inMix) {
+			const p = getHexShaderProgress(), fromTop = getHexRevealFromTop(), source = sourceId === "portfolioHub";
+			if (source ? fromTop : !fromTop) clipTop = (source ? p : 1 - p) * height;
+			else clipBottom = (source ? p : 1 - p) * height;
+		}
+		const belongs = current || (inMix && [sourceId, targetId].includes("portfolioHub"));
+		updateFilmInfoView({ ...box, clipTop, clipBottom,
+			opacity: this.appStarted && belongs ? this.reveal * (1 - this.focus) * (this.motion.busy ? 0 : 1) : 0 });
+		const snapshot = getFilmUiSnapshot();
+		if (snapshot.index !== this.motion.index || snapshot.infoOpen !== this.infoOpen)
+			publishFilmUi({ ...snapshot, index: this.motion.index, infoOpen: this.infoOpen });
+	}
 	dispose() {
+		this.setInfoOpen(false);
+		updateFilmInfoView({ opacity: 0 });
 		this.disposed = true;
 		this.detachActions();
 		window.removeEventListener("touchmove", this.onTouchMove);

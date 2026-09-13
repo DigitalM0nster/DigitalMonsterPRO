@@ -327,7 +327,8 @@ export class PortfolioFilmScene {
 		const reveal = this.warming ? 1 : this.reveal;
 		this.screen.update(this.motion, reveal, this.focus, this.layout, this.pointerSmooth, this.reduced, this.warming ? 0 : delta, getPortfolioLocale(), this.readingLayout);
 		this.transitionSound.update(delta, this.motion, this.appStarted && this.routeActive && current && !inMix && !this.warming && reveal > .1);
-		this.hud.update({ motion: this.motion, reveal, focus: this.focus, layout: this.layout, locale: getPortfolioLocale(), infoOpen: this.infoOpen, warm: this.warming, delta, reduced: this.reduced });
+		this.hud.update({ motion: this.motion, reveal, focus: this.focus, layout: this.layout, locale: getPortfolioLocale(), infoOpen: this.infoOpen, warm: this.warming, delta, reduced: this.reduced,
+			textActive: this.appStarted && visible, soundEnabled: this.appStarted && this.routeActive && current && !inMix && !this.warming && !this.layout.mobile });
 		this.hud.root.visible = !this.layout.mobile;
 		this.screen.uniforms.uHeaderEnd.value = this.hud.headerEnd;
 		const play = this.appStarted && this.routeActive && !this.warming && current && !inMix && !carousel.isInteractionLocked() && !!filmProjects[this.motion.index].video && !this.motion.busy;

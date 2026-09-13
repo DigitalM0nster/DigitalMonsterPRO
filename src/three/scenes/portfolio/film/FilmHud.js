@@ -8,7 +8,7 @@ import { filmPalette } from "./filmPalette.js";
 import { FilmProjectPicker } from "./FilmProjectPicker.js";
 import { getGraphicsTier } from "@/functions/getGraphicsTier.js";
 import { loadFilmMsdf, createFilmMsdfGeometry } from "./filmMsdfText.js";
-import { filmInfoCopy } from "@/pages/portfolio/data/filmProjectInfo.js";
+import { FilmInfoLabel } from "./FilmInfoLabel.js";
 import { siteLocaleReveal } from "@/functions/siteLocaleTransitionState.js";
 
 let fontReady;
@@ -91,11 +91,10 @@ export class FilmHud {
     return rows.length>1?this.text(rows.join("\n"),{spacing:7}):layer;
    });
    const sides=this.projects.map(p=>this.text(p.sideCopy[locale],{spacing:8,align:"left"}));
-   const info=this.text(filmInfoCopy[locale].about.toUpperCase(),{spacing:9,gain:1.15});
-   const back=this.text(filmInfoCopy[locale].back.toUpperCase(),{spacing:9,gain:1.15});
-   this.locales[locale]={details,compactDetails,sides,info,back};
+   this.locales[locale]={details,compactDetails,sides};
    await nextFilmPaint();
   }
+  this.infoLabel=new FilmInfoLabel(this);await this.infoLabel.prepare(renderer);
   this.previous={hit:this.button("prev"),alpha:0};
   this.next={hit:this.button("next"),alpha:0};
   this.leftRail=this.surfaceRule(true,filmPalette.text);this.leftRailShort=this.surfaceRule(true,filmPalette.text);this.leftDash=this.surfaceRule(false,filmPalette.text);
@@ -121,7 +120,7 @@ export class FilmHud {
   const normal=filmSurfaceNormal(x);hit.rotation.y=Math.atan2(normal[0],normal[2]);
   hit.scale.set(width,height,1);hit.userData.enabled=enabled;
  }
- update({motion,reveal,focus,layout,locale,infoOpen=false,warm=false,delta=1/60,reduced=false}) {
+ update({motion,reveal,focus,layout,locale,infoOpen=false,warm=false,delta=1/60,reduced=false,soundEnabled=false,textActive=false}) {
   const {compact}=layout;
   const titleY=compact?-.345:-.298,titleHeight=compact?.088:.047,titleLimit=compact?.54:.40;
   // Clear the caption before the reading control moves into its space.
@@ -163,7 +162,7 @@ export class FilmHud {
   info.hover+=(Number(hovered)-info.hover)*(reduced?1:1-Math.exp(-Math.min(delta,.05)*14));
   this.infoY=THREE.MathUtils.lerp(this.infoY,-.305,infoFocus);
   const infoY=this.infoY,infoScale=1+infoFocus*.25,infoHeight=(compact?.052:.032)*infoScale;
-  const infoAlpha=reveal,label=infoOpen?copy.back:copy.info;
+  const infoAlpha=reveal,label=this.infoLabel.update(delta,locale,infoOpen,textActive&&!warm,soundEnabled&&!warm&&reveal>.1);
   const iconSize=(compact?.052:.034)*infoScale,gap=compact?.022:.012;
   const infoWidth=this.placeSurface(label,-(iconSize+gap)/2,infoY,infoHeight,(compact?.40:.25)*infoScale,infoAlpha*(.9+info.hover*.1));
   label.mesh.material.uniforms.uGain.value=1.08+info.hover*.12;
@@ -186,6 +185,7 @@ export class FilmHud {
  setHover(action){this.hovered=action;this.picker?.hover(action);}
  setInfoFocus(focused){if(this.info)this.info.focused=focused;}
  dispose(){
+  this.infoLabel?.dispose();
   this.picker?.dispose();
   for(const layer of this.layers){layer.mesh.material.dispose();if(layer.mesh.geometry!==this.surfaceGeometry)layer.mesh.geometry.dispose();}
   for(const texture of new Set(this.layers.map(layer=>layer.texture)))texture.dispose();

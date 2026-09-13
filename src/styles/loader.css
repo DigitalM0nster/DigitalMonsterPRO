@@ -1329,6 +1329,8 @@
 	letter-spacing: 0;
 	white-space: nowrap;
 	cursor: pointer;
+	touch-action: manipulation;
+	-webkit-tap-highlight-color: transparent;
 	transition:
 		border-color 180ms linear,
 		color 180ms linear,
@@ -1341,7 +1343,9 @@
 	pointer-events: none;
 }
 
-.digitalMonsterLoaderLanguages button:not(:disabled):hover {
+.digitalMonsterLoaderLanguages button:focus-visible,
+.digitalMonsterLoaderLanguages button:not(:disabled):active,
+.digitalMonsterLoaderLanguages button[data-selected="true"] {
 	border-color: #7cefff;
 	color: #a8f7ff;
 	background-color: rgba(0, 25, 48, 0.72);
@@ -1355,6 +1359,29 @@
 		0 0 2px rgba(220, 253, 255, 1),
 		0 0 5px rgba(0, 220, 255, 1),
 		0 0 11px rgba(0, 91, 255, 1);
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.digitalMonsterLoaderLanguages button:not(:disabled):hover {
+		border-color: #7cefff;
+		color: #a8f7ff;
+		background-color: rgba(0, 25, 48, 0.72);
+		box-shadow:
+			0 0 2px rgba(184, 249, 255, 1),
+			0 0 6px rgba(0, 207, 255, 1),
+			0 0 13px rgba(0, 106, 255, 0.95),
+			0 0 22px rgba(0, 55, 255, 0.72),
+			inset 0 0 8px rgba(0, 183, 255, 0.32);
+		text-shadow:
+			0 0 2px rgba(220, 253, 255, 1),
+			0 0 5px rgba(0, 220, 255, 1),
+			0 0 11px rgba(0, 91, 255, 1);
+	}
+}
+
+.digitalMonsterLoaderLanguages button:not(:disabled):active,
+.digitalMonsterLoaderLanguages button[data-selected="true"] {
+	transition-duration: 0s;
 }
 
 .digitalMonsterLoaderProgress strong {

@@ -1,4 +1,5 @@
 import { store } from "@/app/store.jsx";
+import { resumeMasterAudioContext } from "./masterAudioBus.js";
 
 /** Плавное затухание всех звуков сразу после нажатия «выкл» (мс). */
 export const SITE_SOUND_MUTE_FADE_MS = 1000;
@@ -118,6 +119,7 @@ export function requestSiteSoundMute() {
 function enableSiteSound() {
 	cancelPendingSiteSoundMute({ restorePlayback: true });
 	store.soundsActive = true;
+	void resumeMasterAudioContext({ userGesture: true });
 }
 
 /** Единая точка переключения звука (HUD, legacy SoundComponent). */

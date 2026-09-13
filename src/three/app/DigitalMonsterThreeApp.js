@@ -1,6 +1,8 @@
 import * as THREE from "three";
 import { getScenePixelRatio, setScenePixelRatio, resolveOutputPixelRatio } from "../renderer/renderResolution.js";
 import { syncVisibleViewport } from "../renderer/syncVisibleViewport.js";
+import { publishSceneViewportResize } from "../renderer/sceneViewportEvents.js";
+import { getHexVisibleBands } from "../render/overlay/hexVisibleBands.js";
 import { PreparationScheduler, resolveFullWarm } from "./preparationScheduler.js";
 import { warmScreenOverlay } from "../renderer/warmScreenOverlay.js";
 import { prepareSceneCanvasInterfaces } from "@/app/prepareSceneCanvasInterfaces.js";
@@ -12,13 +14,14 @@ import { case1PostProcessConfig } from "../scenes/portfolio/case1/case1PostProce
 import { HexGridOverlayPass } from "../render/overlay/HexGridOverlayPass.js";
 import { SceneManager } from "../scenes/SceneManager.js";
 import { disposeSharedDracoLoader } from "../assets/gltfLoader.js";
-import { getGraphicsConfig, getGraphicsTier, getGraphicsTierDiagnostics, resolveRendererPixelRatio, setCalibratedGraphicsTier } from "@/functions/getGraphicsTier.js";
+import { getGraphicsConfig, getGraphicsTier, getGraphicsTierDiagnostics, resolveRendererPixelRatio, setCalibratedGraphicsTier, isMobileGraphicsDevice } from "@/functions/getGraphicsTier.js";
 import { applyDigitalWhaleConfigForTier } from "../scenes/home/digitalWhaleConfig.js";
 import { isPostProcessBypassedFromUrl } from "@/functions/postProcessTestFlags.js";
 import { ModelsPostProcessPipeline } from "../render/models/ModelsPostProcessPipeline.js";
 import { AdaptiveFrameSkipper } from "../render/adaptiveFrameSkip.js";
 import { createWebGLRenderer } from "../renderer/configureWebGLRenderer.js";
 import { calibrateGraphicsTier } from "../renderer/calibrateGraphicsTier.js";
+import { shouldTrialHighDpr, measurePreparedHighDpr } from "../renderer/highDprTrial.js";
 import { getHexRevealFromTop, getHexShaderProgress } from "../render/overlay/hexShaderProgress.js";
 import { hexGridOverlayDefaults } from "../render/overlay/hexGridOverlayConfig.js";
 import { getSceneCarousel, initCarouselScroll, syncCarouselFromPage, disposeCarouselScroll } from "@/three/render/transition/carouselPage.js";
@@ -72,6 +75,7 @@ export class DigitalMonsterThreeApp {
 		this.onResize = this.onResize.bind(this);
 		this._scheduleResize = this._scheduleResize.bind(this);
 		this._resizeFrame = null;
+		this._resizeTimer = null;
 		this.setRendered = options.setRendered ?? (() => {});
 		this.onWebGLContextLost = options.onWebGLContextLost ?? (() => {});
 
@@ -205,7 +209,12 @@ export class DigitalMonsterThreeApp {
 		this.dprFloor = gfx.dprFloor ?? null;
 		this._lastDprLogKey = "";
 		this._renderSize = { w: 0, h: 0, dpr: 0 };
-		this.defaultPixelRatio = resolveRendererPixelRatio(tier, window.devicePixelRatio);
+		this._baselinePixelRatio = resolveRendererPixelRatio(tier, window.devicePixelRatio);
+		this._highDprTrialPending = shouldTrialHighDpr({ tier, width: window.innerWidth,
+			baselineDpr: this._baselinePixelRatio });
+		this.fullWarm = resolveFullWarm();
+		this.defaultPixelRatio = this._highDprTrialPending ? 2 : this._baselinePixelRatio;
+		this.store.graphicsDpr = this.defaultPixelRatio;
 		this.setPixelRatio(this.defaultPixelRatio);
 
 		this.clock = new THREE.Clock();
@@ -213,6 +222,8 @@ export class DigitalMonsterThreeApp {
 		this._caseFrameDelta = 0;
 		this.rafId = null;
 		this.disposed = false;
+		this._hexBandsEnabled = new URLSearchParams(window.location.search).get("hexBands") !== "full";
+		this._directHexBloomEnabled = new URLSearchParams(window.location.search).get("hexBloomCopy") !== "1";
 		this.renderedNotified = false;
 		this.ready = false;
 		this._nativeCursor = null;
@@ -246,7 +257,6 @@ export class DigitalMonsterThreeApp {
 		});
 		this._syncHexShaderProgress();
 		this.onResize();
-		this.fullWarm = resolveFullWarm({ development: import.meta.env.DEV, search: window.location.search });
 		this.preparationScheduler = new PreparationScheduler({
 			nextFrame: yieldToNextPaint, cancelled: () => this.disposed || this._webglLost,
 		});
@@ -352,6 +362,7 @@ export class DigitalMonsterThreeApp {
 			// Pipeline dry-run after all prepared materials exist (re-run if you add
 			// another late prepare step that creates new ShaderMaterials).
 			await this._warmupRenderPipeline();
+			await this._calibratePreparedHighDpr();
 			if (!this.disposed && !this._webglLost) {
 				const failedProgram = this.renderer.info.programs.find((program) => program.diagnostics?.runnable === false);
 				if (failedProgram) throw new Error(`Shader program ${failedProgram.name || failedProgram.id} could not compile`);
@@ -390,14 +401,105 @@ export class DigitalMonsterThreeApp {
 		const hexTexture = await this._warmupAllScenesAndHexPairs(backgroundTexture);
 		if (!hexTexture) throw new Error("[three] allWarm produced no hex texture");
 		if (!this.noPostProcess) await this.modelsPostProcess.bloom.prepareProgramsUnderCurtain(scheduler);
-		const warmedTexture = this.noPostProcess ? hexTexture : await scheduler.run(() =>
+		let warmedTexture = this.noPostProcess ? hexTexture : await scheduler.run(() =>
 			this.modelsPostProcess.applyBloom(hexTexture, 0, 1), { gpu: true });
+		const hexTarget = this.hexGridOverlay.modelsMixTarget;
+		if (this._directHexBloomEnabled && isMobileGraphicsDevice() && !this.noPostProcess
+			&& hexTexture === hexTarget?.texture && this.modelsPostProcess.canApplyBloomFromPreparedTarget(hexTarget)) {
+			// Exercise the same retained raw hex RT and bloom passes before Start.
+			warmedTexture = await scheduler.run(() =>
+				this.modelsPostProcess.applyBloomFromPreparedTarget(hexTarget, 0, 1), { gpu: true });
+		}
 		this._setPreparationProgress(0.98);
 		await scheduler.run(() => this.screenCompositor.drawToScreen(
 			this.renderer, null, warmedTexture ?? hexTexture, NO_GRAIN_BLUR), { gpu: true });
 		this._setPreparationProgress(0.99);
 
 		await scheduler.run(() => this._renderFrame(0), { gpu: true });
+	}
+
+	async _calibratePreparedHighDpr() {
+		if (!this._highDprTrialPending || this.disposed || this._webglLost) return;
+		this._highDprTrialPending = false;
+		this.preparationStage = "high-dpr-calibration";
+		const viewportKey = () => `${window.innerWidth}x${window.innerHeight}@${window.devicePixelRatio}`;
+		const measuredViewport = viewportKey();
+		const sceneIds = this.sceneManager.getWarmupDrawSceneIds();
+		const result = await measurePreparedHighDpr({
+			sceneIds, nextFrame: yieldToNextPaint,
+			draw: (sceneId) => this._drawPreparedHighDprFrame(sceneId),
+			cancelled: () => this.disposed || this._webglLost || this.renderer.getContext().isContextLost(),
+			isCurrentViewport: () => window.innerWidth >= 980 && viewportKey() === measuredViewport
+				&& getScenePixelRatio(this.renderer) === 2,
+			isVisible: () => document.visibilityState !== "hidden",
+		});
+		this.highDprCalibration = { ...result, viewport: measuredViewport };
+		if (this.disposed || this._webglLost || this.renderer.getContext().isContextLost()) return;
+		if (!result.accepted) {
+			// A one-time fallback remains under the curtain. Reuse scene/UI owners;
+			// no asset reload, second prepareSceneCanvasInterfaces or runtime DPR loop.
+			this.defaultPixelRatio = resolveRendererPixelRatio(this.gfxTier, window.devicePixelRatio);
+			this.store.graphicsDpr = this.defaultPixelRatio;
+			this.setPixelRatio(this.defaultPixelRatio);
+			await yieldToNextPaint();
+			if (viewportKey() !== measuredViewport) {
+				await warmCasePanelHudUnderCurtain({ sceneManager: this.sceneManager, renderer: this.renderer });
+				await warmAboutPanelHudUnderCurtain({ sceneManager: this.sceneManager, renderer: this.renderer });
+			}
+			await this._warmupScreenOverlays();
+			await this._warmupRenderPipeline();
+		} else {
+			// The sample's final scene must not become the visible start frame.
+			await this.preparationScheduler.run(() => this._renderFrame(0), { gpu: true });
+		}
+	}
+
+	_drawPreparedHighDprFrame(sceneId) {
+		const delta = 1 / 60;
+		const home = sceneId === "home";
+		const scene = this.sceneManager.getSceneById(sceneId);
+		if (!scene) return false;
+		const restoreHero = scene.heroTitle?.beginPerformanceProbeDraw?.();
+		const overlays = [scene.canvasInterface, scene.panelHud, scene.world?.hud, scene._cameraHotspots].filter(Boolean);
+		const modes = overlays.map(overlay => [overlay, overlay.composeMode]);
+		try {
+			for (const overlay of overlays) overlay.setComposeMode?.("screen");
+			const background = home ? null : this.backgroundPipeline.renderCarouselBackground(delta,
+				this.noPostProcess ? { skipLiquid: true } : undefined);
+			const drawPrepared = (models) => {
+			const composed = home ? models : this.screenCompositor.compositeToLayerTarget(
+				this.renderer, "a", background, models, NO_GRAIN_BLUR);
+			// Match the existing idle Home direct path. Other prepared pages include bloom.
+			const output = home || this.noPostProcess ? composed : this.modelsPostProcess.applyBloom(composed, delta, 1);
+			this.screenCompositor.drawToScreen(this.renderer, null, output, NO_GRAIN_BLUR);
+			const clear = this.renderer.autoClear;
+			try {
+				this.renderer.autoClear = false;
+				for (const overlay of overlays) {
+					if (!overlay.overlayScene) continue;
+					// Use the real prepared HUD program; do not substitute its raw bitmap.
+					// Scene-owned layouts retain their normal visibility and geometry.
+					if (overlay === scene.panelHud && overlay.contentMesh && overlay.fromTexture) {
+						const visible = overlay.contentMesh.visible;
+						const u = overlay.contentMaterial.uniforms;
+						const enter = u.uEnterProgress.value, opacity = u.opacity.value;
+						try {
+							overlay.contentMesh.visible = true;
+							u.uEnterProgress.value = -1; u.opacity.value = 1;
+							this.renderer.render(overlay.overlayScene, overlay.overlayCamera ?? this.sceneManager.camera);
+						} finally { overlay.contentMesh.visible = visible; u.uEnterProgress.value = enter; u.opacity.value = opacity; }
+					} else this.renderer.render(overlay.overlayScene, overlay.overlayCamera ?? this.sceneManager.camera);
+				}
+				scene.heroTitle?.renderTextOverlay?.(this.renderer);
+			} finally { this.renderer.autoClear = clear; }
+			};
+			return Boolean(this.sceneManager.warmupSceneDraw(sceneId, "a", {
+				performanceProbe: true, afterPreparedDraw: drawPrepared,
+			}));
+		} finally {
+			for (const [overlay, mode] of modes) overlay.setComposeMode?.(mode);
+			restoreHero?.();
+		}
 	}
 
 	async _warmupScreenOverlays() {
@@ -758,29 +860,36 @@ export class DigitalMonsterThreeApp {
 			const bgB = pageB === "/" ? null : sharedBackground;
 			const sourceHudTexture = this._getHexBakeOverlayTexture(mix.sourceId);
 			const targetHudTexture = this._getHexBakeOverlayTexture(mix.targetId);
-			const contentA = this.screenCompositor.compositeToLayerTarget(this.renderer, "a", bgA, mix.sourceModels, grainBlur, sourceHudTexture);
+			const contentA = this.screenCompositor.compositeToLayerTarget(this.renderer, "a", bgA, mix.sourceModels, grainBlur, sourceHudTexture, { visibleBand: mix.visibleBands?.source });
 
 			let contentB = contentA;
 			if (!skipTargetLayer) {
-				contentB = this.screenCompositor.compositeToLayerTarget(this.renderer, "b", bgB, mix.targetModels, grainBlur, targetHudTexture);
+				contentB = this.screenCompositor.compositeToLayerTarget(this.renderer, "b", bgB, mix.targetModels, grainBlur, targetHudTexture, { visibleBand: mix.visibleBands?.target });
 			}
 
 			// Same UV warp on source (A) and target (B) — do not disable for case leave.
 			this.hexGridOverlay.setSourceTextureEffectStrength(1);
 			this.hexGridOverlay.setTextures(contentA, contentB);
-			const hexTexture = this.hexGridOverlay.renderModelsMixToTexture(this.renderer) ?? contentA;
-			const frameTexture = noPost || reveal <= 0.0001 ? hexTexture : this.modelsPostProcess.applyBloom(hexTexture, delta, reveal);
+			const hexTarget = this.hexGridOverlay.modelsMixTarget;
+			const directBloom = this._directHexBloomEnabled && isMobileGraphicsDevice()
+				&& !noPost && reveal > 0.0001 && this.modelsPostProcess.canApplyBloomFromPreparedTarget(hexTarget, reveal);
+			const renderedHex = this.hexGridOverlay.renderModelsMixToTexture(this.renderer);
+			const hexTexture = renderedHex ?? contentA;
+			const frameTexture = noPost || reveal <= 0.0001 ? hexTexture
+				: directBloom && renderedHex === hexTarget.texture
+					? this.modelsPostProcess.applyBloomFromPreparedTarget(hexTarget, delta, reveal)
+					: this.modelsPostProcess.applyBloom(hexTexture, delta, reveal);
 			this.screenCompositor.drawToScreen(this.renderer, null, frameTexture, NO_GRAIN_BLUR);
 			return;
 		}
 
 		// Other pages: opaque black plate → hex → keyed liquid (screen-stable).
 		// Case left HUD bakes into the hex RT (same as About) — not screen hex-cut.
-		const contentA = this.screenCompositor.compositeToLayerTarget(this.renderer, "a", null, mix.sourceModels, grainBlur, this._getHexBakeOverlayTexture(mix.sourceId));
+		const contentA = this.screenCompositor.compositeToLayerTarget(this.renderer, "a", null, mix.sourceModels, grainBlur, this._getHexBakeOverlayTexture(mix.sourceId), { visibleBand: mix.visibleBands?.source });
 
 		let contentB = contentA;
 		if (!skipTargetLayer) {
-			contentB = this.screenCompositor.compositeToLayerTarget(this.renderer, "b", null, mix.targetModels, grainBlur, this._getHexBakeOverlayTexture(mix.targetId));
+			contentB = this.screenCompositor.compositeToLayerTarget(this.renderer, "b", null, mix.targetModels, grainBlur, this._getHexBakeOverlayTexture(mix.targetId), { visibleBand: mix.visibleBands?.target });
 		}
 
 		this.hexGridOverlay.setSourceTextureEffectStrength(1);
@@ -977,12 +1086,12 @@ export class DigitalMonsterThreeApp {
 				}
 			});
 		}
-		// Home scroll-hint is page-owned chrome (SITE_TRANSITION.md).
+		// Home title/tagline/stack are page-owned overlays (SITE_TRANSITION.md).
 		// Do NOT gate on carousel.currentId alone — after home→case hex, currentId
-		// stays "home" and the hint leaked onto the case page.
+		// stays "home" and the text leaked onto the case page.
 		// Do NOT trust currentPage==="/" alone either — ring scroll commit flips
 		// currentId to portfolioHub one frame before React displayPathname, and the
-		// hint then screen-overlays on the portfolio page.
+		// text then screen-overlays on the portfolio page.
 		{
 			const homeHero = this.sceneManager.getSceneById("home")?.heroTitle;
 			const onHomePage = !caseOpen && this.currentPage === "/";
@@ -992,15 +1101,26 @@ export class DigitalMonsterThreeApp {
 			const ringOnHome = carousel.currentId === "home";
 			const homeChromeLive = onHomePage && (ringOnHome || homeInHexPair);
 			if (homeHero && homeChromeLive) {
-				homeHero.setScrollHintComposeMode?.(hexActive ? "models" : "screen");
+				homeHero.setTextComposeMode?.(hexActive ? "models" : "screen");
 			} else if (homeHero) {
-				homeHero.hideScrollHint?.();
+				homeHero.stashTextOverlay?.();
 			}
 		}
 
+		const grainBlur = this._buildGrainBlur(delta, progress, lite, noPost);
+		this.hexGridOverlay.setSourceTextureEffectStrength(1);
+		const layerTarget = this.sceneManager.layerTargets.a;
+		const visibleBands = this._hexBandsEnabled && onCarousel && this.store.appStarted
+			&& isMobileGraphicsDevice() && layerTarget
+			? getHexVisibleBands(this.hexGridOverlay.material.uniforms, layerTarget,
+				grainBlur.enabled ? grainBlur.radius : 0) : null;
 		const mix = this.sceneManager.renderModelsFrame({
 			skipIdleTargetLayer: false,
+			visibleBands,
 		});
+		// A missing boundary neighbor aliases both hex inputs to one composite.
+		// That single texture must cover both sampling bands.
+		mix.visibleBands = mix.sourceId === mix.targetId ? null : visibleBands;
 
 		// Right-arc vignette on bg+models only — HUD composites after bloom, stays bright.
 		this.screenCompositor.setCaseStudyEdgeShade({
@@ -1014,18 +1134,16 @@ export class DigitalMonsterThreeApp {
 				? this.sceneManager.getBloomRevealForMix(mix.sourceId, mix.targetId, progress)
 				: this.sceneManager.getBloomRevealForSceneId(this.sceneManager.getActiveSceneId());
 
-		const grainBlur = this._buildGrainBlur(delta, progress, lite, noPost);
-
 		if (onCarousel) {
 			if (this._shouldUseIdleHomeDirectPipeline(mix)) {
 				this._renderIdleHomeDirectFrame(mix);
 				this._renderCasePanelHudScreenOverlays();
-				this._renderHomeScrollHintOverlay();
+				this._renderHomeTextOverlay();
 				return;
 			}
 			this._renderCarouselHexFrame(delta, mix, reveal, grainBlur, bgOptions, noPost);
 			this._renderCasePanelHudScreenOverlays();
-			this._renderHomeScrollHintOverlay();
+			this._renderHomeTextOverlay();
 			return;
 		}
 
@@ -1034,7 +1152,7 @@ export class DigitalMonsterThreeApp {
 		const frameTexture = noPost || reveal <= 0.0001 ? fullFrame : this.modelsPostProcess.applyBloom(fullFrame, delta, reveal);
 		this.screenCompositor.drawToScreen(this.renderer, null, frameTexture, NO_GRAIN_BLUR);
 		this._renderCasePanelHudScreenOverlays();
-		this._renderHomeScrollHintOverlay();
+		this._renderHomeTextOverlay();
 	}
 
 	_renderCasePanelHudScreenOverlays() {
@@ -1149,22 +1267,22 @@ export class DigitalMonsterThreeApp {
 		}
 	}
 
-	_renderHomeScrollHintOverlay() {
+	_renderHomeTextOverlay() {
 		// Visual page ownership — not carousel.currentId alone (stale after home→case).
 		if (this.store.openedCase || this.currentPage !== "/") {
 			return;
 		}
 		const carousel = getSceneCarousel();
 		// Ring commit (home→portfolio) updates currentId before React currentPage —
-		// skip the lag frame so «листайте вниз» does not screen-blit on portfolio.
+		// skip the lag frame so hero text does not screen-blit on portfolio.
 		if (carousel.currentId !== "home" && this._getHexShaderProgress() <= 0.0001 && !carousel.isHexNavigationActive?.() && !carousel.isCaseBoundaryDrive?.()) {
 			return;
 		}
 		// When composeMode is "models", renderScreenOverlay no-ops. Do not also
 		// early-return on isHexNavigationActive alone — that flag flips at progress≈0
-		// one frame before models bake, and blanked «листайте вниз».
+		// one frame before models bake, and blanked the hero text.
 		const home = this.sceneManager.getSceneById("home");
-		home?.heroTitle?.renderScrollHintOverlay?.(this.renderer);
+		home?.heroTitle?.renderTextOverlay?.(this.renderer);
 	}
 
 	/** Состояние рендера карусели → store (debug-панель). */
@@ -1287,7 +1405,7 @@ export class DigitalMonsterThreeApp {
 		if (next.currentPage !== undefined && next.currentPage !== prevPage) {
 			syncCarouselFromPage(next.currentPage);
 			this._caseFrameDelta = 0;
-			// Page-owned home chrome: drop «листайте вниз» when leaving "/".
+			// Keep home text out of the screen overlay after leaving "/".
 			// Keep it while home is still in the hex mix (wipe owns the leave).
 			if (next.currentPage !== "/") {
 				const carousel = getSceneCarousel();
@@ -1296,7 +1414,7 @@ export class DigitalMonsterThreeApp {
 					(mixIds?.sourceId === "home" || mixIds?.targetId === "home") &&
 					(carousel.isHexNavigationActive?.() || carousel.isCaseBoundaryDrive?.() || this._getHexShaderProgress() > 0.0001);
 				if (!homeInHexPair) {
-					this.sceneManager.getSceneById("home")?.heroTitle?.hideScrollHint?.();
+					this.sceneManager.getSceneById("home")?.heroTitle?.stashTextOverlay?.();
 				}
 			}
 		}
@@ -1318,13 +1436,28 @@ export class DigitalMonsterThreeApp {
 	}
 
 	_scheduleResize() {
-		if (this.disposed || this._webglLost || this._resizeFrame !== null) return;
-		// Window, visual viewport and ResizeObserver can report the same change.
-		// Resize all render targets once, after the browser has settled this frame.
-		this._resizeFrame = requestSharedAnimationFrame(() => {
+		if (this.disposed || this._webglLost) return;
+		if (this._resizeTimer !== null) clearTimeout(this._resizeTimer);
+		this._resizeTimer = null;
+		const heightOnly = this.store?.appStarted && isMobileGraphicsDevice()
+			&& Math.round(window.innerWidth) === this._renderSize.w
+			&& Math.round(window.innerHeight) !== this._renderSize.h;
+		const queue = () => {
+			this._resizeTimer = null;
+			if (this.disposed || this._webglLost || this._resizeFrame !== null) return;
+			this._resizeFrame = requestSharedAnimationFrame(() => {
+				this._resizeFrame = null;
+				if (!this.disposed && !this._webglLost) this.onResize();
+			});
+		};
+		if (heightOnly) {
+			// Safari animates its browser bars across many heights during a swipe.
+			// Keep the prepared frame intact; resize GPU buffers and text once at
+			// the settled height. Width/orientation and initial preparation stay immediate.
+			if (this._resizeFrame !== null) cancelSharedAnimationFrame(this._resizeFrame);
 			this._resizeFrame = null;
-			if (!this.disposed) this.onResize();
-		});
+			this._resizeTimer = setTimeout(queue, 200);
+		} else queue();
 	}
 
 	onResize() {
@@ -1335,10 +1468,17 @@ export class DigitalMonsterThreeApp {
 		const viewport = syncVisibleViewport();
 		if (!viewport) return;
 		const { width: w, height: h } = viewport;
-		const dpr = getScenePixelRatio(this.renderer);
 		if (w <= 0 || h <= 0) {
 			return;
 		}
+		if (this.highDprCalibration?.accepted) {
+			// Only the normal resize path changes prepared buffer dimensions.
+			// The earned supersampling exception applies from 980 CSS pixels upward.
+			this.defaultPixelRatio = w >= 980 ? 2 : resolveRendererPixelRatio(this.gfxTier, window.devicePixelRatio);
+			this.store.graphicsDpr = this.defaultPixelRatio;
+			setScenePixelRatio(this.renderer, this.defaultPixelRatio);
+		}
+		const dpr = getScenePixelRatio(this.renderer);
 		// Phones need a sharper final canvas for prepared text. Expensive scene,
 		// bloom and hex buffers retain their independent scene DPR.
 		const nativeTextPreview = import.meta.env.DEV && new URLSearchParams(window.location.search).get("nativeText") === "1";
@@ -1357,6 +1497,7 @@ export class DigitalMonsterThreeApp {
 		this.modelsPostProcess.setSize(w, h);
 		this.hexGridOverlay.setSize(w, h);
 		this.screenCompositor.setSize(w, h, this.renderer);
+		publishSceneViewportResize(w, h);
 		this._logRendererPixelRatio();
 	}
 
@@ -1522,6 +1663,8 @@ export class DigitalMonsterThreeApp {
 		window.visualViewport?.removeEventListener("resize", this._scheduleResize);
 		if (this._resizeFrame !== null) cancelSharedAnimationFrame(this._resizeFrame);
 		this._resizeFrame = null;
+		if (this._resizeTimer !== null) clearTimeout(this._resizeTimer);
+		this._resizeTimer = null;
 		this._resizeObserver?.disconnect();
 		this._resizeObserver = null;
 		window.removeEventListener("pointermove", this._onViewportPointerMove, true);

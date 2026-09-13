@@ -2,13 +2,12 @@
 import { requestDeviceTiltPermission } from "@/three/interaction/DeviceTiltInput.js";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { DefaultLoadingManager } from "three";
-import { preloadSoundDesign, playLoaderStartClickSound, playStartAppSound } from "@/sounds/soundDesign.js";
-import { preloadHexTransitionSound } from "@/sounds/hexTransitionSound.js";
-import { preloadUnderwaterSound } from "@/sounds/underwaterSound.js";
+import { playLoaderStartClickSound, playStartAppSound } from "@/sounds/soundDesign.js";
 import { rewarmCasePanelHudGpuForLocale } from "@/pages/portfolio/ui/CaseStudyCanvas/warmCasePanelHudUnderCurtain.js";
 import { rewarmAboutPanelHudGpuForLocale } from "@/pages/about/warmAboutPanelHudUnderCurtain.js";
 import { store } from "@/app/store.jsx";
 import { advanceLoadingProgress as advanceDisplayedProgress, resolveLoadingTarget } from "@/functions/loadingProgress.js";
+import LoaderLanguageButton from "./LoaderLanguageButton.jsx";
 
 const SHOW_LEGACY_LOADER = false;
 const TICK_MS = 80;
@@ -351,8 +350,9 @@ export default function DigitalMonsterLoader(props) {
 	}, [languageCtaMounted, languageSwapReady]);
 
 	const startingRef = useRef(false);
+	const [startingLocale, setStartingLocale] = useState(null);
 
-	const startApplication = async () => {
+	const startApplication = () => {
 		if (props.startApp || removeLoader || startingRef.current) {
 			return;
 		}
@@ -365,21 +365,8 @@ export default function DigitalMonsterLoader(props) {
 			playLoaderStartClickSound();
 			playStartAppSound();
 		}
-		// Gesture-gated decode under the curtain — do not leave reverse-hex / underwater
-		// sync work for the first navigation click.
-		try {
-			await Promise.all([
-				preloadHexTransitionSound(),
-				preloadUnderwaterSound(),
-				preloadSoundDesign(),
-			]);
-		} catch (error) {
-			console.warn("[loader] sound preload failed", error);
-		}
-		if (props.startApp || removeLoader) {
-			startingRef.current = false;
-			return;
-		}
+		// MainContent's ready gate already includes decoded sound / reverse-hex buffers.
+		// The gesture unlocks playback; no second loading phase after language selection.
 		setRemoveLoader(true);
 		props.setStartApp(true);
 		store.appStarted = true;
@@ -393,24 +380,30 @@ export default function DigitalMonsterLoader(props) {
 			return;
 		}
 		startingRef.current = true;
+		setStartingLocale(locale);
 		void requestDeviceTiltPermission();
-		store.siteLocale = locale;
 		// Inside the user gesture — before any await (autoplay + unlock site audio).
 		store.soundsActive = true;
 		playLoaderStartClickSound();
 		playStartAppSound();
 		// GPU HUD textures were warmed for the default locale under the curtain —
 		// swap to the chosen locale before the curtain opens (chunked, still under loader).
-		void Promise.all([
-			rewarmCasePanelHudGpuForLocale(locale),
-			rewarmAboutPanelHudGpuForLocale(locale),
-		])
+		// Let the selected button paint before locale subscribers / GPU preparation run.
+		void new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+			.then(() => {
+				store.siteLocale = locale;
+				return Promise.all([
+					rewarmCasePanelHudGpuForLocale(locale),
+					rewarmAboutPanelHudGpuForLocale(locale),
+				]);
+			})
 			.then(() => {
 				startingRef.current = false;
 				void startApplication();
 			})
 			.catch((error) => {
 				startingRef.current = false;
+				setStartingLocale(null);
 				console.error("[loader] HUD locale rewarm failed; Start remains locked", error);
 			});
 	};
@@ -519,30 +512,13 @@ export default function DigitalMonsterLoader(props) {
 											<span>选择语言</span>
 										</p>
 										<div className="digitalMonsterLoaderLanguages" role="group" aria-label="Select language">
-											<button
-												type="button"
-												tabIndex={languageCtaReady ? 0 : -1}
-												disabled={!languageCtaReady}
-												onClick={() => selectLocale("ru")}
-											>
-												РУССКИЙ
-											</button>
-											<button
-												type="button"
-												tabIndex={languageCtaReady ? 0 : -1}
-												disabled={!languageCtaReady}
-												onClick={() => selectLocale("en")}
-											>
-												ENGLISH
-											</button>
-											<button
-												type="button"
-												tabIndex={languageCtaReady ? 0 : -1}
-												disabled={!languageCtaReady}
-												onClick={() => selectLocale("zh")}
-											>
-												中文
-											</button>
+											{[["ru", "РУССКИЙ"], ["en", "ENGLISH"], ["zh", "中文"]].map(([locale, label]) => (
+												<LoaderLanguageButton key={locale} locale={locale}
+													disabled={!languageCtaReady || startingLocale !== null}
+													selected={startingLocale === locale} onActivate={selectLocale}>
+													{label}
+												</LoaderLanguageButton>
+											))}
 										</div>
 									</div>
 								) : null}

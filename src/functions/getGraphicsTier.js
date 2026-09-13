@@ -151,7 +151,7 @@ export function getGraphicsConfig(tier) {
 			powerPreference: "low-power",
 		},
 		medium: {
-			dprCap: 1,
+			dprCap: 2,
 			caseCanvasDprCap: 1,
 			caseRenderFpsCap: 0,
 			staticCaseRenderFpsCap: 0,
@@ -190,20 +190,13 @@ export function getGraphicsConfig(tier) {
 
 /**
  * DPR для WebGL.
- * low — 1 · medium — 1 · high — 2.
+ * Follow device DPR, capped at 2 for medium/high and 1 for the low fallback.
+ * Resolve before preparation so scene, hex, bloom and HUD resources warm at
+ * their actual runtime resolution; ordinary animation never changes DPR.
  */
 export function resolveRendererPixelRatio(tier, devicePixelRatio = typeof window !== "undefined" ? window.devicePixelRatio : 1) {
 	const gfx = getGraphicsConfig(tier);
 	const device = Number.isFinite(devicePixelRatio) && devicePixelRatio > 0 ? devicePixelRatio : 1;
 
-	if (tier === "low") {
-		return gfx.dprCap ?? 0.8;
-	}
-
-	if (tier === "high") {
-		return gfx.dprCap ?? 2;
-	}
-
-	// Medium renders at DPR 1 on both standard and HiDPI displays.
-	return Math.min(Math.max(device, 1), gfx.dprCap);
+	return Math.min(device, gfx.dprCap);
 }

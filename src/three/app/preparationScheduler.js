@@ -1,6 +1,6 @@
-/** Production always warms fully; development can opt into the same gate. */
-export function resolveFullWarm({ development = false, search = "" } = {}) {
-	return !development || new URLSearchParams(search).get("fullWarm") === "1";
+/** Local previews must prepare the same scene UI and GPU resources as production. */
+export function resolveFullWarm() {
+	return true;
 }
 
 /** Cooperative CPU budget. GPU submissions always get their own frame. */

@@ -9,6 +9,9 @@ let masterCtx = null;
 let masterInput = null;
 /** @type {AnalyserNode | null} */
 let masterAnalyser = null;
+let pendingResume = null;
+let resumedInGestureTurn = false;
+const settledResume = Promise.resolve();
 
 /** @type {WeakMap<HTMLMediaElement, { source: MediaElementAudioSourceNode, gain: GainNode }>} */
 const mediaElementRoutes = new WeakMap();
@@ -144,11 +147,25 @@ export function bindMediaElementToMasterBus(audioElement, options = {}) {
 	return route;
 }
 
-export async function resumeMasterAudioContext() {
+/** Coalesce runtime retries; a later trusted gesture may unlock a pending request. */
+export function resumeMasterAudioContext({ userGesture = false } = {}) {
 	const ctx = getMasterAudioContext();
-	if (ctx?.state === "suspended") {
-		await ctx.resume().catch(() => {});
+	if (!ctx || ctx.state === "running" || ctx.state === "closed") return settledResume;
+	// Do not infer a new event from userActivation.isActive: it can remain true
+	// across many animation frames. Gesture owners pass this flag synchronously.
+	if (pendingResume && (!userGesture || resumedInGestureTurn)) return pendingResume;
+	if (userGesture) {
+		resumedInGestureTurn = true;
+		settledResume.then(() => { resumedInGestureTurn = false; });
 	}
+	// Call synchronously: deferring resume itself would discard gesture activation.
+	let nativeResume;
+	try { nativeResume = ctx.resume(); } catch { return settledResume; }
+	const request = Promise.resolve(nativeResume).catch(() => {}).then(() => {
+		if (pendingResume === request) pendingResume = null;
+	});
+	pendingResume = request;
+	return request;
 }
 
 export function suspendMasterAudioContext() {

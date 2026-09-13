@@ -22,6 +22,7 @@ import { PORTFOLIO_ENABLED } from "@/app/config/routeAvailability.js";
 import { isCarouselTouchOrbitBlocked, isCarouselTouchSceneBlocked } from "../render/transition/carouselTouch.js";
 import { isMobileGraphicsDevice } from "../../functions/getGraphicsTier.js";
 import { MobileHexLayers } from "./mobileHexLayers.js";
+import { withRenderTargetBand } from "../renderer/renderTargetBand.js";
 
 /** Detached reusable decorations must participate before their first live attach. */
 function attachWarmupRoots(sceneObj) {
@@ -79,7 +80,10 @@ export class SceneManager {
 		this._mobileHexLayersEnabled = options.mobileHexLayers ?? (typeof window === "undefined"
 			|| new URLSearchParams(window.location.search).get("hexLayers") !== "full");
 		this._mobileHexLayers = new MobileHexLayers(
-			(id, target) => this._renderSceneLayer(id, target),
+			(id, target, band) => withRenderTargetBand(this.renderer, target,
+				// Low whale has its own multi-pass local bloom; retain its full input.
+				this.scenes.get(id)?.lowWhaleBloom ? null : band,
+				() => this._renderSceneLayer(id, target)),
 			(id) => this._getMobileHexLayerState(id),
 		);
 		this.size = { w: 0, h: 0, dpr: 0 };
@@ -478,10 +482,16 @@ export class SceneManager {
 			return null;
 		}
 
-		const warmToken = sceneObj.beginWarmupDraw?.() ?? null;
+		const warmToken = sceneObj.beginWarmupDraw?.(renderOptions) ?? null;
 		try {
 			this._warmupSceneUpdate(sceneId, sceneObj);
-			return this._renderSceneLayer(sceneId, target, { ...renderOptions, force: true });
+			const restoreRoots = attachWarmupRoots(sceneObj);
+			try {
+				const texture = this._renderSceneLayer(sceneId, target, { ...renderOptions, force: true });
+				renderOptions.afterPreparedDraw?.(texture);
+				return texture;
+			}
+			finally { restoreRoots(); }
 		} finally {
 			sceneObj.endWarmupDraw?.(warmToken);
 		}
@@ -669,7 +679,7 @@ export class SceneManager {
 		const hexProgress = options.hexProgress ?? getHexShaderProgress();
 		const skipIdleTarget = hexProgress <= 0.0001 || options.skipIdleTargetLayer === true;
 		if (this._mobileHexLayersEnabled && this.routeState.appStarted && this.layerTargets.a && this.layerTargets.b && isMobileGraphicsDevice()) {
-			return this._mobileHexLayers.render(sourceId, targetId, this.layerTargets, skipIdleTarget);
+			return this._mobileHexLayers.render(sourceId, targetId, this.layerTargets, skipIdleTarget, options.visibleBands);
 		}
 		this._mobileHexLayers?.reset();
 

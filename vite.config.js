@@ -9,6 +9,17 @@ const projectRoot = path.dirname(fileURLToPath(import.meta.url));
 // https://vitejs.dev/config/
 export default defineConfig({
 	plugins: [react()],
+	// Доступ с телефона в той же локальной сети; Vite печатает адрес Network.
+	server: {
+		host: "0.0.0.0",
+		port: 5173,
+		strictPort: true,
+	},
+	preview: {
+		host: "0.0.0.0",
+		port: 4173,
+		strictPort: true,
+	},
 	resolve: {
 		alias: [
 			{ find: "@", replacement: path.resolve(projectRoot, "src") },

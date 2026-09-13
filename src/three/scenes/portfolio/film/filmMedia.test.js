@@ -62,6 +62,26 @@ test('metadata preload still waits for every decoded first frame and uploads all
  assert.deepEqual(uploads.filter(texture=>texture.isVideoTexture),[first.texture,second.texture]);
  assert.equal(first.video.loads,1);assert.equal(second.video.loads,1);
 });
+
+test('a decoded paused video uploads before Start even when its native frame callback is delayed',async(t)=>{
+ class NativeVideo extends Video {
+  requestVideoFrameCallback(){return 1;}
+  cancelVideoFrameCallback(){}
+  load(){this.loads++;queueMicrotask(()=>this.dispatchEvent(new Event('loadeddata')));}
+ }
+ globalThis.document=Object.assign(new EventTarget(),{hidden:false,createElement:()=>new NativeVideo()});
+ globalThis.requestAnimationFrame=callback=>queueMicrotask(callback);
+ const media=new FilmMedia([{video:'/one.mp4',poster:'/one.jpg'}]);
+ t.after(()=>{media.dispose();delete globalThis.requestAnimationFrame;});
+ t.mock.method(THREE.TextureLoader.prototype,'loadAsync',async()=>new THREE.Texture());
+ assert.equal(media.entries[0].texture.version,0);
+ let videoUploads=0;
+ await media.prepare({initTexture(texture){if(texture.isVideoTexture&&texture.version>0)videoUploads++;}});
+ assert.equal(videoUploads,1,'Three must see a dirty decoded texture, not merely an initTexture call');
+ const version=media.entries[0].texture.version;
+ for(let i=0;i<120;i++)media.entries[0].texture.update();
+ assert.equal(media.entries[0].texture.version,version,'paused native frames stay reusable');
+});
 test('every film owns its own prepared texture; still and failed films use their own poster',()=>{
  const media=create();assert.notEqual(media.get(0),media.get(1));assert.equal(media.get(2).name,'poster-three');
  media.entries[1].onError();assert.equal(media.get(1).name,'poster-two');assert.equal(media.get(0),media.entries[0].texture);media.dispose();

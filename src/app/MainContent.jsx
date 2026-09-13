@@ -14,6 +14,7 @@ import ThreeCanvasHost from "@/three/app/ThreeCanvasHost.jsx";
 import WebGLCanvasErrorBoundary from "@/three/renderer/WebGLCanvasErrorBoundary.jsx";
 import LeftMenu from "@/components/LeftMenu/LeftMenu.jsx";
 import SiteTopHud from "@/components/SiteTopHud/SiteTopHud.jsx";
+import ScrollHintHud from "@/components/ScrollHintHud/ScrollHintHud.jsx";
 import SiteArcNavigator from "@/components/SiteArc/SiteArcNavigator.jsx";
 import HtmlRoutes from "@/app/routes/HtmlRoutes.jsx";
 import FilmProjectInfo from "@/pages/portfolio/FilmProjectInfo.jsx";
@@ -29,7 +30,9 @@ import { store } from "@/app/store.jsx";
 import { isDomDistortDemoPath } from "@/pages/demo/domDistort/constants.js";
 import { isWebGLDisabledFromUrl } from "@/functions/postProcessTestFlags.js";
 import { initPageVisibilitySound } from "../sounds/pageVisibilitySound.js";
-import { prefetchSoundDesign } from "../sounds/soundDesign.js";
+import { prefetchSoundDesign, preloadSoundDesign } from "../sounds/soundDesign.js";
+import { preloadHexTransitionSound } from "../sounds/hexTransitionSound.js";
+import { preloadUnderwaterSound } from "../sounds/underwaterSound.js";
 import { LOADER_CURTAIN_HIDE_MS } from "@/app/config/loaderCurtain.js";
 
 const SHOW_CUSTOM_CURSOR = true;
@@ -70,14 +73,17 @@ export default function MainContent() {
 
 	useEffect(() => {
 		let active = true;
-		Promise.all([preloadHtmlRoutes(), prefetchSoundDesign()])
+		// Prepare the native media element early. Safari may defer its metadata;
+		// readiness waits for the decoded catalog (including underwater) instead.
+		void preloadUnderwaterSound();
+		Promise.all([preloadHtmlRoutes(), prefetchSoundDesign(), preloadSoundDesign(), preloadHexTransitionSound()])
 			.then(() => {
 				if (active) {
 					setRouteAssetsReady(true);
 				}
 			})
 			.catch((error) => {
-				console.error("[preloader] route asset preload failed; Start remains locked", error);
+				console.error("[preloader] asset preparation failed; Start remains locked", error);
 			});
 		return () => {
 			active = false;
@@ -185,6 +191,7 @@ export default function MainContent() {
 			{startApp && !isDemoLab && <LeftMenu />}
 			{startApp && !isDemoLab && <SiteArcNavigator />}
 			{startApp && !isDemoLab && <SiteTopHud startApp={startApp} />}
+			{startApp && !isDemoLab && <ScrollHintHud />}
 			{startApp && !isDemoLab && <CaseStudyPanelHudOverlay />}
 			{startApp && !isDemoLab && <CaseGalleryScrollHint />}
 			{startApp && !isDemoLab && <FilmProjectInfo />}

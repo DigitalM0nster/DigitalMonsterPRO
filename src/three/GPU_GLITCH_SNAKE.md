@@ -12,14 +12,17 @@
 
 ## Рабочий исходник
 
-Общие примитивы сферы и подписей крана теперь находятся в `src/three/objects/sceneHud`: `sceneHudAtlas.js` готовит атласы по данным сцены, `sceneHudShaders.js` содержит исходный рисунок колец, глитч-змейку и её обратимый playhead. Файлы Synthetic Core ниже сохраняют его тексты, состояния и композицию; второй потребитель — `Mmk1HotspotLabels.js`.
+13 сентября левый терминал Synthetic Core убран по просьбе пользователя. Его атлас и материал ниже сохранены как исходный визуальный референс, но больше не создаются и не загружаются сценой. Нижняя подсказка клика использует существующий HTML/CSS `ScrollHintHud`; `SyntheticCoreHud` теперь отвечает только за контакт со сферой и композицию основного текста. Исполняемый образец змейки остаётся в общих `sceneHudAtlas.js` / `sceneHudShaders.js` и `Mmk1HotspotLabels.js` — сам утверждённый алгоритм не изменён.
+
+Общие примитивы сферы и подписей крана находятся в `src/three/objects/sceneHud`: `sceneHudAtlas.js` готовит атласы по данным сцены, `sceneHudShaders.js` содержит исходный рисунок колец, глитч-змейку и её обратимый playhead. Атлас и материал Synthetic Core ниже сохраняют его тексты, состояния и композицию; текущий потребитель — `Mmk1HotspotLabels.js`.
 
 - [syntheticCoreHudAtlas.js](./scenes/capabilities/placeholders/syntheticCoreHudAtlas.js) — `createHudAtlas`: подготовка надписей, карты порядка букв и маленькой полосы символов.
 - [syntheticCoreHudMaterials.js](./scenes/capabilities/placeholders/syntheticCoreHudMaterials.js) — `snakeLabel`, `assemblyLabel`, `activeLabel`: замены, фазы букв, чистый текст и дешёвые ветки для покоя. `PANEL_VERTEX` и `LINK_VERTEX` ограничивают растеризацию реальной областью элемента.
-- [SyntheticCoreHud.js](./scenes/capabilities/placeholders/SyntheticCoreHud.js) — один обратимый `uSnake`, кешированный размер renderer, `setComposeMode`, `renderScreenOverlay`, освобождение ресурсов.
+- [Mmk1HotspotLabels.js](./scenes/capabilities/mmk1/Mmk1HotspotLabels.js) — действующий пример обратимого `uSnake` и смены локалей с подготовленными атласами.
+- [SyntheticCoreHud.js](./scenes/capabilities/placeholders/SyntheticCoreHud.js) — оставшийся владелец `setComposeMode` / `renderScreenOverlay` для основного текста сцены.
 - [DigitalMonsterThreeApp.js](./app/DigitalMonsterThreeApp.js) — переключение этого HUD между screen и models до отрисовки кадра; вывод после bloom в покое.
 
-Эти файлы являются исполняемым образцом. Способ переносимый; конкретные подписи, размеры, число строк, состояния ядра и привязка к сфере принадлежат этой сцене, их не следует копировать в другой интерфейс автоматически.
+Файлы атласа и материала сохраняют исходный образец. Способ переносимый; конкретные подписи, размеры, число строк, состояния ядра и привязка к сфере принадлежат этой сцене, их не следует копировать в другой интерфейс автоматически.
 
 ## Три подготовленных ресурса
 

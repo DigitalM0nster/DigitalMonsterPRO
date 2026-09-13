@@ -108,6 +108,8 @@ class UnderwaterSoundController {
 		this._loadPromise = null;
 		this._ready = false;
 		this._playing = false;
+		this._playPromise = null;
+		this._playGeneration = 0;
 		this._smoothedGain = 0;
 		/** @type {{ active: boolean, durationMs: number, remainingMs: number, startGain: number, onComplete?: () => void } | null} */
 		this._siteMuteFade = null;
@@ -165,10 +167,6 @@ class UnderwaterSoundController {
 		return audio;
 	}
 
-	async _resumeContext() {
-		await resumeMasterAudioContext();
-	}
-
 	preload() {
 		this._ensureAudio();
 		return this._loadPromise ?? Promise.resolve();
@@ -180,30 +178,49 @@ class UnderwaterSoundController {
 		}
 	}
 
-	async _ensurePlaying() {
+	_ensurePlaying() {
 		const audio = this._audio;
-		if (!audio || this._playing) {
+		if (!audio || this._playing || this._playPromise) return this._playPromise;
+		const ctx = this._getAudioContext();
+		if (ctx && ctx.state !== "running") {
+			void resumeMasterAudioContext();
 			return;
 		}
-
-		await this._resumeContext();
-
-		try {
-			await audio.play();
+		// Never queue playback behind resume: a later update must still own Home.
+		const generation = this._playGeneration;
+		let play;
+		try { play = audio.play(); } catch { return; }
+		const request = Promise.resolve(play).then(() => {
+			if (generation !== this._playGeneration || audio !== this._audio) {
+				// A stale completion must not restart a paused/disposed ambience or
+				// interrupt a newer legitimate play request on this same element.
+				if (audio !== this._audio || (!this._playPromise && !this._playing)) {
+					if (!audio.paused) audio.pause();
+				}
+				return;
+			}
+			if (!isPageSoundAllowed(true)) { this._pause(false); return; }
 			this._playing = true;
-		} catch {
-			this._playing = false;
-		}
+		}).catch(() => {
+			if (generation === this._playGeneration) this._playing = false;
+		}).then(() => {
+			if (this._playPromise === request) this._playPromise = null;
+		});
+		this._playPromise = request;
+		return request;
 	}
 
 	_pause(reset = false) {
+		const pendingPlay = this._playPromise !== null;
+		this._playGeneration++;
+		this._playPromise = null;
 		const audio = this._audio;
 		if (!audio) {
 			return;
 		}
 
 		// Inactive scenes still tick: do not repeatedly pause/seek an idle decoder.
-		if (!audio.paused) audio.pause();
+		if (!audio.paused || pendingPlay) audio.pause();
 		this._playing = false;
 
 		if (reset) {

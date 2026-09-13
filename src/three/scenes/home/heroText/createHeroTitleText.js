@@ -3,11 +3,6 @@ import { heroTextFragmentSimpleShader } from "../../../shaders/heroText/heroText
 import { HeroTextMesh } from "./HeroTextMesh.js";
 import { getHeroResponsiveLayout } from "./heroResponsiveLayout.js";
 import { resolveHeroTextPosition } from "./heroTextLayout.js";
-import {
-	notifyHeroTextLayoutUpdated,
-	registerHeroTextLayoutProvider,
-	unregisterHeroTextLayoutProvider,
-} from "./heroTextLayoutSync.js";
 import { heroTextPositionConfig } from "./heroTextPositionConfig.js";
 import { heroTextRevealConfig } from "./heroTextRevealConfig.js";
 import { heroTextTypographyConfig } from "./heroTextTypographyConfig.js";
@@ -29,7 +24,6 @@ import {
 } from "./heroTitleConfig.js";
 import { createHeroLocaleSwitchController } from "./heroLocaleSwitch.js";
 import { HeroGpuTextMesh } from "./gpu/HeroGpuTextMesh.js";
-import { HeroGpuScrollHintMesh } from "./gpu/HeroGpuScrollHintMesh.js";
 
 function resolveSubtitleOffsetY(title, position) {
 	return title.getBlockBottomOffsetY() + position.subtitleGapVw;
@@ -111,7 +105,6 @@ export function createHeroTitleText(renderer, scene) {
 		revealSeed: heroTextRevealConfig.subtitleRevealSeed + 0.11,
 		useGlitchSnake: true,
 	});
-	const scrollHint = new HeroGpuScrollHintMesh(renderer, scene);
 
 	let showTimeoutId = 0;
 	let subtitleTimeoutId = 0;
@@ -136,26 +129,8 @@ export function createHeroTitleText(renderer, scene) {
 		title.setPosition(next.offsetX, next.titleOffsetY);
 		subtitle.setPosition(next.offsetX, resolveSubtitleOffsetY(title, next));
 		stack.setPosition(next.offsetX, resolveStackOffsetY(title, subtitle, next));
-		notifyHeroTextLayoutUpdated();
-		scrollHint.applyPosition();
 	};
 
-	const layoutProvider = (config = heroTextPositionConfig, viewportWidth = window.innerWidth, viewportHeight = window.innerHeight) => {
-		if (getHeroResponsiveLayout(viewportWidth, viewportHeight).landscape) return {
-			leftPx: title.offsetX * viewportWidth,
-			topPx: stack.getBlockBottomOffsetY() * viewportWidth + 6,
-		};
-		const position = resolveHeroTextPosition(config, viewportWidth);
-		const gapVh = config?.scrollHintGapVh ?? position.scrollHintGapVh ?? 0;
-		const aspectRatio = viewportWidth / viewportHeight;
-
-		return {
-			leftPx: title.offsetX * viewportWidth,
-			topPx: stack.getBlockBottomOffsetY() * aspectRatio * viewportHeight + gapVh * viewportHeight,
-		};
-	};
-
-	registerHeroTextLayoutProvider(layoutProvider);
 	syncLayerPositions(position);
 
 	const localeSwitch = createHeroLocaleSwitchController({
@@ -168,7 +143,7 @@ export function createHeroTitleText(renderer, scene) {
 		title,
 		subtitle,
 		stack,
-		readyPromise: Promise.all([title.readyPromise, subtitle.readyPromise, stack.readyPromise, scrollHint.readyPromise]),
+		readyPromise: Promise.all([title.readyPromise, subtitle.readyPromise, stack.readyPromise]),
 		applyShaderConfig() {
 			title.applyShaderConfig();
 			subtitle.applyShaderConfig();
@@ -238,7 +213,6 @@ export function createHeroTitleText(renderer, scene) {
 				stackTimeoutId = window.setTimeout(() => {
 					stackTimeoutId = 0;
 					stack.playRevealEnter(cfg.enterDurationMs);
-					scrollHint.playRevealEnter(cfg.enterDurationMs);
 				}, stackDelayMs);
 			}, loaderDelayMs);
 		},
@@ -254,7 +228,6 @@ export function createHeroTitleText(renderer, scene) {
 			title.reveal.prepareHidden();
 			subtitle.reveal.prepareHidden();
 			stack.reveal.prepareHidden();
-			scrollHint.reset();
 		},
 		applyPosition() {
 			syncLayerPositions();
@@ -270,7 +243,6 @@ export function createHeroTitleText(renderer, scene) {
 			title.update(delta);
 			subtitle.update(delta);
 			stack.update(delta);
-			scrollHint.update(delta);
 		},
 		resize() {
 			const next = resolveHeroTextPosition(heroTextPositionConfig);
@@ -283,54 +255,58 @@ export function createHeroTitleText(renderer, scene) {
 			stack.offsetY = resolveStackOffsetY(title, subtitle, next);
 			stack.resize(next.offsetX);
 			syncLayerPositions(next);
-			notifyHeroTextLayoutUpdated();
-			scrollHint.resize();
 		},
 		dispose() {
 			clearShowTimeouts();
 			stopHeroTextRevealSound();
 			localeSwitch.dispose();
-			unregisterHeroTextLayoutProvider(layoutProvider);
 			title.dispose();
 			subtitle.dispose();
 			stack.dispose();
-			scrollHint.dispose();
 		},
 		/** Prepared Home text overlays; High/Medium keep tagline/stack sharp after bloom. */
-		getWarmupOverlays() {
-			return [...(title.crispTitle ? [title] : []), scrollHint, subtitle, stack];
+		beginPerformanceProbeDraw() {
+			const saved = [title, subtitle, stack].map(layer => ({
+				layer, mode: layer.composeMode, manual: layer.reveal._manualScrub, anim: layer.reveal._anim,
+				uniforms: layer.reveal.materials.flatMap(material => Object.entries(material.uniforms)
+					.filter(([key]) => key.startsWith("uReveal"))
+					.map(([, uniform]) => [uniform, uniform.value])),
+			}));
+			for (const { layer } of saved) {
+				layer.reveal.setManualScrub(true);
+				layer.reveal.setScrubProgress(1);
+				layer.setComposeMode?.("screen");
+			}
+			return () => {
+				for (const { layer, mode, manual, anim, uniforms } of saved) {
+					for (const [uniform, value] of uniforms) uniform.value = value;
+					layer.reveal._manualScrub = manual;
+					layer.reveal._anim = anim;
+					layer.setComposeMode?.(mode);
+				}
+			};
 		},
-		renderScrollHintOverlay(renderer) {
+		getWarmupOverlays() {
+			return [...(title.crispTitle ? [title] : []), subtitle, stack];
+		},
+		renderTextOverlay(renderer) {
 			title.renderScreenOverlay(renderer);
-			scrollHint.renderScreenOverlay(renderer);
 			subtitle.renderScreenOverlay?.(renderer);
 			stack.renderScreenOverlay?.(renderer);
 		},
-		/** Idle: screen overlay. Hex: embed label in models RT. */
-		setScrollHintComposeMode(mode) {
+		/** Idle: sharp text overlay. Hex: embed prepared hero text in models RT. */
+		setTextComposeMode(mode) {
 			title.setComposeMode(mode);
-			scrollHint.setComposeMode(mode);
 			subtitle.setComposeMode?.(mode);
 			stack.setComposeMode?.(mode);
 		},
-		/** Hide «листайте вниз» when carousel has left home (titles may linger for hex). */
-		hideScrollHint() {
+		/** Stop screen overlays on leave; keep the hero text live for reverse hex. */
+		stashTextOverlay() {
 			title.setComposeMode("models");
-			scrollHint.reset();
 			subtitle.setComposeMode?.("models");
 			stack.setComposeMode?.("models");
 			subtitle.finishLocaleSwitch?.();
 			stack.finishLocaleSwitch?.();
-		},
-		/**
-		 * Restore scroll hint when returning to home while title stayed live
-		 * (scroll reverse: home was `previous`, not ring-dormant — `show()` is not re-run).
-		 */
-		ensureScrollHintVisible() {
-			if (scrollHint.mesh?.visible) {
-				return;
-			}
-			scrollHint.playRevealEnter(heroTextRevealConfig.enterDurationMs);
 		},
 		/** Dev: змейка смены языка без клика по меню. */
 		previewGlitchLocaleSwitch(locale) {
@@ -344,10 +320,7 @@ export function createHeroTitleText(renderer, scene) {
 		},
 		/** Flush locale changes deferred while Home was dormant. */
 		syncLocaleForActivation() {
-			return Promise.all([
-				localeSwitch.syncLocaleForActivation(),
-				scrollHint.syncLocaleForActivation(),
-			]);
+			return localeSwitch.syncLocaleForActivation();
 		},
 	};
 }

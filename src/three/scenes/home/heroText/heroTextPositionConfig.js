@@ -12,6 +12,4 @@ export const heroTextPositionConfig = {
 	subtitleGapVw: 0.02,
 	/** Зазор между подзаголовком и tech-stack (меньше — ближе к tagline). */
 	stackGapVw: 0.008,
-	/** Отступ scroll-подсказки под tech-stack (доля высоты экрана). */
-	scrollHintGapVh: 0.022,
 };

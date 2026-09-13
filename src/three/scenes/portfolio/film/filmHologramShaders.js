@@ -7,7 +7,7 @@ float filmHash(vec2 p){vec3 p3=fract(vec3(p.xyx)*.1031);p3+=dot(p3,p3.yzx+33.33)
 
 export const hologramVertex = `
 uniform float uProgress;uniform float uDirection;uniform float uReduced;uniform float uGlitchTime;
-uniform float uLocaleReveal;
+uniform float uLocaleReveal;uniform float uFlat;
 attribute vec4 aRect;attribute float aSeed;
 varying vec2 vUv;varying vec2 vBlockUv;varying float vPhase;varying float vBurst;varying float vSeed;
 ${signalNoise}
@@ -26,7 +26,7 @@ void main(){
  vec3 pos=vec3(vUv-vec2(.5),0.);
  pos.x+=kick*uDirection;
  pos.y=(pos.y+(seed2-.5)*.002*vBurst*(1.-relock))/2.05;
- pos=filmSurface(pos);
+ pos=mix(filmSurface(pos),pos,uFlat);
  pos.z+=(.001+seed2*.003)*vBurst;
  gl_Position=projectionMatrix*modelViewMatrix*vec4(pos,1.);
 }`;
@@ -179,6 +179,7 @@ ${filmPaletteGLSL}
 uniform float uOpacity;uniform float uDpr;uniform float uLow;uniform float uHeaderEnd;uniform float uHoloframeGlow;
 uniform vec4 uReadingScroll;
 uniform vec2 uReadingPixels;
+uniform float uFlat;uniform float uReadingThumb;
 varying vec2 vUv;
 float segment(vec2 p,vec2 a,vec2 b){vec2 v=b-a;return length(p-a-v*clamp(dot(p-a,v)/dot(v,v),0.,1.));}
 void main(){
@@ -231,7 +232,10 @@ void main(){
   float lineAA=max(fwidth((p.x-railX)*pixels.x),.55);
   float core=1.-smoothstep(.55,.55+lineAA,distance);
   float ends=smoothstep(railBottom-.001,railBottom+.001,p.y)*(1.-smoothstep(railTop-.001,railTop+.001,p.y));
-  float filled=1.-smoothstep(max(.005,uReadingScroll.x),max(.005,uReadingScroll.x)+.002,along);
+  // Small overflow leaves an almost full thumb with a short travel distance.
+  float thumbSize=clamp(uReadingThumb,.04,1.);
+  float thumbStart=uReadingScroll.x*(1.-thumbSize);
+  float filled=smoothstep(thumbStart-.002,thumbStart,along)*(1.-smoothstep(thumbStart+thumbSize,thumbStart+thumbSize+.002,along));
   float track=core*.23*ends;
   #ifdef FILM_LOW
   // Low tier has no bloom pass: preserve the light with two soft falloff widths.
@@ -241,6 +245,8 @@ void main(){
   // Leave the unfilled track below that threshold; only reading progress blooms.
   float light=(core*(3.2+uReadingScroll.w*.8)+exp(-distance*.42)*.28)*filled*ends*filmUiGain;
   #endif
+  float cueLight=0.;
+  if(uFlat<.5){
   float cueScale=pixels.x<500.?.78:1.;
   vec2 cue=(p-vec2(railX-26./pixels.x,0.))*pixels/cueScale;
   float travel=10.*sin(uReadingScroll.z*2.24399475);
@@ -251,7 +257,8 @@ void main(){
   float arcs=(1.-smoothstep(.55,.55+ringAA,abs(radius-12.)))*smoothstep(.35,.50,abs(sin(angle+.61)));
   float dotLight=1.-smoothstep(1.2,2.2,radius);
   float thread=(1.-smoothstep(.4,1.3,abs(cue.x)))*(1.-smoothstep(20.,28.,abs(cue.y)))*smoothstep(12.,14.,abs(cue.y-travel));
-  float cueLight=ring+arcs*.72+dotLight+thread*.24+exp(-abs(radius-10.)*.55)*.09;
+  cueLight=ring+arcs*.72+dotLight+thread*.24+exp(-abs(radius-10.)*.55)*.09;
+  }
   float energy=track+light+cueLight;
   float coverage=max(track,max(core*filled*ends,clamp(cueLight,0.,1.)));
   #ifdef FILM_LOW

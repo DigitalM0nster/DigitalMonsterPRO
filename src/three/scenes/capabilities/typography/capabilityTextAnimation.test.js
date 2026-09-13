@@ -30,17 +30,12 @@ function fixtures() {
 	const labelUniforms = uniforms("uSnake", "uDetails", "uLocale"), marker = {};
 	const labels = instance(Mmk1HotspotLabels, { panels: [{ material: { uniforms: labelUniforms } }], markers: [marker],
 		localeMotions: [new SceneTextLocale()], soundReveals: new Float32Array(1) });
-	const coreUniforms = uniforms("uSnake", "uTime", "uHover", "uCoreHover", "uDetails", "uReveal", "uOpen", "uProbe", "uLink", "uPulse", "uLocale");
-	const core = instance(SyntheticCoreHud, { uniforms: coreUniforms, localeMotion: new SceneTextLocale(), probeAge: 0,
-		lens: { getWorldPosition() {}, getWorldScale(v) { v.set(1, 1, 1); }, material: { uniforms: uniforms("uFocus", "uProbe") } },
-		hitSphere: new THREE.Sphere(), scale: new THREE.Vector3(), layout() {}, hitTest() { return false; } });
 	const cityUniforms = uniforms("uSnake", "uReveal", "uLocale");
 	const district = instance(CityDistrictHud, { uniforms: cityUniforms, localeMotion: new SceneTextLocale(),
 		current: 0, highlight: { hovered: 0, focus: new THREE.Vector3() }, localAnchor: new THREE.Vector3() });
 	return [...titles,
 		{ owner: details, u: panels[4].material.uniforms, reveal: "uReveal", step: locale => details.update(1 / 60, null, null, locale, { started: true, current: true, transitioning: true }) },
 		{ owner: labels, u: labelUniforms, reveal: "uSnake", step: locale => labels.update(1 / 60, marker, locale) },
-		{ owner: core, u: coreUniforms, reveal: "uSnake", step: locale => { core.probeAge = 0; core.update(1 / 60, { time: 0, target: 0, enabled: false, camera: {}, locale }); } },
 		{ owner: district, u: cityUniforms, reveal: "uSnake", step: locale => district.update(1 / 60, locale) },
 	];
 }
@@ -62,6 +57,31 @@ test("actual text owners finish appearance through scroll and serialize the last
 		assert.ok(swaps > 0); assert.equal(u.uLocale.value, 1); assert.equal(u[reveal].value, 1);
 		assert.equal(u, originalUniforms); assert.deepEqual(Object.keys(u), keys);
 	}
+});
+
+test("core keeps sphere contact and narrative composition without the removed terminal", () => {
+	const parent = new THREE.Group(), lens = new THREE.Object3D();
+	lens.material = { uniforms: { ...uniforms("uFocus", "uProbe"), uHoverPoint: { value: new THREE.Vector3() } } };
+	const hud = new SyntheticCoreHud(parent, lens, { getSize: v => v.set(1440, 900) });
+	assert.equal(parent.children.length, 0, "no terminal meshes or link are allocated");
+	const frame = { camera: {}, enabled: true, dragging: false,
+		raycaster: new THREE.Raycaster(new THREE.Vector3(0, 0, 5), new THREE.Vector3(0, 0, -1)) };
+	for (let i = 0; i < 60; i++) hud.update(1 / 60, frame);
+	assert.equal(hud.sphereHovered, true);
+	assert.ok(lens.material.uniforms.uFocus.value > .99);
+	frame.dragging = true;
+	for (let i = 0; i < 60; i++) hud.update(1 / 60, frame);
+	assert.equal(hud.sphereHovered, false);
+	assert.ok(lens.material.uniforms.uFocus.value < .01);
+	const narrative = { mesh: new THREE.Object3D() };
+	hud.setNarrative(narrative);
+	hud.setComposeMode("screen");
+	assert.equal(narrative.mesh.parent, hud.overlayScene);
+	hud.setComposeMode("models");
+	assert.equal(narrative.mesh.parent, parent);
+	hud.setComposeMode("screen");
+	hud.dispose();
+	assert.equal(narrative.mesh.parent, parent);
 });
 
 test("the tunnel's disappearance continues when the scene loses pointer ownership during scroll", () => {

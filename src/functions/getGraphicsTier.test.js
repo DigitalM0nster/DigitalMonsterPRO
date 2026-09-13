@@ -2,6 +2,22 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import vm from "node:vm";
+import { resolveRendererPixelRatio } from "./getGraphicsTier.js";
+
+test("Medium and High follow device DPR without supersampling standard displays", () => {
+	for (const tier of ["medium", "high"]) {
+		for (const [device, expected] of [[0.75, 0.75], [1, 1], [1.25, 1.25], [1.5, 1.5], [2, 2], [3, 2], [4, 2]]) {
+			assert.equal(resolveRendererPixelRatio(tier, device), expected, `${tier}, device DPR ${device}`);
+		}
+	}
+});
+
+test("Low retains its pixel budget and invalid device ratios fall back safely", () => {
+	for (const device of [1, 1.5, 2, 3]) assert.equal(resolveRendererPixelRatio("low", device), 1);
+	for (const tier of ["low", "medium", "high"]) {
+		for (const device of [NaN, Infinity, 0, -1]) assert.equal(resolveRendererPixelRatio(tier, device), 1);
+	}
+});
 
 function setup({ cores = 8, ram, width = 1920, reduced = false, search = "" } = {}) {
 	const source = readFileSync(new URL("./getGraphicsTier.js", import.meta.url), "utf8").replace(/export /g, "");

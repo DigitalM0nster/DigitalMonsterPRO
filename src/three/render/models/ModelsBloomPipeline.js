@@ -5,6 +5,7 @@ import { easing } from "maath";
 import { getSiteBloomConfig, siteBloomArtDirection } from "./siteBloomConfig.js";
 import { renderComposerToTexture } from "../composerUtils.js";
 import { compileSceneChunked } from "../../renderer/compileSceneChunked.js";
+import { attachFiniteLuminanceInput, createFiniteBloomInputEffect } from "./finiteBloomInput.js";
 
 const BLOOM_RADIUS_MIN = 0.1;
 const BLOOM_RADIUS_MAX = 1.2;
@@ -83,6 +84,10 @@ export class ModelsBloomPipeline {
 		);
 		inputScene.add(this.inputMesh);
 		this.bloomEffect = null;
+		this.effectPass = null;
+		this.finiteInputEnabled = new THREE.Uniform(0);
+		this.finiteInputEffect = null;
+		this.finiteLuminanceState = null;
 		this.lastBloomConfigKey = "";
 		this.size = { w: 0, h: 0 };
 		this.damped = {
@@ -157,7 +162,10 @@ export class ModelsBloomPipeline {
 			this.bloomEffect.blendMode.blendFunction = BlendFunction.SCREEN;
 
 			this._syncBloomBlurParams(bloomConfig);
-			this.composer.addPass(new EffectPass(inputCamera, this.bloomEffect));
+			this.finiteInputEffect = createFiniteBloomInputEffect(this.finiteInputEnabled);
+			this.finiteLuminanceState = attachFiniteLuminanceInput(this.bloomEffect.luminanceMaterial, this.finiteInputEnabled);
+			this.effectPass = new EffectPass(inputCamera, this.finiteInputEffect, this.bloomEffect);
+			this.composer.addPass(this.effectPass);
 			this._sizeSceneBuffers();
 			this.composer.autoRenderToScreen = false;
 			this.lastBloomConfigKey = configKey;
@@ -165,6 +173,7 @@ export class ModelsBloomPipeline {
 		} catch (error) {
 			console.warn("[ModelsBloomPipeline] build failed", error);
 			this.bloomEffect = null;
+			this.effectPass = null;
 			this.lastBloomConfigKey = "";
 			return false;
 		}
@@ -217,7 +226,7 @@ export class ModelsBloomPipeline {
 	 * @param {{ reveal?: number }} [options]
 	 * @returns {THREE.Texture | null}
 	 */
-	render(inputTexture, delta, options = {}) {
+	_prepareFrame(inputTexture, delta, options = {}) {
 		if (!inputTexture || this._isContextLost()) {
 			return null;
 		}
@@ -242,12 +251,56 @@ export class ModelsBloomPipeline {
 		this.bloomEffect.luminanceMaterial.threshold = this.damped.threshold;
 		this.bloomEffect.luminanceMaterial.smoothing = this.damped.smoothing;
 		this._syncBloomBlurParams(bloomConfig);
+		return true;
+	}
 
+	render(inputTexture, delta, options = {}) {
+		this.finiteInputEnabled.value = 0;
+		if (!this._prepareFrame(inputTexture, delta, options)) return null;
 		const texture = renderComposerToTexture(this.composer, delta, this.renderer);
 		if (texture && this.gfx.bloomHdr !== false) {
 			texture.colorSpace = THREE.LinearSRGBColorSpace;
 		}
 		return texture;
+	}
+
+	/** Full-resolution consumers can sanitize the same raw HDR texels without an input copy. */
+	canRenderPreparedTarget(target) {
+		const output = this.composer.outputBuffer;
+		const luminance = this.bloomEffect?.luminancePass;
+		return this.gfx.bloomHdr !== false && this.effectPass && output
+			&& this.finiteLuminanceState?.ready && luminance?.enabled !== false
+			&& this.effectPass.effects[0] === this.finiteInputEffect
+			&& target?.texture?.type === THREE.HalfFloatType
+			&& target.texture.colorSpace === THREE.LinearSRGBColorSpace
+			&& output.texture.type === THREE.HalfFloatType
+			&& target !== output && target.texture !== output.texture
+			&& target.width === output.width && target.height === output.height
+			&& luminance?.renderTarget?.width === target.width && luminance.renderTarget.height === target.height;
+	}
+
+	/** Caller guarantees a completed raw hex draw; public pass API, no composer swaps. */
+	renderPreparedTarget(target, delta, options = {}) {
+		if (!this.canRenderPreparedTarget(target)) return this.render(target?.texture, delta, options);
+		if (!this._prepareFrame(target.texture, delta, options)) return null;
+		// A dev configuration can rebuild the chain in _prepareFrame; recheck its output.
+		if (!this.canRenderPreparedTarget(target)) return this.render(target.texture, delta, options);
+		const renderer = this.renderer, output = this.composer.outputBuffer;
+		const previousTarget = renderer.getRenderTarget(), previousAutoClear = renderer.autoClear;
+		const pass = this.effectPass, previousRenderToScreen = pass.renderToScreen;
+		try {
+			renderer.autoClear = false;
+			this.finiteInputEnabled.value = 1;
+			pass.renderToScreen = false;
+			pass.render(renderer, target, output, delta, false);
+			output.texture.colorSpace = THREE.LinearSRGBColorSpace;
+			return output.texture;
+		} finally {
+			this.finiteInputEnabled.value = 0;
+			pass.renderToScreen = previousRenderToScreen;
+			renderer.setRenderTarget(previousTarget);
+			renderer.autoClear = previousAutoClear;
+		}
 	}
 
 	applyConfigFromDev() {
@@ -257,6 +310,9 @@ export class ModelsBloomPipeline {
 	dispose() {
 		this.composer.dispose();
 		this.bloomEffect = null;
+		this.effectPass = null;
+		this.finiteInputEffect = null;
+		this.finiteLuminanceState = null;
 		this.inputMesh.geometry.dispose();
 		this.inputMesh.material.dispose();
 	}

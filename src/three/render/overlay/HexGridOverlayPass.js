@@ -72,7 +72,8 @@ export class HexGridOverlayPass {
 
 		const scale = hexScale ?? (hexCellSize !== undefined ? 1 / Math.max(hexCellSize, 1e-5) : undefined);
 		if (scale !== undefined) {
-			uniforms.hexScale.value = scale;
+			this.baseHexScale = scale;
+			this._syncHexScale();
 		}
 
 		if (fisheyeStrength !== undefined) {
@@ -161,6 +162,7 @@ export class HexGridOverlayPass {
 			return;
 		}
 		this.size = { w: width, h: height };
+		this._syncHexScale();
 		this._updateResolution();
 
 		const dpr = getScenePixelRatio(this.renderer);
@@ -176,6 +178,13 @@ export class HexGridOverlayPass {
 			stencilBuffer: false,
 		});
 		this.modelsMixTarget.texture.colorSpace = THREE.LinearSRGBColorSpace;
+	}
+
+	_syncHexScale() {
+		const { w, h } = this.size;
+		const compact = w > 0 && (w <= 768 || (w <= 1024 && h < 480));
+		// Denser cells, still one fullscreen shader draw and the same prepared RTs.
+		this.material.uniforms.hexScale.value = this.baseHexScale * (compact ? 1.65 : 1);
 	}
 
 	_updateResolution() {

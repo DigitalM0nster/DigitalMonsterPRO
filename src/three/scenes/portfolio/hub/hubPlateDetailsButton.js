@@ -751,6 +751,8 @@ function createDetailsGroup(projectIndex, cfg, stableSize = null) {
 		group,
 		texture,
 		snakeTexture,
+		inactiveTextureVersion: texture.version,
+		inactiveSnakeVersion: snakeTexture.version,
 		plane: frontFloat,
 		planes,
 		snakePlanes,
@@ -789,6 +791,8 @@ function applyDetailsEntry(entry, cfg, stableSize = null) {
 
 	updateDetailsTexture(entry.texture, buttonCfg, {}, stableSize);
 	clearDetailsSnakeTexture(entry.snakeTexture);
+	entry.inactiveTextureVersion = entry.texture.version;
+	entry.inactiveSnakeVersion = entry.snakeTexture.version;
 	entry.arrowHover = 0;
 	entry.lastArrowOffsetPx = 0;
 	const canvasSizeChanged = entry.canvasWidth !== canvasWidth || entry.canvasHeight !== canvasHeight;

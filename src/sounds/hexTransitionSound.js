@@ -1,4 +1,5 @@
 import { store } from "@/app/store.jsx";
+import { isMobileGraphicsDevice } from "@/functions/getGraphicsTier.js";
 import { isPageSoundAllowed, registerPageVisibilitySoundHandlers } from "./pageVisibilitySound.js";
 import { isSoundAudible, registerSiteSoundMuteHandler } from "./siteSoundToggle.js";
 import {
@@ -8,6 +9,7 @@ import {
 	suspendMasterAudioContext,
 } from "./masterAudioBus.js";
 import { loadAudioBuffer } from "./audioAssetCache.js";
+import { HexScrubVoice } from "./hexScrubVoice.js";
 import {
 	CAROUSEL_PROGRESS_SEGMENT_END,
 	CAROUSEL_PROGRESS_SMOOTH,
@@ -21,6 +23,7 @@ const VOLUME = 0.72;
 const VELOCITY_TO_RATE = 1.05;
 const MIN_PLAYBACK_RATE = 0.22;
 const MAX_PLAYBACK_RATE = 2.8;
+const PLAYBACK_RATE_EPS = 0.001;
 /** Крупный дрейф currentTime от progress — жёсткий seek. */
 const HARD_SYNC_DRIFT_S = 0.1;
 /** Мелкий дрейф при старте play. */
@@ -54,9 +57,9 @@ export function progressToSpatialY(progress) {
 
 class HexTransitionSoundController {
 	constructor() {
-		/** @type {HTMLAudioElement | null} */
+		/** @type {HexScrubVoice | null} */
 		this._audio = null;
-		/** @type {HTMLAudioElement | null} */
+		/** @type {HexScrubVoice | null} */
 		this._audioReversed = null;
 		/** @type {AudioContext | null} */
 		this._ctx = null;
@@ -70,15 +73,21 @@ class HexTransitionSoundController {
 		this._reverseGain = null;
 		/** @type {Promise<void> | null} */
 		this._loadPromise = null;
+		this._loadGeneration = 0;
 		this._ready = false;
 		this._duration = 0;
+		this._reverseDuration = 0;
 		this._lastProgress = 0;
 		this._lastProgressTarget = 0;
 		this._reversePlaybackOk = true;
-		this._masterGain = VOLUME;
+		this._baseVolume = VOLUME / (isMobileGraphicsDevice() ? 3 : 1);
+		this._masterGain = this._baseVolume;
 		/** @type {{ active: boolean, onComplete?: () => void } | null} */
 		this._fadeOut = null;
 		this._listenerOrientReady = false;
+		this._spatialY = NaN;
+		this._resumePending = false;
+		this._pendingPlay = new WeakMap();
 	}
 
 	_getAudioContext() {
@@ -91,6 +100,14 @@ class HexTransitionSoundController {
 		panner.refDistance = 1;
 		panner.maxDistance = 24;
 		panner.rolloffFactor = 0;
+		const y = Number.isFinite(this._spatialY) ? this._spatialY : progressToSpatialY(0);
+		if (typeof panner.positionX !== "undefined") {
+			panner.positionX.value = 0;
+			panner.positionY.value = y;
+			panner.positionZ.value = SPATIAL_Z;
+		} else {
+			panner.setPosition(0, y, SPATIAL_Z);
+		}
 	}
 
 	_ensureListenerOrientation(ctx) {
@@ -112,33 +129,25 @@ class HexTransitionSoundController {
 		this._listenerOrientReady = true;
 	}
 
-	_connectMediaElement(audio, gainRef) {
+	_createPreparedVoice(buffer, gainRef, pannerRef) {
 		const ctx = this._getAudioContext();
-		if (!ctx || !audio) {
-			return null;
-		}
-
 		this._ensureListenerOrientation(ctx);
-		audio.volume = 1;
-
-		const source = ctx.createMediaElementSource(audio);
 		const gain = ctx.createGain();
 		const panner = ctx.createPanner();
 		this._configurePanner(panner);
 		gain.gain.value = this._masterGain;
-
-		source.connect(gain);
 		gain.connect(panner);
 		connectNodeToMasterBus(panner);
 		this._ctx = ctx;
-
 		this[gainRef] = gain;
-
-		return panner;
+		this[pannerRef] = panner;
+		return new HexScrubVoice(ctx, buffer, gain);
 	}
 
 	_setMasterGain(value) {
-		this._masterGain = Math.max(0, value);
+		const next = Math.max(0, value);
+		if (this._masterGain === next) return;
+		this._masterGain = next;
 		for (const gain of [this._forwardGain, this._reverseGain]) {
 			if (gain) {
 				gain.gain.value = this._masterGain;
@@ -190,6 +199,8 @@ class HexTransitionSoundController {
 
 	_applySpatialPosition(progress) {
 		const y = progressToSpatialY(progress);
+		if (y === this._spatialY) return;
+		this._spatialY = y;
 
 		for (const panner of [this._forwardPanner, this._reversePanner]) {
 			if (!panner) {
@@ -197,9 +208,7 @@ class HexTransitionSoundController {
 			}
 
 			if (typeof panner.positionX !== "undefined") {
-				panner.positionX.value = 0;
 				panner.positionY.value = y;
-				panner.positionZ.value = SPATIAL_Z;
 			} else {
 				panner.setPosition(0, y, SPATIAL_Z);
 			}
@@ -211,112 +220,37 @@ class HexTransitionSoundController {
 	}
 
 	_ensureAudio() {
-		if (this._audio || typeof window === "undefined") {
-			return this._audio;
+		if (this._audio || typeof window === "undefined") return this._audio;
+		if (!this._loadPromise) {
+			const generation = ++this._loadGeneration;
+			this._loadPromise = this._loadPreparedBuffers(generation);
 		}
-
-		const audio = new Audio(HEX_TRANSITION_SOUND_SRC);
-		audio.preload = "auto";
-		this._audio = audio;
-		this._forwardPanner = this._connectMediaElement(audio, "_forwardGain");
-
-		this._loadPromise = this._loadWithReverse(audio);
-
-		return audio;
+		return this._audio;
 	}
 
-	async _loadWithReverse(audio) {
-		await new Promise((resolve) => {
-			const onReady = () => {
-				this._duration = Number.isFinite(audio.duration) ? audio.duration : 0;
-				this._ready = this._duration > 0.05;
-				resolve();
-			};
-
-			audio.addEventListener("loadedmetadata", onReady, { once: true });
-			audio.addEventListener("error", () => resolve(), { once: true });
-		});
-
-		if (!this._ready) {
-			return;
-		}
-
-		await this._resumeContext();
-
+	async _loadPreparedBuffers(generation) {
+		const ctx = this._getAudioContext();
+		if (!ctx) return;
 		try {
-			const ctx = this._getAudioContext();
-			if (!ctx) {
-				return;
-			}
-
+			// Decode is allowed while suspended. Start/visibility owns audio resume;
+			// waiting for it here would block the preloader before a user gesture.
 			const buffer = await loadAudioBuffer(HEX_TRANSITION_SOUND_SRC, ctx);
+			if (generation !== this._loadGeneration || buffer.duration <= 0.05) return;
 			const reversed = ctx.createBuffer(buffer.numberOfChannels, buffer.length, buffer.sampleRate);
-
-			for (let channel = 0; channel < buffer.numberOfChannels; channel += 1) {
+			for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
 				const src = buffer.getChannelData(channel);
 				const dst = reversed.getChannelData(channel);
-				for (let i = 0, j = src.length - 1; i < src.length; i += 1, j -= 1) {
-					dst[i] = src[j];
-				}
+				for (let i = 0, j = src.length - 1; i < src.length; i++, j--) dst[i] = src[j];
 			}
-
-			const wavBlob = this._encodeWav(reversed);
-			const url = URL.createObjectURL(wavBlob);
-			const reversedAudio = new Audio(url);
-			reversedAudio.preload = "auto";
-			this._audioReversed = reversedAudio;
-			this._reversePanner = this._connectMediaElement(reversedAudio, "_reverseGain");
+			this._duration = buffer.duration;
+			this._reverseDuration = reversed.duration;
+			this._audio = this._createPreparedVoice(buffer, "_forwardGain", "_forwardPanner");
+			this._audioReversed = this._createPreparedVoice(reversed, "_reverseGain", "_reversePanner");
+			this._ready = true;
 		} catch {
-			// fallback: только отрицательный playbackRate на основном треке
+			// An unavailable optional SFX must not block the visual experience.
+			this._ready = false;
 		}
-	}
-
-	/** Минимальный WAV-энкодер для reversed-буфера. */
-	_encodeWav(buffer) {
-		const channels = buffer.numberOfChannels;
-		const sampleRate = buffer.sampleRate;
-		const length = buffer.length;
-		const bytesPerSample = 2;
-		const blockAlign = channels * bytesPerSample;
-		const dataSize = length * blockAlign;
-		const arrayBuffer = new ArrayBuffer(44 + dataSize);
-		const view = new DataView(arrayBuffer);
-
-		const writeString = (offset, text) => {
-			for (let i = 0; i < text.length; i += 1) {
-				view.setUint8(offset + i, text.charCodeAt(i));
-			}
-		};
-
-		writeString(0, "RIFF");
-		view.setUint32(4, 36 + dataSize, true);
-		writeString(8, "WAVE");
-		writeString(12, "fmt ");
-		view.setUint32(16, 16, true);
-		view.setUint16(20, 1, true);
-		view.setUint16(22, channels, true);
-		view.setUint32(24, sampleRate, true);
-		view.setUint32(28, sampleRate * blockAlign, true);
-		view.setUint16(32, blockAlign, true);
-		view.setUint16(34, bytesPerSample * 8, true);
-		writeString(36, "data");
-		view.setUint32(40, dataSize, true);
-
-		let offset = 44;
-		const channelData = [];
-		for (let ch = 0; ch < channels; ch += 1) {
-			channelData.push(buffer.getChannelData(ch));
-		}
-
-		for (let i = 0; i < length; i += 1) {
-			for (let ch = 0; ch < channels; ch += 1) {
-				const sample = Math.max(-1, Math.min(1, channelData[ch][i]));
-				view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
-				offset += 2;
-			}
-		}
-
-		return new Blob([arrayBuffer], { type: "audio/wav" });
 	}
 
 	preload() {
@@ -336,7 +270,8 @@ class HexTransitionSoundController {
 			if (!audio) {
 				continue;
 			}
-			if (!audio.paused) audio.pause();
+			if (!audio.paused || this._pendingPlay.has(audio)) audio.pause();
+			this._pendingPlay.delete(audio);
 			if (reset) {
 				try {
 					if (audio.currentTime !== 0) audio.currentTime = 0;
@@ -352,7 +287,7 @@ class HexTransitionSoundController {
 			this._applySpatialPosition(0);
 		}
 
-		this._setMasterGain(VOLUME);
+		this._setMasterGain(this._baseVolume);
 	}
 
 	_pauseAtRest() {
@@ -362,7 +297,7 @@ class HexTransitionSoundController {
 
 		this._beginFadeOut(() => {
 			this._pauseInactive(null);
-			this._setMasterGain(VOLUME);
+			this._setMasterGain(this._baseVolume);
 		}, AT_REST_FADE_MS);
 	}
 
@@ -378,12 +313,21 @@ class HexTransitionSoundController {
 		return Math.max(0, Math.min(duration * 0.998, seconds));
 	}
 
+	_getTrackDuration(audio) {
+		if (Number.isFinite(audio?.duration) && audio.duration > 0) return audio.duration;
+		return audio === this._audioReversed && this._reverseDuration > 0
+			? this._reverseDuration
+			: this._duration;
+	}
+
 	_seekTo(audio, time) {
 		if (!audio || !this._ready) {
 			return;
 		}
 
-		const next = this._clampTime(time);
+		const duration = this._getTrackDuration(audio);
+		const next = this._clampTime(time, duration);
+		if (duration - next <= SOFT_SYNC_DRIFT_S && duration - audio.currentTime <= SOFT_SYNC_DRIFT_S) return;
 		try {
 			if (Math.abs(audio.currentTime - next) > 0.001) {
 				audio.currentTime = next;
@@ -395,8 +339,9 @@ class HexTransitionSoundController {
 
 	_pauseInactive(activeAudio) {
 		for (const audio of [this._audio, this._audioReversed]) {
-			if (audio && audio !== activeAudio && !audio.paused) {
-				audio.pause();
+			if (audio && audio !== activeAudio) {
+				if (!audio.paused || this._pendingPlay.has(audio)) audio.pause();
+				this._pendingPlay.delete(audio);
 			}
 		}
 	}
@@ -415,7 +360,16 @@ class HexTransitionSoundController {
 		return { speed, chaseGap };
 	}
 
-	async _playScrub(direction, rate, progress) {
+	_playScrub(direction, rate, progress) {
+		if (this._ctx?.state === "suspended" || this._ctx?.state === "interrupted") {
+			if (!this._resumePending) {
+				this._resumePending = true;
+				void this._resumeContext().finally(() => { this._resumePending = false; });
+			}
+			// The next painted frame may start playback; a late resume must not
+			// replay an old scrub after motion, mute or page visibility changed.
+			return;
+		}
 		const forward = direction >= 0;
 		const audio = forward ? this._audio : this._audioReversed ?? this._audio;
 		if (!audio) {
@@ -423,34 +377,45 @@ class HexTransitionSoundController {
 		}
 
 		this._cancelFadeOut();
-		this._setMasterGain(VOLUME);
+		this._setMasterGain(this._baseVolume);
 		this._pauseInactive(audio);
 		this._applySpatialPosition(progress);
-		await this._resumeContext();
+		if (this._pendingPlay.has(audio)) return;
 
-		const targetTime = progress * this._duration;
-		const scrubTime = forward ? targetTime : this._clampTime((1 - progress) * this._duration);
+		// Both tracks use their decoded PCM duration.
+		const duration = this._getTrackDuration(audio);
+		const targetTime = (forward ? progress : 1 - progress) * duration;
+		const scrubTime = this._clampTime(targetTime, duration);
+		// Let the last few
+		// milliseconds finish once instead of looping them as the spring settles.
+		// The actual playhead remains stable across held-frame seeks.
+		if (duration - scrubTime <= SOFT_SYNC_DRIFT_S && duration - audio.currentTime <= SOFT_SYNC_DRIFT_S) return;
 		const drift = Math.abs(audio.currentTime - scrubTime);
 
-		if (drift > HARD_SYNC_DRIFT_S || (audio.paused && drift > SOFT_SYNC_DRIFT_S) || !forward) {
+		if (drift > HARD_SYNC_DRIFT_S || (audio.paused && drift > SOFT_SYNC_DRIFT_S)) {
 			this._seekTo(audio, scrubTime);
 		}
 
-		const clampedRate = Math.max(MIN_PLAYBACK_RATE, Math.min(MAX_PLAYBACK_RATE, rate));
+		const trackRate = this._duration > 0 ? rate * duration / this._duration : rate;
+		const clampedRate = Math.max(MIN_PLAYBACK_RATE, Math.min(MAX_PLAYBACK_RATE, trackRate));
 
 		if (!forward && audio === this._audio && this._reversePlaybackOk) {
 			try {
-				audio.playbackRate = -clampedRate;
+				if (Math.abs(audio.playbackRate + clampedRate) > PLAYBACK_RATE_EPS) audio.playbackRate = -clampedRate;
 			} catch {
 				this._reversePlaybackOk = false;
-				audio.playbackRate = clampedRate;
+				if (Math.abs(audio.playbackRate - clampedRate) > PLAYBACK_RATE_EPS) audio.playbackRate = clampedRate;
 			}
 		} else {
-			audio.playbackRate = clampedRate;
+			if (Math.abs(audio.playbackRate - clampedRate) > PLAYBACK_RATE_EPS) audio.playbackRate = clampedRate;
 		}
 
 		if (audio.paused) {
-			audio.play().catch(() => {});
+			const request = audio.play();
+			this._pendingPlay.set(audio, request);
+			void request.catch(() => {}).finally(() => {
+				if (this._pendingPlay.get(audio) === request) this._pendingPlay.delete(audio);
+			});
 		}
 	}
 
@@ -569,11 +534,11 @@ class HexTransitionSoundController {
 
 		if (!isAnimating) {
 			this._cancelFadeOut();
-			this._setMasterGain(VOLUME);
+			this._setMasterGain(this._baseVolume);
 			this._pauseInactive(null);
 			this._seekTo(this._audio, targetTime);
 			if (this._audioReversed) {
-				this._seekTo(this._audioReversed, this._clampTime((1 - progress) * duration));
+				this._seekTo(this._audioReversed, (1 - progress) * this._getTrackDuration(this._audioReversed));
 			}
 			this._lastProgress = progress;
 			this._lastProgressTarget = progressTarget;
@@ -602,14 +567,15 @@ class HexTransitionSoundController {
 
 	_cancelSiteMuteFade() {
 		this._cancelFadeOut();
-		this._setMasterGain(VOLUME);
+		this._setMasterGain(this._baseVolume);
 	}
 
 	dispose() {
 		this._stop(true);
-		if (this._audioReversed?.src?.startsWith("blob:")) {
-			URL.revokeObjectURL(this._audioReversed.src);
-		}
+		this._loadGeneration++;
+		this._audio?.dispose();
+		this._audioReversed?.dispose();
+		for (const node of [this._forwardGain, this._reverseGain, this._forwardPanner, this._reversePanner]) node?.disconnect();
 		this._audio = null;
 		this._audioReversed = null;
 		this._forwardPanner = null;
@@ -618,6 +584,7 @@ class HexTransitionSoundController {
 		this._reverseGain = null;
 		this._loadPromise = null;
 		this._ready = false;
+		this._reverseDuration = 0;
 		this._ctx = null;
 	}
 

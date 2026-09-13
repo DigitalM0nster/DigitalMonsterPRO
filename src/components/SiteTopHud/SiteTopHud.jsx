@@ -4,7 +4,6 @@ import PropTypes from "prop-types";
 import { useRouteTransitionContext } from "@/app/context/RouteTransitionContext.jsx";
 import SiteTopHudBrand from "./SiteTopHudBrand.jsx";
 import SiteTopHudPageRoute from "./SiteTopHudPageRoute.jsx";
-import SiteTopHudTimeline from "./SiteTopHudTimeline.jsx";
 import SiteTopHudRollingClock from "./SiteTopHudRollingClock.jsx";
 import SiteTopHudSoundScope from "./SiteTopHudSoundScope.jsx";
 import styles from "./SiteTopHud.module.scss";
@@ -17,7 +16,7 @@ function SiteTopHudRouteLabel() {
 	return useMemo(() => <SiteTopHudPageRoute pathname={displayPathname} locale={siteLocale} />, [displayPathname, siteLocale]);
 }
 
-/** Верхняя HUD-полоса: бренд, маршрут, шкала, часы, осциллограф. */
+/** Верхняя HUD-полоса: бренд, маршрут, часы, осциллограф. */
 const SiteTopHud = memo(function SiteTopHud({ startApp = false }) {
 	const proxyStore = useStore();
 
@@ -26,7 +25,6 @@ const SiteTopHud = memo(function SiteTopHud({ startApp = false }) {
 			<div className={styles.topHudBar}>
 				<SiteTopHudBrand />
 				<SiteTopHudRouteLabel />
-				<SiteTopHudTimeline />
 			</div>
 
 			<div className={styles.meta}>

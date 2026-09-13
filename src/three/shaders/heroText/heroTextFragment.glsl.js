@@ -5,9 +5,10 @@ uniform sampler2D uTexture;
 uniform float uTextureHeightRatio;
 
 vec4 sampleTitleTexture(vec2 uv) {
-	// Only storage is cropped; all authored reveal/glow coordinates stay intact.
+	// Storage can be cropped or taller than the viewport after a height-only
+	// resize. Reuse those glyph pixels in the current reveal/glow coordinates.
 	vec4 ink = vec4(0.0);
-	if (uTextureHeightRatio >= 0.999999) {
+	if (abs(uTextureHeightRatio - 1.0) < 0.000001) {
 		ink = texture2D(uTexture, uv);
 	} else {
 		float ratio = max(uTextureHeightRatio, 0.00001);
@@ -51,7 +52,6 @@ uniform float uClickOffset;
 uniform float uClickMaxStrength;
 uniform vec3 uOutlineBoost;
 uniform float uOutlineThreshold;
-uniform float uOutlinePixelScale;
 uniform vec3 uFillGradientTop;
 uniform vec3 uFillGradientBottom;
 uniform float uTitleShimmer;
@@ -112,6 +112,21 @@ float lowTitleInk(vec2 uv) {
 	return sampleTitleTexture(uv).a;
 }
 #endif
+
+float titleOutlineCoverage(vec2 uv, float ink) {
+	// Sample the prepared atlas at a fixed CSS distance. Hardware alpha
+	// derivatives share a 2x2 raster quad: a hard threshold on them drops
+	// alternating pieces of diagonal/curved edges at DPR 1 and 1.5.
+	vec2 stepUv = vec2(0.75) / uResolution;
+	float left = sampleTitleTexture(uv - vec2(stepUv.x, 0.0)).a;
+	float right = sampleTitleTexture(uv + vec2(stepUv.x, 0.0)).a;
+	float bottom = sampleTitleTexture(uv - vec2(0.0, stepUv.y)).a;
+	float top = sampleTitleTexture(uv + vec2(0.0, stepUv.y)).a;
+	vec2 edge = vec2(max(abs(ink - left), abs(ink - right)),
+		max(abs(ink - bottom), abs(ink - top)) * 0.5);
+	float softness = max(uOutlineThreshold * 0.5, 0.01);
+	return smoothstep(uOutlineThreshold - softness, uOutlineThreshold + softness, length(edge));
+}
 
 void main() {
 	vec2 sampleUv = vUv;
@@ -226,24 +241,18 @@ void main() {
 	return;
 #endif
 
-	float edgeDetection = length(vec2(dFdx(displacedColor.a), dFdy(displacedColor.a * 0.5))) * uOutlinePixelScale;
-	bool isOutline = edgeDetection > uOutlineThreshold && displacedColor.a > 0.3;
-
-	if (isOutline && uRenderPass < 1.5) {
-		if (uRenderPass < 0.5) {
-			discard;
-		}
+	float outlineCoverage = titleOutlineCoverage(displacedUV, displacedColor.a);
+	if (uRenderPass > 0.5 && uRenderPass < 1.5) {
 		vec3 outline = displacedColor.rgb * uOutlineBoost * lightTravel;
-		gl_FragColor = vec4(outline, displacedColor.a * visible * revealAlpha * uMasterAlpha);
+		gl_FragColor = vec4(outline, alpha * outlineCoverage);
 	} else {
-		if (uRenderPass > 0.5 && uRenderPass < 1.5) {
-			discard;
-		}
 		float gradT = clamp(displacedUV.y, 0.0, 1.0);
 		vec3 fillColor = mix(uFillGradientBottom, uFillGradientTop, gradT);
 		float shimmer = uTitleShimmer * sin(uTime * 1.35 + displacedUV.x * 48.0 + displacedUV.y * 12.0);
 		fillColor = min(fillColor * uFillBrightness + shimmer, vec3(1.0));
-		gl_FragColor = vec4(fillColor, alpha);
+		// Complementary coverage preserves the clean fill without binary holes
+		// or a second opaque copy over the emissive edge.
+		gl_FragColor = vec4(fillColor, alpha * (uRenderPass < 0.5 ? 1.0 - outlineCoverage : 1.0));
 	}
 }
 `;

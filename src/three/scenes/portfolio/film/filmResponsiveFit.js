@@ -5,7 +5,7 @@ const samples = (halfWidth, bottom, top, depth) => [
 	[-halfWidth, top], [0, top], [halfWidth, top],
 	[-halfWidth, (bottom + top) / 2], [halfWidth, (bottom + top) / 2],
 ].map(([x, y]) => filmSurfacePoint(x, y, depth));
-const framePoints = samples(.525, -.27, .27, .015);
+const framePoints = [[-.525,-.27,.015],[.525,-.27,.015],[-.525,.27,.015],[.525,.27,.015]];
 const presentationPoints = samples(.61, -.38, .30, .025);
 const viewHeight = 20 * Math.tan(Math.PI / 9);
 const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
@@ -20,7 +20,7 @@ export function fitFilmPresentation(layout, width, height, box) {
 		let left = Infinity, right = -Infinity, top = Infinity, bottom = -Infinity;
 		for (const focus of [0, .5, 1]) for (const px of [-1, 1]) for (const py of [-1, 1]) {
 			const scale = layout.width * layout.compositionScale * (1 + focus * (layout.compact ? .02 : .15));
-			const tiltX = (.075 + py * .012) * (1 - focus);
+			const tiltX = layout.mobile ? 0 : (.075 + py * .012) * (1 - focus);
 			const tiltY = layout.compact ? 0 : (-.14 + px * .022) * (1 - focus);
 			const sx = Math.sin(tiltX), cx = Math.cos(tiltX), sy = Math.sin(tiltY), cy = Math.cos(tiltY);
 			for (const [x, y, z] of points) {

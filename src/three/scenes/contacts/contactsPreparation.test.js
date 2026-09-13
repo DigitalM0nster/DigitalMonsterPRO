@@ -30,6 +30,7 @@ test("GPU replacement pass sleeps at both endpoints, wakes for motion/preview an
 		PortfolioHubScene: class { beginWarmupDraw() { return {}; } endWarmupDraw() {} }, ContactsGpuTextLayer: Layer,
 	});
 	const scene = Object.create(Scene.prototype);
+	scene.centerPlateLogos = { anchor: { traverse() {} } };
 	scene.plateProjectLabels = scene.plateDetailsButtons = { attachments: [] };
 	scene.screenTitle = { root: { visible: false }, rightGroup: { visible: false }, projectsColumn: { layers: [layer] } };
 	const before = JSON.stringify(u);
@@ -53,21 +54,21 @@ test("inactive details keep their bitmap until another painter changes its pixel
 		applyHubPlateLabelRevealUniforms() {},
 	});
 	const material = { uniforms: { arrowOffsetUv: { value: 0.02 }, opacity: { value: 1 } } };
-	const entry = { group: { visible: false }, texture: { version: 1 }, snakeTexture: { version: 1 }, materials: [material], snakeMaterials: [], planes: [] };
+	const entry = { group: { visible: false }, texture: { version: 1 }, snakeTexture: { version: 1 }, inactiveTextureVersion: 1, inactiveSnakeVersion: 1, materials: [material], snakeMaterials: [], planes: [] };
 	const owner = { attachments: [{ projectIndex: 0, entry }], _getResolvedCfg: () => ({}) };
 	for (let i = 0; i < 120; i++) setFocusReveal.call(owner, -1);
-	assert.equal(paints, 1); assert.equal(clears, 1);
+	assert.equal(paints, 0); assert.equal(clears, 0);
 	assert.equal(material.uniforms.arrowOffsetUv.value, 0);
 	// Locale/config painters own texture invalidation. The next inactive frame
 	// restores clean content once, then stops painting again.
 	entry.texture.version++; entry.glitchActive = true; entry.arrowHover = 1;
 	for (let i = 0; i < 120; i++) setFocusReveal.call(owner, -1);
-	assert.equal(paints, 2); assert.equal(clears, 2);
+	assert.equal(paints, 1); assert.equal(clears, 1);
 	assert.equal(entry.glitchActive, false); assert.equal(entry.arrowHover, 0);
 	setFocusReveal.call(owner, 0, 1); assert.equal(entry.group.visible, true);
 	entry.snakeTexture.version++;
 	setFocusReveal.call(owner, -1); assert.equal(entry.group.visible, false);
-	assert.equal(paints, 3); assert.equal(clears, 3);
+	assert.equal(paints, 2); assert.equal(clears, 2);
 });
 
 test("details hover and reversal move the prepared arrow without repainting text", () => {
@@ -118,6 +119,8 @@ test("Contacts warms hidden plate nodes after update and restores their exact fl
 	}
 	const Contacts = vm.runInNewContext(`${source}\nContactsScene`, { PortfolioHubScene: Base, ContactsGpuTextLayer: class {} });
 	const scene = Object.create(Contacts.prototype);
+	scene.platesRenderer = {};
+	scene.centerPlateLogos = { anchor: { traverse() {} } };
 	const child = { visible: false, frustumCulled: true };
 	const group = { visible: true, frustumCulled: false, traverse(fn) { fn(this); fn(child); } };
 	scene.plateProjectLabels = { attachments: [{ entry: { group } }] };

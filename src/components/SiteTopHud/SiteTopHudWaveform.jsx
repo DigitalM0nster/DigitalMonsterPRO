@@ -1,10 +1,8 @@
 import { useEffect, useRef } from "react";
 import PropTypes from "prop-types";
 import {
-	getMasterAudioContext,
 	initMasterAudioBus,
 	readMasterAudioSnapshot,
-	resumeMasterAudioContext,
 } from "@/sounds/masterAudioBus.js";
 import { siteTopHudWaveformConfig } from "./siteTopHudWaveformConfig.js";
 import { SITE_MAIN_COLOR } from "@/app/config/siteMainColor.js";
@@ -280,10 +278,8 @@ export default function SiteTopHudWaveform({ active = false }) {
 
 			const presence = presenceRef.current;
 
-			if (listening && getMasterAudioContext()?.state === "suspended") {
-				void resumeMasterAudioContext();
-			}
-
+			// Playback owners resume on gestures/visibility. The visualizer only
+			// reads the bus; it must not enqueue native resume calls every frame.
 			const audioSnapshot = listening
 				? readMasterAudioSnapshot(canvasWidth, audioSamples)
 				: { level: 0, waveform: null, peak: 0, rms: 0 };

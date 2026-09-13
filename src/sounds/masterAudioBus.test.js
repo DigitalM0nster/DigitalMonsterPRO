@@ -57,3 +57,85 @@ test("resized or closed analyser preserves buffer ownership and null-waveform be
 	assert.equal(closed.level, 0);
 	assert.ok(oldTarget.every(value => value === 9));
 });
+
+function createResumeBus(state = "suspended") {
+	const requests = [];
+	const context = {
+		state, createGain: () => ({ gain: {}, connect() {} }),
+		createAnalyser: () => ({ connect() {} }),
+		resume() {
+			return new Promise((resolve, reject) => requests.push({ resolve, reject }));
+		},
+	};
+	const source = readFileSync(new URL("./masterAudioBus.js", import.meta.url), "utf8").replaceAll("export ", "");
+	const resume = vm.runInNewContext(`${source}\nresumeMasterAudioContext`, {
+		window: { AudioContext: function () { return context; } },
+	});
+	return { context, requests, resume };
+}
+
+test("runtime callers share one native resume while it is pending", async () => {
+	const bus = createResumeBus();
+	const first = bus.resume();
+	for (let frame = 0; frame < 120; frame++) assert.equal(bus.resume(), first);
+	assert.equal(bus.requests.length, 1);
+	bus.context.state = "running";
+	bus.requests[0].resolve();
+	await first;
+	await bus.resume();
+	assert.equal(bus.requests.length, 1);
+});
+
+test("later gestures can unlock an unresolved pre-gesture attempt without duplicating one event", async () => {
+	const bus = createResumeBus();
+	const cold = bus.resume();
+	const gesture = bus.resume({ userGesture: true });
+	assert.notEqual(gesture, cold);
+	assert.equal(bus.requests.length, 2, "Native resume is called synchronously inside the gesture");
+	assert.equal(bus.resume({ userGesture: true }), gesture);
+	assert.equal(bus.resume(), gesture);
+	await Promise.resolve();
+	const nextGesture = bus.resume({ userGesture: true });
+	assert.equal(bus.requests.length, 3, "A subsequent event can retry a never-settled gesture");
+	bus.requests[0].resolve();
+	bus.requests[1].resolve();
+	await Promise.all([cold, gesture]);
+	assert.equal(bus.resume(), nextGesture, "Old completion must not clear the newest attempt");
+	bus.context.state = "running";
+	bus.requests[2].resolve();
+	await nextGesture;
+});
+
+test("interrupted contexts resume and rejected attempts do not block a fresh gesture", async () => {
+	const bus = createResumeBus("interrupted");
+	const interrupted = bus.resume();
+	assert.equal(bus.requests.length, 1);
+	bus.requests[0].reject(new Error("gesture required"));
+	await interrupted;
+	const gesture = bus.resume({ userGesture: true });
+	assert.equal(bus.requests.length, 2);
+	bus.context.state = "running";
+	bus.requests[1].resolve();
+	await gesture;
+	bus.context.state = "closed";
+	await bus.resume({ userGesture: true });
+	assert.equal(bus.requests.length, 2);
+});
+
+test("Start and sound-enable actions explicitly resume inside their gesture", () => {
+	const calls = [];
+	const context = {
+		store: {}, document: { hidden: false }, Audio: function () {}, SOUND_CATALOG: {},
+		cancelPendingSiteSoundMute() {}, initMasterAudioBus() {}, playHtmlOneShot() {},
+		resumeMasterAudioContext: options => { calls.push(options?.userGesture); },
+	};
+	const toggle = readFileSync(new URL("./siteSoundToggle.js", import.meta.url), "utf8");
+	const enable = toggle.match(/function enableSiteSound\(\) \{[^]*?\n\}/)[0];
+	vm.runInNewContext(`${enable}\nenableSiteSound()`, context);
+	const design = readFileSync(new URL("./soundDesign.js", import.meta.url), "utf8");
+	for (const name of ["playLoaderStartClickSound", "playStartAppSound"]) {
+		const method = design.match(new RegExp(`export function ${name}\\(\\) \\{[^]*?\\n\\}`))[0].replace("export ", "");
+		vm.runInNewContext(`let uiClickAudio, startAppAudio;\n${method}\n${name}()`, { ...context });
+	}
+	assert.deepEqual(calls, [true, true, true]);
+});

@@ -8,13 +8,13 @@ import { TITLE_MOSAIC_GLSL } from "./titleMosaic.js";
 const WIDTH = 1024, HEIGHT = 384;
 const nextPaint = () => new Promise(resolve => requestAnimationFrame(resolve));
 
-function paintLine(ctx, text, y, size, color, tracking = 2) {
+function paintLine(ctx, text, y, size, color, tracking = 2, weight = 500) {
 	const chars = Array.from(text);
-	ctx.font = `500 ${size}px ManifoldExtended, sans-serif`;
+	ctx.font = `${weight} ${size}px ManifoldExtended, sans-serif`;
 	const measure = () => chars.reduce((width, char) => width + (char === " " ? size * 0.55 : ctx.measureText(char).width + tracking), 0);
 	if (measure() > WIDTH - 32) {
 		size *= (WIDTH - 32) / measure();
-		ctx.font = `500 ${size}px ManifoldExtended, sans-serif`;
+		ctx.font = `${weight} ${size}px ManifoldExtended, sans-serif`;
 	}
 	ctx.fillStyle = color;
 	let x = 12;
@@ -64,6 +64,9 @@ export class CapabilityNarrative {
 		const copy = NARRATIVE_COPY[variant];
 		await Promise.all(copy.map((states, locale) => document.fonts?.load("500 72px ManifoldExtended",
 			states.flat().join(" ") + (variant === "syntheticCore" ? ` ${CORE_NARRATIVE_LABEL[locale]}` : ""))));
+		if (variant === "syntheticCore") {
+			await document.fonts?.load("600 36px ManifoldExtended", CORE_NARRATIVE_LABEL.join(" "));
+		}
 		if (disposed()) return null;
 		const rows = copy[0].length;
 		const atlasRows = rows * (variant === "syntheticCore" ? 2 : 1);
@@ -83,7 +86,9 @@ export class CapabilityNarrative {
 				const lines = copy[locale][state % rows];
 				const compact = state >= rows;
 				const core = variant === "syntheticCore";
-				let right = core ? paintLine(ctx, CORE_NARRATIVE_LABEL[locale], 44, compact ? 34 : 22, "#56b6cf", 3) : 12;
+				// Small UI type needs enough stroke coverage at DPR 1 and below;
+				// bake a larger semibold label instead of increasing scene resolution.
+				let right = core ? paintLine(ctx, CORE_NARRATIVE_LABEL[locale], 44, compact ? 36 : 30, "#9acbd9", 3, 600) : 12;
 				right = Math.max(right, paintLine(ctx, lines[0], 149, core ? 76 : 70, "#dcebf0"));
 				right = Math.max(right, paintLine(ctx, lines[1], core ? 244 : 212, core ? 76 : 60, "#dcebf0"));
 				if (core) {

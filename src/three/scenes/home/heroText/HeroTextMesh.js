@@ -1,4 +1,3 @@
-import { getScenePixelRatio } from "@/three/renderer/renderResolution.js";
 import * as THREE from "three";
 import { heroTextVertexShader } from "../../../shaders/heroText/heroTextVertex.glsl.js";
 import { heroTextVertexInstancedShader } from "../../../shaders/heroText/heroTextVertexInstanced.glsl.js";
@@ -212,9 +211,6 @@ export class HeroTextMesh {
 			uGlitchStrength: { value: cfg.titleGlitchStrength },
 			uOutlineBoost: { value: new THREE.Vector3(cfg.titleOutlineR, cfg.titleOutlineG, cfg.titleOutlineB) },
 			uOutlineThreshold: { value: cfg.titleOutlineThreshold },
-			// Alpha derivatives are measured per framebuffer pixel. Match the
-			// High DPR-2 edge at Medium DPR 1 without widening the HDR outline.
-			uOutlinePixelScale: { value: getGraphicsTier() !== "high" ? getScenePixelRatio(this.renderer) / 2 : 1 },
 			uFillGradientTop: { value: new THREE.Color(cfg.titleGradientTop) },
 			uFillGradientBottom: { value: new THREE.Color(cfg.titleGradientBottom) },
 			uTitleShimmer: { value: cfg.titleShimmer },
@@ -537,6 +533,8 @@ export class HeroTextMesh {
 		this.width = window.innerWidth;
 		this.height = window.innerHeight;
 		this.aspectRatio = this.width / this.height;
+		const rasterKey = this._getRasterKey();
+		this._pendingRasterKey = rasterKey;
 
 		this.canvas = document.createElement("canvas");
 		const text = this.text;
@@ -632,6 +630,10 @@ export class HeroTextMesh {
 			} else {
 				this._buildPlaneMesh(textTexture);
 			}
+			this._preparedRasterKey = rasterKey;
+			this._preparedTextureLayoutHeight = this.canvasHeight * this._textureHeightRatio;
+			this._preparedRasterCoversTitle = this.canvas.height >= titleRows;
+			this._pendingRasterKey = null;
 		});
 	}
 
@@ -834,7 +836,7 @@ export class HeroTextMesh {
 
 		this.textMesh = new THREE.InstancedMesh(quadGeom, this.textMaterial, charCount);
 		this.textMesh.frustumCulled = false;
-		// Both tiers use High's disjoint masks: fill excludes the emissive edge.
+		// Complementary masks divide coverage between fill and the emissive edge.
 		// No extra blurred fill is added on top of the white body during hex.
 		this.textMesh.renderOrder = 21;
 		this.scene.add(this.textMesh);
@@ -1159,6 +1161,52 @@ export class HeroTextMesh {
 		this._syncFrameUniforms();
 	}
 
+	_getRasterKey() {
+		// Viewport height and position change layout, not glyph pixels. Width is
+		// included because reverseNormalizeItem uses it when rasterizing the font.
+		return JSON.stringify([window.innerWidth, this.canvasWidth, this.text,
+			this.fontFamily, this.fontSize, this.fontWeight, this.fontColor,
+			this.lineHeight, this.letterSpacing, this.decorativeTopLine, this.decorativeLineWidthVw]);
+	}
+
+	_resizePreparedTitle() {
+		this.width = window.innerWidth;
+		this.height = window.innerHeight;
+		this.aspectRatio = this.width / this.height;
+		const nextHeight = this._resolveLayoutCanvasHeight();
+		if (nextHeight !== this.canvasHeight) {
+			const geometry = this.textMesh.geometry;
+			const uvOffset = geometry.getAttribute("instanceUvOffset");
+			const uvScale = geometry.getAttribute("instanceUvScale");
+			const position = geometry.getAttribute("instancePosition");
+			const scale = geometry.getAttribute("instanceScale");
+			const lineHeight = this.reverseNormalizeItem(this.lineHeight) / nextHeight;
+			for (let i = 0; i < uvOffset.count; i++) {
+				const row = Math.round((1 - uvOffset.getY(i)) / uvScale.getY(i)) - 1;
+				const y = 1 - (row + 1) * lineHeight;
+				uvOffset.setY(i, y);
+				uvScale.setY(i, lineHeight);
+				position.setY(i, -1 + 2 * y);
+				scale.setY(i, 2 * lineHeight);
+			}
+			uvOffset.needsUpdate = uvScale.needsUpdate = position.needsUpdate = scale.needsUpdate = true;
+			this.canvasHeight = this._layoutCanvasHeight = nextHeight;
+			this._textureHeightRatio = this._preparedTextureLayoutHeight / nextHeight;
+			for (let i = 0; i < this.uVirtualCursorYs.length; i++) {
+				this.uVirtualCursorYs[i] = 1 - (i + 0.5) * lineHeight;
+			}
+			const last = this.uVirtualCursorYs.length - 1;
+			this.uVirtualCursor1.y = this.uVirtualCursorYs[0] ?? this.uVirtualCursorYs[last];
+			this.uVirtualCursor2.y = this.uVirtualCursorYs[1] ?? this.uVirtualCursorYs[last];
+			this.uVirtualCursor3.y = this.uVirtualCursorYs[2] ?? this.uVirtualCursorYs[last];
+			for (const material of this._getMaterials()) {
+				material.uniforms.uTextureHeightRatio.value = this._textureHeightRatio;
+				material.uniforms.uCharHeightNDC.value = 2 * lineHeight;
+			}
+		}
+		this._syncFrameUniforms();
+	}
+
 	resize(nextOffsetX) {
 		if (nextOffsetX !== undefined) {
 			this.offsetX = nextOffsetX;
@@ -1168,12 +1216,21 @@ export class HeroTextMesh {
 			return;
 		}
 
+		if (this.shaderProfile === "title" && this.useInstancedLetters && !this.useGlitchSnake
+			&& !this._pendingRasterKey && this._preparedRasterKey === this._getRasterKey()
+			&& (this._preparedRasterCoversTitle || this.height === window.innerHeight)) {
+			// Safari's address bar may change height repeatedly during a swipe.
+			// Keep the warmed atlas/materials; only update the tiny glyph layout.
+			this._resizePreparedTitle();
+			return;
+		}
+
 		if (!this.useInstancedLetters) this._teardownTextMeshes();
 		this.createText();
 	}
 
 	/** Medium title keeps the same HDR composition at rest and through hex.
-	 * High's disjoint fill/outline masks keep the body separate from HDR emission.
+	 * Complementary fill/outline coverage keeps the body separate from HDR emission.
 	 * The RT stays at native DPR 1, with no reduced-resolution text render. */
 	setComposeMode() {
 		if (!this.crispTitle) return;

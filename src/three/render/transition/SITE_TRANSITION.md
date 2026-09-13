@@ -94,7 +94,7 @@ The pathname is still authoritative for direct links and browser history.
 | Left case HUD | Mosaic enter after `hudReady`, `enterProgress=0` first | Hex leave (site or case→case scroll): hold + bake into hex RT, release after confirm; html-fallback: full mosaic exit |
 | Ring pages | Dormant → `playEnterAnimation` after next-only reset | Live as `previous` for reverse; next-only dormant |
 | Global chrome (left menu, dots, locale) | Always mounted | Not page-leave mosaic; not Y-gated |
-| Home «листайте вниз» | Home visual page only | Hide when `currentPage !== "/"` or `openedCase`, **or** ring `currentId !== "home"` at rest (commit updates id before React `displayPathname` — otherwise one frame of screen overlay on portfolio). Never gate on `currentId` *alone* (stale after home→case) |
+| «Листайте вниз» HUD | Persistent HTML `ScrollHintHud`, fixed above all scenes; show after the curtain on home at rest | Fade on first scroll progress/target or canonical route-leave intent; return when home settles, including a cancelled scroll. Never bake into hex or attach to the hero. Pause the CSS circle animation while hidden. Gate with both visual pathname and current scene (scene id alone can be stale after home→case). |
 | Case stage rail | Opacity follows full HUD `enterProgress` | Outside mosaic bounds — must fade via `stageRailOpacity`, not pop at 1 |
 
 Unmount / `opacity=0` / `visible=false` is allowed only **after** the leave animation finishes (or for elements that were never shown).

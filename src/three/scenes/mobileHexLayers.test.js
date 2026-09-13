@@ -11,6 +11,26 @@ const stateStart = end + 2;
 const stateEnd = source.indexOf("\n\t/**", stateStart);
 const rt = slot => ({ slot, width: 390, height: 700, texture: { slot } });
 
+test("a clipped cached layer is refreshed before a reversed/jumping front reveals new pixels", () => {
+	const targets = { a: rt("a"), b: rt("b") }, draws = [];
+	const cache = new MobileHexLayers((id, target, band) => {
+		draws.push({ id, band }); return target.texture;
+	}, () => 1);
+	const frame = bands => cache.render("home", "portfolioHub", targets, false, bands);
+	frame({ source: { min: .55, max: 1 }, target: { min: 0, max: .45 } });
+	draws.length = 0;
+	frame({ source: { min: .53, max: 1 }, target: { min: 0, max: .47 } });
+	assert.equal(draws.length, 1, "Small movement reuses the draw reserve");
+	draws.length = 0;
+	frame({ source: { min: .1, max: 1 }, target: { min: 0, max: .85 } });
+	assert.equal(draws.length, 2, "A large jump refreshes both newly exposed bands");
+	assert.ok(draws.find(d => d.id === "home").band.min <= .1);
+	assert.ok(draws.find(d => d.id === "portfolioHub").band.max >= .85);
+	draws.length = 0;
+	cache.render("home", "portfolioHub", targets, true);
+	assert.deepEqual(draws[0].band, { min: 0, max: 1 }, "Rest restores full coverage");
+});
+
 function fixture({ mobile = true, started = true, enabled = true } = {}) {
 	const pair = { sourceId: "home", targetId: "portfolioHub" };
 	let progress = 0;

@@ -86,6 +86,7 @@ export const LEFT_MENU_BEEP_COOLDOWN_MS = 10;
 let portfolioSpatialAudioActive = false;
 let lastLeftMenuBeepAt = 0;
 let soundControllerModulesPromise = null;
+let soundDesignPreloadPromise = null;
 
 function loadSoundControllerModules() {
 	if (!soundControllerModulesPromise) {
@@ -146,14 +147,25 @@ export function prefetchSoundDesign() {
 	return Promise.all([prefetchAudioAssets(getUniqueSoundSources()), loadSoundControllerModules()]);
 }
 
-/** Gesture-gated decode + derived controller buffers, all under the loader curtain. */
-export async function preloadSoundDesign() {
+/** Decode + derived buffers before the language buttons; playback unlock stays in the gesture. */
+export function preloadSoundDesign() {
 	if (typeof window === "undefined") {
-		return [];
+		return Promise.resolve([]);
 	}
+	if (!soundDesignPreloadPromise) {
+		soundDesignPreloadPromise = prepareSoundDesign().catch(error => {
+			soundDesignPreloadPromise = null;
+			throw error;
+		});
+	}
+	return soundDesignPreloadPromise;
+}
+
+async function prepareSoundDesign() {
 	initMasterAudioBus();
 	const ctx = getAudioContext();
-	await ctx?.resume?.().catch(() => {});
+	// Decoding works with a suspended context. Awaiting resume here would leave
+	// all catalog decoding queued behind the first tap (or block readiness forever).
 	const [decoded, modules] = await Promise.all([preloadAudioBuffers(getUniqueSoundSources(), ctx), loadSoundControllerModules()]);
 	const prepared = await Promise.allSettled([
 		modules[0].preloadCaseStudyTextTransitionSound(),
@@ -260,7 +272,7 @@ function trimGlitchSounds(maxCount, replaceFadeMs = GLITCH_SOUND_REPLACE_FADE_MS
 		}
 	}
 	if (ctx?.state === "suspended") {
-		ctx.resume().catch(() => {});
+		void resumeMasterAudioContext();
 	}
 }
 
@@ -302,7 +314,7 @@ async function playTimedSound(soundId, durationMs, slot, fadeOutMs = DIGITAL_SOU
 	}
 
 	if (ctx.state === "suspended") {
-		await ctx.resume();
+		await resumeMasterAudioContext();
 	}
 
 	let buffer;
@@ -466,7 +478,7 @@ async function playOneShotWebAudio(soundId, panOverride, volumeGain = 1) {
 	}
 
 	if (ctx.state === "suspended") {
-		await ctx.resume();
+		await resumeMasterAudioContext();
 	}
 
 	let buffer;
@@ -569,7 +581,7 @@ export function playLoaderStartClickSound() {
 		return;
 	}
 	initMasterAudioBus();
-	resumeMasterAudioContext().catch(() => {});
+	void resumeMasterAudioContext({ userGesture: true });
 	uiClickAudio = playHtmlOneShot(uiClickAudio, SOUND_CATALOG.ui_click);
 }
 
@@ -582,7 +594,7 @@ export function playStartAppSound() {
 		return;
 	}
 	initMasterAudioBus();
-	resumeMasterAudioContext().catch(() => {});
+	void resumeMasterAudioContext({ userGesture: true });
 	startAppAudio = playHtmlOneShot(startAppAudio, SOUND_CATALOG.start_app);
 }
 

@@ -1,17 +1,5 @@
-import { heroTextPositionConfig } from "./heroTextPositionConfig.js";
 import { getHeroResponsiveLayout } from "./heroResponsiveLayout.js";
-import { resolveHeroScrollHintPositionWithProvider } from "./heroTextLayoutSync.js";
-import {
-	HERO_STACK_FONT,
-	HERO_SUBTITLE_FONT,
-	HERO_TEXT_LAYOUT,
-	HERO_TITLE_FONT,
-	HERO_TITLE_LINES,
-	getHeroTaglineLines,
-	getHeroStackLines,
-} from "./heroTitleConfig.js";
 
-const HERO_TEXT_BASE_WIDTH = 1920;
 const LEFT_MENU_FALLBACK_PX = 121;
 export const LEFT_MENU_SELECTOR = 'nav[aria-label="Основная навигация"]';
 
@@ -75,101 +63,15 @@ export function resolveHeroTextOffsetX(offsetXAfterMenuVw, viewportWidth = windo
 export function resolveHeroTextPosition(config, viewportWidth = window.innerWidth) {
 	const offsetX = resolveHeroTextOffsetX(config?.offsetXAfterMenuVw ?? 0, viewportWidth);
 	const responsive = getHeroResponsiveLayout(viewportWidth, window.innerHeight);
+	// Read the same safe-area-aware edge as the mounted header, only on layout.
+	const headerLeft = responsive.compact
+		? document.querySelector('header[data-canvas-pointer-blocker="true"]')?.getBoundingClientRect().left : null;
+	const compactLeft = Number.isFinite(headerLeft) ? headerLeft : viewportWidth > 768 ? 28 : 16;
 
 	return {
-		offsetX: responsive.compact ? 20 / viewportWidth : offsetX,
+		offsetX: responsive.compact ? compactLeft / viewportWidth : offsetX,
 		titleOffsetY: responsive.top !== null ? responsive.top / viewportWidth : config?.offsetY ?? 0,
 		subtitleGapVw: responsive.gap !== null ? responsive.gap / viewportWidth : config?.subtitleGapVw ?? 0,
 		stackGapVw: responsive.gap !== null ? responsive.gap / viewportWidth : config?.stackGapVw ?? 0,
-		scrollHintGapVh: config?.scrollHintGapVh ?? 0,
 	};
-}
-
-function getLineHeightUnit(lineHeight, canvasWidth, viewportWidth) {
-	return (lineHeight * (HERO_TEXT_BASE_WIDTH / viewportWidth)) / canvasWidth;
-}
-
-function getBlockHeightUnit(lineCount, lineHeight, canvasWidth, viewportWidth, withDecorativeLine = false) {
-	const lineUnit = getLineHeightUnit(lineHeight, canvasWidth, viewportWidth);
-	const decorativeInset = withDecorativeLine ? lineUnit * 0.72 : 0;
-	return decorativeInset + lineCount * lineUnit;
-}
-
-/** uPositionOffset.y → px от верха viewport (как в heroTextVertex). */
-export function heroTextOffsetYToTopPx(
-	offsetY,
-	viewportWidth = window.innerWidth,
-	viewportHeight = window.innerHeight,
-) {
-	const aspectRatio = viewportWidth / viewportHeight;
-	return offsetY * aspectRatio * viewportHeight;
-}
-
-/** Нижняя граница tech-stack в тех же единицах, что uPositionOffset.y у HeroTextMesh. */
-export function estimateHeroTextStackBottomOffset(
-	config = heroTextPositionConfig,
-	viewportWidth = window.innerWidth,
-) {
-	const isDesktop = viewportWidth > 768;
-	const subtitleMultiplier = isDesktop ? 2 : 1;
-	const stackMultiplier = isDesktop ? 1.85 : 1;
-	const position = resolveHeroTextPosition(config, viewportWidth);
-
-	const titleBottom =
-		position.titleOffsetY +
-		getBlockHeightUnit(HERO_TITLE_LINES.length, HERO_TITLE_FONT.lineHeight, HERO_TEXT_LAYOUT.canvasWidth, viewportWidth);
-
-	const subtitleCanvas = isDesktop ? HERO_TEXT_LAYOUT.canvasWidth * subtitleMultiplier : HERO_TEXT_LAYOUT.canvasWidth;
-	const subtitleBottom =
-		titleBottom +
-		position.subtitleGapVw +
-		getBlockHeightUnit(
-			getHeroTaglineLines().length,
-			HERO_SUBTITLE_FONT.lineHeight * subtitleMultiplier,
-			subtitleCanvas,
-			viewportWidth,
-		);
-
-	const stackCanvas = isDesktop ? HERO_TEXT_LAYOUT.canvasWidth * stackMultiplier : HERO_TEXT_LAYOUT.canvasWidth;
-	return (
-		subtitleBottom +
-		position.stackGapVw +
-		getBlockHeightUnit(
-			getHeroStackLines().length,
-			HERO_STACK_FONT.lineHeight * stackMultiplier,
-			stackCanvas,
-			viewportWidth,
-			true,
-		)
-	);
-}
-
-/** Оценка координат scroll-подсказки по конфигу (до появления live hero-текста). */
-export function estimateHeroScrollHintPosition(
-	config = heroTextPositionConfig,
-	viewportWidth = window.innerWidth,
-	viewportHeight = window.innerHeight,
-) {
-	const position = resolveHeroTextPosition(config, viewportWidth);
-	const stackBottomOffset = estimateHeroTextStackBottomOffset(config, viewportWidth);
-	const gapVh = config?.scrollHintGapVh ?? position.scrollHintGapVh ?? 0;
-
-	return {
-		leftPx: position.offsetX * viewportWidth,
-		topPx: heroTextOffsetYToTopPx(stackBottomOffset, viewportWidth, viewportHeight) + gapVh * viewportHeight,
-	};
-}
-
-/** Экранные координаты scroll-подсказки — live hero-текст или оценка по конфигу. */
-export function resolveHeroScrollHintPosition(
-	config = heroTextPositionConfig,
-	viewportWidth = window.innerWidth,
-	viewportHeight = window.innerHeight,
-) {
-	return resolveHeroScrollHintPositionWithProvider(
-		config,
-		viewportWidth,
-		viewportHeight,
-		estimateHeroScrollHintPosition,
-	);
 }

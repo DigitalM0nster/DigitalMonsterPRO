@@ -80,9 +80,7 @@ export class SyntheticCoreWorld {
 		const networkTime = { value: 0 };
 		this.group.add(createSyntheticCoreNetwork({ time: networkTime, assembly: this.assemblyUniform, detail: this.detail }));
 		this.timeUniforms.push(networkTime);
-		await SyntheticCoreHud.prepare();
-		if (this.disposed) return;
-		this.hud = new SyntheticCoreHud(this.group, assembly.getObjectByName("contained-energy-lens"), renderer.domElement);
+		this.hud = new SyntheticCoreHud(this.group, assembly.getObjectByName("contained-energy-lens"), renderer);
 		if (this.disposed) return;
 		if (!this.disposed) await this.sound?.prepare();
 	}
@@ -103,12 +101,11 @@ export class SyntheticCoreWorld {
 			this.interactionAssembly.updateWorldMatrix(true, false);
 			this.interactionCenter.setFromMatrixPosition(this.interactionAssembly.matrixWorld);
 			this.interactionRaycaster.setFromCamera(this.interactionPointer, this._interactionCamera);
-			if (this.hud?.hitTest(this.interactionPointer)) {
-				this.hud.activate();
-				return;
-			}
 			if (this.interactionRaycaster.ray.intersectSphere(this.interactionSphere, this.interactionWorldPoint)) {
 				this.assemblyTarget = this.assemblyTarget > 0.5 ? 0 : 1;
+				inputSurface.dispatchEvent(new CustomEvent("synthetic-core-assembly-change", {
+					detail: { expanded: this.assemblyTarget > 0.5 },
+				}));
 				this.interactionBurstAge = 0;
 				this.interactionBurstStrength = 0.75;
 			}
@@ -337,7 +334,7 @@ export class SyntheticCoreWorld {
 			enabled: interactionOwned && frame?.interactionEnabled !== false && !frame?.pointerBlocked && Boolean(frame?.camera),
 			dragging: this.interactionPressDragged && Boolean(frame?.pointerDown), locale,
 		});
-		return hovered || this.hud?.hovered;
+		return hovered;
 	}
 
 	dispose(scene) {

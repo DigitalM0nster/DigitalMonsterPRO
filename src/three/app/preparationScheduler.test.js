@@ -2,9 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { PreparationScheduler, resolveFullWarm } from "./preparationScheduler.js";
 
-test("production cannot bypass readiness; dev can explicitly reproduce full warm", () => {
+test("production and ordinary local preview both require complete scene readiness", () => {
 	assert.equal(resolveFullWarm({ search: "?fullWarm=0" }), true);
-	assert.equal(resolveFullWarm({ development: true }), false);
+	assert.equal(resolveFullWarm({ development: true }), true);
+	assert.equal(resolveFullWarm({ development: true, search: "?fullWarm=0" }), true);
 	assert.equal(resolveFullWarm({ development: true, search: "?tier=high&fullWarm=1" }), true);
 });
 

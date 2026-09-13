@@ -1,4 +1,5 @@
 import { store } from "@/app/store.jsx";
+import { subscribeSceneViewportResize } from "@/three/renderer/sceneViewportEvents.js";
 import { sceneCanvasOwnsInput } from "@/three/interaction/sceneCanvasInput.js";
 import { CAROUSEL_WHEEL_PROGRESS_FACTOR } from "@/three/render/transition/carouselScroll.js";
 import { getSceneCarousel } from "@/three/render/transition/carouselPage.js";
@@ -390,6 +391,7 @@ function createAboutExperienceRuntime() {
 	let wheelDirection = 0;
 	let wheelBoundaryGesture = false;
 	let disposed = false;
+	let viewportPaintGeneration = 0;
 	/** @type {'forward' | 'backward' | null} */
 	let scrollIntent = null;
 	/** About HUD leave published once per route-edge push. */
@@ -808,12 +810,19 @@ function createAboutExperienceRuntime() {
 
 	/** Locale observer is session-wide; repaint/upload is deferred until About owns the route. */
 
-	const onViewportResize = () => {
-		if (disposed || !ownsInput()) {
+	const onViewportResize = ({ width, height }) => {
+		const generation = ++viewportPaintGeneration;
+		const shouldCommit = () => !disposed && generation === viewportPaintGeneration && ownsInput();
+		if (!shouldCommit()) {
 			return;
 		}
-		void ensureAboutPanelHudCanvases({ force: true }).then((ok) => {
-			if (!ok || disposed) {
+		void ensureAboutPanelHudCanvases({
+			force: true,
+			viewportW: width,
+			viewportH: height,
+			shouldCommit,
+		}).then((ok) => {
+			if (!ok || !shouldCommit()) {
 				return;
 			}
 			republishHudAfterRepaint();
@@ -928,10 +937,11 @@ function createAboutExperienceRuntime() {
 	window.addEventListener("touchmove", onTouchMove, { passive: false, capture: true });
 	window.addEventListener("touchend", onTouchEnd, { passive: true, capture: true });
 	window.addEventListener("touchcancel", onTouchEnd, { passive: true, capture: true });
-	window.addEventListener("resize", onViewportResize);
+	const stopViewportResize = subscribeSceneViewportResize(onViewportResize);
 
 	return () => {
 		disposed = true;
+		viewportPaintGeneration++;
 		unregisterNavigationOwner();
 		liveResetHandler = null;
 		liveStoryStepHandler = null;
@@ -956,7 +966,7 @@ function createAboutExperienceRuntime() {
 		window.removeEventListener("touchmove", onTouchMove, { capture: true });
 		window.removeEventListener("touchend", onTouchEnd, { capture: true });
 		window.removeEventListener("touchcancel", onTouchEnd, { capture: true });
-		window.removeEventListener("resize", onViewportResize);
+		stopViewportResize();
 	};
 }
 

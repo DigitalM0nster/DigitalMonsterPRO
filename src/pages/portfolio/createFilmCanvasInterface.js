@@ -41,13 +41,25 @@ export function createFilmCanvasInterface(renderer, scene) {
 	ui.text("next", { default: "›" }, { size: 27, width: 44, height: 44, align: "center", action: () => scene.act("next") });
 	ui.text("projects", { ru: "ВСЕ ПРОЕКТЫ  ↗", en: "ALL PROJECTS  ↗", zh: "所有项目  ↗" }, { size: 13, width: 164, height: 44, align: "right",
 		action: () => { scene.act("info-close"); ui.projectsOpen = true; ui.sheetScroll = 0; ui.volumeOpen = false; } });
-	ui.text("play", { play: "▶", pause: "Ⅱ" }, { size: 20, width: 44, height: 44, align: "center", action: () => scene.act("play") });
+	ui.add("play", { values: { play: "Воспроизвести видео", pause: "Пауза" }, width: 44, height: 44, action: () => scene.act("play"), paint(ctx, label) {
+		ctx.strokeStyle = "#00a9ff"; ctx.lineWidth = 1.2;
+		ctx.beginPath(); ctx.moveTo(15, 9); ctx.lineTo(9, 9); ctx.lineTo(9, 16);
+		ctx.moveTo(29, 35); ctx.lineTo(35, 35); ctx.lineTo(35, 28); ctx.stroke();
+		ctx.strokeStyle = "#e4f6ff"; ctx.fillStyle = "#00a9ff30"; ctx.lineWidth = 1.5;
+		if (label === "Пауза") { ctx.strokeRect(17, 15, 3, 14); ctx.strokeRect(25, 15, 3, 14); }
+		else { ctx.beginPath(); ctx.moveTo(18, 14); ctx.lineTo(29, 22); ctx.lineTo(18, 30); ctx.closePath(); ctx.fill(); ctx.stroke(); }
+	} });
 	ui.add("volume", { width: 44, height: 44, values: { default: "" }, ariaLabel: "Громкость видео", action: () => { ui.volumeOpen = !ui.volumeOpen; }, paint(ctx) {
 		ctx.strokeStyle = "#e2e9ed"; ctx.lineWidth = 1.5; ctx.lineJoin = "round";
 		ctx.beginPath(); ctx.moveTo(12, 18); ctx.lineTo(17, 18); ctx.lineTo(23, 13); ctx.lineTo(23, 31); ctx.lineTo(17, 26); ctx.lineTo(12, 26); ctx.closePath(); ctx.stroke();
 		for (const radius of [7, 11]) { ctx.beginPath(); ctx.arc(23, 22, radius, -.7, .7); ctx.stroke(); }
 	} });
-	ui.text("inspect", { default: "⛶" }, { size: 23, width: 44, height: 44, align: "center", action: () => scene.act("inspect") });
+	ui.add("inspect", { width: 44, height: 44, ariaLabel: "Видео на весь экран", action: () => scene.act("fullscreen"), paint(ctx) {
+		ctx.strokeStyle = "#e4f6ff"; ctx.lineWidth = 1.4;
+		for (const [x, y, dx, dy] of [[12,12,1,1],[32,12,-1,1],[12,32,1,-1],[32,32,-1,-1]]) {
+			ctx.beginPath(); ctx.moveTo(x + dx * 7, y); ctx.lineTo(x, y); ctx.lineTo(x, y + dy * 7); ctx.stroke();
+		}
+	} });
 	ui.add("seekTrack"); ui.add("seekValue");
 	ui.add("seek", { release(x) {
 		if (!scene.media.seekable) return;
@@ -96,7 +108,7 @@ export function createFilmCanvasInterface(renderer, scene) {
 		ui.place("seek", x, seekY - 12, w, 24, { opacity: .002 * videoOpacity, color: 0x000000 });
 		ui.place("play", x, controlsY, 44, 44, { key: media.playing ? "pause" : "play", opacity: (filmProjects[index].video ? 1 : .3) * videoOpacity });
 		ui.place("volume", x + 44, controlsY, 44, 44, { opacity: (media.volumeLevel > 0 ? 1 : .5) * videoOpacity });
-		ui.place("inspect", x + 88, controlsY, 44, 44, { opacity: videoOpacity });
+		ui.place("inspect", x + 88, controlsY, 44, 44, { opacity: filmProjects[index].video ? videoOpacity : 0 });
 		if (!layout.wide) ui.place("projects", x + w - 164, controlsY, 164, 44, { key: locale, opacity: videoOpacity });
 		if (ui.volumeOpen && infoAmount < .001) {
 			ui.place("volumeBg", x + 8, controlsY - 80, 220, 80, { color: 0x040c13 });

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import PropTypes from "prop-types";
+import { subscribeSceneViewportResize } from "@/three/renderer/sceneViewportEvents.js";
 import { useLocation } from "react-router-dom";
 import { subscribeKey } from "valtio/utils";
 import { getProjectByRoute } from "@/pages/portfolio/core/projectRegistry.js";
@@ -1396,7 +1397,7 @@ export default function CaseStudyPanelHudPainter({
 		wakeCaseStudyAnimationFrame();
 
 		const onResize = () => requestPaintRef.current(true);
-		window.addEventListener("resize", onResize);
+		const stopViewportResize = subscribeSceneViewportResize(onResize);
 
 		const menu = document.querySelector(LEFT_MENU_SELECTOR);
 		const resizeObserver = typeof ResizeObserver !== "undefined" && menu
@@ -1413,7 +1414,7 @@ export default function CaseStudyPanelHudPainter({
 			stopMenu();
 			stopPromote();
 			cancelCasePanelHudLocaleMix();
-			window.removeEventListener("resize", onResize);
+			stopViewportResize();
 			resizeObserver?.disconnect();
 			if (chromePaintRafRef.current) {
 				cancelAnimationFrame(chromePaintRafRef.current);

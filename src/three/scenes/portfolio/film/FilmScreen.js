@@ -17,6 +17,8 @@ export class FilmScreen {
   this.projection=new FilmProjection({reduced:reducedMotion,low:getGraphicsTier()==="low"});this.art.add(this.projection.root);
   this.frameGeometry=bendFilmGeometry(new THREE.PlaneGeometry(1.05,.54,64,2));
   this.hitGeometry=bendFilmGeometry(new THREE.PlaneGeometry(1,1/2.05,64,1));
+  this.flatFrameGeometry=new THREE.PlaneGeometry(1.05,.54);
+  this.flatHitGeometry=new THREE.PlaneGeometry(1,1/2.05);
   this.controls=new FilmScreenControls(this.hitGeometry);this.art.add(this.controls.root);
   this.geometry=this.createMosaic(getGraphicsTier()==="low");
   const openTuning=new URLSearchParams(location.search).get("hologramDev")==="1";
@@ -27,6 +29,7 @@ export class FilmScreen {
    uFromInfo:{value:new THREE.Vector2()},uToInfo:{value:new THREE.Vector2()},
    uInfoViewport:{value:new THREE.Vector2(0,1)},uScreenAspect:{value:2.05},
    uReadingScroll:{value:new THREE.Vector4()},uReadingPixels:{value:new THREE.Vector2(1,1)},
+   uFlat:{value:0},uReadingThumb:{value:1},
    uProgress:{value:0},uDirection:{value:1},uOpacity:{value:1},uReduced:{value:reducedMotion?1:0},
    uTime:{value:0},uGlitchTime:{value:0},uFocus:{value:0},uDpr:{value:1},uLow:{value:getGraphicsTier()==="low"?1:0},uHeaderEnd:{value:-.378},uLocaleReveal:{value:1}};
   for(const [key] of hologramFields)this.uniforms[`uHolo${key}`]={value:this.hologramValues[key]};
@@ -62,6 +65,9 @@ export class FilmScreen {
  update(motion,reveal,focus,layout,pointer,reduced,delta=0,locale="ru",readingLayout=null){
   this.uniforms.uLocaleReveal.value=motion.info||motion.destinationInfo?siteLocaleReveal.value:1;
   const u=this.uniforms;if(!reduced)u.uTime.value+=Math.min(delta,.05);
+  u.uFlat.value=layout.mobile?1:0;
+  this.frame.geometry=layout.mobile?this.flatFrameGeometry:this.frameGeometry;
+  this.hit.geometry=layout.mobile?this.flatHitGeometry:this.hitGeometry;
   u.uFocus.value=focus;
   this.infoAmount=THREE.MathUtils.lerp(Number(!!motion.info),Number(!!motion.destinationInfo),THREE.MathUtils.smoothstep(Math.abs(motion.progress),0,1));
   const rootScale=layout.width*layout.compositionScale*(1+focus*(layout.compact?.02:.15));
@@ -91,9 +97,10 @@ export class FilmScreen {
    if(entry){u[`u${side}`].value=entry.texture;u[`u${side}Aspect`].value=2.05;}
   }
   const reading=this.infoTextures.get(motion.destinationInfo?motion.destination:motion.index,locale,layout.mobile);
+  u.uReadingThumb.value=Math.min(1,reading.viewportHeight*this.infoViewportScale/reading.height);
   const overflow=reading.height>reading.viewportHeight*this.infoViewportScale+1;
   const scrollOpacity=overflow?this.infoAmount*siteLocaleReveal.value:0;
-  const cueTime=u.uReadingScroll.value.z+(!reduced&&scrollOpacity>.01&&this.infoScroll<.999?Math.min(delta,.05):0);
+  const cueTime=u.uReadingScroll.value.z+(!layout.mobile&&!reduced&&scrollOpacity>.01&&this.infoScroll<.999?Math.min(delta,.05):0);
   u.uReadingScroll.value.set(this.infoScroll,scrollOpacity,cueTime,this.scrollFocused?1:0);
   const pixelWidth=Math.max(1,rootScale/layout.viewWidth*window.innerWidth);
   u.uReadingPixels.value.set(pixelWidth,pixelWidth*this.art.scale.y);
@@ -101,8 +108,8 @@ export class FilmScreen {
   this.root.position.set(layout.x,layout.y-(1-reveal)*.22,0).multiplyScalar(layout.compositionScale);
   if(readingLayout)this.root.position.y=THREE.MathUtils.lerp(layout.y*layout.compositionScale,readingLayout.y,this.infoAmount)-(1-reveal)*.22*layout.compositionScale;
   this.root.scale.setScalar(rootScale);
-  this.root.rotation.set((.075+pointer.y*.012)*(1-focus)*(reduced?0:1)*(layout.mobile?1-this.infoAmount:1),(-.14+pointer.x*.022)*(1-focus)*(layout.compact||reduced?0:1),0);
+  this.root.rotation.set((.075+pointer.y*.012)*(1-focus)*(layout.mobile||reduced?0:1),(-.14+pointer.x*.022)*(1-focus)*(layout.compact||reduced?0:1),0);
   this.projection.update(delta,reveal,focus);
  }
- dispose(){this.hologramDevTools?.dispose();this.controls.dispose();this.projection.dispose();this.geometry.dispose();this.frameGeometry.dispose();this.hitGeometry.dispose();this.material.dispose();this.frameMaterial.dispose();this.hit.material.dispose();}
+ dispose(){this.hologramDevTools?.dispose();this.controls.dispose();this.projection.dispose();this.geometry.dispose();this.frameGeometry.dispose();this.hitGeometry.dispose();this.flatFrameGeometry.dispose();this.flatHitGeometry.dispose();this.material.dispose();this.frameMaterial.dispose();this.hit.material.dispose();}
 }

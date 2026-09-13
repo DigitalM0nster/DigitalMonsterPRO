@@ -1,4 +1,5 @@
 import { getScenePixelRatio } from "@/three/renderer/renderResolution.js";
+import { withRenderTargetBand } from "../../renderer/renderTargetBand.js";
 import * as THREE from "three";
 import { applyScreenTextureColorSpace, blitTextureToRenderTarget } from "../composerUtils.js";
 import { applyGrainBlurToBlitMaterial, createViewportMaskBlitMaterial } from "./viewportMask/blitMaterial.js";
@@ -249,7 +250,8 @@ export class ScreenCompositor {
 		if (!renderTarget) {
 			return;
 		}
-		this._drawLayers(gl, bgTexture, modelsTexture, renderTarget, grainBlur, overlayTexture, options);
+		withRenderTargetBand(gl, renderTarget, options.visibleBand,
+			() => this._drawLayers(gl, bgTexture, modelsTexture, renderTarget, grainBlur, overlayTexture, options));
 	}
 
 	setSize(width, height, renderer) {

@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { getGraphicsTier } from "../../../../functions/getGraphicsTier.js";
+import { FilmNativePlayer } from "./FilmNativePlayer.js";
 
 export const nextFilmPaint = () => new Promise((resolve) => requestAnimationFrame(resolve));
 
@@ -72,22 +73,31 @@ export class FilmMedia {
   await Promise.all(ready);
   for(const entry of this.entries){
    if(!entry?.ready)continue;
-   await nextFilmPaint();if(this.disposed)return;entry.texture.update();renderer.initTexture(entry.texture);
+   await nextFilmPaint();if(this.disposed)return;entry.texture.update();
+   // A paused video may not deliver its first native frame callback yet.
+   // Three skips initTexture at version0 even when loadeddata already fired.
+   if(entry.texture.version===0)entry.texture.needsUpdate=true;
+   renderer.initTexture(entry.texture);
   }
  }
  get(index){return this.entries[index]?.ready?this.entries[index].texture:this.posters[index];}
  aspect(index){const source=this.get(index)?.image;return(source?.videoWidth||source?.width||205)/(source?.videoHeight||source?.height||100);}
  select(index){
   if(index===this.index||this.disposed)return;
+  this.nativePlayer?.close();
   this.video?.pause();this.index=index;this.volume=0;
   if(this.video?.ended)this.restart(index);
   if(this.video){this.video.volume=0;this.video.muted=true;}
   this.syncPlayback();
  }
- setAllowed(allowed){if(allowed===this.allowed)return;this.allowed=allowed;this.syncPlayback();}
+ setAllowed(allowed){if(allowed===this.allowed)return;this.allowed=allowed;if(!allowed)this.nativePlayer?.close();this.syncPlayback();}
+ openFullscreen(){
+  if(this.disposed||this.nativePlayer||!this.allowed||!this.active?.ready)return;
+  this.nativePlayer=new FilmNativePlayer(this,this.active);this.nativePlayer.open();
+ }
  consumeEnded(){
   const entry=this.active;
-  if(this.disposed||!this.allowed||document.hidden||!entry?.ready||entry.paused||entry.endedHandled||!entry.video.ended)return false;
+  if(this.disposed||this.nativePlayer||!this.allowed||document.hidden||!entry?.ready||entry.paused||entry.endedHandled||!entry.video.ended)return false;
   entry.endedHandled=true;return true;
  }
  restart(index){const entry=this.entries[index];if(!entry?.ready)return;entry.paused=false;entry.blocked=false;entry.endedHandled=false;entry.video.currentTime=0;}
@@ -99,7 +109,7 @@ export class FilmMedia {
  setVolume(value){if(!Number.isFinite(value))return;this.volumeInitialized=true;this.volumeIntro=null;this.userVolume=THREE.MathUtils.clamp(value,0,1);this.userMuted=false;}
  toggleMute(){this.volumeInitialized=true;this.volumeIntro=null;if(this.volumeLevel===0){if(this.userVolume===0)this.userVolume=.5;this.userMuted=false;}else this.userMuted=true;}
  updateSound(delta,audible){
-  if(!this.video)return;
+  if(!this.video||this.nativePlayer)return;
   const dt=Math.min(delta,.05),canHear=audible&&this.allowed&&!document.hidden;
   const introducing=this.volumeIntro!==null;
   if(introducing&&canHear&&this.playing){
@@ -118,7 +128,7 @@ export class FilmMedia {
  get progress(){return this.seekable?THREE.MathUtils.clamp(this.video.currentTime/this.video.duration,0,1):0;}
  seek(progress){if(this.disposed||!this.seekable||!Number.isFinite(progress))return;this.active.endedHandled=false;this.video.currentTime=Math.min(this.video.duration-.001,THREE.MathUtils.clamp(progress,0,1)*this.video.duration);this.syncPlayback();}
  syncPlayback(){
-  if(this.disposed)return;const entry=this.active;if(!entry)return;
+  if(this.disposed||this.nativePlayer)return;const entry=this.active;if(!entry)return;
   if(this.allowed&&!entry.paused&&!document.hidden&&entry.ready&&!entry.blocked&&!entry.video.ended){
    if(entry.video.paused&&!entry.pending){
     entry.pending=true;
@@ -130,6 +140,7 @@ export class FilmMedia {
  }
  dispose(){
   this.disposed=true;document.removeEventListener("visibilitychange",this._onVisibility);
+  this.nativePlayer?.close();
   for(const entry of this.entries){
    if(!entry)continue;entry.finish?.();
    entry.video.removeEventListener("loadeddata",entry.onLoaded);entry.video.removeEventListener("error",entry.onError);

@@ -155,6 +155,7 @@ export class PortfolioFilmScene {
 	}
 	act(action) {
 		if (!this.ready) return;
+		if (action === "fullscreen") { this.media.openFullscreen(); return; }
 		if (action?.type === "reading-click") {
 			const hit = this.eventHit(action);
 			this.act(hit === "projects" || typeof hit === "number" ? hit : "inspect");
@@ -358,7 +359,7 @@ export class PortfolioFilmScene {
 	updateInfoView(current, inMix) {
 		const width = window.innerWidth, height = window.innerHeight;
 		const project = (x, y, surface = this.screen.art) => {
-			this.infoPoint.set(...filmSurfacePoint(x, y, .025));
+			this.infoPoint.set(...(this.layout.mobile ? [x, y, .025] : filmSurfacePoint(x, y, .025)));
 			surface.localToWorld(this.infoPoint); this.infoPoint.project(this.camera);
 			return { x: (this.infoPoint.x + 1) * width / 2, y: (1 - this.infoPoint.y) * height / 2 };
 		};

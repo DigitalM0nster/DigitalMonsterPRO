@@ -69,7 +69,11 @@ each animation frame:
 
 ## Hex model (route progress scrub)
 
-- Playhead ≈ carousel `progress` (and direction may select forward vs reversed element).
+- Playhead ≈ carousel `progress`; direction selects prepared forward or reversed PCM.
+- `hexScrubVoice.js` tracks position with the AudioContext clock. Decode and reverse-copy finish during preload, even while the context is suspended. Do not wait for `resume()` inside decode readiness.
+- Retain gain/panner nodes. On onset or substantial drift, start a short-lived `AudioBufferSourceNode` with a 5 ms crossfade; at most two overlapping sources per polarity. Never use per-frame HTML media seeks or re-encode the reversed clip as WAV.
+- PCM playback rate also changes pitch. Preserve the existing rate limits; do not add time-stretch processing to the animation loop.
+- Hex gain is `0.72` on desktop and `0.24` on mobile (three times lower). Both directions and fade/mute recovery restore the same per-device base gain; do not attenuate the shared master bus.
 - Still: visual progress owner, velocity→rate, rest fade, mute/visibility.
 - Spatial/pan extras are hex-specific; do not copy into left HUD unless needed.
 

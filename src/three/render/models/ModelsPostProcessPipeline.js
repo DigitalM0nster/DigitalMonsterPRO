@@ -42,6 +42,19 @@ export class ModelsPostProcessPipeline {
 		this.bloom.applyConfigFromDev();
 	}
 
+	/** Same reveal and bloom, reading a prepared raw HDR hex target. */
+	canApplyBloomFromPreparedTarget(target, reveal = 1) {
+		return THREE.MathUtils.smoothstep(reveal, 0, 0.06) > BLOOM_REVEAL_EPS
+			&& this.bloom.canRenderPreparedTarget(target);
+	}
+
+	applyBloomFromPreparedTarget(target, delta, reveal = 1) {
+		if (!target?.texture) return null;
+		const effectiveReveal = THREE.MathUtils.smoothstep(reveal, 0, 0.06);
+		if (effectiveReveal <= BLOOM_REVEAL_EPS) return target.texture;
+		return this.bloom.renderPreparedTarget(target, delta, { reveal: effectiveReveal }) ?? target.texture;
+	}
+
 	dispose() {
 		this.bloom.dispose();
 	}

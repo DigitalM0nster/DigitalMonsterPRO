@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { getScenePixelRatio } from "../../renderer/renderResolution.js";
 
 import { digitalWhaleConfig } from "./digitalWhaleConfig.js";
 import { easeLinearBlendOut, getHeroCameraForSceneProgress, heroCamera, HERO_LOOK_AT, smoothSinePhase } from "./heroCamera.js";
@@ -147,6 +148,26 @@ export class DigitalWhaleScene {
 		this.readyPromise = this._loadWhale();
 	}
 
+	/** Measure the visible whale, not the distant intro pose; ordinary warm is unchanged. */
+	beginWarmupDraw({ performanceProbe = false } = {}) {
+		if (!performanceProbe) return null;
+		const token = { position: this._whaleBasePos.clone(),
+			active: this._whaleEnterActive, completed: this._whaleEnterCompleted };
+		this._whaleEnterActive = false;
+		this._whaleEnterCompleted = true;
+		const w = digitalWhaleConfig.whale;
+		this._whaleBasePos.set(w.posX, w.posY, w.posZ);
+		return token;
+	}
+
+	endWarmupDraw(token) {
+		if (!token) return;
+		this._whaleBasePos.copy(token.position);
+		this._whaleEnterActive = token.active;
+		this._whaleEnterCompleted = token.completed;
+		this._updateWhaleBodySway();
+	}
+
 	async prepareResourcesUnderCurtain(renderer, scheduler) {
 		if (getGraphicsTier() !== "low" || !this.whaleParticles || this.lowWhaleBloom) return;
 		this.lowWhaleBloom = new LowWhaleBloom(this.whaleParticles);
@@ -160,6 +181,8 @@ export class DigitalWhaleScene {
 	/** Screen-space hero title (digital-monster TextMesh). */
 	initHeroText(renderer) {
 		this._heroRenderer = renderer;
+		this._applyOceanMaterialConfig(digitalWhaleConfig.ocean);
+		this._applyWhaleVisuals();
 		if (this._appStarted) {
 			this._syncHeroTitleRoute(this._lastDisplayedPage);
 		}
@@ -174,7 +197,7 @@ export class DigitalWhaleScene {
 			return this.heroTitle?.readyPromise;
 		}
 		this.heroTitle = createHeroTitleText(this._heroRenderer, this.threeScene);
-		// prepareHidden / scrollHint reset — meshes stay in the graph for warmupPrograms.
+		// Prepared hero meshes stay in the graph for warmupPrograms.
 		this.heroTitle.reset();
 		this._heroTitleHiddenForLeave = true;
 		return this.heroTitle.readyPromise;
@@ -215,15 +238,15 @@ export class DigitalWhaleScene {
 		}
 
 		if (!this._isHomePath(currentPage)) {
-			// Page-owned chrome — hide only when home is not still in a live hex mix
-			// (otherwise a premature route update blanks the hint for a frame).
+			// Hero text stays visible while home is still in a live hex mix
+			// (otherwise a premature route update blanks the text for a frame).
 			const carousel = getSceneCarousel();
 			const mixIds = carousel?.getMixSourceTargetIds?.();
 			const homeInHexPair = (mixIds?.sourceId === "home" || mixIds?.targetId === "home")
 				&& (carousel?.isHexNavigationActive?.()
 					|| carousel?.isCaseBoundaryDrive?.());
 			if (!homeInHexPair) {
-				this.heroTitle?.hideScrollHint?.();
+				this.heroTitle?.stashTextOverlay?.();
 			}
 			return;
 		}
@@ -238,13 +261,12 @@ export class DigitalWhaleScene {
 					}
 				});
 			} else {
-				// Scroll reverse keeps hero live as `previous`; only the hint was hidden on leave.
+				// Scroll reverse keeps the prepared hero live as `previous`.
 				void Promise.resolve(localeReady).finally(() => {
 					if (!this._appStarted || !this._isHomePath(this._lastDisplayedPage)) {
 						return;
 					}
 					this.heroTitle?.applyPosition?.();
-					this.heroTitle?.ensureScrollHintVisible?.();
 				});
 			}
 			return;
@@ -480,6 +502,9 @@ export class DigitalWhaleScene {
 		const width = window.innerWidth, height = window.innerHeight;
 		const portrait = width <= 768 && height > width;
 		const shortLandscape = width <= 1024 && height < 480 && width > height;
+		// Keep the prepared surface for desktop resize; phones draw only the whale
+		// and ambient layers. Returning home never rebuilds ocean resources.
+		this.oceanSurfaceGroup.visible = !(width <= 768 || shortLandscape);
 		this._compactHighHome = getGraphicsTier() === "high" && (portrait || shortLandscape);
 		this._compactMediumOcean = getGraphicsTier() === "medium" && (portrait || shortLandscape);
 		this._compactOceanPortrait = portrait;
@@ -697,6 +722,7 @@ export class DigitalWhaleScene {
 
 	/** Скролл: shader — uniform vec2; points — тайлы по X, фаза Z в шейдере. */
 	_syncOceanScroll() {
+		if (!this.oceanSurfaceGroup.visible) return;
 		const phase = this._oceanScrollPhase;
 		phase.set(this.oceanScrollAccum, this.oceanScrollAutoZ);
 
@@ -729,6 +755,7 @@ export class DigitalWhaleScene {
 
 	/** Сдвигаем уже построенную сетку под камеру — без dispose/create геометрии. */
 	_ensureOceanTileCoverage(camera) {
+		if (!this.oceanSurfaceGroup.visible) return;
 		if (!camera || (!this.oceanMesh && !this.oceanSurfaceTiles?.length)) {
 			return;
 		}
@@ -739,6 +766,13 @@ export class DigitalWhaleScene {
 		// creates p(n + 1) = cameraX - p(n): two alternating positions every frame.
 		this.oceanGroup.worldToLocal(this._coverageCamScratch.copy(camera.position));
 		this._oceanCoverageOffsetX = this._coverageCamScratch.x;
+	}
+
+	_getParticleRasterScale() {
+		// High was authored at DPR 2; Medium/Low particles were tuned at DPR 1.
+		// Use the scene buffer ratio, which can differ from the sharp UI canvas.
+		const reference = getGraphicsTier() === "high" ? 2 : 1;
+		return this._heroRenderer ? getScenePixelRatio(this._heroRenderer) / reference : 1;
 	}
 
 	_applyOceanMaterialConfig(o) {
@@ -791,11 +825,15 @@ export class DigitalWhaleScene {
 			this.oceanMaterial.uniforms.uGlow.value = Math.min(o.pointGlow, 2);
 		}
 
+		const rasterScale = this._getParticleRasterScale();
+		this.oceanMaterial.uniforms.uPointScale.value *= rasterScale;
 		if (this.oceanGridMaterial) {
 			this.oceanGridMaterial.uniforms.uColor.value.set(o.gridColor);
 			this.oceanGridMaterial.uniforms.uWaveAmp.value = o.waveAmp;
 			this.oceanGridMaterial.uniforms.uRippleAmp.value = o.rippleAmp;
-			this.oceanGridMaterial.uniforms.uGridAlpha.value = this._compactOceanLandscape ? 0 : o.gridAlpha * (this._compactHighHome ? .3 : this._compactMediumOcean ? .5 : 1);
+			// WebGL lines have a one-raster-pixel minimum. Compensate their coverage
+			// when that minimum grows in CSS pixels instead of adding extra light.
+			this.oceanGridMaterial.uniforms.uGridAlpha.value = this._compactOceanLandscape ? 0 : o.gridAlpha * (this._compactHighHome ? .3 : this._compactMediumOcean ? .5 : 1) * Math.min(1, rasterScale);
 		}
 	}
 
@@ -972,6 +1010,7 @@ export class DigitalWhaleScene {
 		}
 
 		const grainBlurRadius = getUnderwaterGrainBlurRadius();
+		this.whaleParticles.material.uniforms.uRasterScale.value = this._getParticleRasterScale();
 		applyWhaleVisuals(this.whaleParticles, {
 			colorTint: w.colorTint,
 			emissiveIntensity: w.emissiveIntensity,
@@ -1076,6 +1115,7 @@ export class DigitalWhaleScene {
 
 	/** След за китом: центр и направление хвоста в мировых XZ. */
 	_syncOceanRipple() {
+		if (!this.oceanSurfaceGroup.visible) return;
 		if (!this.oceanMaterial) {
 			return;
 		}

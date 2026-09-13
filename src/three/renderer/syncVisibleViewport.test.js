@@ -69,6 +69,7 @@ test("the actual renderer resize ignores a larger Safari host and keeps camera, 
 	const resize = appMethod("onResize", "_notifyRenderedOnce", {
 		window: env, syncVisibleViewport: () => syncVisibleViewport(env),
 		getScenePixelRatio: () => 1, resolveOutputPixelRatio: () => 2,
+		publishSceneViewportResize() {},
 	});
 	resize.call(app);
 	assert.equal(app.camera.aspect, 390 / 664);
@@ -81,6 +82,7 @@ test("window, visualViewport and observer notifications share one pending resize
 	const callbacks = [];
 	const schedule = appMethod("_scheduleResize", "onResize", {
 		requestSharedAnimationFrame: callback => callbacks.push(callback),
+		clearTimeout() {},
 	});
 	let resized = 0;
 	const app = { _resizeFrame: null, onResize: () => resized++ };
@@ -94,4 +96,33 @@ test("window, visualViewport and observer notifications share one pending resize
 	assert.equal(resized, 1);
 	schedule.call(app);
 	assert.equal(callbacks.length, 2);
+});
+
+test("mobile height animation commits once; rotation cancels the delayed height", () => {
+	const frames = new Map(), timers = new Map();
+	let id = 0, resized = 0;
+	const window = { innerWidth: 390, innerHeight: 664 };
+	const schedule = appMethod("_scheduleResize", "onResize", {
+		window, isMobileGraphicsDevice: () => true,
+		requestSharedAnimationFrame: fn => { frames.set(++id, fn); return id; },
+		cancelSharedAnimationFrame: key => frames.delete(key),
+		setTimeout: (fn, delay) => { assert.equal(delay, 200); timers.set(++id, fn); return id; },
+		clearTimeout: key => timers.delete(key),
+	});
+	const app = { store: { appStarted: true }, _renderSize: { w: 390, h: 664 },
+		_resizeFrame: null, _resizeTimer: null, onResize: () => resized++ };
+	for (let h = 669; h <= 724; h += 5) { window.innerHeight = h; schedule.call(app); }
+	assert.equal(timers.size, 1);
+	assert.equal(frames.size, 0);
+	const run = queue => { for (const [key, fn] of [...queue]) { queue.delete(key); fn(); } };
+	run(timers); run(frames);
+	assert.equal(resized, 1);
+	window.innerHeight = 740; schedule.call(app);
+	window.innerWidth = 844; window.innerHeight = 390; schedule.call(app);
+	assert.equal(timers.size, 0, "orientation does not wait for the browser-bar debounce");
+	run(frames);
+	assert.equal(resized, 2);
+	window.innerWidth = 390; window.innerHeight = 720; schedule.call(app);
+	app.disposed = true; run(timers); run(frames);
+	assert.equal(resized, 2, "a queued callback cannot resize a disposed app");
 });

@@ -1,9 +1,8 @@
-import { getScenePixelRatio } from "@/three/renderer/renderResolution.js";
 import * as THREE from "three";
 import { SceneTextLocale } from "../typography/sceneTextLocale.js";
 import { createSceneHudAtlas, createSceneHudAtlasChunked } from "../../../objects/sceneHud/sceneHudAtlas.js";
 import { advanceHudSnake, hudSnakeGlsl } from "../../../objects/sceneHud/sceneHudShaders.js";
-import { getMmk1DetailLayout, MMK1_DETAIL_SIZE, MMK1_DETAIL_TYPE, MMK1_DETAIL_VIEW, MMK1_HOTSPOT_DETAILS, MMK1_OVERVIEW, MMK1_OVERVIEW_VIEW } from "./mmk1HotspotDetailsConfig.js";
+import { getMmk1DetailLayout, getMmk1DetailRasterRatio, MMK1_DETAIL_SIZE, MMK1_DETAIL_STATE_COUNT, MMK1_DETAIL_TYPE, MMK1_DETAIL_VIEW, MMK1_HOTSPOT_DETAILS, MMK1_OVERVIEW, MMK1_OVERVIEW_VIEW } from "./mmk1HotspotDetailsConfig.js";
 import { advanceMmk1IntroReveal, mmk1IntroSoundReveal, MMK1_INTRO_FRAGMENT, MMK1_INTRO_REVEAL_SECONDS } from "./mmk1IntroReveal.js";
 
 const VERTEX = /* glsl */ `
@@ -22,10 +21,15 @@ const DETAIL_FRAGMENT = /* glsl */ `
 	uniform sampler2D uLabels,uLetterOrder,uGlyphs;
 	uniform float uSnake,uGlyphCount,uLocale,uState;
 	varying vec2 vUv;
-	${hudSnakeGlsl(10, [262, 220, 164, 141, 118], MMK1_DETAIL_SIZE)}
+	${hudSnakeGlsl(MMK1_DETAIL_STATE_COUNT, [158, 116, 58, 30], MMK1_DETAIL_SIZE)}
 	void main(){
 		if(uSnake<=0.0)discard;
 		vec4 text=snakeLabel(vUv,uState);
+		vec2 px=vUv*vec2(560.0,200.0);
+		float rule=(1.0-smoothstep(0.3,0.85,abs(px.y-82.0)))*step(16.0,px.x)
+			*(1.0-smoothstep(56.0,144.0,px.x))*smoothstep(0.42,0.7,uSnake)*0.48;
+		float alpha=text.a+rule*(1.0-text.a);
+		text=vec4((text.rgb*text.a+vec3(0.58,0.77,0.85)*rule*(1.0-text.a))/max(alpha,0.001),alpha);
 		if(text.a<0.002)discard;
 		gl_FragColor=text;
 	}
@@ -47,51 +51,56 @@ function fitHeadline(ctx, text, preferredSize, maxWidth, wordSpace = 0.28) {
 
 /** Prepared once with the hover HUD and carried through the same screen/hex composition. */
 function createDetailStates(measureContext) {
-	const detail = (locale, compact) => MMK1_HOTSPOT_DETAILS.map(({ copy, headlines }) => {
+	const detail = (locale) => MMK1_HOTSPOT_DETAILS.map(({ copy, headlines }) => {
 		const [, ...body] = copy[locale];
-		const titleSize = Math.min(...headlines[locale].map(text => fitHeadline(measureContext, text, 42, 528, .42).size));
+		const titleSize = Math.min(...headlines[locale].map(text => fitHeadline(measureContext, text, 44, 528, .5).size));
 		return [
 			...headlines[locale].map((text, row) => ({
-				text, x: 16, y: [58, 100][row], color: row ? "#d5ebf4" : "#98bfce", row,
-				...fitHeadline(measureContext, text, titleSize, 528, .42),
+				text, x: 16, y: [42, 84][row], color: row ? "#e0eef5" : "#b4d0dd", row,
+				...fitHeadline(measureContext, text, titleSize, 528, .5),
 			})),
-			...body.map((text, row) => ({ text, x: 16, y: [156, 179][row], color: "#9aafb9", row: row + 2,
-				...MMK1_DETAIL_TYPE.body, ...(compact ? { size: 26, font: '400 26px MazzardM, "Segoe UI", sans-serif' } : {}) })),
+			...body.map((text, row) => ({ text, x: 16, y: [142, 170][row], color: "#abc0cc", row: row + 2,
+				...MMK1_DETAIL_TYPE.body, size: 26, font: '400 26px MazzardM, "Segoe UI", sans-serif' })),
 		];
 	});
-	return ["ru", "en", "zh"].map((locale) => [...detail(locale, false), ...[false, true].map((compact) => {
+	return ["ru", "en", "zh"].map((locale) => [...detail(locale), ...[false, true].map((compact) => {
 		const headlines = MMK1_OVERVIEW.headlines[locale];
 		const titleSize = Math.min(...headlines.map(text => fitHeadline(measureContext, text, 38, 528).size));
 		return [
 			...headlines.map((text, row) => ({
-				text, x: 8, y: 98 + row * 44, color: row ? "#d5ebf4" : "#98bfce",
+				text, x: 8, y: 34 + row * 44, color: row ? "#d5ebf4" : "#98bfce",
 				...fitHeadline(measureContext, text, titleSize, 528),
 			})),
 			...MMK1_OVERVIEW.description[locale].map((text, row) => ({
-				text, x: 8, y: 185 + row * 24, color: "#a3b8c2",
+				text, x: 8, y: 121 + row * 24, color: "#a3b8c2",
 				...MMK1_DETAIL_TYPE.body,
 				...(compact ? { size: 26, font: '400 26px MazzardM, "Segoe UI", sans-serif' } : {}),
 			})),
 		];
-	}), ...detail(locale, true)]);
+	})]);
 }
 
 export class Mmk1HotspotDetails {
 	static async create(parent, markers, renderer, modelsParent, cancelled) {
 		const measureContext = document.createElement("canvas").getContext("2d");
 		const states = createDetailStates(measureContext);
-		const pixelRatio = Math.min(getScenePixelRatio(renderer), renderer.capabilities.maxTextureSize / (states[0].length * MMK1_DETAIL_SIZE.height));
+		const pixelRatio = getMmk1DetailRasterRatio(renderer.capabilities.maxTextureSize);
 		const atlas = await createSceneHudAtlasChunked(pixelRatio, states, "mmk1-detail", MMK1_DETAIL_SIZE, cancelled);
 		return atlas ? new Mmk1HotspotDetails(parent, markers, renderer, modelsParent, { atlas, states, measureContext }) : null;
 	}
 
 	constructor(parent, markers, renderer, modelsParent, prepared = null) {
 		this.markers = markers;
-		this.pixelRatio = getScenePixelRatio(renderer);
+		this.pixelRatio = renderer.getPixelRatio();
 		this.viewport = new THREE.Vector2();
 		const measureContext = prepared?.measureContext ?? document.createElement("canvas").getContext("2d");
 		const states = prepared?.states ?? createDetailStates(measureContext);
-		this.atlas = prepared?.atlas ?? createSceneHudAtlas(this.pixelRatio, states, "mmk1-detail", MMK1_DETAIL_SIZE);
+		this.atlas = prepared?.atlas ?? createSceneHudAtlas(getMmk1DetailRasterRatio(renderer.capabilities?.maxTextureSize), states, "mmk1-detail", MMK1_DETAIL_SIZE);
+		// The same minification filtering as the narrative typography. Only the
+		// clean image is filtered; the letter-order data remains exact/nearest.
+		this.atlas.texture.generateMipmaps = true;
+		this.atlas.texture.minFilter = THREE.LinearMipmapLinearFilter;
+		this.atlas.texture.magFilter = THREE.LinearFilter;
 		this.overviewSoundBounds = states.map(compositions => compositions.slice(4, 6).map(lines => {
 			let right = 0;
 			for (const line of lines) {
@@ -115,7 +124,7 @@ export class Mmk1HotspotDetails {
 					uPanelSize: { value: new THREE.Vector2(MMK1_DETAIL_SIZE.width, view.height) },
 					uUvBounds: { value: new THREE.Vector4(0, view.uvBottom, 1, view.uvTop) },
 					uSnake: { value: 0 }, uReveal: { value: 0 }, uState: { value: index }, uLocale: { value: 0 }, uDetails: { value: 0 },
-					uStateCount: { value: 10 },
+					uStateCount: { value: MMK1_DETAIL_STATE_COUNT },
 				},
 				vertexShader: VERTEX, fragmentShader: overview ? MMK1_INTRO_FRAGMENT : DETAIL_FRAGMENT,
 				extensions: { derivatives: overview },
@@ -149,7 +158,7 @@ export class Mmk1HotspotDetails {
 			u.uOrigin.value.set(layout.x, layout.y).multiplyScalar(this.pixelRatio).round().divideScalar(this.pixelRatio);
 			u.uScale.value = layout.scale;
 			const compact = viewport.x < 1280 || viewport.y <= 600;
-			u.uState.value = i === 4 ? (compact ? 5 : 4) : i + (compact ? 6 : 0);
+			u.uState.value = i === 4 ? (compact ? 5 : 4) : i;
 		}
 	}
 

@@ -39,7 +39,7 @@ Do not drive leave with both mosaic `enterProgress` exit and hex warp. Stage scr
 | 4 | 2 → 3 | Close assembly pose (screenshot 4) | text3 → empty, mix = story − 2 |
 | 5 | 3 → 4 | Final pose (screenshot 5), half chase speed / twice the duration, also on reverse | Left band stays empty; prepared epic text appears through its existing 3.55→4 timeline |
 
-At story 0.5 the first pair remains at mix 1 throughout the second gesture. At story 1 the text2→text3 pair starts at mix 0, without changing settled text2 pixels. Story 2 and 3 boundaries are equally seamless. Reverse uses the same mapping and restores the text2 hold. No content is repainted or uploaded for these animations. After the final step settles, a subsequent outward wheel gesture uses the existing About→contacts boundary spring; its inertial tail cannot leave About during step 5.
+At story 0.5 the first pair remains at mix 1 throughout the second gesture. At story 1 the text2→text3 pair starts at mix 0, without changing settled text2 pixels. Story 2 and 3 boundaries are equally seamless. Reverse uses the same mapping and restores the text2 hold. No content is repainted or uploaded for these animations. After the final step settles, further outward wheel input uses the existing About→contacts boundary spring, including a burst begun before settling. Boundary readiness is rechecked on each wheel event; the burst cannot leave About while step 5 is still animating, and settling without further input never starts a leave. The same rule applies at story 0 when returning to portfolio.
 
 ---
 

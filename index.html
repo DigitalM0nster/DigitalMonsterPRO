@@ -324,9 +324,15 @@
 				.digitalMonsterLoaderSnake::before {
 					filter: none;
 				}
+				.digitalMonsterLoader {
+					display: flex;
+					align-items: center;
+					justify-content: center;
+				}
 				.digitalMonsterLoaderOrb {
-					width: min(92vw, 88vh);
-					min-width: 0;
+					/* Match the mobile disc size in loader.css before React mounts. */
+					width: min(120vw, 88vh);
+					min-width: 480px;
 				}
 				.digitalMonsterLoaderBrand {
 					font-size: clamp(34px, 8vw, 52px);

@@ -20,7 +20,7 @@ function frameBounds(width, height, focus) {
 	const geometry = new THREE.PlaneGeometry(1.05, .54, 64, 2);
 	if (!layout.mobile) bendFilmGeometry(geometry);
 	const frame = new THREE.Mesh(geometry); frame.position.z = .015; root.add(frame);
-	const names = ["uTime", "uFocus", "uGlitchTime", "uFrom", "uTo", "uFromAspect", "uToAspect", "uProgress", "uDirection", "uOpacity", "uLocaleReveal", "uFlat", "uReadingThumb", "uScreenAspect"];
+	const names = ["uTime", "uFocus", "uGlitchTime", "uTapGlitch", "uFrom", "uTo", "uFromAspect", "uToAspect", "uProgress", "uDirection", "uOpacity", "uLocaleReveal", "uFlat", "uReadingThumb", "uScreenAspect"];
 	const uniforms = Object.fromEntries(names.map(name => [name, { value: 0 }]));
 	uniforms.uFromInfo = { value: new THREE.Vector2() }; uniforms.uToInfo = { value: new THREE.Vector2() };
 	uniforms.uInfoViewport = { value: new THREE.Vector2() };

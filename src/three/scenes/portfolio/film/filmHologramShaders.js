@@ -39,7 +39,7 @@ uniform vec2 uFromInfo;uniform vec2 uToInfo;
 uniform vec2 uInfoViewport;uniform float uScreenAspect;
 uniform float uOpacity;uniform float uProgress;uniform float uReduced;uniform float uTime;uniform float uLow;
 uniform float uLocaleReveal;
-uniform float uHolotileSize;uniform float uFocus;
+uniform float uHolotileSize;uniform float uFocus;uniform float uTapGlitch;
 uniform float uHoloscanlines;uniform float uHoloraster;uniform float uHoloecho;uniform float uHolobrightness;uniform float uHoloopacity;
 uniform float uHolotint;uniform float uHologlitchTint;
 uniform float uGlitchTime;uniform float uHolodensity;uniform float uHologlitch;
@@ -54,8 +54,9 @@ vec3 signalSlip(vec2 uv){
  float cycle=fract(clock);
  float eventId=floor(clock);
  float pick=filmHash(vec2(band+eventId*1.71,eventId*3.13));
- float enabled=step(1.-uHolodensity*.24,pick)*(1.-uReduced);
- float envelope=smoothstep(.025,.055,cycle)*(1.-smoothstep(.37,.48,cycle))*enabled;
+ float tap=uTapGlitch*(1.-uReduced);
+ float enabled=step(1.-min(.95,uHolodensity*.24+tap*.8),pick)*(1.-uReduced);
+ float envelope=smoothstep(.025,.055,cycle)*(1.-smoothstep(.37+tap*.4,.48+tap*.4,cycle))*enabled;
  // Evaluate derivatives before the spatially varying branch. A zero envelope
  // contributes no slip/contour; skip its shape and tail calculations exactly.
  vec2 pixelWidth=max(fwidth(uv),vec2(.00001));
@@ -65,9 +66,9 @@ vec3 signalSlip(vec2 uv){
  float y=uv.y-(band+.25+random.y*.5)/64.;
  float slice=floor((y/halfHeight+1.)*2.);
  float ragged=filmHash(vec2(band+eventId*7.,slice+31.));
- float halfLength=mix(.012,.054,random.y)*mix(.45,1.,ragged)*uHolotileSize;
+ float halfLength=mix(.012,.054,random.y)*mix(.45,1.,ragged)*uHolotileSize*(1.+tap*3.);
  float relock=smoothstep(.13,.16,cycle)-smoothstep(.23,.26,cycle);
- float slip=(step(.5,seed)*2.-1.)*(.004+random.y*.009)*(1.-1.6*relock)*uHologlitch;
+ float slip=(step(.5,seed)*2.-1.)*(.004+random.y*.009)*(1.-1.6*relock)*(uHologlitch+tap*7.);
  float x=uv.x-random.x-(ragged-.5)*.015*uHolotileSize-slip*envelope;
  float span=1.-smoothstep(halfLength-pixelWidth.x,halfLength+pixelWidth.x,abs(x));
  float height=1.-smoothstep(halfHeight-pixelWidth.y*.5,halfHeight+pixelWidth.y*.5,abs(y));
@@ -94,18 +95,19 @@ vec3 picture(sampler2D tex,float aspect,vec2 offset,vec2 info){
 }
 void main(){
  // The existing expand animation owns clarity too; no alternate material or source reload.
- if(uFromInfo.x>0.&&uProgress<=.00001&&uLocaleReveal>=1.){
+ if(uFromInfo.x>0.&&uProgress<=.00001&&uLocaleReveal>=1.&&uTapGlitch<=0.){
   vec3 clean=picture(uFrom,uFromAspect,vec2(0.),uFromInfo);
   clean=mix(clean/12.92,pow((clean+.055)/1.055,vec3(2.4)),step(vec3(.04045),clean));
   gl_FragColor=vec4(clean,uOpacity);
   #include <colorspace_fragment>
   return;
  }
- float clarity=smoothstep(0.,1.,uFocus);
+ float tap=uTapGlitch*mix(1.,.2,uReduced);
+ float clarity=smoothstep(0.,1.,uFocus)*(1.-tap);
  float scanStrength=uHoloscanlines*mix(1.,.025,clarity);
  float rasterStrength=uHoloraster*mix(1.,.08,clarity);
  float infoSide=mix(step(.0001,uFromInfo.x),step(.0001,uToInfo.x),smoothstep(.40,.59,vPhase));
- vec3 glitch=signalSlip(vUv)*(1.-vBurst)*mix(1.,.25,clarity)*(1.-infoSide);
+ vec3 glitch=signalSlip(vUv)*(1.-vBurst)*mix(1.,.25,clarity)*(1.-infoSide*(1.-tap));
  float idle=glitch.x;
  float pixels=filmHash(floor(vUv*vec2(768.,374.)));
  float blend=smoothstep(.40,.59,vPhase+(pixels-.5)*.19*(1.-uReduced));
@@ -168,7 +170,7 @@ void main(){
  gl_FragColor=vec4((source+emission)/max(coverage,.0001),uOpacity*coverage);
  // Prepared typography is a clean, opaque reading side at rest. During the
  // same digital mosaic it inherits the existing tears and electrical seams.
- gl_FragColor=mix(gl_FragColor,vec4(cleanInfo*signal+filmAccent*shardEdge*.35,uOpacity),infoWeight);
+ gl_FragColor=mix(gl_FragColor,vec4(cleanInfo*signal+filmAccent*(shardEdge*.35+glitch.y*tap),uOpacity),infoWeight);
  float localePhase=clamp(((1.-uLocaleReveal)-(.015+vSeed*.70))/(.16+filmHash(vec2(vSeed,21.7))*.12),0.,1.);
  gl_FragColor.a*=1.-smoothstep(.40,.59,localePhase);
  #include <colorspace_fragment>

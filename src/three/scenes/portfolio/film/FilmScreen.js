@@ -29,7 +29,7 @@ export class FilmScreen {
    uFromInfo:{value:new THREE.Vector2()},uToInfo:{value:new THREE.Vector2()},
    uInfoViewport:{value:new THREE.Vector2(0,1)},uScreenAspect:{value:2.05},
    uReadingScroll:{value:new THREE.Vector4()},uReadingPixels:{value:new THREE.Vector2(1,1)},
-   uFlat:{value:0},uReadingThumb:{value:1},
+   uFlat:{value:0},uReadingThumb:{value:1},uTapGlitch:{value:0},
    uProgress:{value:0},uDirection:{value:1},uOpacity:{value:1},uReduced:{value:reducedMotion?1:0},
    uTime:{value:0},uGlitchTime:{value:0},uFocus:{value:0},uDpr:{value:1},uLow:{value:getGraphicsTier()==="low"?1:0},uHeaderEnd:{value:-.378},uLocaleReveal:{value:1}};
   for(const [key] of hologramFields)this.uniforms[`uHolo${key}`]={value:this.hologramValues[key]};
@@ -62,9 +62,12 @@ export class FilmScreen {
   geometry.setAttribute("aSeed",new THREE.InstancedBufferAttribute(seeds,1));geometry.instanceCount=blocks.length;
   return geometry;
  }
+ triggerTapGlitch(){this.uniforms.uTapGlitch.value=1;}
  update(motion,reveal,focus,layout,pointer,reduced,delta=0,locale="ru",readingLayout=null){
   this.uniforms.uLocaleReveal.value=motion.info||motion.destinationInfo?siteLocaleReveal.value:1;
   const u=this.uniforms;if(!reduced)u.uTime.value+=Math.min(delta,.05);
+  const tap=u.uTapGlitch.value*Math.exp(-Math.min(delta,.05)*8);
+  u.uTapGlitch.value=layout.mobile&&reveal>.1&&tap>.005?tap:0;
   u.uFlat.value=layout.mobile?1:0;
   this.frame.geometry=layout.mobile?this.flatFrameGeometry:this.frameGeometry;
   this.hit.geometry=layout.mobile?this.flatHitGeometry:this.hitGeometry;

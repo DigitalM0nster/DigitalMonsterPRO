@@ -27,14 +27,15 @@ def smooth_profile(keys, t):
     return [0.5*((2*b[j])+(-a[j]+c[j])*u+(2*a[j]-5*b[j]+4*c[j]-d[j])*u*u+(-a[j]+3*b[j]-3*c[j]+d[j])*u*u*u) for j in range(1,len(b))]
 
 body_profile = [
-    (-4.5,.07,.09,.02),(-4.40,.30,.22,.01),(-4.15,.54,.40,.04),(-4.05,.58,.44,.07),
-    (-3.55,.76,.68,.12),(-2.85,.83,.82,.12),(-2.05,.81,.87,.10),
-    (-1.1,.70,.74,.12),(0,.53,.55,.17),(1,.35,.38,.26),
-    (2,.23,.25,.38),(3,.15,.16,.56),(3.8,.16,.12,.67),(4.0,.09,.08,.68)]
+    (-4.7,.13,.14,-.26),(-4.62,.40,.23,-.25),(-4.40,.69,.32,-.21),
+    (-4.0,.94,.49,-.075),(-3.50,1.10,.71,.10),(-2.80,1.22,.91,.26),
+    (-2.0,1.20,1.02,.38),(-1.0,1.10,1.05,.47),(0,.89,.86,.47),
+    (1.2,.60,.61,.44),(2.2,.34,.35,.45),(3.1,.20,.20,.57),
+    (3.8,.17,.13,.67),(4.0,.09,.08,.68)]
 
 meshes = []
 weights_by_mesh = {}
-def ring_mesh(name, rings, sides, sample, weights, line_scale=(1,1)):
+def ring_mesh(name, rings, sides, sample, weights, line_scale=(1,1), flow_region=0):
     verts, faces, uvs = [], [], []
     for i in range(rings+1):
         s=i/rings
@@ -54,7 +55,8 @@ def ring_mesh(name, rings, sides, sample, weights, line_scale=(1,1)):
     layer=data.uv_layers.new(name="Flow")
     for polygon,coords in zip(data.polygons,uvs):
         polygon.use_smooth=True
-        for loop,uv in zip(polygon.loop_indices,coords):layer.data[loop].uv=(uv[0]*line_scale[0],uv[1]*line_scale[1])
+        for loop,uv in zip(polygon.loop_indices,coords):
+            layer.data[loop].uv=(uv[0]*line_scale[0],flow_region*2+uv[1]*line_scale[1])
     bpy.context.view_layer.objects.active=obj;obj.select_set(True)
     bpy.ops.object.mode_set(mode="EDIT");bpy.ops.mesh.select_all(action="SELECT");bpy.ops.mesh.normals_make_consistent(inside=False);bpy.ops.object.mode_set(mode="OBJECT")
     obj.select_set(False)
@@ -70,22 +72,44 @@ def body_weights(x):
             t=(x-a)/(b-a);t=t*t*(3-2*t)
             return {an:1-t,bn:t}
     return {"Peduncle":1}
+def face_latitude(x,latitude,h,z):
+    # The lip is an anatomical landmark, not the equator of an ellipsoid.
+    # Monotone cubic mapping carries complete rows along the jaw and cheek.
+    s=max(0,min(1,(x+4.65)/2.95))
+    lip_z=-.285-.035*math.sin(s*math.pi)+.18*s**4
+    mouth=math.asin(max(-.85,min(.65,(lip_z-z)/max(h,.05))))
+    face=math.exp(-((x+3.25)/2.05)**6)
+    targets=[-math.pi/2,-.25+(mouth+.25)*face,.25+(.08-.25)*face,math.pi/2]
+    keys=[-math.pi/2,-.25,.25,math.pi/2]
+    slopes=[(targets[i+1]-targets[i])/(keys[i+1]-keys[i]) for i in range(3)]
+    tangents=[slopes[0],2*slopes[0]*slopes[1]/(slopes[0]+slopes[1]),2*slopes[1]*slopes[2]/(slopes[1]+slopes[2]),slopes[2]]
+    i=next((i for i in range(3) if latitude<=keys[i+1]),2)
+    length=keys[i+1]-keys[i];t=max(0,min(1,(latitude-keys[i])/length))
+    return ((2*t**3-3*t*t+1)*targets[i]+(t**3-2*t*t+t)*length*tangents[i]
+        +(-2*t**3+3*t*t)*targets[i+1]+(t**3-t*t)*length*tangents[i+1])
+
 def body_point(s,theta):
-    x=-4.5+8.5*s
+    x=-4.7+8.7*s
     w,h,z=smooth_profile(body_profile,x)
     # Broad calm forehead, a shallow ventral keel; no teeth or facial knobs.
-    y=max(.008,w)*math.cos(theta)
-    zz=z+max(.008,h)*math.sin(theta)
+    # Flow lines follow the jaw and divide around the eye socket. These UV
+    # streamlines are authored with the anatomy, not a random surface scatter.
+    latitude=math.atan2(math.sin(theta),abs(math.cos(theta)))
+    eye_distance=latitude-.25
+    eye_diversion=.03*math.exp(-((x+2.42)/.65)**2)*math.tanh(eye_distance/.08)*math.exp(-(eye_distance/.38)**2)
+    latitude=face_latitude(x,latitude+eye_diversion,h,z)
+    y=max(.008,w)*math.copysign(math.cos(latitude),math.cos(theta))
+    zz=z+max(.008,h)*math.sin(latitude)
     # Subtle ventral pleats sculpt the throat without adding facial lumps.
     throat=max(0,math.sin(math.pi*max(0,min(1,(x+4.25)/3.35))))
     lower=max(0,-math.sin(theta))**3
-    zz-=.012*throat*lower*(.5+.5*math.cos(theta*18))
+    zz-=.018*throat*lower*(.5+.5*math.cos(theta*18))
     return (x,y,zz)
 body=ring_mesh("MobileWhale_Body",128,80,body_point,lambda s,p:body_weights(p.x))
 
-fin_profile=[(0,-2.12,.68,-.18,.16,.065),(.17,-1.93,1.05,-.26,.35,.06),
-    (.42,-1.45,1.70,-.48,.32,.038),(.70,-.80,2.35,-.79,.20,.026),
-    (.90,-.28,2.74,-.93,.09,.014),(1,-.08,2.86,-.90,.008,.005)]
+fin_profile=[(0,-1.85,1.06,-.12,.43,.095),(.18,-1.63,1.62,-.24,.62,.085),
+    (.40,-1.04,2.32,-.53,.59,.060),(.66,-.25,3.10,-.92,.41,.036),
+    (.86,.46,3.63,-1.08,.21,.019),(1,1.08,3.90,-1.04,.010,.005)]
 for side,label in [(-1,"Near"),(1,"Far")]:
     def point(s,theta,side=side):
         x,y,z,chord,thick=smooth_profile(fin_profile,s)
@@ -93,7 +117,7 @@ for side,label in [(-1,"Near"),(1,"Far")]:
     def weights(s,p,label=label):
         fin=min(1,s/.18)
         return {"Body":1-fin,"Pectoral"+label:fin}
-    ring_mesh("MobileWhale_Pectoral"+label,52,24,point,weights,(.44,.34))
+    ring_mesh("MobileWhale_Pectoral"+label,52,24,point,weights,flow_region=1)
 
 fluke_profile=[(0,3.83,0,.68,.18,.095),(.20,4.00,.40,.69,.40,.095),
     (.45,4.12,.93,.74,.45,.07),(.72,4.36,1.49,.82,.29,.04),
@@ -105,39 +129,66 @@ for side,label in [(-1,"Near"),(1,"Far")]:
     def weights(s,p,label=label):
         wing=min(1,s/.35)
         return {"Peduncle":1-wing,"Fluke"+label:wing}
-    ring_mesh("MobileWhale_Fluke"+label,44,24,point,weights,(.32,.30))
+    ring_mesh("MobileWhale_Fluke"+label,44,24,point,weights,flow_region=2)
 
 def dorsal_point(s,theta):
     x=.60+.48*s
     chord=.38*(1-s)**1.5+.002
     return (x+chord*math.cos(theta),(.07*(1-s)+.003)*math.sin(theta),.72+.38*s)
-ring_mesh("MobileWhale_Dorsal",20,20,dorsal_point,lambda s,p:body_weights(p.x),(.16,.18))
+ring_mesh("MobileWhale_Dorsal",20,20,dorsal_point,lambda s,p:body_weights(p.x),flow_region=3)
 
-def detail_curve(name, coords, radius):
-    curve=bpy.data.curves.new(name,"CURVE");curve.dimensions="3D";curve.resolution_u=16
-    curve.bevel_depth=radius;curve.bevel_resolution=2
-    spline=curve.splines.new("BEZIER");spline.bezier_points.add(len(coords)-1)
-    for p,co in zip(spline.bezier_points,coords):
-        p.co=co;p.handle_left_type=p.handle_right_type="AUTO"
-    obj=bpy.data.objects.new(name,curve);scene.collection.objects.link(obj)
-    bpy.context.view_layer.objects.active=obj;obj.select_set(True);bpy.ops.object.convert(target="MESH");obj.select_set(False)
-    for polygon in obj.data.polygons:polygon.use_smooth=True
-    meshes.append(obj);weights_by_mesh[obj.name]=[body_weights(v.co.x) for v in obj.data.vertices]
+def detail_curve(name, path, radius, kind=0, rings=96, skin=None):
+    # Arc-length UVs make the lip/eyelid/fin contour a chain of distinct beads.
+    # Each contour shares the body's rig and the same second material group.
+    centers=[Vector(path(i/rings)) for i in range(rings+1)]
+    arc=[0.]
+    for a,b in zip(centers,centers[1:]):arc.append(arc[-1]+(b-a).length)
+    def point(s,theta):
+        i=min(rings,round(s*rings))
+        tangent=(centers[min(rings,i+1)]-centers[max(0,i-1)]).normalized()
+        helper=Vector((0,0,1)) if abs(tangent.z)<.9 else Vector((0,1,0))
+        normal=tangent.cross(helper).normalized();binormal=tangent.cross(normal).normalized()
+        taper=.6+.4*math.sin(math.pi*s)**.3
+        return centers[i]+radius*taper*(normal*math.cos(theta)+binormal*math.sin(theta))
+    obj=ring_mesh(name,rings,6,point,skin or (lambda s,p:body_weights(p.x)),flow_region=kind)
+    uv=obj.data.uv_layers.active.data
+    for polygon in obj.data.polygons:
+        for loop in polygon.loop_indices:
+            uv[loop].uv.x=arc[min(rings,round(uv[loop].uv.x*rings))]
+    obj["flowDetail"]=True
     return obj
 for side,label in [(-1,"Near"),(1,"Far")]:
-    # The mouth is a quiet closed contour, with a short upward turn at its end.
-    mouth=[]
-    for x in [-4.42,-4.2,-3.95,-3.65,-3.35,-3.03,-2.78]:
-        w,h,z=smooth_profile(body_profile,x)
-        theta=-.23-.17*math.sin((x+4.42)/1.64*math.pi)
-        mouth.append((x,side*(w+.010)*math.cos(theta),z+h*math.sin(theta)))
-    detail_curve("MobileWhale_Mouth"+label,mouth,.009)
-    x=-3.08;w,h,z=smooth_profile(body_profile,x)
-    # Small lateral eyes follow the surface; they do not dominate the expression.
-    y=side*w*.985;z=z+h*.19
-    eye=detail_curve("MobileWhale_Eye"+label,[
-        (x-.045*math.cos(a),y+side*.006,z+.036*math.sin(a))
-        for a in [i*math.tau/12 for i in range(13)]],.006)
+    def surface(x,latitude,side=side,lift=.012):
+        theta=latitude if side>0 else math.pi-latitude
+        p=Vector(body_point((x+4.7)/8.7,theta));p.y+=side*lift
+        return p
+    def lip(s,lower=False):
+        x=-4.65+s*2.95
+        latitude=-.25
+        if lower:latitude-=.052*math.sin(math.pi*s)
+        return surface(x,latitude)
+    detail_curve("MobileWhale_Mouth"+label,lip,.012)
+    detail_curve("MobileWhale_LowerLip"+label,lambda s:lip(s,True),.0065,kind=1)
+    # A dark socket is reserved in the body field; a bright upper eyelid and
+    # quieter lower lid outline the eye without turning it into a white bead.
+    def eyelid(s):
+        a=s*math.tau
+        return surface(-2.42+.065*math.cos(a),.25+.024*math.sin(a),lift=.015)
+    detail_curve("MobileWhale_Eye"+label,eyelid,.005,kind=2,rings=40)
+    # Three restrained ridges over the brow lead into the head flow.
+    for ridge in range(3):
+        detail_curve("MobileWhale_Brow"+label+str(ridge),
+            lambda s,r=ridge:surface(-4.52+s*(1.8+r*.3),.44+r*.20+.08*math.sin(s*math.pi)),
+            .005,kind=3,rings=72)
+    for edge in [-1,1]:
+        def fin_edge(s,edge=edge,side=side):
+            x,y,z,chord,thick=smooth_profile(fin_profile,.025+s*.96)
+            return (x+edge*chord,side*y,z+.002)
+        def fin_skin(s,p,label=label):
+            fin=min(1,(.025+s*.96)/.18)
+            return {"Body":1-fin,"Pectoral"+label:fin}
+        detail_curve("MobileWhale_FinContour"+label+str(edge),fin_edge,
+            .010 if edge<0 else .006,kind=4,rings=100,skin=fin_skin)
 
 arm=bpy.data.armatures.new("MobileWhaleRig")
 rig=bpy.data.objects.new("MobileWhaleRig",arm);scene.collection.objects.link(rig)
@@ -149,8 +200,8 @@ specs=[
     ("Tail02",(.6,0,.23),(2,0,.38),"Tail01"),
     ("Tail03",(2,0,.38),(3.2,0,.58),"Tail02"),
     ("Peduncle",(3.2,0,.58),(4.1,0,.69),"Tail03"),
-    ("PectoralNear",(-2.12,-.68,-.18),(-.08,-2.86,-.9),"Body"),
-    ("PectoralFar",(-2.12,.68,-.18),(-.08,2.86,-.9),"Body"),
+    ("PectoralNear",(-1.85,-1.06,-.12),(1.08,-3.90,-1.04),"Body"),
+    ("PectoralFar",(-1.85,1.06,-.12),(1.08,3.90,-1.04),"Body"),
     ("FlukeNear",(3.83,0,.68),(4.42,-2.04,1.03),"Peduncle"),
     ("FlukeFar",(3.83,0,.68),(4.42,2.04,1.03),"Peduncle")]
 for name,head,tail,parent in specs:
@@ -191,7 +242,7 @@ scene.frame_set(1)
 clay=bpy.data.materials.new("Whale midnight clay");clay.diffuse_color=(.045,.15,.22,1);clay.use_nodes=True
 bsdf=clay.node_tree.nodes.get("Principled BSDF");bsdf.inputs["Base Color"].default_value=(.035,.14,.20,1);bsdf.inputs["Roughness"].default_value=.40
 detail=bpy.data.materials.new("Fine facial contours");detail.diffuse_color=(.03,.4,.62,1)
-for obj in meshes:obj.data.materials.append(detail if "Mouth" in obj.name or "Eye" in obj.name else clay)
+for obj in meshes:obj.data.materials.append(detail if obj.get("flowDetail") else clay)
 # One skinned body with two material groups instead of a draw per fin/detail.
 for obj in bpy.context.selected_objects:obj.select_set(False)
 for obj in meshes:obj.select_set(True)
@@ -204,6 +255,9 @@ subdivision.show_viewport=False;subdivision.show_render=False
 rig["createdFrom"]="Original parametric anatomy; no source whale mesh."
 rig["webMaterial"]="src/three/scenes/home/mobileWhale/mobileWhaleMaterial.js"
 rig["loopSeconds"]=6
+# Y-up coordinates, in unscaled glTF model units. The reference is a head/fin
+# close-up, so framing must not shrink the face to fit the entire tail spread.
+rig["referenceHeadBounds"]=[-4.74,-.85,-1.3,-1.3,1.65,1.3]
 
 for obj in bpy.context.selected_objects:obj.select_set(False)
 rig.select_set(True)

@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import * as THREE from "three";
-import { createMobileWhaleMaterials, createMobileWhaleTrail } from "./mobileWhaleMaterial.js";
+import { createMobileWhaleMaterials, createMobileWhaleTrail, createWhaleDepthOccluder } from "./mobileWhaleMaterial.js";
 
 const bytes=readFileSync(new URL("../../../../../public/models/home/whale-mobile.glb",import.meta.url));
 const jsonLength=bytes.readUInt32LE(12);
@@ -53,4 +53,24 @@ test("body, fine contours and the bounded trail share one shader clock without b
  for(const uniform of Object.values(shared))assert.ok(!uniform.value?.isTexture);
  assert.equal(body.side,THREE.FrontSide);
  body.dispose();details.dispose();trail.geometry.dispose();trail.material.dispose();
+});
+
+test("rear fins are occluded by a depth pass reusing the animated surface and rig",()=>{
+ const geometry=new THREE.BufferGeometry(),material=new THREE.MeshBasicMaterial();
+ const mesh=new THREE.SkinnedMesh(geometry,material),bone=new THREE.Bone();
+ mesh.add(bone);mesh.bind(new THREE.Skeleton([bone]));
+ mesh.position.set(2,3,4);mesh.scale.setScalar(1.5);mesh.rotation.z=.2;
+ const depth=createWhaleDepthOccluder(mesh);
+ assert.equal(depth.geometry,mesh.geometry);
+ assert.equal(depth.skeleton,mesh.skeleton);
+ assert.deepEqual(depth.bindMatrix.elements,mesh.bindMatrix.elements);
+ assert.deepEqual(depth.position,mesh.position);
+ assert.deepEqual(depth.quaternion.toArray(),mesh.quaternion.toArray());
+ assert.deepEqual(depth.scale,mesh.scale);
+ assert.equal(depth.children.length,0,"the existing bones are shared, never cloned");
+ assert.equal(depth.material.colorWrite,false);
+ assert.equal(depth.material.transparent,false);
+ assert.equal(depth.material.depthWrite,true);
+ assert.equal(depth.frustumCulled,false);
+ depth.material.dispose();mesh.skeleton.dispose();geometry.dispose();material.dispose();
 });

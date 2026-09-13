@@ -1,15 +1,7 @@
-import * as THREE from "three";
-import { createGLTFLoader } from "@/three/assets/gltfLoader.js";
-import { getGraphicsTier } from "@/functions/getGraphicsTier.js";
-
 import { smoothSinePhase } from "../heroCamera.js";
 import { createWhaleParticles } from "./createWhaleParticles.js";
-import { applyWhaleHologram } from "./whaleHologramMaterial.js";
-import { loadFbxQuiet } from "./loadFbxQuiet.js";
-import { loadMobileWhale, usesMobileWhale } from "../mobileWhale/loadMobileWhale.js";
-
-export const ANIMATED_WHALE_URL = "/models/allModels/FBX/animated_whale_01.fbx";
-export const HIGH_WHALE_URL = "/models/home/whale-high.glb";
+// One authored model and prepared swim for phones and desktops.
+export { loadMobileWhale as loadAnimatedWhale } from "../mobileWhale/loadMobileWhale.js";
 
 function disposeMaterial(material) {
 	if (!material) {
@@ -21,31 +13,6 @@ function disposeMaterial(material) {
 		material[key]?.dispose?.();
 	}
 	material.dispose?.();
-}
-
-function collectParticleMeshes(root) {
-	const meshes = [];
-
-	root.traverse((object) => {
-		if (!isParticleSource(object)) {
-			return;
-		}
-
-		object.visible = false;
-		object.castShadow = false;
-		object.receiveShadow = false;
-		meshes.push(object);
-	});
-
-	return meshes;
-}
-
-function isParticleSource(object) {
-	if (object.isSkinnedMesh || object.isMesh) {
-		return Boolean(object.geometry?.attributes?.position);
-	}
-
-	return object.isLineSegments || object.isLine;
 }
 
 /**
@@ -70,64 +37,6 @@ export function rebuildWhaleParticles(root, particleMeshes, previousParticles, o
 	}
 
 	return attachWhaleParticles(root, particleMeshes, options);
-}
-
-/**
- * Загружает подготовленного кита для high/medium; low пока использует исходный FBX.
- * @param {{ edgeSpacing?: number, renderMode?: 'particles' | 'hologram' }} [options]
- */
-export async function loadAnimatedWhale(options = {}) {
-	if (usesMobileWhale(window.innerWidth, window.innerHeight)) return loadMobileWhale();
-	const renderMode = options.renderMode === "hologram" ? "hologram" : "particles";
-	let root;
-	if (renderMode === "particles" || getGraphicsTier() === "medium") {
-		// Same topology, skeleton and SWIM deformation, prepared offline.
-		// High and Medium share the particle path; unused FBX clips stay out.
-		const gltf = await createGLTFLoader().loadAsync(HIGH_WHALE_URL);
-		root = gltf.scene.children[0];
-		root.animations = gltf.animations;
-	} else {
-		const { FBXLoader } = await import("three/examples/jsm/loaders/FBXLoader.js");
-		root = await loadFbxQuiet(new FBXLoader(), ANIMATED_WHALE_URL);
-	}
-
-	let particles = null;
-	let particleMeshes = [];
-	let hologramMaterial = null;
-
-	if (renderMode === "hologram") {
-		const holo = applyWhaleHologram(root);
-		hologramMaterial = holo.material;
-		particleMeshes = holo.meshes;
-		console.info(`[loadAnimatedWhale] hologram mode · ${holo.meshes.length} mesh`);
-	} else {
-		particleMeshes = collectParticleMeshes(root);
-		console.info("[loadAnimatedWhale] mesh:", [...new Set(particleMeshes.map((mesh) => mesh.name || "(unnamed)"))]);
-
-		if (particleMeshes.length === 0) {
-			console.warn("[loadAnimatedWhale] в FBX нет mesh/line геометрии — партиклы не созданы");
-		}
-
-		particles = attachWhaleParticles(root, particleMeshes, options);
-	}
-
-	const mixer = new THREE.AnimationMixer(root);
-	const clips = root.animations ?? [];
-	const swimClip = clips.find((clip) => clip.name === "SWIM-delphinidae") ?? clips[0] ?? null;
-	const swimAction = swimClip ? mixer.clipAction(swimClip) : null;
-	swimAction?.setLoop(THREE.LoopRepeat, Infinity);
-	swimAction?.play();
-
-	return {
-		root,
-		mixer,
-		swimAction,
-		animations: root.animations ?? [],
-		particles,
-		particleMeshes,
-		hologramMaterial,
-		renderMode,
-	};
 }
 
 /**
@@ -174,11 +83,15 @@ export function disposeWhaleRoot(root) {
 	}
 
 	const disposedMaterials = new Set();
+	const disposedGeometries = new Set();
 	const skeletons = new Set();
 
 	root.traverse((object) => {
 		if (object.skeleton) skeletons.add(object.skeleton);
-		object.geometry?.dispose?.();
+		if (object.geometry && !disposedGeometries.has(object.geometry)) {
+			disposedGeometries.add(object.geometry);
+			object.geometry.dispose();
+		}
 		const materials = Array.isArray(object.material) ? object.material : [object.material];
 		for (const material of materials) {
 			if (!material || disposedMaterials.has(material)) {

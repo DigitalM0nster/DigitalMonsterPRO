@@ -60,7 +60,7 @@ test("Home viewport resize retains the prepared hero instead of replaying its in
 	const scene = vm.runInNewContext(`({${method}})`);
 	let resizes = 0;
 	const hero = { resize() { resizes++; }, dispose() { assert.fail("Hero must survive viewport resize"); }, show() { assert.fail("Reveal must not restart"); } };
-	Object.assign(scene, { heroTitle: hero, _heroRenderer: {}, _appStarted: true, _updateMobileWhaleLayout() {}, _updateWhaleBodySway() {} });
+	Object.assign(scene, { heroTitle: hero, _heroRenderer: {}, _appStarted: true, _updateWhaleViewportLayout() {}, _updateWhaleBodySway() {} });
 	scene.onViewportResize();
 	assert.equal(scene.heroTitle, hero);
 	assert.equal(resizes, 1);

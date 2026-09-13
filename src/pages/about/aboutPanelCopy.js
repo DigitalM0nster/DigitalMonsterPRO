@@ -133,11 +133,11 @@ const ABOUT_PANEL_COPY = {
 			listItems: [
 				{
 					title: "САЙТЫ",
-					subtitle: "Имиджевые, корпоративные и продуктовые сайты с уникальной механикой взаимодействия.",
+					subtitle: "Представляем компанию, раскрываем её продукты и услуги",
 				},
 				{
 					title: "ВЕБ-ПРИЛОЖЕНИЯ",
-					subtitle: "Браузерные сервисы и интерфейсы для сложных пользовательских задач.",
+					subtitle: "Создаём сервисы для клиентов и рабочие инструменты для команды",
 				},
 				{
 					title: "ИНТЕРАКТИВНЫЕ ПРОЕКТЫ",
@@ -155,11 +155,11 @@ const ABOUT_PANEL_COPY = {
 			listItems: [
 				{
 					title: "WEBSITES",
-					subtitle: "Brand, corporate, and product sites with unique interaction mechanics.",
+					subtitle: "We introduce your company and showcase its products and services.",
 				},
 				{
 					title: "WEB APPLICATIONS",
-					subtitle: "Browser services and interfaces for complex user tasks.",
+					subtitle: "We create services for customers and tools for your team.",
 				},
 				{
 					title: "INTERACTIVE PROJECTS",
@@ -177,11 +177,11 @@ const ABOUT_PANEL_COPY = {
 			listItems: [
 				{
 					title: "网站",
-					subtitle: "具有独特交互机制的品牌、企业与产品网站。",
+					subtitle: "介绍您的公司，展示其产品与服务。",
 				},
 				{
 					title: "网页应用",
-					subtitle: "面向复杂用户任务的浏览器服务与界面。",
+					subtitle: "为客户打造服务，为团队开发工作工具。",
 				},
 				{
 					title: "互动项目",

@@ -234,7 +234,7 @@ void main() {
 		col = mix(uTint, uCore, 0.55 + uFillDark * 0.2) * uIntensity * band;
 		// Small letters need a continuous luminous face; moving contour accents
 		// remain visible but no longer supply the only readable parts of a glyph.
-		col = mix(col, mix(uCore, vec3(0.72, 0.92, 1.0), 0.24) * band, uReadability);
+		col = mix(col, mix(uCore, vec3(0.72, 0.92, 1.0), 0.65) * band, uReadability);
 		col = mix(col, uCore, liftAmt * 0.4);
 		/** Signal rewrite bleaches fill toward core on the blade. */
 		col = mix(col, uCore * (1.2 + uGlow * 0.4), bladeGlow * 0.75);

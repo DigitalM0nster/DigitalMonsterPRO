@@ -72,9 +72,9 @@ function paintFixture() {
 		resolveCaseProjectCanvasNavigationLayout: () => null,
 		estimateVerticalZone: () => null, ABOUT_HUD_PROJECT: {},
 		resolveAboutResponsiveLayout: () => true,
-		paintAboutCompactHud(args) { paints.push(args); return { mosaicBounds: { x: 0, y: 0, width: 100, height: 100 } }; },
+		paintAboutCompactHud(args) { paints.push(args); return { mosaicBounds: { x: 0, y: 0, width: 100, height: paints.length * 100 } }; },
 		paintCaseStudyPanelHudFrame: () => { throw new Error("unexpected desktop painter"); },
-		buildFrame: id => ({ id }), buildMosaic: () => ({}),
+		buildFrame: id => ({ id }), buildMosaic: (_canvas, bounds) => ({ bounds }),
 		nextPaint: () => new Promise(resolve => frames.push(resolve)),
 		cropAboutCanvas(source, bounds, width, height) { crops.push({ width, height }); return source; },
 	});
@@ -92,6 +92,16 @@ test("cancellation at the next paint frame avoids the remaining heavy panel pain
 	assert.equal(await job, false);
 	assert.equal(f.paints.length, 1);
 	assert.equal(f.committed.length, 0);
+});
+
+test("compact stage mosaic includes the tallest prepared copy after cropping", async () => {
+	const f = paintFixture();
+	const job = f.ensure({ viewportW: 390, viewportH: 700 });
+	await f.drain();
+	assert.equal(await job, true);
+	const { mosaic } = f.preparedLocales.get("ru|390x700");
+	assert.equal(mosaic.bounds.height, 300);
+	assert.equal(mosaic.bounds.viewportH, 700);
 });
 
 test("cancellation in the final crop frame cannot replace session buffers", async () => {

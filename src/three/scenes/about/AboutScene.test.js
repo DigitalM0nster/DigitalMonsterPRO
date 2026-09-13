@@ -14,6 +14,28 @@ const AboutScene = vm.runInNewContext(`${source}\nAboutScene`, {
 	setAboutDissolveProgress: (u, p) => { if (u?.uDissolve) u.uDissolve.value = p; },
 });
 
+test("compact glass exposure updates both prepared plates and restores desktop and Low", () => {
+	const scene = Object.create(AboutScene.prototype);
+	const front = { uniforms: { uCompact: { value: 0 } } };
+	const back = { uniforms: { uCompact: { value: 0 } } };
+	scene._materialsByKey = { frontGlass: front };
+	scene._backPlate = { material: back };
+	scene.store = { graphicsTier: "high" };
+	scene._viewport = { width: 390, height: 664 };
+	scene._syncCompactGlass();
+	assert.equal(front.uniforms.uCompact.value, 1);
+	assert.equal(back.uniforms.uCompact.value, 1);
+	scene.store.graphicsTier = "low";
+	scene._syncCompactGlass();
+	assert.equal(front.uniforms.uCompact.value, 0);
+	assert.equal(back.uniforms.uCompact.value, 0);
+	scene.store.graphicsTier = "medium";
+	scene._viewport = { width: 1920, height: 1080 };
+	scene._syncCompactGlass();
+	assert.equal(front.uniforms.uCompact.value, 0);
+	assert.equal(back.uniforms.uCompact.value, 0);
+});
+
 test("fully dissolved shell skips drawing, warms when hidden and returns intact on reverse", () => {
 	const scene = Object.create(AboutScene.prototype);
 	const materials = Array.from({ length: 4 }, () => new THREE.MeshBasicMaterial());

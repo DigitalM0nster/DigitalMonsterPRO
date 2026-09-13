@@ -21,6 +21,54 @@ function create(){
  media.entries.filter(Boolean).forEach(entry=>{entry.ready=true;});media.posters=['poster-one','poster-two','poster-three'].map(name=>({name,dispose(){}}));return media;
 }
 
+function nativeDom(media,mode="standard"){
+ const doc=document,video=media.video;
+ const element=()=>Object.assign(new EventTarget(),{style:{},setAttribute(){},append(){},remove(){},showModal(){this.open=true;},close(){this.open=false;}});
+ doc.createElement=element;doc.body={append(){}};
+ video.style={};video.remove=()=>{};video.requests=0;
+ doc.exitFullscreen=()=>{doc.fullscreenElement=null;doc.dispatchEvent(new Event("fullscreenchange"));return Promise.resolve();};
+ if(mode==="webkit"){
+  video.webkitEnterFullscreen=()=>{video.requests++;video.webkitDisplayingFullscreen=true;};
+  video.webkitExitFullscreen=()=>{video.webkitDisplayingFullscreen=false;video.dispatchEvent(new Event("webkitendfullscreen"));};
+ }else video.requestFullscreen=()=>{
+  video.requests++;
+  if(mode==="denied")return Promise.reject(new Error("Fullscreen unavailable"));
+  doc.fullscreenElement=video;doc.dispatchEvent(new Event("fullscreenchange"));return Promise.resolve();
+ };
+ return video;
+}
+
+for(const mode of ["standard","webkit","denied"])test("native "+mode+" player reuses video and preserves native pause, seeking and volume",async()=>{
+ const media=create();media.setAllowed(true);
+ const video=nativeDom(media,mode),texture=media.get(0),loads=video.loads;
+ video.currentTime=12;media.openFullscreen();
+ const player=media.nativePlayer;
+ assert.equal(video.requests,1,"fullscreen request runs synchronously in the gesture");
+ assert.equal(player.video,video);assert.equal(video.controls,true);
+ assert.equal(video.currentTime,12);assert.equal(media.get(0),texture);
+ await new Promise(resolve=>setImmediate(resolve));
+ video.currentTime=23;video.volume=.7;video.muted=false;video.pause();
+ for(let i=0;i<60;i++){media.syncPlayback();media.updateSound(.016,true);}
+ assert.equal(video.paused,true,"scene must not override native Pause");
+ assert.equal(video.volume,.7,"scene must not override native volume");
+ assert.equal(video.loads,loads);assert.equal(media.consumeEnded(),false);
+ if(mode==="standard")await document.exitFullscreen();
+ else if(mode==="webkit")video.webkitExitFullscreen();
+ else player.close();
+ assert.equal(media.nativePlayer,null);assert.equal(video.controls,false);
+ assert.equal(video.currentTime,23);assert.equal(media.active.paused,true);
+ assert.equal(media.volumeLevel,.7);assert.equal(media.get(0),texture);
+ media.dispose();
+});
+
+test("route leave and disposal close the native player without leaving a decoder playing",()=>{
+ const media=create();media.setAllowed(true);const video=nativeDom(media);
+ media.openFullscreen();media.setAllowed(false);
+ assert.equal(media.nativePlayer,null);assert.equal(video.paused,true);
+ media.setAllowed(true);media.openFullscreen();media.dispose();
+ assert.equal(media.nativePlayer,null);assert.equal(video.paused,true);
+});
+
 test('fallback video texture reuses paused frames and uploads completed seeks, including to the same time',()=>{
  const media=create(),entry=media.entries[0],{video,texture}=entry;
  texture.update();const initial=texture.version;

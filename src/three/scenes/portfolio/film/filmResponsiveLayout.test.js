@@ -17,18 +17,30 @@ function frameBounds(width, height, focus) {
 	camera.position.set(0, 0, 10); camera.lookAt(0, 0, 0); camera.updateMatrixWorld();
 	const root = new THREE.Group();
 	// Real curved frame geometry, transformed by the production update method.
-	const geometry = bendFilmGeometry(new THREE.PlaneGeometry(1.05, .54, 64, 2));
+	const geometry = new THREE.PlaneGeometry(1.05, .54, 64, 2);
+	if (!layout.mobile) bendFilmGeometry(geometry);
 	const frame = new THREE.Mesh(geometry); frame.position.z = .015; root.add(frame);
-	const names = ["uTime", "uFocus", "uGlitchTime", "uFrom", "uTo", "uFromAspect", "uToAspect", "uProgress", "uDirection", "uOpacity"];
+	const names = ["uTime", "uFocus", "uGlitchTime", "uFrom", "uTo", "uFromAspect", "uToAspect", "uProgress", "uDirection", "uOpacity", "uLocaleReveal", "uFlat", "uReadingThumb", "uScreenAspect"];
 	const uniforms = Object.fromEntries(names.map(name => [name, { value: 0 }]));
 	uniforms.uFromInfo = { value: new THREE.Vector2() }; uniforms.uToInfo = { value: new THREE.Vector2() };
+	uniforms.uInfoViewport = { value: new THREE.Vector2() };
+	uniforms.uReadingScroll = { value: new THREE.Vector4() };
+	uniforms.uReadingPixels = { value: new THREE.Vector2() };
 	const values = Object.fromEntries(hologramFields.map(([key]) => [key, 0]));
 	for (const [key] of hologramFields) uniforms[`uHolo${key}`] = { value: 0 };
-	const screen = { root, uniforms, hologramSettings: values, hologramValues: { ...values },
+	globalThis.window = { innerWidth: width };
+	const screen = { root, art: new THREE.Group(), frame, hit: {}, frameGeometry: geometry, flatFrameGeometry: geometry,
+		infoTextures: { get: () => ({ height: 500, viewportHeight: 450 }) }, infoScroll: 0,
+		uniforms, hologramSettings: values, hologramValues: { ...values },
 		media: { get: () => null, aspect: () => 2.05 }, projection: { update() {} } };
 	const bounds = { left: Infinity, top: Infinity, right: -Infinity, bottom: -Infinity };
 	for (const pointer of [{ x: -1, y: -1 }, { x: 1, y: 1 }]) {
 		FilmScreen.prototype.update.call(screen, { index: 0, destination: 0, progress: 0 }, 1, focus, layout, pointer, false, 0);
+		assert.equal(uniforms.uReadingThumb.value, .9, "small overflow retains a nearly full thumb at rest");
+		if (layout.mobile) {
+			assert.equal(Math.abs(root.rotation.x), 0); assert.equal(Math.abs(root.rotation.y), 0);
+			assert.equal(uniforms.uFlat.value, 1);
+		}
 		root.updateMatrixWorld(true);
 		const point = new THREE.Vector3(), positions = geometry.getAttribute("position");
 		for (let i = 0; i < positions.count; i++) {
@@ -42,7 +54,7 @@ function frameBounds(width, height, focus) {
 	return { layout, bounds };
 }
 
-test("curved film frame stays clear of navigation and the native player at every supported width", () => {
+test("flat mobile and curved desktop frames stay clear of navigation at every supported width", () => {
 	const failures = [];
 	for (const [width, height] of sizes) for (const focus of [0, 1]) {
 		const { layout, bounds } = frameBounds(width, height, focus);

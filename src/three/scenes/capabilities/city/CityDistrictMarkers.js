@@ -9,6 +9,7 @@ const HIT_RADIUS = 32;
 export const CITY_MARKER_DISTRICTS = Object.freeze([
 	"beacon-garden", "quarter-31", "quarter-27", "quarter-04", "quarter-26", "quarter-24",
 ]);
+export const CITY_MOBILE_MARKER_DISTRICTS = Object.freeze(["beacon-garden", "quarter-27", "quarter-26"]);
 
 /** Prepared billboard batch. The same projected circles own both drawing and hits. */
 export class CityDistrictMarkers {
@@ -29,6 +30,7 @@ export class CityDistrictMarkers {
 		this.visible = new Float32Array(districts.length);
 		this.parks = districts.map(d => d.kind === "park");
 		this.order = CITY_MARKER_DISTRICTS.map(name => districts.findIndex(d => d.name === name)).filter(id => id >= 0);
+		this.mobileOrder = CITY_MOBILE_MARKER_DISTRICTS.map(name => districts.findIndex(d => d.name === name)).filter(id => id >= 0);
 		this.accepted = new Int16Array(this.order.length);
 		this.count = 0;
 		this.hovered = -1;
@@ -100,7 +102,8 @@ export class CityDistrictMarkers {
 	project(camera, renderer = this.renderer) {
 		renderer.getSize(this.viewport);
 		const { x: width, y: height } = this.viewport;
-		for (const i of this.order) {
+		const compact = width <= 1024, activeOrder = compact ? this.mobileOrder : this.order;
+		for (const i of activeOrder) {
 			const p = this.points[i].copy(this.anchors[i]).applyMatrix4(this.cityMatrix);
 			p.project(camera);
 			this.offsets[i].copy(this.magnetOffsets[i]);
@@ -108,7 +111,6 @@ export class CityDistrictMarkers {
 			p.y = (p.y + 1) * height / 2 + this.offsets[i].y;
 		}
 		this.visible.fill(0); this.count = 0;
-		const compact = width <= 1024;
 		const landscape = height <= 480 && width > height;
 		// Match CityWorldTitle's prepared quad; reserve the full marker radius.
 		const titleWidth = landscape ? Math.min(380, width * .48 - 24) : Math.min(560, width - 24);
@@ -129,7 +131,7 @@ export class CityDistrictMarkers {
 				p.y = Math.min(p.y, height - THREE.MathUtils.lerp(titleBottom, height - top, release));
 			} else if (titleRight <= right) p.x = Math.max(p.x, titleRight);
 		};
-		for (const id of this.order) {
+		for (const id of activeOrder) {
 			const p = this.points[id];
 			// Only the free-flight camera can put an anchor behind the viewing plane.
 			if (!Number.isFinite(p.x + p.y + p.z) || Math.abs(p.z) > 1) continue;

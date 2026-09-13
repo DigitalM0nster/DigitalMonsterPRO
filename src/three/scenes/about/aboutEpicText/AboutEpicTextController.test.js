@@ -61,16 +61,22 @@ test("live edits update every prepared locale and outline edits still rebuild on
 	assert.equal(counts().builds, 6);
 });
 
-test("compact resize applies and reverses Low brightness without changing settings", () => {
-	const { controller, tune } = fixture();
+test("compact text has a stable readable fill and resizing back restores authored desktop uniforms", () => {
+	const { controller, tune, counts } = fixture();
 	controller.syncTuneFromDev();
 	const u = controller._variants.get("ru").fillMat.uniforms;
 	controller.setCompactViewport(330, 568);
 	controller.syncTuneFromDev();
-	assert.equal(u.uIntensity.value, tune.intensity * 2);
-	assert.equal(u.uFillDark.value, Math.max(.9, tune.fillDark));
+	assert.equal(u.uIntensity.value, tune.intensity);
+	assert.equal(u.uReadability.value, 1);
+	const compact = counts();
+	for (let i = 0; i < 120; i++) controller.syncTuneFromDev();
+	assert.equal(counts().builds, compact.builds, "readability never recreates glyph geometry");
+	assert.equal(counts().parses, compact.parses);
 	controller.setCompactViewport(1920, 1080);
 	controller.syncTuneFromDev();
 	assert.equal(u.uIntensity.value, tune.intensity);
 	assert.equal(u.uFillDark.value, tune.fillDark);
+	assert.equal(u.uReadability.value, 0);
+	assert.equal(counts().builds, compact.builds, "viewport changes only update uniforms");
 });

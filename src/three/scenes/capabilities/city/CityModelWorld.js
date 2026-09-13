@@ -12,6 +12,7 @@ import { replaceCitySurfaceMaterials } from "./cityBuildingMaterials.js";
 import { loadCityWindowState } from "./cityWindowShader.js";
 import { createCityReflectionEnvironment, prepareCityOfficeReflections } from "./cityReflectionEnvironment.js";
 import { CityInstanceVisibility } from "./CityInstanceVisibility.js";
+import { CITY_MOBILE_CAMERA, cityMobileCameraFov } from "./cityCameraComposition.js";
 
 const CITY_FOG_COLOR = "#00050b";
 const CITY_FOG_DENSITY = CITY_TRAFFIC_DEFAULTS.fogDensity;
@@ -71,6 +72,8 @@ export class CityModelWorld {
 		this.group.visible = false;
 		this.cameraPosition = CITY_CAMERA_POSITION.clone();
 		this.cameraLookAt = CITY_CAMERA_LOOK_AT.clone();
+		this.activeCameraLookAt = this.cameraLookAt.clone();
+		this.cameraViewport = new THREE.Vector2();
 		this.model = null;
 		this.sceneFog = scene.fog?.isFogExp2 ? scene.fog : null;
 		this.sceneFogDefaultDensity = this.sceneFog?.density ?? CITY_FOG_DENSITY;
@@ -233,20 +236,29 @@ export class CityModelWorld {
 	}
 
 	getOrbitTarget(target) {
-		return target ? target.copy(this.cameraLookAt) : this.cameraLookAt;
+		return target ? target.copy(this.activeCameraLookAt) : this.activeCameraLookAt;
 	}
 
 	applyCamera(camera, parallax) {
-		camera.position.copy(this.cameraPosition);
-		const fit = Math.min(2.2, Math.max(1, 1.05 / Math.max(0.4, camera.aspect)));
+		this.renderer.getSize(this.cameraViewport);
+		const mobile = this.cameraViewport.x <= 1024;
+		if (mobile) {
+			camera.position.fromArray(CITY_MOBILE_CAMERA.position);
+			const landscape = this.cameraViewport.x > this.cameraViewport.y && this.cameraViewport.y <= 480;
+			this.activeCameraLookAt.fromArray(landscape ? CITY_MOBILE_CAMERA.landscapeTarget : CITY_MOBILE_CAMERA.target);
+		} else {
+			camera.position.copy(this.cameraPosition);
+			this.activeCameraLookAt.copy(this.cameraLookAt);
+		}
+		const fit = mobile ? 1 : Math.min(2.2, Math.max(1, 1.05 / Math.max(0.4, camera.aspect)));
 		this._viewportCameraFit = fit;
 		if (this.group.visible && this.sceneFog) this.sceneFog.density = this.cityFogDensity / fit;
-		camera.position.sub(this.cameraLookAt).multiplyScalar(fit).add(this.cameraLookAt);
-		camera.position.x += (Number(parallax?.x) || 0) * 0.58;
-		camera.position.y += (Number(parallax?.y) || 0) * 0.42;
-		camera.fov = CITY_CAMERA_FOV;
+		camera.position.sub(this.activeCameraLookAt).multiplyScalar(fit).add(this.activeCameraLookAt);
+		camera.position.x += (Number(parallax?.x) || 0) * (mobile ? .16 : .58);
+		camera.position.y += (Number(parallax?.y) || 0) * (mobile ? .12 : .42);
+		camera.fov = mobile ? cityMobileCameraFov(this.cameraViewport.y) : CITY_CAMERA_FOV;
 		camera.updateProjectionMatrix();
-		camera.lookAt(this.cameraLookAt);
+		camera.lookAt(this.activeCameraLookAt);
 		camera.updateMatrixWorld(true);
 	}
 

@@ -16,6 +16,7 @@ uniform float uGlow;
 uniform float uOutlineBoost;
 uniform float uFillDark;
 uniform float uFillOpacity;
+uniform float uReadability;
 uniform float uFlowSpeed;
 uniform float uDashCount;
 uniform float uDashLength;
@@ -212,6 +213,7 @@ void main() {
 		float profile = exp(-across * across * 7.5) * (1.0 - smoothstep(0.75, 1.0, across));
 		float travel = strokeTravelMask(vStrokeAlong);
 		float travelMix = mix(travel, max(travel, 0.55), max(exitP, bladeGlow));
+		travelMix = max(travelMix, uReadability * 0.18);
 		float vis = profile * travelMix * travelBoost;
 		if (vis < 0.02 && bladeGlow < 0.05) discard;
 
@@ -222,6 +224,7 @@ void main() {
 		col += uCore * bladeGlow * (1.4 + uGlow);
 		col += uOutline * ghost * 0.8;
 		col *= uIntensity * (1.0 + travelMix * 0.35);
+		col *= mix(1.0, 0.35, uReadability);
 		alpha = am * max(vis * localeHold, bladeGlow * 0.85);
 	} else {
 		float fillOpacity = clamp(uFillOpacity, 0.0, 1.0);
@@ -229,11 +232,14 @@ void main() {
 
 		float band = 0.92 + 0.08 * sin(uTime * 0.7 + sampleUv.x * 2.0);
 		col = mix(uTint, uCore, 0.55 + uFillDark * 0.2) * uIntensity * band;
+		// Small letters need a continuous luminous face; moving contour accents
+		// remain visible but no longer supply the only readable parts of a glyph.
+		col = mix(col, mix(uCore, vec3(0.72, 0.92, 1.0), 0.24) * band, uReadability);
 		col = mix(col, uCore, liftAmt * 0.4);
 		/** Signal rewrite bleaches fill toward core on the blade. */
 		col = mix(col, uCore * (1.2 + uGlow * 0.4), bladeGlow * 0.75);
 		col += uOutline * ghost * 0.25;
-		alpha = am * fillOpacity * (0.4 + uFillDark * 0.35) * localeHold;
+		alpha = am * mix(fillOpacity * (0.4 + uFillDark * 0.35), 0.94, uReadability) * localeHold;
 		alpha = max(alpha, bladeGlow * 0.35 * am);
 	}
 

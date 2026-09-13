@@ -16,6 +16,7 @@ export function createAboutFrontGlassMaterial(cfg = {}) {
 		uOpacity: { value: cfg.opacity ?? 0.42 },
 		uRimPower: { value: cfg.rimPower ?? 2.1 },
 		uRimIntensity: { value: cfg.rimIntensity ?? 2.85 },
+		uCompact: { value: 0 },
 		uInnerGlow: { value: cfg.innerGlow ?? 0.4 },
 		uGridScale: { value: cfg.gridScale ?? 28 },
 		uGridOpacity: { value: cfg.gridOpacity ?? 0.12 },
@@ -67,6 +68,7 @@ export function createAboutFrontGlassMaterial(cfg = {}) {
 			uniform float uOpacity;
 			uniform float uRimPower;
 			uniform float uRimIntensity;
+			uniform float uCompact;
 			uniform float uInnerGlow;
 			uniform float uGridScale;
 			uniform float uGridOpacity;
@@ -191,7 +193,9 @@ export function createAboutFrontGlassMaterial(cfg = {}) {
 				vec3 base = uColor * (0.55 + face * 0.7);
 				vec3 col = base * max(volume, face * 0.85);
 
-				col += uRimColor * rim * uRimIntensity;
+				// Preserve the edge shape/occlusion while keeping compact bloom from
+				// swallowing the glass face and thin etched details.
+				col += uRimColor * rim * uRimIntensity * mix(1.0, 0.5, uCompact);
 				col += uRimColor * face * uInnerGlow * 0.25;
 				col += uRimColor * energy * (1.25 + rim * 0.6);
 				col += uRimColor * grid * 0.8;

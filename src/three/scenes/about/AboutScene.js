@@ -567,6 +567,7 @@ export class AboutScene {
 				this._epicText?.dispose();
 				this._epicText = new AboutEpicTextController();
 				this._epicText.setCompactViewport(this._viewport.width, this._viewport.height);
+				this._syncCompactGlass();
 				return this._epicText.attach(model, store.siteLocale).then(() => {
 					if (this._disposed) return false;
 					this._applyStoryProgress(this._readAboutStoryProgress());
@@ -719,10 +720,20 @@ export class AboutScene {
 		const { mobile, short } = this._viewport;
 		this._compactLayout = resolveAboutResponsiveLayout(this._viewport.width, this._viewport.height);
 		this._epicText?.setCompactViewport(this._viewport.width, this._viewport.height);
+		this._syncCompactGlass();
 		this._layout = mobile ? ABOUT_LAYOUT.mobile : short ? ABOUT_LAYOUT.short : ABOUT_LAYOUT.desktop;
 		const layout = this._layout;
 		this.root.position.set(layout.rootX, layout.rootY, 0);
 		this.root.scale.setScalar(layout.rootScale);
+	}
+
+	_syncCompactGlass() {
+		const compact = (this._viewport.width <= 1024 || this._viewport.height <= 600)
+			&& this.store.graphicsTier !== "low";
+		for (const material of [this._materialsByKey?.frontGlass, this._backPlate?.material]) {
+			const uniform = material?.uniforms?.uCompact;
+			if (uniform) uniform.value = compact ? 1 : 0;
+		}
 	}
 
 	_updateModelMotion(delta, frame) {

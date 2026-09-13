@@ -3,7 +3,6 @@ import * as THREE from "three";
 import { subscribeKey } from "valtio/utils";
 import { store } from "@/app/store.jsx";
 import { normalizeSiteLocale } from "@/functions/siteLocale.js";
-import { getGraphicsTier } from "@/functions/getGraphicsTier.js";
 import { shouldAnimateSiteLocaleForRingScene } from "@/functions/siteLocaleSwitch.js";
 import {
 	findAllAboutEpicTextPlanes,
@@ -46,6 +45,7 @@ function makeUniforms(bounds, layer) {
 		uOutlineBoost: { value: aboutEpicTextTune.outlineBoost },
 		uFillDark: { value: aboutEpicTextTune.fillDark },
 		uFillOpacity: { value: aboutEpicTextTune.fillOpacity ?? 0 },
+		uReadability: { value: 0 },
 		uFlowSpeed: { value: aboutEpicTextTune.flowSpeed },
 		uDashCount: { value: aboutEpicTextTune.dashCount ?? 18 },
 		uDashLength: { value: aboutEpicTextTune.dashLength ?? 0.22 },
@@ -115,7 +115,7 @@ export class AboutEpicTextController {
 		this._ready = false;
 		this._disposed = false;
 		this._lastStrokeTuneKey = "";
-		this._compactLow = false;
+		this._compactText = false;
 		this._appliedTune = null;
 
 		/**
@@ -549,7 +549,7 @@ export class AboutEpicTextController {
 	}
 
 	setCompactViewport(width, height) {
-		this._compactLow = (width <= 1024 || height <= 600) && getGraphicsTier() === "low";
+		this._compactText = width <= 1024 || height <= 600;
 	}
 
 	syncTuneFromDev() {
@@ -560,7 +560,7 @@ export class AboutEpicTextController {
 
 	_syncTuneUniforms() {
 		const t = aboutEpicTextTune;
-		let changed = !this._appliedTune || this._appliedCompactLow !== this._compactLow;
+		let changed = !this._appliedTune || this._appliedCompactText !== this._compactText;
 		if (!changed) {
 			for (const key in t) {
 				if (t[key] !== this._appliedTune[key]) {
@@ -572,7 +572,7 @@ export class AboutEpicTextController {
 		if (!changed) return;
 		// Snapshot only on edits/resize: no per-frame colour parsing or copies.
 		this._appliedTune = { ...t };
-		this._appliedCompactLow = this._compactLow;
+		this._appliedCompactText = this._compactText;
 		const tuneKey = `${t.outlineWidth}|${t.outlineExpand}`;
 		const rebuildStroke = tuneKey !== this._lastStrokeTuneKey;
 		this._lastStrokeTuneKey = tuneKey;
@@ -583,7 +583,8 @@ export class AboutEpicTextController {
 				const u = mat?.uniforms;
 				if (!u) continue;
 				u.uMode.value = t.mode;
-				u.uIntensity.value = t.intensity * (this._compactLow ? 2 : 1);
+				u.uIntensity.value = t.intensity;
+				u.uReadability.value = this._compactText ? 1 : 0;
 				u.uGlow.value = t.glow;
 				u.uScanSpeed.value = t.scanSpeed;
 				u.uGlitch.value = t.glitch;
@@ -591,10 +592,8 @@ export class AboutEpicTextController {
 				u.uParallax.value = t.parallax;
 				u.uOutlineWidth.value = t.outlineWidth;
 				u.uOutlineBoost.value = t.outlineBoost;
-				// Low has no full-scene bloom to lift these small closing letters.
-				// Use the prepared fill itself; no extra pass or sprite halo is needed.
-				u.uFillDark.value = this._compactLow ? Math.max(.9, t.fillDark) : t.fillDark;
-				u.uFillOpacity.value = this._compactLow ? Math.min(1, (t.fillOpacity ?? 0) * 1.65) : t.fillOpacity ?? 0;
+				u.uFillDark.value = t.fillDark;
+				u.uFillOpacity.value = t.fillOpacity ?? 0;
 				u.uFlowSpeed.value = t.flowSpeed;
 				u.uDashCount.value = t.dashCount ?? 18;
 				u.uDashLength.value = t.dashLength ?? 0.22;

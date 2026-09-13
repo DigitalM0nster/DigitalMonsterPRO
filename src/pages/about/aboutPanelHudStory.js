@@ -361,7 +361,9 @@ async function paintAboutPanelHudCanvases(opts = {}) {
 	const left = Math.min(...bounds.map(b => b.x)), top = Math.min(...bounds.map(b => b.y));
 	const right = Math.max(...bounds.map(b => b.x + b.width)), bottom = Math.max(...bounds.map(b => b.y + b.height));
 	const crop = bounds.length ? { x: left, y: top, width: right - left, height: bottom - top } : { x: 0, y: 0, width: viewportW, height: viewportH };
-	const preparedMosaic = buildMosaic(c1, fromResult.mosaicBounds ?? null, viewportW);
+	// Compact copies can wrap to different heights. One prepared union keeps
+	// every stage inside the same reversible mosaic without storing empty space.
+	const preparedMosaic = buildMosaic(c1, { ...crop, viewportW, viewportH }, viewportW);
 	const cropped = [];
 	for (const canvas of [c1, c2, c3, empty]) {
 		await nextPaint();

@@ -45,7 +45,8 @@ export default function FilmProjectInfo() {
   if (railTop && railBottom) {
    const dx = railBottom.x - railTop.x, dy = railBottom.y - railTop.y;
    const enabled = frame.infoVisible && frame.contentRatio > 1.01;
-   railAxis.current = { x: railTop.x, y: railTop.y, dx, dy, length2: dx * dx + dy * dy, enabled };
+   railAxis.current = { x: railTop.x, y: railTop.y, dx, dy, length2: dx * dx + dy * dy, enabled,
+    thumbSize: Math.max(.04, Math.min(1, 1 / frame.contentRatio)) };
    Object.assign(rail.current.style, { left: `${railTop.x - 16}px`, top: `${railTop.y}px`,
     height: `${Math.hypot(dx, dy)}px`, transform: `rotate(${Math.atan2(-dx, dy)}rad)`, pointerEvents: enabled ? "auto" : "none" });
    rail.current.tabIndex = enabled ? 0 : -1;
@@ -83,18 +84,23 @@ export default function FilmProjectInfo() {
  const setRailProgress = event => {
   const axis = railAxis.current;
   if (!axis?.enabled || !sceneOwnsHexHitAtClientY("portfolioHub", event.clientY)) return;
-  const progress = Math.max(0, Math.min(1, ((event.clientX - axis.x) * axis.dx + (event.clientY - axis.y) * axis.dy) / Math.max(1, axis.length2)));
+  const along = ((event.clientX - axis.x) * axis.dx + (event.clientY - axis.y) * axis.dy) / Math.max(1, axis.length2);
+  const progress = Math.max(0, Math.min(1, (along - (dragging.current?.grab ?? axis.thumbSize / 2)) / Math.max(.001, 1 - axis.thumbSize)));
   surface.current.scrollTop = progress * Math.max(0, surface.current.scrollHeight - surface.current.clientHeight);
  };
  const railDown = event => {
   if (event.button !== 0 || !railAxis.current?.enabled || !sceneOwnsHexHitAtClientY("portfolioHub", event.clientY)) return;
   event.preventDefault(); event.stopPropagation();
-  dragging.current = event.pointerId; event.currentTarget.setPointerCapture(event.pointerId);
+  const axis = railAxis.current, el = surface.current;
+  const along = ((event.clientX - axis.x) * axis.dx + (event.clientY - axis.y) * axis.dy) / Math.max(1, axis.length2);
+  const start = el.scrollTop / Math.max(1, el.scrollHeight - el.clientHeight) * (1 - axis.thumbSize);
+  dragging.current = { id: event.pointerId, grab: along >= start && along <= start + axis.thumbSize ? along - start : axis.thumbSize / 2 };
+  event.currentTarget.setPointerCapture(event.pointerId);
   event.currentTarget.focus({ preventScroll: true }); setRailProgress(event);
  };
- const railMove = event => { if (dragging.current === event.pointerId) { event.stopPropagation(); setRailProgress(event); } };
+ const railMove = event => { if (dragging.current?.id === event.pointerId) { event.stopPropagation(); setRailProgress(event); } };
  const railEnd = event => {
-  if (dragging.current !== event.pointerId) return;
+  if (dragging.current?.id !== event.pointerId) return;
   event.stopPropagation(); dragging.current = null;
   if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
  };

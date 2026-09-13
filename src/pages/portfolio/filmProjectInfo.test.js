@@ -25,7 +25,9 @@ test("all published videos have complete localized information and the approved 
 		const sections = getFilmInfoSections(content, filmInfoCopy[locale]);
 		assert.ok(sections.length, "Every project has a readable contribution section");
 		for (const section of sections) assert.ok(section.title?.trim() && section.body?.trim());
-		if (project.id === "nipigas") { assert.equal(sections.length, 3); assert.ok(content.closing?.trim()); }
+		assert.equal(sections.length, 3, `${project.id}/${locale}: three editorial chapters`);
+		assert.ok(content.introLabel?.trim(), `${project.id}/${locale}: introduction label`);
+		assert.ok(content.closing?.trim(), `${project.id}/${locale}: closing contribution`);
 		assert.equal(locale === "ru" ? project.detail : project[locale], content.summary);
 		assert.equal(content.result, undefined, "No measured outcome is claimed without evidence");
 	}

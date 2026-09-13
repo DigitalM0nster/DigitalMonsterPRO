@@ -200,5 +200,10 @@ test("the same six districts survive the entire drag range, hover priority and r
 	}
 	assert.equal(markers.mesh.geometry, geometry); assert.equal(markers.markerState, state);
 	assert.equal(geometry.attributes.position.count, 6 * 6, "only the selected circles are drawn");
+	for (const [width, height] of [[390, 844], [844, 390], [768, 1024], [1920, 1080]]) {
+		markers.project(camera, { getSize: target => target.set(width, height) });
+		assert.deepEqual(markers.order.filter(id => markers.visible[id]), width <= 1024 ? [85, 26, 25] : expected);
+		assert.equal(markers.mesh.geometry, geometry, "responsive marker count reuses the same batch");
+	}
 	highlight.dispose();
 });

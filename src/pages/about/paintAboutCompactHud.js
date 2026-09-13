@@ -2,6 +2,7 @@ import { store } from "@/app/store.jsx";
 import { prepareCaseStudyCanvasContext, resolveCaseStudyPanelHudPixelRatio } from "@/pages/portfolio/ui/CaseStudyCanvas/caseStudyCanvasSurface.js";
 import { CASE_STUDY_BODY_FONT, CASE_STUDY_DISPLAY_FONT, wrapTextLines } from "@/pages/portfolio/ui/CaseStudyCanvas/caseStudyCanvasText.js";
 import { resolveAboutResponsiveLayout } from "./aboutResponsiveLayout.js";
+import { resolveOutputPixelRatio } from "@/three/renderer/renderResolution.js";
 
 const SHORT_COPY = {
 	ru: {
@@ -24,7 +25,9 @@ const SHORT_COPY = {
 /** Paint once per viewport/locale. The full copy remains in the native reading sheet. */
 export function paintAboutCompactHud({ canvas, viewportW, viewportH, frame }) {
 	const layout = resolveAboutResponsiveLayout(viewportW, viewportH);
-	const ctx = prepareCaseStudyCanvasContext(canvas, viewportW, viewportH, resolveCaseStudyPanelHudPixelRatio(store.graphicsTier));
+	const ratio = resolveOutputPixelRatio(store.graphicsTier, resolveCaseStudyPanelHudPixelRatio(store.graphicsTier),
+		window.devicePixelRatio, viewportW, viewportH);
+	const ctx = prepareCaseStudyCanvasContext(canvas, viewportW, viewportH, ratio);
 	if (!ctx || !layout) return null;
 	ctx.clearRect(0, 0, viewportW, viewportH);
 	ctx.textBaseline = "top";
@@ -58,5 +61,7 @@ export function paintAboutCompactHud({ canvas, viewportW, viewportH, frame }) {
 		y += bodySize * 1.35;
 	});
 	return { hitRegions: [], mosaicBounds: { x: x - 10, y: top - 8, width: textWidth + 30,
-		height: Math.max(1, layout.actionY - top + 8), viewportW, viewportH } };
+		// The action is a separate prepared element. Crop the story textures to
+		// their painted text/shade, so native-DPR letters do not store empty 3D space.
+		height: Math.max(1, contentHeight + 16, y - top + 16), viewportW, viewportH } };
 }

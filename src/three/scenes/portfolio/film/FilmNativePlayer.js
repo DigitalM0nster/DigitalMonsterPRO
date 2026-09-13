@@ -4,8 +4,12 @@ export class FilmNativePlayer {
   this.media=media;this.entry=entry;this.video=entry.video;this.closed=false;this.entered=false;
   this.focus=document.activeElement;
   this.dialog=document.createElement("dialog");
+  this.dialog.setAttribute("role","dialog");
   this.dialog.setAttribute("aria-label","Видеоплеер");
   this.dialog.setAttribute("data-canvas-pointer-blocker","true");
+  // Native scrubbing and scrolling must never reach the site's carousel listeners.
+  for(const type of ["pointerdown","pointermove","pointerup","wheel","touchstart","touchmove","touchend","keydown"])
+   this.dialog.addEventListener(type,event=>event.stopPropagation());
   this.dialog.style.cssText="position:fixed;inset:0;width:100%;height:100%;max-width:none;max-height:none;margin:0;padding:0;border:0;background:#000;color:#fff;overflow:hidden";
   const close=document.createElement("button");
   close.type="button";close.textContent="✕";close.setAttribute("aria-label","Закрыть видео");

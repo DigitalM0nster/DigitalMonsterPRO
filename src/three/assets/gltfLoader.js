@@ -1,15 +1,58 @@
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
+import { isMobileGraphicsDevice } from "../../functions/getGraphicsTier.js";
 
 /** Same-origin Draco: model readiness must not depend on an external CDN. */
 const DRACO_DECODER_PATH = "/draco/1.5.6/";
 
 let sharedDracoLoader = null;
 
+// Three r155's dispose terminates existing workers but does not cancel an
+// in-flight decoder download. Its continuation can create a new worker after
+// the app has already failed. Guard that boundary and settle active tasks.
+class PreparedDracoLoader extends DRACOLoader {
+	_cancelled = false;
+	decodeDracoFile(...args) {
+		const pending = super.decodeDracoFile(...args);
+		// r155 GLTFLoader uses the callback and ignores this returned promise.
+		// A disposed app must neither run that callback nor emit one unhandled
+		// rejection per primitive. Promise consumers still receive the rejection;
+		// genuine decoder failures keep the upstream error behavior.
+		pending.catch(error => { if (error.name !== "AbortError") throw error; });
+		return pending;
+	}
+	async _getWorker(taskID, taskCost) {
+		if (this._cancelled) throw new DOMException("Model preparation cancelled", "AbortError");
+		await this._initDecoder();
+		if (this._cancelled) {
+			super.dispose(); // Also revoke a blob produced by the late decoder download.
+			throw new DOMException("Model preparation cancelled", "AbortError");
+		}
+		const worker = await super._getWorker(taskID, taskCost);
+		if (this._cancelled) {
+			super.dispose();
+			throw new DOMException("Model preparation cancelled", "AbortError");
+		}
+		return worker;
+	}
+	dispose() {
+		this._cancelled = true;
+		for (const worker of this.workerPool) {
+			for (const callback of Object.values(worker._callbacks)) {
+				callback.reject(new DOMException("Model preparation cancelled", "AbortError"));
+			}
+		}
+		return super.dispose();
+	}
+}
+
 function getDracoLoader() {
 	if (!sharedDracoLoader) {
-		sharedDracoLoader = new DRACOLoader();
+		sharedDracoLoader = new PreparedDracoLoader();
 		sharedDracoLoader.setDecoderPath(DRACO_DECODER_PATH);
+		// Each worker owns a separate WASM heap. Bound mobile peak memory while
+		// retaining the same models; decode stays off the rendering thread.
+		sharedDracoLoader.setWorkerLimit(isMobileGraphicsDevice() ? 1 : 4);
 	}
 	return sharedDracoLoader;
 }

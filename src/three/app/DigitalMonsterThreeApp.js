@@ -257,6 +257,8 @@ export class DigitalMonsterThreeApp {
 	 * Start must not unlock before this settles. compile() alone is not enough.
 	 */
 	async _prepareApplication() {
+		this.preparationStartedAt = performance.now();
+		this.preparationStage = "scene-assets";
 		if (!this.fullWarm) {
 			const homePrepared = this.sceneManager.readyPromise
 				.then(async () => {
@@ -292,15 +294,20 @@ export class DigitalMonsterThreeApp {
 			if (this.disposed) {
 				return false;
 			}
+			// All model consumers are ready; decoded geometry no longer needs the
+			// Draco workers or their WASM heaps during GPU warming and navigation.
+			disposeSharedDracoLoader();
 
 			await yieldToNextPaint();
 			// Late UI under curtain, then compile (hero includes scroll-hint meshes).
+			this.preparationStage = "home-typography";
 			await this.sceneManager.getSceneById("home")?.prepareHeroTextUnderCurtain?.();
 			if (this.disposed || this._webglLost) return false;
 			this._setPreparationProgress(0.29);
 
 			await yieldToNextPaint();
 			// Case and capability HUD canvases/textures for every locale.
+			this.preparationStage = "case-typography";
 			await warmCasePanelHudUnderCurtain({
 				sceneManager: this.sceneManager,
 				renderer: this.renderer,
@@ -311,10 +318,12 @@ export class DigitalMonsterThreeApp {
 			}
 
 			await yieldToNextPaint();
+			this.preparationStage = "about-typography";
 			await warmAboutPanelHudUnderCurtain({
 				sceneManager: this.sceneManager,
 				renderer: this.renderer,
 			});
+			this.preparationStage = "scene-interfaces";
 			await prepareSceneCanvasInterfaces(this.sceneManager, this.renderer);
 			await this.siteArc.labels.prepare(this.renderer);
 			this._setPreparationProgress(0.35);
@@ -325,10 +334,12 @@ export class DigitalMonsterThreeApp {
 			await this.preparationScheduler.run(() => this.sceneManager.warmupRenderTargets(), { gpu: true });
 			this._setPreparationProgress(0.36);
 
+			this.preparationStage = "shader-compilation";
 			await this.sceneManager.warmupPrograms({ scheduler: this.preparationScheduler,
 				onProgress: (done, total) => this._setPreparationProgress(0.36 + 0.16 * done / total),
 			});
 			this._setPreparationProgress(0.52);
+			this.preparationStage = "interface-gpu-warmup";
 			await this._warmupScreenOverlays();
 			if (this.disposed) {
 				return false;
@@ -341,6 +352,8 @@ export class DigitalMonsterThreeApp {
 				const failedProgram = this.renderer.info.programs.find((program) => program.diagnostics?.runnable === false);
 				if (failedProgram) throw new Error(`Shader program ${failedProgram.name || failedProgram.id} could not compile`);
 				this.ready = true;
+				this.preparationStage = "ready";
+				this.preparationPair = null;
 				this._setPreparationProgress(1);
 				return true;
 			}
@@ -359,6 +372,7 @@ export class DigitalMonsterThreeApp {
 	}
 
 	async _warmupRenderPipeline() {
+		this.preparationStage = "compositor-gpu-warmup";
 		const scheduler = this.preparationScheduler;
 		await this.backgroundPipeline.prepareProgramsUnderCurtain(scheduler);
 		const backgroundTexture = await scheduler.run(() =>
@@ -408,6 +422,7 @@ export class DigitalMonsterThreeApp {
 	 * Strictly sequential — one heavy GPU step per breath so the loader UI stays live.
 	 */
 	async _warmupAllScenesAndHexPairs(backgroundTexture) {
+		this.preparationStage = "scene-gpu-warmup";
 		const sceneIds = this.sceneManager.getWarmupDrawSceneIds();
 		/** @type {Set<string>} */
 		const drawnIds = new Set();
@@ -477,6 +492,8 @@ export class DigitalMonsterThreeApp {
 	}) {
 		if (this.disposed) return false;
 		const scheduler = this.preparationScheduler;
+		this.preparationStage = "hex-gpu-warmup";
+		this.preparationPair = [sourceId, targetId];
 		// About's prepared content also passes through the compositor during hex.
 		// Read the warm texture directly: runtime route/visibility gates stay dormant.
 		const overlayForScene = (id) => id === "about"
@@ -1370,6 +1387,18 @@ export class DigitalMonsterThreeApp {
 		this.onWebGLContextLost(reason);
 	}
 
+	getFailureSnapshot() {
+		return {
+			stage: this.preparationStage,
+			seconds: Math.round((performance.now() - (this.preparationStartedAt ?? performance.now())) / 100) / 10,
+			prepared: this.ready, preparation: this.store.preparationProgress,
+			tier: this.gfxTier, sceneDpr: this.store.graphicsDpr,
+			viewport: [window.innerWidth, window.innerHeight], buffer: [this.canvas.width, this.canvas.height],
+			programs: this.renderer.info.programs?.length, ...this.renderer.info.memory,
+			warmPair: this.preparationPair ?? null,
+		};
+	}
+
 	start() {
 		const tick = () => {
 			if (this.disposed) {
@@ -1459,6 +1488,7 @@ export class DigitalMonsterThreeApp {
 	}
 
 	dispose() {
+		if (this.disposed) return;
 		this.deviceTilt?.dispose();
 		this.disposed = true;
 		this.container.style.cursor = "";
@@ -1521,6 +1551,8 @@ export class DigitalMonsterThreeApp {
 		this.screenCompositor.dispose();
 		disposeSharedDracoLoader();
 		this.renderer?.dispose?.();
+		if (!this.renderer.getContext().isContextLost()) this.renderer.forceContextLoss();
+		this.canvas.width = this.canvas.height = 1;
 		this.canvas.remove();
 	}
 }

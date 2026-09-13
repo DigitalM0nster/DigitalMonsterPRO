@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { releaseStaticCanvasAfterUpload } from "../../../assets/releaseStaticCanvasAfterUpload.js";
 import { advanceCityTitle, cityTitleReveal, CITY_TITLE_REVEAL_DURATION } from "./cityTitleMotion.js";
 import { SceneTextLocale } from "../typography/sceneTextLocale.js";
 import { TITLE_MOSAIC_GLSL } from "../typography/titleMosaic.js";
@@ -100,6 +101,7 @@ export class CityWorldTitle {
 			ctx.restore();
 		}
 		this.texture = new THREE.CanvasTexture(canvas);
+		releaseStaticCanvasAfterUpload(this.texture);
 		this.texture.name = "city-world-title-all-locales";
 		// World-space type is minified obliquely: static mipmaps prevent shimmering.
 		this.texture.minFilter = THREE.LinearMipmapLinearFilter;

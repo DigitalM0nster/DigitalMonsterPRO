@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { releaseStaticCanvasAfterUpload } from "../../../assets/releaseStaticCanvasAfterUpload.js";
 import { filmProjectInfo, filmInfoCopy, getFilmInfoSections } from "@/pages/portfolio/data/filmProjectInfo.js";
 import { nextFilmPaint } from "./FilmMedia.js";
 
@@ -98,6 +99,7 @@ export class FilmInfoTextures {
 				this.entries.set(`${index}:${locale}:${mobile}`, entry);
 				await nextFilmPaint();
 				if (this.disposed) return;
+				releaseStaticCanvasAfterUpload(entry.texture);
 				renderer.initTexture(entry.texture);
 			}
 		}

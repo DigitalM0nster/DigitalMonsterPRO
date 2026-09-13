@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { releaseStaticCanvasAfterUpload } from "../../../assets/releaseStaticCanvasAfterUpload.js";
 import { NARRATIVE_COPY, CORE_NARRATIVE_LABEL, advanceNarrative, narrativeFrame, coreNarrativeLayout, trailNarrativeWallPosition } from "./capabilityNarrativeContent.js";
 import { PASSAGE_RADIUS } from "../lightTrails/createLightTrailsEnvironment.js";
 import { SceneTextLocale } from "./sceneTextLocale.js";
@@ -110,6 +111,7 @@ export class CapabilityNarrative {
 		));
 		this.frame = narrativeFrame(0, variant);
 		this.texture = new THREE.CanvasTexture(canvas);
+		releaseStaticCanvasAfterUpload(this.texture);
 		this.texture.name = `${variant}-narrative-atlas`;
 		this.texture.minFilter = THREE.LinearMipmapLinearFilter;
 		this.texture.magFilter = THREE.LinearFilter;

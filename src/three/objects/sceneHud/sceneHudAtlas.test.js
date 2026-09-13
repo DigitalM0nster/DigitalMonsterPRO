@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import * as THREE from "three";
+import { releaseStaticCanvasAfterUpload } from "../../assets/releaseStaticCanvasAfterUpload.js";
 
 const source = readFileSync(new URL("./sceneHudAtlas.js", import.meta.url), "utf8")
 	.replace(/^import .*;\s*$/gm, "").replaceAll("export ", "");
@@ -10,6 +11,7 @@ function setup() {
 	const paints = []; let measurements = 0, textures = 0, time = 0;
 	const api = vm.runInNewContext(source + ";({createSceneHudAtlas,createSceneHudAtlasChunked})", {
 		Uint8Array,
+		releaseStaticCanvasAfterUpload,
 		THREE: { ...THREE, CanvasTexture: class extends THREE.CanvasTexture {
 			constructor(canvas) { super(canvas); textures++; }
 		} },

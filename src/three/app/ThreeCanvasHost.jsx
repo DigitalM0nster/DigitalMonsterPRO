@@ -21,8 +21,17 @@ export default function ThreeCanvasHost(props) {
 	const routeTransition = useRouteTransitionContext();
 	const [webglState, setWebglState] = useState(() => (isWebGLSessionBlocked() ? "blocked" : "pending"));
 	const [failure, setFailure] = useState(null);
+	const failureRef = useRef(false);
 
 	const markWebGLFailed = (error, phase) => {
+		if (failureRef.current) return;
+		failureRef.current = true;
+		const failedApp = appRef.current;
+		const diagnostics = failedApp?.getFailureSnapshot();
+		appRef.current = null;
+		// Let the current render/driver callback unwind, then stop pending scene
+		// work and release video decoders, workers, CPU sources and GPU resources.
+		if (failedApp) queueMicrotask(() => failedApp.dispose());
 		if (isWebGLBlockedError(error)) {
 			markWebGLSessionBlocked(error);
 			setWebglState("blocked");
@@ -31,7 +40,9 @@ export default function ThreeCanvasHost(props) {
 		}
 
 		console.error(`[three] WebGL unavailable (${phase})`, error);
-		setFailure({ phase, message: error instanceof Error ? error.message : String(error) });
+		const details = { phase, message: error instanceof Error ? error.message : String(error), ...diagnostics };
+		setFailure(details);
+		try { sessionStorage.setItem("digitalmonster_last_3d_failure", JSON.stringify(details)); } catch { /* private storage */ }
 		// A failed/lost context cannot satisfy the full-warm gate.
 		props.setRendered(false);
 	};
@@ -59,7 +70,7 @@ export default function ThreeCanvasHost(props) {
 					routeTransition,
 					onWebGLContextLost: (reason) => {
 						if (!cancelled) {
-							markWebGLFailed(new Error(`context lost: ${reason}`), "runtime");
+							markWebGLFailed(new Error(`context lost: ${reason}`), appRef.current?.ready ? "runtime" : "prepare");
 						}
 					},
 				});
@@ -144,11 +155,13 @@ export default function ThreeCanvasHost(props) {
 		.filter(Boolean)
 		.join(" ");
 
-	const retryWithLowGraphics = () => {
+	const retryGraphics = () => {
 		clearWebGLSessionBlock();
 		const url = new URL(window.location.href);
-		url.searchParams.set("tier", "low");
-		window.location.assign(url.href);
+		// Memory recovery is independent of visual tier. Re-run the normal detector
+		// instead of silently forcing Low, which retains the same scene resources.
+		url.searchParams.delete("tier");
+		window.location.replace(url.href);
 	};
 
 	return <>
@@ -158,9 +171,9 @@ export default function ThreeCanvasHost(props) {
 				<div className={styles.message}>
 					<p className={styles.brand}>DIGITAL MONSTER</p>
 					<h1>Не удалось открыть 3D</h1>
-					<p>Графика не запустилась. Повторите загрузку с уменьшенной нагрузкой.</p>
-					<button type="button" onClick={retryWithLowGraphics}>Повторить загрузку</button>
-					<details><summary>Информация об ошибке</summary><p>{failure.phase}: {failure.message}</p></details>
+					<p>Графика остановлена. Можно повторить загрузку.</p>
+					<button type="button" onClick={retryGraphics}>Повторить загрузку</button>
+					<details><summary>Информация об ошибке</summary><pre style={{ whiteSpace: "pre-wrap" }}>{JSON.stringify(failure, null, 2)}</pre></details>
 				</div>
 			</div>, document.body,
 		)}

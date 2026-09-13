@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { releaseStaticCanvasAfterUpload } from "../../assets/releaseStaticCanvasAfterUpload.js";
 
 const SYMBOLS = "0123456789ABCDEF<>/+=*#?[]";
 
@@ -7,7 +8,7 @@ function canvasTexture(canvas, name) {
 	texture.generateMipmaps = false;
 	texture.minFilter = texture.magFilter = THREE.NearestFilter;
 	texture.name = name;
-	return texture;
+	return releaseStaticCanvasAfterUpload(texture);
 }
 
 function createSymbols(name) {

@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { releaseStaticCanvasAfterUpload } from "../../assets/releaseStaticCanvasAfterUpload.js";
 import { store } from "@/app/store.jsx";
 import { sceneOwnsHexHitAtClientY } from "@/three/render/overlay/hexHitOwnership.js";
 import { registerSceneCanvasInput } from "../../interaction/sceneCanvasInput.js";
@@ -143,6 +144,7 @@ export class SceneCanvasInterface {
 		const ctx = canvas.getContext("2d"); ctx.scale(ratio, ratio); item.paint(ctx, value, item.width, item.height);
 		const texture = new THREE.CanvasTexture(canvas); texture.colorSpace = THREE.NoColorSpace;
 		texture.minFilter = texture.magFilter = THREE.LinearFilter; texture.generateMipmaps = false;
+		releaseStaticCanvasAfterUpload(texture);
 		item.textures.set(key, texture);
 		if (!item.material.uniforms.map.value) item.material.uniforms.map.value = texture;
 	}

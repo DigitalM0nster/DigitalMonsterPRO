@@ -259,6 +259,17 @@ vec4 hexCellRevealFromTextures(
 	float revealPower,
 	float hexScale
 ) {
+	// Coherent per-cell exits: outside the moving front only one unwarped
+	// input contributes. Preserve custom radii and the alpha contract.
+	if (localProgress == 0.0 && hexDist <= 0.5 + max(innerSoft, 0.001) * 0.5) {
+		vec4 start = texture2D(texStart, vUv);
+		return vec4(start.rgb * start.a, 1.0);
+	}
+	if (localProgress == 1.0 && minRadius <= max(innerSoft, 0.001) * 0.5) {
+		vec4 end = texture2D(texEnd, vUv);
+		return vec4(end.rgb * end.a, 1.0);
+	}
+
 	float transitionT = innerTransitionT(localProgress, revealPower);
 	float innerMask = innerHexRevealMask(
 		hexDist,
@@ -314,33 +325,33 @@ vec4 hexRowRevealCompositeTextures(
 	float rowRandom
 ) {
 	float localProgress = perCellRevealProgress(cellId, globalProgress, hexScale, rowSoft, rowRandom);
-	vec4 fill;
-
-	if (globalProgress <= 0.001) {
-		fill = texture2D(texStart, vUv);
-	} else if (globalProgress >= 0.999) {
-		fill = texture2D(texEnd, vUv);
-	} else {
-		fill = hexCellRevealFromTextures(
-			vUv,
-			localUV,
-			cellId,
-			hexDist,
-			localProgress,
-			texEnd,
-			texStart,
-			maxRadius,
-			minRadius,
-			innerSoft,
-			revealPower,
-			hexScale
-		);
-	}
-
-	return fill;
+	return hexCellRevealFromTextures(
+		vUv,
+		localUV,
+		cellId,
+		hexDist,
+		localProgress,
+		texEnd,
+		texStart,
+		maxRadius,
+		minRadius,
+		innerSoft,
+		revealPower,
+		hexScale
+	);
 }
 
 void main() {
+	// Uniform branches: at rest no grid, fisheye, random or wave calculations.
+	// Endpoint inputs retain the original straight-RGB behavior.
+	if (progress <= 0.001) {
+		gl_FragColor = vec4(texture2D(textureA, vUv).rgb, 1.0);
+		return;
+	}
+	if (progress >= 0.999) {
+		gl_FragColor = vec4(texture2D(textureB, vUv).rgb, 1.0);
+		return;
+	}
 	vec2 screenUV = (vUv * resolution - resolution * 0.5) / resolution.y;
 	screenUV = applyFisheye(screenUV, fisheyeStrength);
 

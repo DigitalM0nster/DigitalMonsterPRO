@@ -156,7 +156,9 @@ export class PortfolioFilmScene {
 	}
 	act(action) {
 		if (!this.ready) return;
-		if (this.layout.mobile && (action === "inspect" || action?.type === "reading-click")) return;
+		if (this.layout.mobile && action?.type === "reading-click") { this.screen.triggerTapGlitch(); return; }
+		if (action === "glitch") { if (this.layout.mobile) this.screen.triggerTapGlitch(); return; }
+		if (this.layout.mobile && action === "inspect") return;
 		if (action === "fullscreen") { this.media.openFullscreen(); return; }
 		if (action?.type === "reading-click") {
 			const hit = this.eventHit(action);
@@ -207,7 +209,7 @@ export class PortfolioFilmScene {
 		this.raycaster.setFromCamera(ndc, this.camera);
 		const targets = this.layout.mobile ? [] : this.hud.hitTargets.filter((mesh) => mesh.userData.enabled);
 		if (!this.layout.mobile) for (const target of this.screen.controls.hitTargets) if (target.userData.enabled) targets.push(target);
-		if (!this.layout.mobile) targets.push(this.screen.hit);
+		targets.push(this.screen.hit);
 		const timeline = this.screen.controls.timeline;
 		const volume = this.screen.controls.volume;
 		const hits = this.raycaster.intersectObjects(targets, false);
@@ -220,7 +222,10 @@ export class PortfolioFilmScene {
 			}) ?? null;
 	}
 	hitTargetAt(ndc) { return this.hitIntersectionAt(ndc)?.object ?? null; }
-	hitAt(ndc) { return this.hitTargetAt(ndc)?.userData.filmAction ?? null; }
+	hitAt(ndc) {
+		const target = this.hitTargetAt(ndc);
+		return this.layout.mobile && target === this.screen.hit ? "glitch" : target?.userData.filmAction ?? null;
+	}
 	eventHit(event) {
 		this.pointer.set(event.clientX / window.innerWidth * 2 - 1, 1 - event.clientY / window.innerHeight * 2);
 		return this.hitAt(this.pointer);

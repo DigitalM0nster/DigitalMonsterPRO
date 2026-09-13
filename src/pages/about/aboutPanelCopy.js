@@ -173,10 +173,10 @@ const ABOUT_PANEL_COPY = {
 	text3: {
 		ru: {
 			pathTitle: "НАПРАВЛЕНИЯ",
-			title: "ВЕБ-ПРОДУКТЫ\nЗА ПРЕДЕЛАМИ\nСТАНДАРТНЫХ\nРЕШЕНИЙ",
+			title: "ВЕБ-ПРОЕКТЫ\nЛЮБОГО\nМАСШТАБА",
 			descriptionParagraphs: [
-				"Наша основная территория — браузер. Но мы не ограничиваемся обычными сайтами.",
-				"Создаём интерактивные продукты, в которых дизайн, движение и технологии раскрывают идею на полную.",
+				"Мы вникаем в каждый проект до мелочей, чтобы понять ваш продукт, задачи бизнеса и то, что важно вашим клиентам.",
+				"Всё это соединяем в продуманном сайте или сервисе, где люди легко находят нужное, понимают, что делать, и получают удовольствие от использования",
 			],
 			listItems: [
 				{
@@ -195,10 +195,10 @@ const ABOUT_PANEL_COPY = {
 		},
 		en: {
 			pathTitle: "DIRECTIONS",
-			title: "WEB PRODUCTS\nBEYOND\nSTANDARD\nSOLUTIONS",
+			title: "WEB PROJECTS\nOF ANY\nSCALE",
 			descriptionParagraphs: [
-				"Our primary territory is the browser. But we are not limited to ordinary websites.",
-				"We create interactive products where design, motion, and technology fully express the idea.",
+				"We get into every detail of each project to understand your product, your business goals, and what matters to your customers.",
+				"We bring it all together in a thoughtfully designed website or service where people can easily find what they need, know what to do, and enjoy the experience.",
 			],
 			listItems: [
 				{
@@ -217,10 +217,10 @@ const ABOUT_PANEL_COPY = {
 		},
 		zh: {
 			pathTitle: "方向",
-			title: "超越标准方案的\n网页产品",
+			title: "各种规模的\n网页项目",
 			descriptionParagraphs: [
-				"我们的主场是浏览器。但我们不局限于普通网站。",
-				"我们打造互动产品，让设计、动效与技术把想法充分展现出来。",
+				"我们深入每个项目的细节，了解您的产品、业务目标，以及客户真正重视的事。",
+				"我们将这些融入精心设计的网站或服务，让人们轻松找到所需、清楚下一步该做什么，并享受使用的过程。",
 			],
 			listItems: [
 				{

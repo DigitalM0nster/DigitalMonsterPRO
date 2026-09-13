@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { getScenePixelRatio, setScenePixelRatio, resolveOutputPixelRatio } from "../renderer/renderResolution.js";
+import { syncVisibleViewport } from "../renderer/syncVisibleViewport.js";
 import { PreparationScheduler, resolveFullWarm } from "./preparationScheduler.js";
 import { warmScreenOverlay } from "../renderer/warmScreenOverlay.js";
 import { prepareSceneCanvasInterfaces } from "@/app/prepareSceneCanvasInterfaces.js";
@@ -69,6 +70,8 @@ export class DigitalMonsterThreeApp {
 		this.store = options.store;
 		this.store.preparationProgress = 0;
 		this.onResize = this.onResize.bind(this);
+		this._scheduleResize = this._scheduleResize.bind(this);
+		this._resizeFrame = null;
 		this.setRendered = options.setRendered ?? (() => {});
 		this.onWebGLContextLost = options.onWebGLContextLost ?? (() => {});
 
@@ -214,11 +217,12 @@ export class DigitalMonsterThreeApp {
 		this.ready = false;
 		this._nativeCursor = null;
 
-		window.addEventListener("resize", this.onResize);
+		window.addEventListener("resize", this._scheduleResize);
+		window.visualViewport?.addEventListener("resize", this._scheduleResize);
 		this._resizeObserver =
 			typeof ResizeObserver !== "undefined"
 				? new ResizeObserver(() => {
-						this.onResize();
+						this._scheduleResize();
 					})
 				: null;
 		this._resizeObserver?.observe(container);
@@ -1313,13 +1317,24 @@ export class DigitalMonsterThreeApp {
 		});
 	}
 
+	_scheduleResize() {
+		if (this.disposed || this._webglLost || this._resizeFrame !== null) return;
+		// Window, visual viewport and ResizeObserver can report the same change.
+		// Resize all render targets once, after the browser has settled this frame.
+		this._resizeFrame = requestSharedAnimationFrame(() => {
+			this._resizeFrame = null;
+			if (!this.disposed) this.onResize();
+		});
+	}
+
 	onResize() {
 		if (this._webglLost || !this.renderer?.getContext()) {
 			return;
 		}
 
-		const w = this.container.clientWidth || window.innerWidth;
-		const h = this.container.clientHeight || window.innerHeight;
+		const viewport = syncVisibleViewport();
+		if (!viewport) return;
+		const { width: w, height: h } = viewport;
 		const dpr = getScenePixelRatio(this.renderer);
 		if (w <= 0 || h <= 0) {
 			return;
@@ -1503,7 +1518,10 @@ export class DigitalMonsterThreeApp {
 		if (this.rafId !== null) {
 			cancelSharedAnimationFrame(this.rafId);
 		}
-		window.removeEventListener("resize", this.onResize);
+		window.removeEventListener("resize", this._scheduleResize);
+		window.visualViewport?.removeEventListener("resize", this._scheduleResize);
+		if (this._resizeFrame !== null) cancelSharedAnimationFrame(this._resizeFrame);
+		this._resizeFrame = null;
 		this._resizeObserver?.disconnect();
 		this._resizeObserver = null;
 		window.removeEventListener("pointermove", this._onViewportPointerMove, true);

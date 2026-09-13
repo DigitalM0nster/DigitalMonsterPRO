@@ -702,8 +702,8 @@
     .contentContainer, .glowContentContainer {
         border: none;
         border-radius: 0;
-        width: 100%;
-        height: 100%;
+        width: var(--contentContainerWidth);
+        height: var(--contentContainerHeight);
     }
 
     .glowContentContainer {

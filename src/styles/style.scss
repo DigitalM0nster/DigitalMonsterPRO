@@ -43,8 +43,8 @@ $colors: (
 	--paddingY: 0;
 	--leftPagePadding: calc(var(--paddingX) * 0.5);
 	--pagePadding: 0 var(--paddingX) 0 var(--paddingX);
-	--contentContainerHeight: 100vh;
-	--contentContainerWidth: 100vw;
+	--contentContainerHeight: var(--site-viewport-height, 100vh);
+	--contentContainerWidth: var(--site-viewport-width, 100vw);
 	--pointerCircleSize: 100px;
 	--leftPosition: 5vw;
 	--caseContentBlockPositionX: 50px;
@@ -84,8 +84,8 @@ body,
 	position: fixed;
 	left: 0;
 	top: 0;
-	width: 100%;
-	height: 100%;
+	width: var(--site-viewport-width, 100%);
+	height: var(--site-viewport-height, 100%);
 	flex-direction: column;
 	justify-content: center;
 	align-items: center;
@@ -116,9 +116,11 @@ canvas {
 }
 
 .canvasParent {
-	position: absolute !important;
-	@include center-xy;
-	@include viewport-size;
+	position: fixed !important;
+	left: 0;
+	top: 0;
+	width: var(--site-viewport-width, 100vw);
+	height: var(--site-viewport-height, 100vh);
 
 	&.canvasParentWebglFailed {
 		background: #000;

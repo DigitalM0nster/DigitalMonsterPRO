@@ -59,12 +59,12 @@ export class PortfolioFilmScene {
 		this.attachInput();
 	}
 	async prepare(renderer) {
-		await Promise.all([this.media.prepare(renderer), this.transitionSound.prepare()]);
+		// Reading pages use their own fonts/content and need no decoded video.
+		// Prepare them while media is in flight; both still gate the same readyPromise.
+		await Promise.all([this.media.prepare(renderer), this.infoTextures.prepare(renderer), this.transitionSound.prepare()]);
 		if (this.disposed) return;
 		await this.hud.prepare(renderer,this.media.posters);
 		if (this.disposed) { this.hud.dispose(); return; }
-		await this.infoTextures.prepare(renderer);
-		if (this.disposed) return;
 		this.screen = new FilmScreen(this.media, this.reduced, this.infoTextures);
 		// Both viewing modes share the optical frame, above the opaque project selector.
 		this.screen.frame.renderOrder = 29;

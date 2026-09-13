@@ -62,3 +62,27 @@ test("context loss or disposal during polling cancels without querying destroyed
 test("the backport refuses an unreviewed Three source version", () => {
 	assert.throws(() => patchThreeParallelCompile("different Three source"), /Three source changed/);
 });
+
+test("shared programs validate only once, including overlapping submissions", async () => {
+	const h = harness(), program = h.makeProgram(), validated = new WeakSet();
+	const wait = () => waitForPrograms(new Set([program]), h.gl, () => false, {}, h.nextTick, validated);
+	const first = wait(), second = wait();
+	program.ready = true;
+	while (h.ticks.length) h.ticks.shift()();
+	await Promise.all([first, second]);
+	await wait();
+	assert.deepEqual(h.queries, [program.program]);
+	assert.equal(program.reflections, 2);
+	// Disposal must still fail even when this linked program was validated.
+	program.program = undefined;
+	await assert.rejects(wait(), { name: "AbortError" });
+});
+
+test("a replacement program and a separate renderer require fresh validation", async () => {
+	const h = harness(), first = h.makeProgram(), replacement = h.makeProgram(), cache = new WeakSet();
+	first.ready = replacement.ready = true;
+	for (const [program, validated] of [[first, cache], [replacement, cache], [first, new WeakSet()]]) {
+		await waitForPrograms(new Set([program]), h.gl, () => false, {}, h.nextTick, validated);
+	}
+	assert.deepEqual(h.queries, [first.program, replacement.program, first.program]);
+});

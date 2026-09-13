@@ -1,6 +1,7 @@
 import { getScenePixelRatio } from "@/three/renderer/renderResolution.js";
 import * as THREE from "three";
 import { nextFilmPaint } from "./FilmMedia.js";
+import { PreparationScheduler } from "../../../app/preparationScheduler.js";
 import { filmSurfacePoint, filmSurfaceNormal } from "./filmSurface.js";
 import { filmHudVertex, filmHudTextFragment, filmHudRuleFragment } from "./filmHudShaders.js";
 import { filmInfoButtonFragment } from "./filmInfoButtonShader.js";
@@ -106,7 +107,8 @@ export class FilmHud {
   infoIcon.material.uniforms.uReturn={value:0};
   this.info={hit:this.button("info"),hover:0,focused:false,icon:infoIcon};
   this.picker=new FilmProjectPicker(this,posters,getScenePixelRatio(renderer));
-  for(const texture of new Set(this.layers.map(layer=>layer.texture))){renderer.initTexture(texture);await nextFilmPaint();}
+  const scheduler=new PreparationScheduler({nextFrame:nextFilmPaint,cancelled:()=>this.disposed});
+  for(const texture of new Set(this.layers.map(layer=>layer.texture)))await scheduler.run(()=>renderer.initTexture(texture));
  }
  surfaceWidth(layer,height,maxWidth) {return Math.min(maxWidth,height*layer.layout.width/layer.layout.height);}
  placeSurface(layer,x,y,height,maxWidth,opacity) {
@@ -185,6 +187,7 @@ export class FilmHud {
  setHover(action){this.hovered=action;this.picker?.hover(action);}
  setInfoFocus(focused){if(this.info)this.info.focused=focused;}
  dispose(){
+  this.disposed=true;
   this.infoLabel?.dispose();
   this.picker?.dispose();
   for(const layer of this.layers){layer.mesh.material.dispose();if(layer.mesh.geometry!==this.surfaceGeometry)layer.mesh.geometry.dispose();}

@@ -6,7 +6,7 @@ import vm from "node:vm";
 const source = readFileSync(new URL("./DigitalMonsterThreeApp.js", import.meta.url), "utf8");
 const start = source.indexOf("\tasync _prepareApplication()");
 const method = source.slice(start, source.indexOf("\n\t_setPreparationProgress(", start));
-const prepare = vm.runInNewContext(`({${method}})._prepareApplication`, { console: { error() {} } });
+const prepare = vm.runInNewContext(`({${method}})._prepareApplication`, { console: { error() {} }, performance });
 const deferred = () => {
 	let resolve, reject;
 	const promise = new Promise((yes, no) => { resolve = yes; reject = no; });
@@ -70,7 +70,7 @@ test("High and Medium retain their fast dev readiness", async () => {
 
 test("full warm rejects an unusable shader but permits driver warnings", async () => {
 	const fullPrepare = vm.runInNewContext(`({${method}})._prepareApplication`, {
-		console: { error() {} }, yieldToNextPaint: async () => {},
+		console: { error() {} }, performance, yieldToNextPaint: async () => {}, disposeSharedDracoLoader() {},
 		warmCasePanelHudUnderCurtain: async () => {}, warmAboutPanelHudUnderCurtain: async () => {},
 		prepareSceneCanvasInterfaces: async () => {},
 	});
@@ -85,6 +85,7 @@ test("full warm rejects an unusable shader but permits driver warnings", async (
 				getSceneById: () => home, warmupRenderTargets() {}, warmupPrograms: async () => {},
 			},
 			backgroundPipeline: { readyPromise: Promise.resolve() },
+			siteArc: { labels: { prepare: async () => {} } }, _calibratePreparedHighDpr: async () => {},
 			preparationScheduler: { run: async job => job() },
 			_warmupScreenOverlays: async () => {}, _warmupRenderPipeline: async () => { draws++; },
 			_setPreparationProgress(value) { this.progress = value; },

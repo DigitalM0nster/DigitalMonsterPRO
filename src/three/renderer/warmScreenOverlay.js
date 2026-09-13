@@ -1,7 +1,7 @@
 import { compileSceneChunked } from "./compileSceneChunked.js";
 
 /** Warm the real screen-output variant as well as the scene's RT variant. */
-export async function warmScreenOverlay(overlay, renderer, camera, scheduler, targets = [null], modelsScene = null) {
+export async function warmScreenOverlay(overlay, renderer, camera, scheduler, targets = [null], modelsScene = null, { phase = "complete", pendingCompiles = null } = {}) {
 	if (!overlay?.overlayScene) return;
 	const mode = overlay.composeMode;
 	const hidden = [];
@@ -24,7 +24,10 @@ export async function warmScreenOverlay(overlay, renderer, camera, scheduler, ta
 			}));
 			try {
 				for (const { object } of modelMeshes) { scene.add(object); object.visible = true; }
-				await compileSceneChunked(renderer, scene, overlay.overlayCamera ?? camera, scheduler, target);
+				if (phase !== "draw") {
+					await compileSceneChunked(renderer, scene, overlay.overlayCamera ?? camera, scheduler, target, { pendingCompiles });
+				}
+				if (phase === "compile") continue;
 				await scheduler.run(() => {
 					const previousTarget = renderer.getRenderTarget();
 					const autoClear = renderer.autoClear;

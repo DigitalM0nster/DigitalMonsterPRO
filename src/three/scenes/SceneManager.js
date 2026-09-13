@@ -1,6 +1,6 @@
 import { getScenePixelRatio } from "@/three/renderer/renderResolution.js";
 import * as THREE from "three";
-import { compileSceneChunked } from "../renderer/compileSceneChunked.js";
+import { compileSceneChunked, waitForCompiledPrograms } from "../renderer/compileSceneChunked.js";
 import { PreparationScheduler } from "../app/preparationScheduler.js";
 import { PLACEHOLDER_SCENE_DEFINITIONS } from "./sceneDefinitions.js";
 import { resolveSceneId } from "./resolveSceneId.js";
@@ -321,6 +321,7 @@ export class SceneManager {
 		const onlyIds = Array.isArray(options.sceneIds) && options.sceneIds.length ? new Set(options.sceneIds) : null;
 		const total = [...this.scenes].filter(([id, scene]) => (!onlyIds || onlyIds.has(id)) && scene.getScene?.()).length;
 		let completed = 0;
+		const pendingCompiles = options.pendingCompiles ?? [];
 		const cameraState = {
 			position: this.camera.position.clone(),
 			quaternion: this.camera.quaternion.clone(),
@@ -361,7 +362,7 @@ export class SceneManager {
 				try {
 					const frame = this._withSceneProgressFrame(this.getFrameContext(), id, getSceneCarousel());
 					sceneObj.applyCamera?.(this.camera, frame);
-					await compileSceneChunked(this.renderer, scene, this.camera, scheduler, this.layerTargets.a);
+					await compileSceneChunked(this.renderer, scene, this.camera, scheduler, this.layerTargets.a, { pendingCompiles });
 				} catch (error) {
 					throw new Error(`[SceneManager] shader warm-up failed for ${id}`, { cause: error });
 				} finally {
@@ -372,6 +373,7 @@ export class SceneManager {
 				}
 				options.onProgress?.(++completed, total);
 			}
+			if (!options.pendingCompiles) await waitForCompiledPrograms(pendingCompiles, scheduler);
 		} finally {
 			this.camera.position.copy(cameraState.position);
 			this.camera.quaternion.copy(cameraState.quaternion);

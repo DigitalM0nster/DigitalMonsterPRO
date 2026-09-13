@@ -4,6 +4,7 @@ import { store } from "@/app/store.jsx";
 import { sceneOwnsHexHitAtClientY } from "@/three/render/overlay/hexHitOwnership.js";
 import { registerSceneCanvasInput } from "../../interaction/sceneCanvasInput.js";
 import { siteLocaleReveal } from "@/functions/siteLocaleTransitionState.js";
+import { PreparationScheduler } from "../../app/preparationScheduler.js";
 
 const vertexShader = `uniform vec2 viewport;uniform vec4 rect;varying vec2 vUv;varying vec2 pixel;
 void main(){vUv=uv;pixel=rect.xy+vec2(uv.x,1.-uv.y)*rect.zw;
@@ -125,14 +126,18 @@ export class SceneCanvasInterface {
 				h / 2 + (i - (lines.length - 1) / 2) * size * 1.4));
 		} });
 	}
-	async prepare() {
+	async prepare(scheduler = new PreparationScheduler({
+		nextFrame: () => new Promise(resolve => requestAnimationFrame(resolve)), cancelled: () => this.disposed,
+	})) {
 		await document.fonts.load('500 16px ManifoldExtended');
 		for (const item of this.elements.values()) {
 			if (!item.paint) continue;
 			for (const [key, value] of Object.entries(item.values ?? { default: "" })) {
 				if (this.disposed) return this;
-				this.paint(item, key, value); this.renderer.initTexture(item.textures.get(key));
-				await new Promise(resolve => requestAnimationFrame(resolve));
+				await scheduler.run(() => {
+					if (this.disposed) return;
+					this.paint(item, key, value); this.renderer.initTexture(item.textures.get(key));
+				});
 			}
 		}
 		this.update(0); return this;

@@ -5,6 +5,7 @@ import { publishSceneViewportResize } from "../renderer/sceneViewportEvents.js";
 import { getHexVisibleBands } from "../render/overlay/hexVisibleBands.js";
 import { PreparationScheduler, resolveFullWarm } from "./preparationScheduler.js";
 import { warmScreenOverlay } from "../renderer/warmScreenOverlay.js";
+import { waitForCompiledPrograms } from "../renderer/compileSceneChunked.js";
 import { prepareSceneCanvasInterfaces } from "@/app/prepareSceneCanvasInterfaces.js";
 import { DeviceTiltInput } from "../interaction/DeviceTiltInput.js";
 import { BackgroundPipeline } from "../render/background/BackgroundPipeline.js";
@@ -338,7 +339,7 @@ export class DigitalMonsterThreeApp {
 				renderer: this.renderer,
 			});
 			this.preparationStage = "scene-interfaces";
-			await prepareSceneCanvasInterfaces(this.sceneManager, this.renderer);
+			await prepareSceneCanvasInterfaces(this.sceneManager, this.renderer, this.preparationScheduler);
 			await this.siteArc.labels.prepare(this.renderer);
 			this._setPreparationProgress(0.35);
 			if (this.disposed) {
@@ -349,12 +350,13 @@ export class DigitalMonsterThreeApp {
 			this._setPreparationProgress(0.36);
 
 			this.preparationStage = "shader-compilation";
-			await this.sceneManager.warmupPrograms({ scheduler: this.preparationScheduler,
+			const pendingCompiles = [];
+			await this.sceneManager.warmupPrograms({ scheduler: this.preparationScheduler, pendingCompiles,
 				onProgress: (done, total) => this._setPreparationProgress(0.36 + 0.16 * done / total),
 			});
 			this._setPreparationProgress(0.52);
 			this.preparationStage = "interface-gpu-warmup";
-			await this._warmupScreenOverlays();
+			await this._warmupScreenOverlays(pendingCompiles);
 			if (this.disposed) {
 				return false;
 			}
@@ -502,23 +504,27 @@ export class DigitalMonsterThreeApp {
 		}
 	}
 
-	async _warmupScreenOverlays() {
+	async _warmupScreenOverlays(pendingCompiles = []) {
 		const scheduler = this.preparationScheduler;
 		const camera = this.sceneManager.camera;
 		const jobs = [];
 		for (const scene of this.sceneManager.scenes.values()) {
-			if (scene.canvasInterface) jobs.push(() => warmScreenOverlay(scene.canvasInterface, this.renderer, camera, scheduler, [this.sceneManager.layerTargets.a, null]));
+			if (scene.canvasInterface) jobs.push(options => warmScreenOverlay(scene.canvasInterface, this.renderer, camera, scheduler, [this.sceneManager.layerTargets.a, null], null, options));
 			for (const overlay of [scene.panelHud, scene.world?.hud, scene._cameraHotspots]) {
-				if (overlay) jobs.push(() => warmScreenOverlay(overlay, this.renderer, camera, scheduler,
-					overlay === scene.panelHud ? [this.sceneManager.layerTargets.a, null] : [null]));
+				if (overlay) jobs.push(options => warmScreenOverlay(overlay, this.renderer, camera, scheduler,
+					overlay === scene.panelHud ? [this.sceneManager.layerTargets.a, null] : [null], null, options));
 			}
 			for (const overlay of scene.heroTitle?.getWarmupOverlays?.() ?? []) {
-				jobs.push(() => warmScreenOverlay(overlay, this.renderer, camera, scheduler, [this.sceneManager.layerTargets.a, null], scene.getScene()));
+				jobs.push(options => warmScreenOverlay(overlay, this.renderer, camera, scheduler, [this.sceneManager.layerTargets.a, null], scene.getScene(), options));
 			}
 		}
-		jobs.push(() => warmScreenOverlay(this.siteArc, this.renderer, camera, scheduler));
+		jobs.push(options => warmScreenOverlay(this.siteArc, this.renderer, camera, scheduler, [null], null, options));
+		// Compile all independent screen/RT variants together. Waiting after each
+		// overlay serializes the driver's work; every real draw still gets a frame.
+		for (const job of jobs) await job({ phase: "compile", pendingCompiles });
+		await waitForCompiledPrograms(pendingCompiles, scheduler);
 		for (let i = 0; i < jobs.length; i++) {
-			await jobs[i]();
+			await jobs[i]({ phase: "draw" });
 			this._setPreparationProgress(0.52 + 0.13 * (i + 1) / jobs.length);
 		}
 	}

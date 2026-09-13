@@ -7,7 +7,7 @@ import { Scene } from "three";
  * only passed to compile(), never render(). The pinned build backport adds
  * compileAsync; submit chunks first, then await every submitted program.
  */
-export async function compileSceneChunked(renderer, scene, camera, scheduler, target, { visibleOnly = false } = {}) {
+export async function compileSceneChunked(renderer, scene, camera, scheduler, target, { visibleOnly = false, pendingCompiles = null } = {}) {
 	const context = new Scene();
 	context.environment = scene.environment;
 	context.fog = scene.fog;
@@ -50,6 +50,12 @@ export async function compileSceneChunked(renderer, scene, camera, scheduler, ta
 			});
 		}
 	}
+	if (pendingCompiles) pendingCompiles.push(...pending);
+	else await waitForCompiledPrograms(pending, scheduler);
+}
+
+/** Submit independent variants first; no real draw may pass this gate. */
+export async function waitForCompiledPrograms(pending, scheduler) {
 	const results = await Promise.all(pending);
 	scheduler.check();
 	for (const result of results) if ("error" in result) throw result.error;

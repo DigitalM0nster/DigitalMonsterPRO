@@ -9,13 +9,16 @@ const SOURCE_SHA256 = "6c3a6299b7ae2eb8f3a9ae83f05cf50d6b3ba58931c34033a8abfac6b
 const digest = source => createHash("sha256").update(source).digest("hex");
 
 /** Included verbatim in the generated Three module; no imports/outer bindings. */
-export function waitForPrograms(programs, gl, cancelled, scene, nextTick = callback => setTimeout(callback, 10)) {
+export function waitForPrograms(programs, gl, cancelled, scene, nextTick = callback => setTimeout(callback, 10), validated = new WeakSet()) {
 	return new Promise((resolve, reject) => {
 		const check = () => {
 			try {
 				if (cancelled()) throw new DOMException("Shader preparation cancelled", "AbortError");
 				for (const program of programs) {
 					if (!program.program) throw new DOMException("Shader program disposed", "AbortError");
+					// Many materials share one immutable linked program. Re-querying
+					// LINK_STATUS for every mesh synchronizes with the GPU again.
+					if (validated.has(program)) { programs.delete(program); continue; }
 					if (!program.isReady()) continue;
 					// LINK_STATUS and reflection are queried only AFTER non-blocking completion.
 					if (!gl.getProgramParameter(program.program, gl.LINK_STATUS)) {
@@ -23,6 +26,7 @@ export function waitForPrograms(programs, gl, cancelled, scene, nextTick = callb
 					}
 					program.getUniforms();
 					program.getAttributes();
+					validated.add(program);
 					programs.delete(program);
 				}
 				if (programs.size === 0) resolve(scene);
@@ -83,11 +87,11 @@ ${diagnostics.replace("this.diagnostics =", "self.diagnostics =")}
 		this.compileAsync = function (scene, camera) {
 			const programs = this.compile(scene, camera);
 			return (${waitForPrograms.toString()})(programs, _gl,
-				() => _parallelCompileDisposed || _isContextLost || _gl.isContextLost(), scene);
+				() => _parallelCompileDisposed || _isContextLost || _gl.isContextLost(), scene, undefined, _parallelCompileValidated);
 		};
 
 `);
-	patched = replaceOnce(patched, "let _isContextLost = false;", "let _isContextLost = false;\n\t\tlet _parallelCompileDisposed = false;");
+	patched = replaceOnce(patched, "let _isContextLost = false;", "let _isContextLost = false;\n\t\tlet _parallelCompileDisposed = false;\n\t\tconst _parallelCompileValidated = new WeakSet();");
 	patched = replaceOnce(patched, "this.dispose = function () {\n\n\t\t\tcanvas.removeEventListener", "this.dispose = function () {\n\n\t\t\t_parallelCompileDisposed = true;\n\t\t\tcanvas.removeEventListener");
 	patched = replaceOnce(patched, `\t\t\tconst progUniforms = program.getUniforms();
 \t\t\tconst uniformsList = WebGLUniforms.seqWithValue( progUniforms.seq, uniforms );

@@ -16,7 +16,7 @@ export function createCraneCanvasInterface(renderer, scene) {
 	uniforms.uHover = { value: 0 }; uniforms.uShortcut = { value: 1 };
 	let reveal = 0, dt = 0, frame = null, detailIndex = 0;
 	const update = ui.update.bind(ui), prepare = ui.prepare.bind(ui);
-	ui.prepare = async () => { await document.fonts.load('400 10px MazzardM'); return prepare(); };
+	ui.prepare = async scheduler => { await document.fonts.load('400 10px MazzardM'); return prepare(scheduler); };
 	ui.update = (delta = 0, nextFrame = null) => {
 		dt = Math.max(0, Math.min(delta, .05)); frame = nextFrame;
 		update();

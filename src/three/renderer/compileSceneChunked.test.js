@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import * as THREE from "three";
-import { compileSceneChunked } from "./compileSceneChunked.js";
+import { compileSceneChunked, waitForCompiledPrograms } from "./compileSceneChunked.js";
 import { warmScreenOverlay } from "./warmScreenOverlay.js";
 import { PreparationScheduler } from "../app/preparationScheduler.js";
 
@@ -201,5 +201,46 @@ test("failed model-decoration warm restores ownership after compile or GPU draw 
 		assert.equal(overlayScene.children.length, 0); assert.equal(binding, previous);
 		assert.equal(renderer.autoClear, true);
 		mesh.geometry.dispose(); mesh.material.dispose();
+	}
+});
+
+test("overlay batch submits both outputs before waiting, then draws every warmed variant in separate frames", async () => {
+	const overlayScene = new THREE.Scene(), camera = new THREE.Camera(), target = {};
+	const mesh = new THREE.Mesh(new THREE.PlaneGeometry(), new THREE.MeshBasicMaterial());
+	mesh.visible = false; overlayScene.add(mesh);
+	const releases = [], submissions = [], draws = [], pendingCompiles = [];
+	let binding = null, frame = 0;
+	const scheduler = new PreparationScheduler({ nextFrame: async () => { frame++; } });
+	const renderer = { autoClear: true, getRenderTarget: () => binding, setRenderTarget: t => { binding = t; },
+		compileAsync() { submissions.push(binding); return new Promise(resolve => releases.push(resolve)); },
+		render() { draws.push([binding, frame]); } };
+	const overlay = { overlayScene };
+	await warmScreenOverlay(overlay, renderer, camera, scheduler, [target, null], null, { phase: "compile", pendingCompiles });
+	assert.deepEqual(submissions, [target, null]); assert.deepEqual(draws, []);
+	assert.equal(binding, null); assert.equal(mesh.visible, false);
+	let ready = false;
+	const gate = waitForCompiledPrograms(pendingCompiles, scheduler).then(() => { ready = true; });
+	releases[0](); await Promise.resolve(); assert.equal(ready, false);
+	releases[1](); await gate;
+	await warmScreenOverlay(overlay, renderer, camera, scheduler, [target, null], null, { phase: "draw" });
+	assert.deepEqual(draws.map(([target]) => target), [target, null]);
+	assert.ok(draws[1][1] > draws[0][1]);
+	assert.equal(submissions.length, 2); assert.equal(mesh.visible, false);
+	mesh.geometry.dispose(); mesh.material.dispose();
+});
+
+test("a deferred compile failure or cancellation keeps the fullwarm draw gate closed", async () => {
+	for (const cancelled of [false, true]) {
+		const scene = new THREE.Scene(), geometry = new THREE.PlaneGeometry(), material = new THREE.MeshBasicMaterial();
+		scene.add(new THREE.Mesh(geometry, material));
+		let cancel = false;
+		const scheduler = new PreparationScheduler({ nextFrame: async () => {}, cancelled: () => cancel });
+		const pendingCompiles = [];
+		const renderer = { getRenderTarget: () => null, setRenderTarget() {},
+			compileAsync: () => cancelled ? Promise.resolve() : Promise.reject(new Error("invalid program")) };
+		await compileSceneChunked(renderer, scene, new THREE.Camera(), scheduler, null, { pendingCompiles });
+		cancel = cancelled;
+		await assert.rejects(waitForCompiledPrograms(pendingCompiles, scheduler), cancelled ? { name: "AbortError" } : /invalid program/);
+		geometry.dispose(); material.dispose();
 	}
 });

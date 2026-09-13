@@ -63,7 +63,8 @@ export function attachCarouselTouch({ target, getStartOwner, canContinue, addDel
 		const owner = getStartOwner(touch, event);
 		if (!usesSharedCarouselTouch(owner)) return;
 		gesture = { id: touch.identifier, owner, startX: touch.clientX, startY: touch.clientY,
-			x: touch.clientX, y: touch.clientY, axis: null, consumed: false, stopped: false, startedAt: now() };
+			x: touch.clientX, y: touch.clientY, axis: null, consumed: false, stopped: false,
+			startedAt: now(), startTimeStamp: event.timeStamp };
 	};
 	const onMove = event => {
 		if (!gesture) return;
@@ -82,7 +83,11 @@ export function attachCarouselTouch({ target, getStartOwner, canContinue, addDel
 		if (!gesture.axis) {
 			if (Math.max(Math.abs(dx), Math.abs(dy)) < INTENT_PX) return;
 			gesture.consumed = true;
-			if (now() - gesture.startedAt >= 220) gesture.axis = "orbit";
+			// Event creation times preserve finger intent when a busy frame delays delivery.
+			// Keep the live clock for release guards; those start when we process the release.
+			const elapsed = Number.isFinite(event.timeStamp) && Number.isFinite(gesture.startTimeStamp)
+				&& event.timeStamp >= gesture.startTimeStamp ? event.timeStamp - gesture.startTimeStamp : now() - gesture.startedAt;
+			if (elapsed >= 220) gesture.axis = "orbit";
 			else if (Math.abs(dy) >= Math.abs(dx) * 1.15) gesture.axis = "vertical";
 			else if (Math.abs(dx) >= Math.abs(dy) * 1.15) gesture.axis = "horizontal";
 			else if (Math.hypot(dx, dy) >= 24) gesture.axis = Math.abs(dy) >= Math.abs(dx) ? "vertical" : "horizontal";

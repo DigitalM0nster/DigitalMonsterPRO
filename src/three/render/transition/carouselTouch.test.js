@@ -84,6 +84,24 @@ test("a downward swipe drives the same canonical spring towards the previous sce
 	} finally { s.detach(); }
 });
 
+test("queued touch events retain swipe versus hold intent despite main-thread delay", () => {
+	for (const sceneId of ["home", "capabilities:mmk1", "contacts"]) {
+		for (const held of [false, true]) {
+			const s = setup(sceneId);
+			try {
+				s.state.time = 500;
+				s.start(100, 300, { timeStamp: 100 });
+				// A quick swipe delivered late; a real hold delivered in one queued batch.
+				s.state.time = held ? 510 : 900;
+				s.move(100, 100, { timeStamp: held ? 370 : 140 });
+				assert.deepEqual(s.deltas, held ? [] : [600]);
+				assert.equal(isCarouselTouchOrbitBlocked(), !held);
+				assert.equal(isCarouselTouchSceneBlocked(), !held);
+			} finally { s.detach(); }
+		}
+	}
+});
+
 test("tap, native controls and another hex band do not become navigation", () => {
 	const s = setup();
 	try {

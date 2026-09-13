@@ -546,7 +546,14 @@ export class HeroTextMesh {
 			? this._resolveGlitchContentCanvasHeight(text.length)
 			: this._layoutCanvasHeight;
 		this.canvas.width = this.canvasWidth;
-		this.canvas.height = this.canvasHeight;
+		// Keep the full-frame coordinate system for reveal, glyph geometry and light
+		// motion, but allocate only the occupied rows. No glyph resampling: Safari's
+		// tall viewport previously uploaded ~36 MiB for these two short title lines.
+		const boundedTitle = this.shaderProfile === "title" && this.useInstancedLetters && !this.useGlitchSnake && getGraphicsTier() !== "high";
+		const titleRows = Math.ceil((Math.max(1, text.length) * this.reverseNormalizeItem(this.lineHeight)
+			+ this.reverseNormalizeItem(this.fontSize) + 32) / 16) * 16;
+		this.canvas.height = boundedTitle ? Math.min(Math.floor(this.canvasHeight), titleRows) : this.canvasHeight;
+		this._textureHeightRatio = boundedTitle ? this.canvas.height / Math.max(1, Math.floor(this.canvasHeight)) : 1;
 
 		this.readyPromise = this._loadFontAndRun(() => {
 			if (revision !== this._textBuildRevision) return;
@@ -714,6 +721,7 @@ export class HeroTextMesh {
 			for (const material of this._getMaterials()) {
 				const uniforms = material.uniforms;
 				uniforms.uTexture.value = textTexture;
+				if (uniforms.uTextureHeightRatio) uniforms.uTextureHeightRatio.value = this._textureHeightRatio ?? 1;
 				uniforms.uCharWidthNDC.value = (2 * sumDu) / charCount;
 				uniforms.uCharHeightNDC.value = (2 * sumDv) / charCount;
 				uniforms.uVirtualCursor1.value = this.uVirtualCursor1;
@@ -755,6 +763,7 @@ export class HeroTextMesh {
 			uGlowTime: { value: this.glowTime },
 			uProgress: { value: 1 },
 			uTexture: { value: textTexture },
+			uTextureHeightRatio: { value: this._textureHeightRatio ?? 1 },
 			uPositionOffset: { value: new THREE.Vector2(this.offsetX, this.offsetY) },
 			uResolution: { value: new THREE.Vector2(this.width, this.height) },
 			uMouse: { value: new THREE.Vector2(this.mouse.x, this.mouse.y) },
@@ -865,6 +874,7 @@ export class HeroTextMesh {
 				uTime: { value: this.time },
 				uProgress: { value: 1 },
 				uTexture: { value: textTexture },
+				uTextureHeightRatio: { value: this._textureHeightRatio ?? 1 },
 				uPositionOffset: { value: new THREE.Vector2(this.offsetX, this.offsetY) },
 				uResolution: { value: new THREE.Vector2(this.width, this.height) },
 				uMouse: { value: new THREE.Vector2(this.mouse.x, this.mouse.y) },

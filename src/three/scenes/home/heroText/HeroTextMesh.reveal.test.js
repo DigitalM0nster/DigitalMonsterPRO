@@ -27,13 +27,13 @@ test("Resizing title layout keeps compiled materials and a partially revealed ti
 		oldGeometry.addEventListener("dispose", () => disposedGeometry++);
 		oldTexture.addEventListener("dispose", () => disposedTexture++);
 		const materials = Array.from({ length: split ? 2 : 1 }, () => ({ uniforms: {
-			uTexture: { value: oldTexture }, uCharWidthNDC: {}, uCharHeightNDC: {},
+			uTexture: { value: oldTexture }, uTextureHeightRatio: { value: 1 }, uCharWidthNDC: {}, uCharHeightNDC: {},
 			uVirtualCursor1: {}, uVirtualCursor2: {}, uVirtualCursor3: {},
 			uRevealProgress: { value: 0.42 },
 		} }));
 		const mesh = { count: 14, geometry: oldGeometry };
 		const text = Object.assign(new TextBuilder(), {
-			canvasWidth: 2048, canvasHeight: 1152, letterSpacing: 0,
+			canvasWidth: 2048, canvasHeight: 1152, letterSpacing: 0, _textureHeightRatio: 0.25,
 			textMesh: mesh, textMaterial: materials[0], fillMesh: split ? { geometry: oldGeometry } : null,
 			uVirtualCursor1: new THREE.Vector2(), uVirtualCursor2: new THREE.Vector2(), uVirtualCursor3: new THREE.Vector2(),
 			_getMaterials: () => materials, _syncFrameUniforms() {},
@@ -47,6 +47,7 @@ test("Resizing title layout keeps compiled materials and a partially revealed ti
 		assert.equal(disposedTexture, 1);
 		for (const material of materials) {
 			assert.equal(material.uniforms.uTexture.value, nextTexture);
+			assert.equal(material.uniforms.uTextureHeightRatio.value, 0.25);
 			assert.equal(material.uniforms.uRevealProgress.value, 0.42);
 		}
 		mesh.geometry.dispose(); nextTexture.dispose();

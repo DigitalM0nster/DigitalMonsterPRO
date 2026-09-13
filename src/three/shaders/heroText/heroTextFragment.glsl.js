@@ -2,6 +2,20 @@ import { heroPageRevealFunctionsGlsl, heroPageRevealUniformsGlsl } from "./heroP
 
 export const heroTextFragmentShader = /* glsl */ `
 uniform sampler2D uTexture;
+uniform float uTextureHeightRatio;
+
+vec4 sampleTitleTexture(vec2 uv) {
+	// Only storage is cropped; all authored reveal/glow coordinates stay intact.
+	vec4 ink = vec4(0.0);
+	if (uTextureHeightRatio >= 0.999999) {
+		ink = texture2D(uTexture, uv);
+	} else {
+		float ratio = max(uTextureHeightRatio, 0.00001);
+		float y = (uv.y - 1.0 + ratio) / ratio;
+		if (y >= 0.0 && y <= 1.0) ink = texture2D(uTexture, vec2(uv.x, y));
+	}
+	return ink;
+}
 ${heroPageRevealUniformsGlsl}
 uniform vec2 uMouse;
 uniform vec2 uVirtualCursor1;
@@ -95,7 +109,7 @@ vec2 uvToNDC(vec2 uv) {
 varying vec4 vGlyphBounds;
 float lowTitleInk(vec2 uv) {
 	if (any(lessThan(uv, vGlyphBounds.xy)) || any(greaterThan(uv, vGlyphBounds.zw))) return 0.0;
-	return texture2D(uTexture, uv).a;
+	return sampleTitleTexture(uv).a;
 }
 #endif
 
@@ -137,7 +151,7 @@ void main() {
 	vec2 offset = totalOffset + autoOffset;
 
 	vec2 displacedUV = clamp(sampleUv + offset, vec2(0.0), vec2(1.0));
-	vec4 displacedColor = texture2D(uTexture, displacedUV);
+	vec4 displacedColor = sampleTitleTexture(displacedUV);
 
 	float maxOrder = max(uCharCount - 1.0, 0.0);
 	float fadeWidth = 1.0;
@@ -184,10 +198,10 @@ void main() {
 	// coverage antialiasing, not a halo/blur kernel outside the glyph boundary.
 	vec2 quarterPixel = vec2(0.25) / uResolution;
 	vec4 a = vec4(
-		texture2D(uTexture, displacedUV + vec2(-quarterPixel.x, -quarterPixel.y)).a,
-		texture2D(uTexture, displacedUV + vec2( quarterPixel.x, -quarterPixel.y)).a,
-		texture2D(uTexture, displacedUV + vec2(-quarterPixel.x,  quarterPixel.y)).a,
-		texture2D(uTexture, displacedUV + vec2( quarterPixel.x,  quarterPixel.y)).a
+		sampleTitleTexture(displacedUV + vec2(-quarterPixel.x, -quarterPixel.y)).a,
+		sampleTitleTexture(displacedUV + vec2( quarterPixel.x, -quarterPixel.y)).a,
+		sampleTitleTexture(displacedUV + vec2(-quarterPixel.x,  quarterPixel.y)).a,
+		sampleTitleTexture(displacedUV + vec2( quarterPixel.x,  quarterPixel.y)).a
 	);
 	// The same x/y derivative pairs as a High 2x2 fragment quad.
 	vec2 dx = vec2(a.y - a.x, a.w - a.z);

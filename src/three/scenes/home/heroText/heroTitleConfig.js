@@ -8,24 +8,24 @@ export const HERO_TITLE_LINES = ["DIGITAL", "MONSTER"];
 export const HERO_COPY = {
 	ru: {
 		tagline: [
-			"Создаём интерактивные сайты и digital-продукты.",
+			"Создаём сайты и digital-продукты.",
 			"Расширяем границы возможного.",
 		],
-		stack: ["ИНТЕРАКТИВНЫЕ САЙТЫ / ВЕБ-ПРИЛОЖЕНИЯ / ИНТЕРАКТИВНЫЕ ПРОЕКТЫ"],
+		stack: ["САЙТЫ / ВЕБ-ПРИЛОЖЕНИЯ / ИНТЕРАКТИВНЫЕ ПРОЕКТЫ"],
 	},
 	en: {
 		tagline: [
-			"We create interactive websites and digital products.",
+			"We create websites and digital products.",
 			"Expanding the boundaries of what's possible.",
 		],
-		stack: ["INTERACTIVE WEBSITES / WEB APPLICATIONS / INTERACTIVE PROJECTS"],
+		stack: ["WEBSITES / WEB APPLICATIONS / INTERACTIVE PROJECTS"],
 	},
 	zh: {
 		tagline: [
-			"我们打造互动网站与数字产品。",
+			"我们打造网站与数字产品。",
 			"拓展可能的边界。",
 		],
-		stack: ["互动网站 / 网页应用 / 互动项目"],
+		stack: ["网站 / 网页应用 / 互动项目"],
 	},
 };
 
@@ -34,10 +34,10 @@ export function getHeroLocale() {
 }
 
 export const HERO_COMPACT_COPY = {
-	ru: { tagline: ["Создаём интерактивные сайты", "и digital-продукты.", "Расширяем границы возможного."],
-		stack: ["ИНТЕРАКТИВНЫЕ САЙТЫ", "ВЕБ-ПРИЛОЖЕНИЯ", "ИНТЕРАКТИВНЫЕ ПРОЕКТЫ"] },
-	en: { tagline: ["We create interactive websites", "and digital products.", "Expanding what's possible."],
-		stack: ["INTERACTIVE WEBSITES", "WEB APPLICATIONS", "INTERACTIVE PROJECTS"] },
+	ru: { tagline: ["Создаём сайты", "и digital-продукты.", "Расширяем границы возможного."],
+		stack: ["САЙТЫ", "ВЕБ-ПРИЛОЖЕНИЯ", "ИНТЕРАКТИВНЫЕ ПРОЕКТЫ"] },
+	en: { tagline: ["We create websites", "and digital products.", "Expanding what's possible."],
+		stack: ["WEBSITES", "WEB APPLICATIONS", "INTERACTIVE PROJECTS"] },
 	zh: HERO_COPY.zh,
 };
 

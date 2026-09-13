@@ -132,7 +132,7 @@ const ABOUT_PANEL_COPY = {
 			],
 			listItems: [
 				{
-					title: "ИНТЕРАКТИВНЫЕ САЙТЫ",
+					title: "САЙТЫ",
 					subtitle: "Имиджевые, корпоративные и продуктовые сайты с уникальной механикой взаимодействия.",
 				},
 				{
@@ -154,7 +154,7 @@ const ABOUT_PANEL_COPY = {
 			],
 			listItems: [
 				{
-					title: "INTERACTIVE WEBSITES",
+					title: "WEBSITES",
 					subtitle: "Brand, corporate, and product sites with unique interaction mechanics.",
 				},
 				{
@@ -176,7 +176,7 @@ const ABOUT_PANEL_COPY = {
 			],
 			listItems: [
 				{
-					title: "互动网站",
+					title: "网站",
 					subtitle: "具有独特交互机制的品牌、企业与产品网站。",
 				},
 				{

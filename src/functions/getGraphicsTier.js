@@ -63,8 +63,12 @@ function resolveHardwareTier({ cores, memoryGb, mobile }) {
 	// and extra threads cannot compensate for a known small memory budget.
 	if (cores < 4 || (memoryGb !== null && memoryGb < 4)) return "low";
 	if (cores < 8 && memoryGb !== null && memoryGb <= 4) return "low";
+	// A six-core phone is eligible for High; desktop thread-count thresholds
+	// do not describe mobile CPU/GPU capability. This is only the ceiling:
+	// calibration measures the GPU before any High scene resources are built.
+	if (mobile && cores >= 6 && (memoryGb === null || memoryGb >= 8)) return "high";
 	// Unknown RAM is not invented from CPU data, nor treated as low memory.
-	if (cores < 8 || (memoryGb !== null && memoryGb < 8) || mobile) return "medium";
+	if (cores < 8 || (memoryGb !== null && memoryGb < 8)) return "medium";
 	return "high";
 }
 

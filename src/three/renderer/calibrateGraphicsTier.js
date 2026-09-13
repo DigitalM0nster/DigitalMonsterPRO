@@ -3,7 +3,7 @@ import * as THREE from "three";
 import { getForcedGraphicsTierFromUrl } from "@/functions/getGraphicsTier.js";
 
 const TIER_RANK = { low: 0, medium: 1, high: 2 };
-const CACHE_PREFIX = "digitalmonster_gpu_tier_v4";
+const CACHE_PREFIX = "digitalmonster_gpu_tier_v5";
 const SOFTWARE_RENDERER_RE = /swiftshader|llvmpipe|software|microsoft basic render/i;
 const INTEGRATED_RENDERER_RE = /intel(?:\(r\))?\s+(?:uhd|hd|iris)|radeon\s+vega/i;
 // Only the desktop GPU exercised in our production route profile bypasses the

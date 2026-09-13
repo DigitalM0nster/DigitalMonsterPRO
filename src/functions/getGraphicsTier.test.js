@@ -29,8 +29,17 @@ test("unavailable RAM stays unknown without duplicating CPU score", () => {
 	assert.equal(setup({ ram: NaN }).getGraphicsTierDiagnostics().memoryGb, null);
 });
 
-test("mobile limit, reduced motion and explicit tier remain authoritative", () => {
-	assert.equal(setup({ ram: 8, width: 800 }).getGraphicsTier(), "medium");
+test("mobile High eligibility retains CPU/RAM limits and does not assume unknown RAM is small", () => {
+	assert.equal(setup({ cores: 6, width: 390 }).getGraphicsTier(), "high");
+	assert.equal(setup({ cores: 8, ram: 8, width: 800 }).getGraphicsTier(), "high");
+	assert.equal(setup({ cores: 6, ram: 4, width: 390 }).getGraphicsTier(), "low");
+	assert.equal(setup({ cores: 8, ram: 4, width: 390 }).getGraphicsTier(), "medium");
+	assert.equal(setup({ cores: 4, width: 390 }).getGraphicsTier(), "medium");
+	assert.equal(setup({ cores: 2, width: 390 }).getGraphicsTier(), "low");
+	assert.equal(setup({ cores: 6, width: 1920 }).getGraphicsTier(), "medium");
+});
+
+test("reduced motion and explicit tier remain authoritative", () => {
 	const reduced = setup({ ram: 8, reduced: true });
 	assert.equal(reduced.getGraphicsTier(), "low");
 	assert.equal(reduced.getGraphicsTierDiagnostics().tier, "low");

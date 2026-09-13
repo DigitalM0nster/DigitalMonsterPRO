@@ -4,6 +4,7 @@ import { applyScreenTextureColorSpace, blitTextureToRenderTarget } from "../comp
 import { applyGrainBlurToBlitMaterial, createViewportMaskBlitMaterial } from "./viewportMask/blitMaterial.js";
 import { applyCaseStudyEdgeShadeUniforms, createCaseStudyEdgeShadeMaterial } from "./caseStudyEdgeShadeMaterial.js";
 import { compileSceneChunked } from "../../renderer/compileSceneChunked.js";
+import { createSceneLayerCompositeMaterial } from "./sceneLayerCompositeMaterial.js";
 
 const bgScene = new THREE.Scene();
 const modelsScene = new THREE.Scene();
@@ -91,6 +92,10 @@ export class ScreenCompositor {
 		this.modelsMaskMaterial = createViewportMaskBlitMaterial();
 		this.modelsMesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.modelsMaskMaterial);
 		modelsScene.add(this.modelsMesh);
+		this.layerCompositeScene = new THREE.Scene();
+		this.layerCompositeMaterial = createSceneLayerCompositeMaterial();
+		this.layerCompositeMesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.layerCompositeMaterial);
+		this.layerCompositeScene.add(this.layerCompositeMesh);
 
 		this.caseEdgeShadeMaterial = createCaseStudyEdgeShadeMaterial();
 		this.caseEdgeShadeMesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.caseEdgeShadeMaterial);
@@ -123,6 +128,7 @@ export class ScreenCompositor {
 				await compileSceneChunked(renderer, bgScene, screenCamera, scheduler, target);
 				await compileSceneChunked(renderer, modelsScene, screenCamera, scheduler, target);
 			}
+			await compileSceneChunked(renderer, this.layerCompositeScene, screenCamera, scheduler, this.layerTargets.a);
 		} finally {
 			material.map = previousMap;
 		}
@@ -153,8 +159,23 @@ export class ScreenCompositor {
 
 		const prevTarget = gl.getRenderTarget();
 		const transparentClear = options.transparentClear === true;
+		// Keep the final canvas/color-conversion paths as they are. Internal
+		// linear HDR layers can compose in one draw without a framebuffer
+		// round trip between background and models (costly on tile GPUs).
+		const combineLayers = renderTarget && bgTexture && modelsTexture
+			&& bgTexture.colorSpace === THREE.LinearSRGBColorSpace
+			&& gl.toneMapping === THREE.NoToneMapping;
 
-		if (bgTexture) {
+		if (combineLayers) {
+			applyScreenTextureColorSpace(modelsTexture, gl);
+			const material = this.layerCompositeMaterial;
+			material.uniforms.backgroundMap.value = bgTexture;
+			material.uniforms.modelsMap.value = modelsTexture;
+			applyGrainBlurToBlitMaterial(material, grainBlur);
+			gl.setRenderTarget(renderTarget);
+			gl.autoClear = false;
+			gl.render(this.layerCompositeScene, screenCamera);
+		} else if (bgTexture) {
 			blitTextureToRenderTarget(gl, bgTexture, renderTarget, bgScene, screenCamera, this.bgMesh);
 		} else {
 			// Hex inputs: opaque black plate (stable distort). Idle/final: opaque black.
@@ -165,7 +186,7 @@ export class ScreenCompositor {
 			gl.clear(true, true, true);
 		}
 
-		if (modelsTexture) {
+		if (modelsTexture && !combineLayers) {
 			applyScreenTextureColorSpace(modelsTexture, gl);
 			const uniforms = this.modelsMaskMaterial.uniforms;
 			if (uniforms.map.value !== modelsTexture) {
@@ -304,6 +325,9 @@ export class ScreenCompositor {
 		this.layerTargets.b?.dispose();
 		this.layerTargets = { a: null, b: null };
 		this.modelsMaskMaterial.dispose();
+		this.layerCompositeMaterial.dispose();
+		this.layerCompositeMesh.geometry.dispose();
+		this.layerCompositeScene.clear();
 		this.caseEdgeShadeMaterial.dispose();
 		this.overlayMaterial.dispose();
 		this.hexOverLiquidMaterial.dispose();

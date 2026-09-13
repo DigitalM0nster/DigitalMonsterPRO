@@ -28,10 +28,16 @@ const DETAIL_FRAGMENT = /* glsl */ `
 		vec2 px=vUv*vec2(560.0,200.0);
 		float rule=(1.0-smoothstep(0.3,0.85,abs(px.y-82.0)))*step(16.0,px.x)
 			*(1.0-smoothstep(56.0,144.0,px.x))*smoothstep(0.42,0.7,uSnake)*0.48;
-		float alpha=text.a+rule*(1.0-text.a);
-		text=vec4((text.rgb*text.a+vec3(0.58,0.77,0.85)*rule*(1.0-text.a))/max(alpha,0.001),alpha);
-		if(text.a<0.002)discard;
-		gl_FragColor=text;
+		float accent=(1.0-smoothstep(0.35,1.0,abs(px.y-193.0)))*step(16.0,px.x)
+			*(1.0-smoothstep(64.0,66.0,px.x))*smoothstep(0.0,0.18,uSnake)*0.82;
+		vec3 color=text.rgb*text.a+(vec3(0.58,0.77,0.85)*rule+vec3(0.10,0.74,0.89)*accent)*(1.0-text.a);
+		float ink=text.a+max(rule,accent)*(1.0-text.a);
+		// Local atmospheric shade: one existing quad, no blur pass or texture updates.
+		float backing=(1.0-smoothstep(0.35,1.05,length((vUv-vec2(0.43,0.49))*vec2(1.9,2.0))))
+			*smoothstep(0.0,0.28,uSnake)*0.52;
+		float alpha=ink+backing*(1.0-ink);
+		if(alpha<0.002)discard;
+		gl_FragColor=vec4(color/max(alpha,0.001),alpha);
 	}
 `;
 

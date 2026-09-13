@@ -1,7 +1,7 @@
 // Panel centres are composed for the four calibrated close-up cameras (top-down screen coordinates).
 export const MMK1_DETAIL_SIZE = { width: 560, height: 200, rowCount: 4 };
 export const MMK1_DETAIL_STATE_COUNT = 6;
-export const MMK1_DETAIL_VIEW = { height: 176, uvBottom: 0.04, uvTop: 0.92 };
+export const MMK1_DETAIL_VIEW = { height: 192, uvBottom: 0.04, uvTop: 1 };
 
 // Two samples per CSS pixel, independent of the scene's quality/downscale.
 // Four shared detail compositions + two overview sizes fit within a 4K texture.
@@ -82,7 +82,8 @@ export function getMmk1DetailLayout(index, width, height) {
 		const top = overview ? (short ? 76 : 92) : portrait && index === 1 ? Math.max(144, height * .4) : (short ? 116 : 144);
 		const bottom = short ? 62 : 80;
 		const contentHeight = overview ? MMK1_OVERVIEW_VIEW.height : MMK1_DETAIL_VIEW.height;
-		const scale = Math.max(.1, Math.min(1, availableWidth / MMK1_DETAIL_SIZE.width, (height - top - bottom) / contentHeight));
+		const footer = overview ? 0 : 64;
+		const scale = Math.max(.1, Math.min(1, availableWidth / MMK1_DETAIL_SIZE.width, (height - top - bottom - footer) / contentHeight));
 		const panelWidth = MMK1_DETAIL_SIZE.width * scale, panelHeight = contentHeight * scale;
 		return { x: left, y: height - top - panelHeight, scale, width: panelWidth, height: panelHeight };
 	}
@@ -97,6 +98,6 @@ export function getMmk1DetailLayout(index, width, height) {
 	const panelWidth = MMK1_DETAIL_SIZE.width * scale, panelHeight = MMK1_DETAIL_VIEW.height * scale;
 	const [cx, cy] = MMK1_HOTSPOT_DETAILS[index].center;
 	const x = Math.max(160, Math.min(width - 170 - panelWidth, width * cx - panelWidth / 2));
-	const y = Math.max(48, Math.min(height - panelHeight - 190, height * (1 - cy) - panelHeight / 2));
+	const y = Math.max(112, Math.min(height - panelHeight - 190, height * (1 - cy) - panelHeight / 2));
 	return { x, y, scale, width: panelWidth, height: panelHeight };
 }

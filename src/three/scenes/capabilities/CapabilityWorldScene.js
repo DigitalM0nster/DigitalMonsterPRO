@@ -160,7 +160,7 @@ export class CapabilityWorldScene {
 			// Route leave and carousel dormancy own disabling the controller.
 			this._freeCamera.update(delta, frame.camera);
 		}
-		const pointer = interactionOwned ? frame?.pointer ?? { x: 0, y: 0 } : { x: 0, y: 0 };
+		const pointer = frame?.visualPointer ?? (interactionOwned ? frame?.pointer ?? { x: 0, y: 0 } : { x: 0, y: 0 });
 		this.cameraParallax.x = THREE.MathUtils.damp(
 			this.cameraParallax.x,
 			THREE.MathUtils.clamp(Number(pointer.x) || 0, -1, 1),

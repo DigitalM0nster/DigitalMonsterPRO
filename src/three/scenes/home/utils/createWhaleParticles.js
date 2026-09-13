@@ -216,6 +216,7 @@ export function createWhaleParticles(meshes, options = {}) {
 			// DPR-1 Medium needs room for the round halo around its compact core.
 			// High retains its original sprite size and grain profile.
 			uRasterScale: { value: 1 },
+			uSampleKeep: { value: 1 },
 			uLowFogRange: { value: new THREE.Vector2(18, 49) },
 			uMediumColor: { value: new THREE.Color(mediumHomeVisualConfig.whaleColor) },
 			uMediumEmission: { value: mediumHomeVisualConfig.whaleEmission },

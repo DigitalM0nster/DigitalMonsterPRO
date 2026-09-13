@@ -57,10 +57,5 @@ export default function SiteArcNavigator() {
 		if (!requestHexNavigation(path, location.pathname)) navigate(path);
 	}, [location.pathname, navigate]);
 
-	return (
-		<SiteArcDomNav
-			activeItemId={activeId}
-			onActivateItem={activate}
-		/>
-	);
+	return <SiteArcDomNav activeItemId={activeId} onActivateItem={activate} />;
 }

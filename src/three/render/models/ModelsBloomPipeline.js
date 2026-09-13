@@ -3,7 +3,7 @@ import { getScenePixelRatio } from "../../renderer/renderResolution.js";
 import { EffectComposer, EffectPass, RenderPass, BloomEffect, BlendFunction, KernelSize } from "postprocessing";
 import { easing } from "maath";
 import { getSiteBloomConfig, siteBloomArtDirection } from "./siteBloomConfig.js";
-import { configureModelsRenderPass, renderComposerToTexture } from "../composerUtils.js";
+import { renderComposerToTexture } from "../composerUtils.js";
 import { compileSceneChunked } from "../../renderer/compileSceneChunked.js";
 
 const BLOOM_RADIUS_MIN = 0.1;
@@ -37,16 +37,16 @@ void main() {
 	}
 	// A non-finite HDR texel poisons the mip chain and appears as a black tile.
 	// Keep bloom input finite before any downsample or blur pass can spread it.
-	gl_FragColor = vec4(
-		clamp(sampled.rgb, vec3(0.0), vec3(64.0)),
-		clamp(sampled.a, 0.0, 1.0)
-	);
+	// Match the former NormalBlending over transparent black, while replacing
+	// every texel directly. No destination read or clear is required.
+	float alpha = clamp(sampled.a, 0.0, 1.0);
+	gl_FragColor = vec4(clamp(sampled.rgb, vec3(0.0), vec3(64.0)) * alpha, alpha);
 }
 `,
 		depthTest: false,
 		depthWrite: false,
 		toneMapped: false,
-		transparent: true,
+		blending: THREE.NoBlending,
 	});
 }
 
@@ -73,6 +73,7 @@ export class ModelsBloomPipeline {
 		this.gfx = gfx;
 		this.composer = new EffectComposer(renderer, {
 			multisampling: 0,
+			depthBuffer: false,
 			stencilBuffer: false,
 			frameBufferType: resolveBloomFrameBufferType(gfx),
 		});
@@ -137,8 +138,10 @@ export class ModelsBloomPipeline {
 
 		try {
 			this.composer.removeAllPasses();
-			this.composer.addPass(new RenderPass(inputScene, inputCamera));
-			configureModelsRenderPass(this.composer);
+			const inputPass = new RenderPass(inputScene, inputCamera);
+			// The finite-input fullscreen shader overwrites RGBA without blending.
+			inputPass.clearPass.enabled = false;
+			this.composer.addPass(inputPass);
 
 			this.bloomEffect = new BloomEffect({
 				blendFunction: BlendFunction.SCREEN,

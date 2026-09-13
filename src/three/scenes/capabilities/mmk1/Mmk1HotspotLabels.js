@@ -82,7 +82,10 @@ export class Mmk1HotspotLabels {
 	layout(camera, viewport) {
 		this.viewport.copy(viewport);
 		const { x: width, y: height } = viewport;
-		const margin = width < 700 ? 14 : 140;
+		const compact = width <= 768;
+		const margin = compact ? 12 : 140;
+		const bottom = compact ? (height < 480 ? 64 : 92) : 24;
+		const top = compact ? (height < 480 ? 100 : 136) : 44;
 		for (let i = 0; i < this.panels.length; i++) {
 			const marker = this.markers[i];
 			const panel = this.panels[i];
@@ -96,7 +99,7 @@ export class Mmk1HotspotLabels {
 			const u = panel.material.uniforms;
 			u.uOrigin.value.set(
 				THREE.MathUtils.clamp(linked ? x - (stacked ? 270 : 342) : right ? x + 34 : x - 334, margin, Math.max(margin, width - 314)),
-				THREE.MathUtils.clamp(y - (stacked ? 170 : 100), 24, Math.max(24, height - 154)),
+				THREE.MathUtils.clamp(y - (stacked ? 170 : 100), bottom, Math.max(bottom, height - top - 110)),
 			).multiplyScalar(this.pixelRatio).round().divideScalar(this.pixelRatio);
 			u.uLeaderStart.value.set(stacked ? x - u.uOrigin.value.x : 278, stacked ? 110 : 96);
 			u.uLeaderEnd.value.set(x - u.uOrigin.value.x - (stacked ? 0 : 30), y - u.uOrigin.value.y - (stacked ? 30 : 4));

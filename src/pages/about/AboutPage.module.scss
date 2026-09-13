@@ -18,3 +18,114 @@
 		padding: 0;
 	}
 }
+
+.readButton, .readingPanel, .storyCue { display: none; }
+
+@media (max-width: 1024px), (max-height: 600px) {
+	.readButton {
+		position: absolute;
+		left: 20px;
+		bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 12px;
+		min-height: 44px;
+		max-width: calc(60% - 20px);
+		padding: 0;
+		border: 0;
+		border-bottom: 1px solid rgba(0, 169, 255, .5);
+		background: transparent;
+		color: #eaf6ff;
+		font: 600 14px Jura, sans-serif;
+		pointer-events: auto;
+		cursor: pointer;
+		span { color: #00a9ff; font-size: 20px; }
+		&:focus-visible { outline: 2px solid #00a9ff; outline-offset: 3px; }
+	}
+	.storyCue {
+		position: absolute;
+		right: 20px;
+		bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+		display: flex;
+		flex-direction: column;
+		align-items: flex-end;
+		gap: 5px;
+		padding-right: 13px;
+		color: #a4bdcd;
+		font: 400 10px/1.3 ManifoldExtended, sans-serif;
+		letter-spacing: .03em;
+		pointer-events: none;
+		span:first-child { color: #dbefff; font-size: 12px; }
+		small { color: #5a798b; font-size: 10px; }
+		i { position: absolute; right: 0; top: 1px; height: 31px; width: 1px; background: linear-gradient(#00a9ff, transparent); }
+		i::after { content: ""; position: absolute; left: -2px; top: 0; width: 5px; height: 5px; border-right: 1px solid #00a9ff; border-bottom: 1px solid #00a9ff; transform: rotate(45deg); animation: cueDrift 2.8s ease-in-out infinite; }
+	}
+	.readingPanel {
+		position: absolute;
+		z-index: 4;
+		inset: 84px 16px calc(76px + env(safe-area-inset-bottom, 0px));
+		display: flex;
+		flex-direction: column;
+		min-height: 0;
+		border: 1px solid rgba(0, 169, 255, .55);
+		border-radius: 0;
+		background: #02070a;
+		box-shadow: 0 12px 40px rgba(0, 0, 0, .7);
+		pointer-events: auto;
+		touch-action: pan-y;
+		color: #eef6ff;
+		button { min-height: 44px; color: inherit; font-family: Jura, sans-serif; cursor: pointer; }
+		button:focus-visible { outline: 2px solid #00a9ff; outline-offset: -3px; }
+	}
+	.readingHeader {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		flex: 0 0 auto;
+		padding-left: 16px;
+		border-bottom: 1px solid #173449;
+		font: 600 15px Jura, sans-serif;
+		button { display: flex; align-items: center; gap: 10px; padding: 0 14px; border: 0; background: transparent; font-size: 14px; }
+		button span { color: #00a9ff; font-size: 26px; }
+	}
+	.readingBody {
+		display: block;
+		flex: 1 1 auto;
+		min-height: 0;
+		overflow-y: auto;
+		overscroll-behavior: contain;
+		touch-action: pan-y;
+		padding: 22px 20px;
+		font: 500 16px/1.55 Jura, sans-serif;
+		scrollbar-color: #1688bc #06101a;
+		h2 { font: 500 clamp(20px, 4.5vw, 28px)/1.22 ManifoldExtended, sans-serif; margin: 0 0 20px; }
+		p { margin: 0 0 16px; color: #c7d3df; }
+		ul { display: flex; flex-direction: column; gap: 18px; padding: 0; margin: 26px 0 0; list-style: none; }
+		li { border-top: 1px solid #173449; padding-top: 16px; }
+		h3 { font: 600 13px/1.45 ManifoldExtended, sans-serif; margin: 0 0 8px; color: #7ad0ff; }
+	}
+	.readingChapter { max-width: 62ch; margin: 0 auto; }
+	.readingChapter + .readingChapter { margin-top: 44px; border-top: 1px solid #24627e; padding-top: 28px; }
+	.chapterLabel { color: #73cfff; font: 500 11px ManifoldExtended, sans-serif; margin-bottom: 14px; }
+}
+
+@keyframes cueDrift {
+	0%, 100% { transform: translateY(0) rotate(45deg); opacity: .4; }
+	55% { transform: translateY(12px) rotate(45deg); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) { .storyCue i::after { animation: none; } }
+
+:global(.page.about:not(.active):not(.activating)) .storyCue i::after { animation-play-state: paused; }
+
+@media (min-width: 1025px) and (max-height: 600px) {
+	.readButton { left: max(144px, calc((100vw - 1280px) / 2 + 100px)); bottom: 40px; }
+	.readingPanel { left: max(144px, calc((100vw - 1280px) / 2 + 100px)); right: auto; width: min(680px, calc(100% - 240px)); bottom: 40px; }
+	.storyCue { bottom: 40px; right: 144px; }
+}
+
+@media (max-height: 479px) {
+	.readButton, .storyCue { bottom: calc(62px + env(safe-area-inset-bottom, 0px)); }
+	.readingPanel { top: 60px; bottom: calc(62px + env(safe-area-inset-bottom, 0px)); }
+}

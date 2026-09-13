@@ -2547,7 +2547,7 @@ export class PortfolioHubScene {
 
 		if (this.showHub && this.root.visible) {
 			const nowSeconds = performance.now() / 1000;
-			const pointer = frame?.pointer ?? { x: 0, y: 0 };
+			const pointer = frame?.visualPointer ?? frame?.pointer ?? { x: 0, y: 0 };
 			const tiltChanged = this._updateCursorGridTilt(_delta, pointer, frame);
 			this._updateCursorParallax(_delta, pointer, frame);
 

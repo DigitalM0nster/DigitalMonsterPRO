@@ -1,6 +1,7 @@
 import { heroTextFragmentShader } from "../../../shaders/heroText/heroTextFragment.glsl.js";
 import { heroTextFragmentSimpleShader } from "../../../shaders/heroText/heroTextFragmentSimple.glsl.js";
 import { HeroTextMesh } from "./HeroTextMesh.js";
+import { getHeroResponsiveLayout } from "./heroResponsiveLayout.js";
 import { resolveHeroTextPosition } from "./heroTextLayout.js";
 import {
 	notifyHeroTextLayoutUpdated,
@@ -60,8 +61,8 @@ export function createHeroTitleText(renderer, scene) {
 		offsetX,
 		offsetY: position.titleOffsetY,
 		fontFamily: HERO_TITLE_FONT.fontFamily,
-		fontSize: HERO_TITLE_FONT.fontSize,
-		lineHeight: HERO_TITLE_FONT.lineHeight,
+		fontSize: HERO_TITLE_FONT.fontSize * getHeroResponsiveLayout(window.innerWidth, window.innerHeight).titleScale,
+		lineHeight: HERO_TITLE_FONT.lineHeight * getHeroResponsiveLayout(window.innerWidth, window.innerHeight).titleScale,
 		fontWeight: HERO_TITLE_FONT.fontWeight,
 		fontColor: HERO_TITLE_FONT.fontColor,
 		letterSpacing: heroTextTypographyConfig.titleLetterSpacing,
@@ -140,6 +141,10 @@ export function createHeroTitleText(renderer, scene) {
 	};
 
 	const layoutProvider = (config = heroTextPositionConfig, viewportWidth = window.innerWidth, viewportHeight = window.innerHeight) => {
+		if (getHeroResponsiveLayout(viewportWidth, viewportHeight).landscape) return {
+			leftPx: title.offsetX * viewportWidth,
+			topPx: stack.getBlockBottomOffsetY() * viewportWidth + 6,
+		};
 		const position = resolveHeroTextPosition(config, viewportWidth);
 		const gapVh = config?.scrollHintGapVh ?? position.scrollHintGapVh ?? 0;
 		const aspectRatio = viewportWidth / viewportHeight;
@@ -269,11 +274,15 @@ export function createHeroTitleText(renderer, scene) {
 		},
 		resize() {
 			const next = resolveHeroTextPosition(heroTextPositionConfig);
+			const { titleScale } = getHeroResponsiveLayout(window.innerWidth, window.innerHeight);
+			title.fontSize = HERO_TITLE_FONT.fontSize * titleScale;
+			title.lineHeight = HERO_TITLE_FONT.lineHeight * titleScale;
 			title.resize(next.offsetX);
 			subtitle.offsetY = resolveSubtitleOffsetY(title, next);
 			subtitle.resize(next.offsetX);
 			stack.offsetY = resolveStackOffsetY(title, subtitle, next);
 			stack.resize(next.offsetX);
+			syncLayerPositions(next);
 			notifyHeroTextLayoutUpdated();
 			scrollHint.resize();
 		},

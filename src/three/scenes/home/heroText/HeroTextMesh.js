@@ -533,6 +533,7 @@ export class HeroTextMesh {
 	}
 
 	createText() {
+		const revision = this._textBuildRevision = (this._textBuildRevision ?? 0) + 1;
 		this.width = window.innerWidth;
 		this.height = window.innerHeight;
 		this.aspectRatio = this.width / this.height;
@@ -548,6 +549,7 @@ export class HeroTextMesh {
 		this.canvas.height = this.canvasHeight;
 
 		this.readyPromise = this._loadFontAndRun(() => {
+			if (revision !== this._textBuildRevision) return;
 			const context = this.canvas.getContext("2d", { alpha: true });
 			const text = this.text;
 			const normalizedFontSize = this.reverseNormalizeItem(this.fontSize);
@@ -703,6 +705,27 @@ export class HeroTextMesh {
 		quadGeom.setAttribute("instanceOrder", new THREE.InstancedBufferAttribute(orderArr, 1));
 		quadGeom.setAttribute("instanceOrderAppear", new THREE.InstancedBufferAttribute(orderAppearArr, 1));
 
+		if (this.textMesh?.count === charCount) {
+			// Resize changes the raster/layout, not the shader or reveal playhead.
+			const previousGeometry = this.textMesh.geometry;
+			const previousTexture = this.textMaterial.uniforms.uTexture.value;
+			this.textMesh.geometry = quadGeom;
+			if (this.fillMesh) this.fillMesh.geometry = quadGeom;
+			for (const material of this._getMaterials()) {
+				const uniforms = material.uniforms;
+				uniforms.uTexture.value = textTexture;
+				uniforms.uCharWidthNDC.value = (2 * sumDu) / charCount;
+				uniforms.uCharHeightNDC.value = (2 * sumDv) / charCount;
+				uniforms.uVirtualCursor1.value = this.uVirtualCursor1;
+				uniforms.uVirtualCursor2.value = this.uVirtualCursor2;
+				uniforms.uVirtualCursor3.value = this.uVirtualCursor3;
+			}
+			previousGeometry.dispose();
+			previousTexture.dispose();
+			this._syncFrameUniforms();
+			this._completeTextRebuild();
+			return;
+		}
 		if (this.splitBloomLayers) {
 			this._buildSplitInstancedMeshes(quadGeom, textTexture, charCount, sumDu, sumDv);
 		} else {
@@ -711,6 +734,7 @@ export class HeroTextMesh {
 
 		this._flushPendingProgressAnim();
 		this._bindRevealMaterials();
+		this._completeTextRebuild();
 	}
 
 	_createInstancedUniforms(textTexture, charCount, sumDu, sumDv, renderPass) {
@@ -811,9 +835,8 @@ export class HeroTextMesh {
 		this.fillMesh.renderOrder = 20;
 		this.scene.add(this.fillMesh);
 		this.setComposeMode(this.composeMode);
-		this._flushPendingProgressAnim();
-		this._bindRevealMaterials();
-		this._completeTextRebuild();
+		// Bind once in _buildInstancedMesh. A second bind would cancel the pending
+		// enter when font loading finishes after show(), leaving the title hidden.
 	}
 
 	_flushPendingProgressAnim() {
@@ -1135,7 +1158,7 @@ export class HeroTextMesh {
 			return;
 		}
 
-		this._teardownTextMeshes();
+		if (!this.useInstancedLetters) this._teardownTextMeshes();
 		this.createText();
 	}
 
@@ -1158,6 +1181,7 @@ export class HeroTextMesh {
 	}
 
 	dispose() {
+		this._textBuildRevision = (this._textBuildRevision ?? 0) + 1;
 		window.removeEventListener("mousemove", this._onMouseMove);
 		window.removeEventListener("pointerdown", this._onPointerDown);
 		if (this._glitchRedrawRaf) {

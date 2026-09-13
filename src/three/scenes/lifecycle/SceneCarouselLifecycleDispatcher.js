@@ -1,6 +1,6 @@
 import { getCarouselSceneRole } from "@/three/render/transition/sceneCarouselSceneProgress.js";
 import { CAROUSEL_SCENE_IDS } from "@/three/render/transition/SceneCarousel.js";
-import { getCarouselResetReason, isCarouselProgressAtSegmentStart } from "./sceneLifecycle.js";
+import { getCarouselResetReason, isCarouselProgressAtSegmentStart, isRingDormantReason } from "./sceneLifecycle.js";
 
 /**
  * Диспетчер reset/enter по ролям кольца карусели (не virtual hex-ролям).
@@ -125,6 +125,7 @@ export class SceneCarouselLifecycleDispatcher {
 	 */
 	_dispatchReset(sceneId, ctx) {
 		const scene = this.getScene(sceneId);
+		if (isRingDormantReason(ctx.reason)) scene?.canvasInterface?.reset?.();
 		scene?.resetCarouselState?.({
 			sceneId,
 			sceneProgress: 0,

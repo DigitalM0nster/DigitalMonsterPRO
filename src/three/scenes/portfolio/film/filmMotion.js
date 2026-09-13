@@ -1,4 +1,6 @@
 import { applyLocalSegmentTargetRest, chaseSegmentValue, getAbsChaseSmoothMul } from "../../../render/transition/segmentScrollSpring.js";
+import { fitFilmPresentation } from "./filmResponsiveFit.js";
+import { resolveFilmPresentation } from "@/pages/portfolio/filmPresentationLayout.js";
 
 export const clamp = (value, min = 0, max = 1) => Math.min(max, Math.max(min, value));
 
@@ -52,10 +54,22 @@ export class FilmMotion {
 	}
 }
 
-export function getFilmLayout(aspect) {
+export function getFilmLayout(aspect, viewportWidth = 1920, viewportHeight = 1080) {
 	const viewHeight = 2 * Math.tan(20 * Math.PI / 180) * 10;
 	const viewWidth = viewHeight * aspect;
+	const presentation = resolveFilmPresentation(viewportWidth, viewportHeight);
+	const mobile = Boolean(presentation);
+	if (mobile) {
+		const box = presentation.screen;
+		const width = viewHeight * (box.right - box.left) / viewportHeight;
+		const layout = { mobile, landscape: presentation.landscape, compact: true, compositionScale: .96, viewWidth,
+			width, height: width / 2.05, x: viewWidth * ((box.left + box.right) / 2 / viewportWidth - .5) / .96,
+			y: viewHeight * (.5 - (box.top + box.bottom) / 2 / viewportHeight) / .96 };
+		return fitFilmPresentation(layout, viewportWidth, viewportHeight, box);
+	}
 	const compact = aspect < 1.15;
 	const width = compact ? Math.max(1.5, viewWidth - 0.65) : Math.min(9.4, viewWidth - 4.55);
-	return { compact, compositionScale: compact ? .96 : .92, viewWidth, width, height: width / 2.05, x: compact ? 0 : 0.10, y: compact ? 0.8 : 0.1 };
+	const layout = { mobile, compact, compositionScale: compact ? .96 : .92, viewWidth, width, height: width / 2.05, x: compact ? 0 : 0.10, y: compact ? 0.8 : 0.1 };
+	return viewportHeight <= 600 ? fitFilmPresentation(layout, viewportWidth, viewportHeight,
+		{ left: 120, right: viewportWidth - 96, top: 64, bottom: viewportHeight - 30 }) : layout;
 }

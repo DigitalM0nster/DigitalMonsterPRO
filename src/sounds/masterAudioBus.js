@@ -199,9 +199,10 @@ export function readMasterAudioWaveform(sampleCount = 128) {
 /**
  * Один проход analyser: RMS + форма волны для HUD.
  * @param {number} [sampleCount]
- * @returns {{ level: number, waveform: Float32Array | null }}
+ * @param {Float32Array} [waveformTarget] Буфер вызывающего кода; перезаписывается при чтении.
+ * @returns {{ level: number, waveform: Float32Array | null, peak: number, rms: number }}
  */
-export function readMasterAudioSnapshot(sampleCount = 128) {
+export function readMasterAudioSnapshot(sampleCount = 128, waveformTarget) {
 	const analyser = getMasterAnalyser();
 	const ctx = getMasterAudioContext();
 	if (!analyser || !ctx || ctx.state === "closed") {
@@ -217,7 +218,9 @@ export function readMasterAudioSnapshot(sampleCount = 128) {
 	const { level, peak, rms } = measureWaveformLevel(waveformFloatBuffer);
 
 	const count = Math.max(8, Math.round(sampleCount));
-	const waveform = new Float32Array(count);
+	const waveform = waveformTarget?.length === count
+		? waveformTarget
+		: new Float32Array(count);
 	const lastIndex = fftSize - 1;
 
 	for (let i = 0; i < count; i += 1) {

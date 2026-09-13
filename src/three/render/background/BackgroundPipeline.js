@@ -180,7 +180,7 @@ export class BackgroundPipeline {
 		const prevAutoClear = gl.autoClear;
 
 		gl.setRenderTarget(this.target);
-		gl.autoClear = true;
+		gl.autoClear = false;
 		gl.setClearColor(0x000000, 1);
 		gl.clear(true, true, true);
 		gl.render(this.draw.scene, this.draw.camera);

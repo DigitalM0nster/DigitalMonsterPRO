@@ -66,7 +66,8 @@ export function blitTextureToRenderTarget(gl, texture, renderTarget, scene, came
 
 	const prevTarget = gl.getRenderTarget();
 	gl.setRenderTarget(renderTarget);
-	gl.autoClear = true;
+	// Keep one explicit clear (including alpha/depth), not another in render().
+	gl.autoClear = false;
 	gl.setClearColor(0x000000, 1);
 	gl.clear(true, true, true);
 	gl.render(scene, camera);

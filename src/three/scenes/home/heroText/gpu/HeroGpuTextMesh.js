@@ -9,7 +9,8 @@ import { heroGpuTextFragment, heroGpuTextVertex } from "./heroGpuTextShaders.js"
 import { createHeroTextRevealUniforms, HeroTextRevealController } from "../heroTextReveal.js";
 import { applyHeroTitleShaderUniforms, heroTextShaderConfig } from "../heroTextShaderConfig.js";
 import { applyHeroGlitchShaderUniforms, getHeroGlitchSnakeRunOptions, heroTextGlitchConfig } from "../heroTextGlitchConfig.js";
-import { getHeroLocale, getHeroStackFontFamily, getHeroSubtitleFontFamily, HERO_COPY } from "../heroTitleConfig.js";
+import { getHeroLocale, getHeroStackFontFamily, getHeroSubtitleFontFamily, HERO_COPY, HERO_COMPACT_COPY } from "../heroTitleConfig.js";
+import { getHeroResponsiveLayout } from "../heroResponsiveLayout.js";
 import { resolveReplacementGlowMetrics } from "@/components/GlitchText/drawGlitchText.js";
 import { playGlitchTextSound } from "@/sounds/soundDesign.js";
 
@@ -30,7 +31,8 @@ export class HeroGpuTextMesh {
 			uGlyphInk: { value: new THREE.Color(0xffffff) },
 			uOrigin: { value: new THREE.Vector2() }, uBlockSize: { value: new THREE.Vector2() }, uBlockPad: { value: new THREE.Vector2() },
 			uLocaleFrom: { value: 0 }, uLocaleTo: { value: 0 }, uSnakeTime: { value: -1 },
-			uSnakeTiming: { value: new THREE.Vector4(40, 40, 10, 0) }, uLineScales: { value: new Float32Array(6).fill(1) },
+			uSnakeTiming: { value: new THREE.Vector4(40, 40, 10, 0) }, uLineScales: { value: new Float32Array(32).fill(1) },
+			uTextScale: { value: 1 },
 			uDecorationWidth: { value: 0 }, uDecorationThickness: { value: 0 }, uResolutionDpr: { value: this.renderer.getPixelRatio() },
 			uLayoutDpr: { value: getScenePixelRatio(this.renderer) },
 			uPass: { value: 2 }, uOpacity: { value: 1 },
@@ -47,9 +49,9 @@ export class HeroGpuTextMesh {
 	}
 	async _prepare() {
 		const mediumHomeVisualConfig = getHomeTextVisualSettings(getGraphicsTier());
-		const copies = this.copies ?? Object.keys(HERO_COPY).map(locale => ({ key: locale,
-			text: HERO_COPY[locale][this.shaderProfile === "stack" ? "stack" : "tagline"],
-			fontFamily: this.shaderProfile === "stack" ? getHeroStackFontFamily(locale) : getHeroSubtitleFontFamily(locale) }));
+		const copies = this.copies ?? [HERO_COPY, HERO_COMPACT_COPY].flatMap((copy, compact) => Object.keys(copy).map(locale => ({ key: locale, compact: Boolean(compact),
+			text: copy[locale][this.shaderProfile === "stack" ? "stack" : "tagline"],
+			fontFamily: this.shaderProfile === "stack" ? getHeroStackFontFamily(locale) : getHeroSubtitleFontFamily(locale) })));
 		const cssScale = 1920 / this.canvasWidth;
 		this.cssFontSize = this.fontSize * cssScale;
 		this.cssLineHeight = this.lineHeight * cssScale;
@@ -93,7 +95,7 @@ export class HeroGpuTextMesh {
 		this.uniforms.uAtlasSize.value.set(atlas.width, atlas.height);
 		this.uniforms.uTexture.value = atlas.texture;
 		this.motion = new HeroGpuSnakeMotion(this.uniforms, atlas.variants, getHeroGlitchSnakeRunOptions);
-		this.motion.set(Math.max(0, copies.findIndex(copy => copy.key === getHeroLocale())));
+		this._syncResponsiveCopy();
 		const makeMaterial = pass => new THREE.ShaderMaterial({
 			defines: this.shaderProfile === "hint" ? { HERO_SCROLL_LABEL: 1 } : (this.msdf ? { HERO_STACK_MSDF: 1 } : {}),
 			uniforms: { ...this.uniforms, uPass: { value: pass } },
@@ -112,10 +114,13 @@ export class HeroGpuTextMesh {
 		this.scene.add(this.textMesh); this.overlayScene.add(this.screenMesh);
 		this.applyShaderConfig(); this.setPosition(this.offsetX, this.offsetY); this._syncPass();
 	}
-	getLineHeightVw() { return this.lineHeight * 1920 / this.width / this.canvasWidth; }
+	getLineHeightVw() { return this.lineHeight * 1920 / this.width / this.canvasWidth * this.uniforms.uTextScale.value; }
 	getBlockHeightVw() { return (this.text.length + (this.decorativeTopLine ? 0.72 : 0)) * this.getLineHeightVw(); }
 	getBlockBottomOffsetY() { return this.offsetY + this.getBlockHeightVw(); }
 	setPosition(x = this.offsetX, y = this.offsetY) {
+		const responsive = getHeroResponsiveLayout(this.width, this.height);
+		this.uniforms.uTextScale.value = this.shaderProfile === "subtitle" ? responsive.textScale
+			: this.shaderProfile === "stack" && responsive.landscape ? .84 : 1;
 		this.offsetX = x; this.offsetY = y;
 		this.uniforms.uOrigin.value.set(x * this.width, y * this.width);
 		this.uniforms.uResolution.value.set(this.width, this.height);
@@ -127,7 +132,8 @@ export class HeroGpuTextMesh {
 		const { blur } = resolveReplacementGlowMetrics(sourceFontSize, heroTextGlitchConfig.replacementGlowStrength);
 		const pad = Math.ceil(blur * 3.2 + sourceFontSize * 0.85) * this.width / this.canvasWidth;
 		this.uniforms.uBlockPad.value.set(pad, pad);
-		this.uniforms.uBlockSize.value.set(this.width, this.getBlockHeightVw() * this.width + 2 * pad);
+		// Reveal coordinates cover the unscaled prepared copy, including its rightmost glyphs.
+		this.uniforms.uBlockSize.value.set(Math.max(this.width / this.uniforms.uTextScale.value, 720), this.getBlockHeightVw() * this.width / this.uniforms.uTextScale.value + 2 * pad);
 	}
 	applyShaderConfig() {
 		if (this.shaderProfile !== "hint") {
@@ -181,7 +187,14 @@ export class HeroGpuTextMesh {
 		finally { renderer.autoClear = clear; }
 	}
 	update(delta) { this.motion?.update(delta); this.reveal.update(delta); this._syncPass(); }
-	resize(x = this.offsetX) { this.width = window.innerWidth; this.height = window.innerHeight; this.setPosition(x, this.offsetY); }
+	_syncResponsiveCopy() {
+		if (!this.motion) return;
+		const layout = getHeroResponsiveLayout(this.width, this.height);
+		const compact = layout.compact && !(layout.landscape && this.shaderProfile === "subtitle");
+		const index = Math.max(0, this.atlas.variants.findIndex(copy => copy.key === getHeroLocale() && (this.copies || copy.compact === compact)));
+		this.motion.set(index); this.text = [...this.atlas.variants[index].text];
+	}
+	resize(x = this.offsetX) { this.width = window.innerWidth; this.height = window.innerHeight; this._syncResponsiveCopy(); this.setPosition(x, this.offsetY); }
 	dispose() {
 		if (this.disposed) return;
 		this.disposed = true; this.motion?.finish();

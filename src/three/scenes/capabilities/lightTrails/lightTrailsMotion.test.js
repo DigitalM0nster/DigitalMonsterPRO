@@ -313,3 +313,24 @@ test('faster environment flight stays independent of render rate and stops while
 });
 
 
+
+test('touch spin waits for a confirmed tap and never fires after a page swipe or orbit drag', () => {
+ const {world,scene,input}=fixture();
+ const pointer=(type,x=100,y=300,cancel=false)=>{
+  const event=new Event(type,{cancelable:true});
+  Object.assign(event,{pointerType:'touch',clientX:x,clientY:y});
+  if(cancel)event.preventDefault();
+  input.dispatchEvent(event);
+ };
+ pointer('pointerdown');
+ advance(world,.1,{x:0,y:0},60,{pointerDown:true});
+ assert.equal(world.trailMotion.spinElapsed,-1,'holding a touch is not a click');
+ pointer('pointermove',100,100);pointer('pointermove',100,300);
+ pointer('pointerup',100,300,true);
+ assert.equal(world.trailMotion.spinElapsed,-1,'returning a swipe to its origin must not spin');
+ pointer('pointerdown');pointer('pointercancel');pointer('pointerup');
+ assert.equal(world.trailMotion.spinElapsed,-1,'cancelled contacts must not click');
+ pointer('pointerdown');pointer('pointerup');
+ assert.equal(world.trailMotion.spinElapsed,0,'a tap still activates the scene');
+ world.dispose(scene);
+});

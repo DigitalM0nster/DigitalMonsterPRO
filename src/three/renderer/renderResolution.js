@@ -11,7 +11,7 @@ export function getScenePixelRatio(renderer) {
 }
 
 export function resolveOutputPixelRatio(tier, sceneRatio, deviceRatio, width, height) {
-	if (tier !== "medium") return sceneRatio;
+	if (tier !== "medium" && !(tier === "low" && width <= 1024)) return sceneRatio;
 	const native = Number.isFinite(deviceRatio) ? deviceRatio : 1;
 	// Bound the inexpensive final blit too: at most DPR 2 / one 4K frame.
 	const pixelBudget = Math.sqrt(8294400 / Math.max(1, width * height));

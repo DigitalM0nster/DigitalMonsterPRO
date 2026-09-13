@@ -71,7 +71,7 @@ export async function createHeroGlyphAtlas(renderer, copies, style, cancelled = 
 	const ctx = canvas.getContext("2d", { alpha: true });
 	// Native-size clean glyphs retain browser font hinting at DPR 1. Copy exact
 	// pixel blocks into the existing 2x atlas; animated replacement tiles stay 2x.
-	const nativeCanvas = style.nativeSmallGlyphs ? document.createElement("canvas") : null;
+	const nativeCanvas = style.nativeSmallGlyphs && renderer.getPixelRatio() <= 1 ? document.createElement("canvas") : null;
 	if (nativeCanvas) { nativeCanvas.width = tileWidth / dpr; nativeCanvas.height = tileHeight / dpr; }
 	const nativeContext = nativeCanvas?.getContext("2d", { alpha: true });
 	let sliceStart = performance.now();

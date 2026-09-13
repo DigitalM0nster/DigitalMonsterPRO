@@ -13,6 +13,7 @@ ${whaleParticleSkinningGlsl}
 uniform float uTime;
 uniform float uPointScale;
 uniform float uRasterScale;
+uniform float uSampleKeep;
 
 attribute float aIntensity;
 uniform vec3 uRegionMin;
@@ -27,6 +28,13 @@ varying float vLowDepth;
 #endif
 
 void main() {
+	// Stable subset for a compact High composition. Skip unused bone queries
+	// and fragments without rebuilding attributes or changing the desktop cloud.
+	if (uSampleKeep < 0.9999 && fract(aIntensity * 413.371 + 0.123) > uSampleKeep) {
+		gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+		gl_PointSize = 0.0;
+		return;
+	}
 	vec3 pos = whaleParticlePosition();
 	vLocalPos = pos;
 
@@ -298,9 +306,11 @@ uniform vec2 uScrollPhase;
 uniform float uWaveAmp;
 uniform float uRippleAmp;
 uniform float uPointScale;
+uniform float uSideFade;
 
 varying float vWave;
 varying float vPulse;
+varying float vSideVisibility;
 
 void main() {
 	vec3 pos = position;
@@ -322,6 +332,7 @@ void main() {
 	vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
 	gl_PointSize = uPointScale;
 	gl_Position = projectionMatrix * mvPosition;
+	vSideVisibility = mix(1.0, smoothstep(-0.05, 0.4, gl_Position.x / gl_Position.w), uSideFade);
 
 	#include <fog_vertex>
 }
@@ -334,9 +345,23 @@ export const oceanParticlesFragmentShader = /* glsl */ `
 uniform vec3 uColor;
 uniform float uAlphaMult;
 uniform float uGlow;
+uniform float uCompactSurface;
 
 varying float vWave;
 varying float vPulse;
+varying float vSideVisibility;
+
+vec3 oceanFog(vec3 color) {
+#ifdef USE_FOG
+	// The compact ocean is framed farther away, independently of the whale.
+	// Keep its crest visible without removing depth haze from the animal.
+	float nearDepth = mix(fogNear, 8.0, uCompactSurface);
+	float farDepth = mix(fogFar, 95.0, uCompactSurface);
+	return mix(color, fogColor, smoothstep(nearDepth, farDepth, vFogDepth));
+#else
+	return color;
+#endif
+}
 
 void main() {
 	vec2 uv = gl_PointCoord - 0.5;
@@ -357,8 +382,7 @@ void main() {
 		float crest = smoothstep(-0.15, 0.5, vWave);
 		vec3 hue = uColor / max(max(uColor.r, uColor.g), max(uColor.b, 0.001));
 		vec3 light = mix(hue, vec3(0.32, 0.85, 1.0), dotCore * 0.4);
-		gl_FragColor = vec4(light, (dotCore * 0.9 + halo * 0.3) * uAlphaMult * (0.55 + crest * 0.45));
-		#include <fog_fragment>
+		gl_FragColor = vec4(oceanFog(light), (dotCore * 0.9 + halo * 0.3) * uAlphaMult * (0.55 + crest * 0.45) * vSideVisibility);
 		return;
 	}
 #endif
@@ -371,9 +395,7 @@ void main() {
 	float haloStrength = sqrt(max(uGlow, 0.0));
 	float alpha = clamp((core * 0.95 + glow * 0.18 * haloStrength) * uAlphaMult, 0.0, 1.0);
 
-	gl_FragColor = vec4(color, alpha);
-
-	#include <fog_fragment>
+	gl_FragColor = vec4(oceanFog(color), alpha * vSideVisibility);
 }
 `;
 

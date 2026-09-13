@@ -67,13 +67,11 @@ function resolveWaveformInvPeak(waveform, minPeak) {
 	return 1 / peak;
 }
 
-function smoothWaveformSpatial(samples, radius) {
+function smoothWaveformSpatial(samples, radius, out) {
 	const count = samples.length;
 	if (count === 0 || radius <= 0) {
 		return samples;
 	}
-
-	const out = new Float32Array(count);
 
 	for (let i = 0; i < count; i += 1) {
 		let sum = 0;
@@ -179,8 +177,8 @@ function strokeSmoothWavePath(context, samples, midY) {
 }
 
 /** Декоративная волна в тишине — несколько sin, медленный drift. */
-function buildIdleWaveform(width, time, cfg, centerX, centerSpread, centerAmpFloor) {
-	const samples = new Float32Array(width);
+function buildIdleWaveform(samples, time, cfg, centerX, centerSpread, centerAmpFloor) {
+	const width = samples.length;
 	const t = time * cfg.idleTempo;
 	const breath = 0.88 + 0.12 * Math.sin(t * cfg.idleBreathFreq);
 	const widthSpan = Math.max(1, width - 1);
@@ -236,6 +234,10 @@ export default function SiteTopHudWaveform({ active = false }) {
 		let idleTime = 0;
 		/** @type {Float32Array | null} */
 		let smoothedSamples = null;
+		// Scratch buffers belong to this canvas; ordinary frames only overwrite samples.
+		let frameSamples = new Float32Array(canvasWidth);
+		let spatialSamples = new Float32Array(canvasWidth);
+		let audioSamples = new Float32Array(Math.max(8, Math.round(canvasWidth)));
 
 		const resizeCanvas = (width, height) => {
 			const dpr = window.devicePixelRatio || 1;
@@ -260,6 +262,11 @@ export default function SiteTopHudWaveform({ active = false }) {
 				canvasHeight = cfg.canvasHeight;
 				resizeCanvas(canvasWidth, canvasHeight);
 				smoothedSamples = null;
+				if (frameSamples.length !== canvasWidth) {
+					frameSamples = new Float32Array(canvasWidth);
+					spatialSamples = new Float32Array(canvasWidth);
+					audioSamples = new Float32Array(Math.max(8, Math.round(canvasWidth)));
+				}
 			}
 
 			const listening = activeRef.current;
@@ -278,7 +285,7 @@ export default function SiteTopHudWaveform({ active = false }) {
 			}
 
 			const audioSnapshot = listening
-				? readMasterAudioSnapshot(canvasWidth)
+				? readMasterAudioSnapshot(canvasWidth, audioSamples)
 				: { level: 0, waveform: null, peak: 0, rms: 0 };
 
 			const frameLevel = listening
@@ -335,7 +342,7 @@ export default function SiteTopHudWaveform({ active = false }) {
 
 			strokeBaseline(ctx, canvasWidth, midY, accent, baselineAlpha, cfg.edgeFadeRatio);
 
-			const frameSamples = new Float32Array(canvasWidth);
+			frameSamples.fill(0);
 
 			for (let x = 0; x < canvasWidth; x += 1) {
 				const centerWeight =
@@ -348,7 +355,7 @@ export default function SiteTopHudWaveform({ active = false }) {
 			}
 
 			if (displayAmp > 0) {
-				const spatial = smoothWaveformSpatial(frameSamples, cfg.waveSmoothRadius);
+				const spatial = smoothWaveformSpatial(frameSamples, cfg.waveSmoothRadius, spatialSamples);
 				smoothedSamples = blendWaveformTemporal(
 					smoothedSamples,
 					spatial,
@@ -362,14 +369,14 @@ export default function SiteTopHudWaveform({ active = false }) {
 			} else if (listening) {
 				idleTime += 1;
 				const idleSamples = buildIdleWaveform(
-					canvasWidth,
+					frameSamples,
 					idleTime,
 					cfg,
 					centerX,
 					centerSpread,
 					centerAmpFloor,
 				);
-				const spatial = smoothWaveformSpatial(idleSamples, cfg.waveSmoothRadius);
+				const spatial = smoothWaveformSpatial(idleSamples, cfg.waveSmoothRadius, spatialSamples);
 				smoothedSamples = blendWaveformTemporal(
 					smoothedSamples,
 					spatial,

@@ -78,6 +78,7 @@ test("the last spring frame sends zero delta before rAF stops, including a snapp
 		const tick = vm.runInNewContext(`${code}\ntick`, {
 			rafId: 0, disposed: false, ownsInput: () => true, previousFrameAt: 0,
 			current: story - 0.001, target: story, STORY_MAX: 4,
+			isCompactAboutStory: () => false, touchId: null,
 			CAROUSEL_PROGRESS_COMMIT_EPS: 1e-4, CAROUSEL_PROGRESS_COMMIT_SNAP_ZONE: 0.01,
 			applyStageTargetRest: () => story, getStoryChaseConfig: () => ({}),
 			chaseSegmentValue: () => story, snapStoryPair: () => ({ current: story, target: story }),

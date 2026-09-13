@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { getGlitchReplacements } from "@/components/GlitchText/glitchLetterModel.js";
 import {
 	abortGlitchSnake,
@@ -172,7 +172,11 @@ export default function GlitchBilingualText({
 	}, SITE_LOCALES[0]);
 	const relativeLocale = sizeToActiveLocale ? displayedLocale : widestLocale;
 
-	const measureWidths = () => {
+	const measureWidths = useCallback(() => {
+		// Active-locale sizing is already provided by the relative language group.
+		// Measuring other locales cannot affect that layout, but forces a browser
+		// layout and a redundant React update during route/locale transitions.
+		if (sizeToActiveLocale) return;
 		const root = rootRef.current;
 		// A Contacts transition may keep this tree mounted under display:none.
 		// Ignore the resulting zero-size ResizeObserver notification so hiding the
@@ -187,7 +191,7 @@ export default function GlitchBilingualText({
 		setGroupWidths((prev) =>
 			SITE_LOCALES.every((loc) => prev[loc] === nextWidths[loc]) ? prev : nextWidths,
 		);
-	};
+	}, [sizeToActiveLocale]);
 
 	const applyLocaleInstant = (toLocale) => {
 		const root = rootRef.current;
@@ -264,7 +268,7 @@ export default function GlitchBilingualText({
 		hasMountedRef.current = true;
 		isAnimatingRef.current = false;
 		measureWidths();
-	}, [textSignature]);
+	}, [textSignature, measureWidths]);
 
 	useLayoutEffect(() => {
 		if (!hasMountedRef.current) {
@@ -309,7 +313,7 @@ export default function GlitchBilingualText({
 
 	useEffect(() => {
 		const root = rootRef.current;
-		if (!root || typeof ResizeObserver === "undefined") {
+		if (sizeToActiveLocale || !root || typeof ResizeObserver === "undefined") {
 			return undefined;
 		}
 
@@ -325,7 +329,7 @@ export default function GlitchBilingualText({
 		}
 
 		return () => observer.disconnect();
-	}, [textSignature]);
+	}, [textSignature, sizeToActiveLocale, measureWidths]);
 
 	useEffect(() => {
 		return () => {

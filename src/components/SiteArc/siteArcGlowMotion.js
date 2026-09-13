@@ -9,13 +9,16 @@ let glowAngleRad = 0;
 let glowTargetAngleRad = 0;
 let glowMotionInitialized = false;
 let glowManualOverride = false;
+let reducedMotionQuery;
 
 function shouldSnapGlowMotion() {
 	if (typeof window === "undefined") {
 		return false;
 	}
 	try {
-		if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+		// MediaQueryList.matches stays live when the OS preference changes.
+		reducedMotionQuery ??= window.matchMedia("(prefers-reduced-motion: reduce)");
+		if (reducedMotionQuery.matches) {
 			return true;
 		}
 	} catch {
@@ -106,6 +109,7 @@ export function tickArcGlowMotion(dt) {
 	}
 
 	const delta = shortestRadDelta(glowAngleRad, glowTargetAngleRad);
+	if (delta === 0) return false;
 
 	if (shouldSnapGlowMotion()) {
 		if (Math.abs(delta) > GLOW_ARRIVE_EPS_RAD) {

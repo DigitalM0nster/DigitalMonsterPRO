@@ -1,6 +1,7 @@
 import * as THREE from "three";
-import { advanceCityTitle, cityTitleReveal } from "./cityTitleMotion.js";
+import { advanceCityTitle, cityTitleReveal, CITY_TITLE_REVEAL_DURATION } from "./cityTitleMotion.js";
 import { SceneTextLocale } from "../typography/sceneTextLocale.js";
+import { TITLE_MOSAIC_GLSL } from "../typography/titleMosaic.js";
 
 const COPY = [
 	["СОЗДАЁМ МИРЫ,", "КОТОРЫЕ ПОМНЯТ", "На экране — на мгновение. В памяти — надолго."],
@@ -34,30 +35,28 @@ function paintLine(ctx, text, x, y, size, color, tracking = 2) {
 }
 
 const VERTEX = /* glsl */ `
+	uniform bool uScreen;
+	uniform vec2 uViewport,uOrigin,uSize;
 	varying vec2 vUv;
 	void main() {
 		vUv = uv;
-		gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+		if (uScreen) {
+			vec2 pixel = uOrigin + vec2(uv.x,1.0-uv.y)*uSize;
+			gl_Position=vec4(pixel/uViewport*vec2(2.0,-2.0)+vec2(-1.0,1.0),0.0,1.0);
+		} else gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
 	}
 `;
 const FRAGMENT = /* glsl */ `
 	uniform sampler2D uText;
 	uniform float uReveal, uLocale, uCompact;
 	varying vec2 vUv;
+	vec4 textInk(vec2 uv) {
+		uv = clamp(uv, vec2(0.001), vec2(0.999));
+		return texture2D(uText, vec2(uv.x, (5.0 - uLocale - uCompact * 3.0 + uv.y) / 6.0));
+	}
+	${TITLE_MOSAIC_GLSL}
 	void main() {
-		if (uReveal <= 0.0) discard;
-		vec4 ink = texture2D(uText, vec2(vUv.x, (5.0 - uLocale - uCompact * 3.0 + vUv.y) / 6.0));
-		if (ink.a < 0.002) discard;
-		// A quiet, staggered scan through prepared glyphs; the settled path is one sample.
-		if (uReveal < 1.0) {
-			vec2 cell = floor(vUv * vec2(96.0, 24.0));
-			float stagger = fract(sin(dot(cell, vec2(127.1, 311.7))) * 43758.5453);
-			float edge = vUv.x * 0.72 + stagger * 0.10;
-			float phase = smoothstep(edge, edge + 0.18, uReveal);
-			ink.rgb = mix(vec3(0.08, 0.68, 0.90), ink.rgb, phase);
-			ink.a *= phase;
-		}
-		gl_FragColor = ink;
+		gl_FragColor = titleMosaic(vUv, uReveal, 1.0, 1.0);
 	}
 `;
 
@@ -70,7 +69,7 @@ export class CityWorldTitle {
 	constructor(parent, renderer) {
 		this.parent = parent;
 		this.elapsed = 0;
-		this.localeMotion = new SceneTextLocale(1.15, 1.15);
+		this.localeMotion = new SceneTextLocale(CITY_TITLE_REVEAL_DURATION, CITY_TITLE_REVEAL_DURATION);
 		this.warming = false;
 		this.viewport = new THREE.Vector2();
 		this.lastAspect = -1;
@@ -89,14 +88,13 @@ export class CityWorldTitle {
 			const locale = state % 3, compact = state >= 3;
 			ctx.save();
 			ctx.translate(0, state * HEIGHT);
-			let right = paintLine(ctx, "04", 12, 110, 42, "#25b7e3");
-			right = Math.max(right, paintLine(ctx, COPY[locale][0], 124, 124, compact ? 91 : 76, "#d5e5ed"));
-			right = Math.max(right, paintLine(ctx, COPY[locale][1], 124, 229, compact ? 91 : 76, "#d5e5ed"));
+			let right = paintLine(ctx, COPY[locale][0], 12, 124, compact ? 112 : 76, "#d5e5ed");
+			right = Math.max(right, paintLine(ctx, COPY[locale][1], 12, 229, compact ? 112 : 76, "#d5e5ed"));
 			if (compact) {
-				right = Math.max(right, paintLine(ctx, COMPACT_BODY[locale][0], 128, 301, 54, "#98bdce", 1));
-				right = Math.max(right, paintLine(ctx, COMPACT_BODY[locale][1], 128, 365, 54, "#98bdce", 1));
+				right = Math.max(right, paintLine(ctx, COMPACT_BODY[locale][0], 12, 301, 70, "#98bdce", 1));
+				right = Math.max(right, paintLine(ctx, COMPACT_BODY[locale][1], 12, 365, 70, "#98bdce", 1));
 			} else {
-				right = Math.max(right, paintLine(ctx, COPY[locale][2], 128, 296, 29, "#98bdce", 1));
+				right = Math.max(right, paintLine(ctx, COPY[locale][2], 12, 296, 29, "#98bdce", 1));
 			}
 			this.soundBounds[state] = right / WIDTH;
 			ctx.restore();
@@ -108,6 +106,7 @@ export class CityWorldTitle {
 		this.texture.magFilter = THREE.LinearFilter;
 		this.texture.anisotropy = Math.min(4, renderer.capabilities.getMaxAnisotropy());
 		this.uniforms = {
+			uScreen: { value: false }, uViewport: { value: this.viewport }, uOrigin: { value: new THREE.Vector2() }, uSize: { value: new THREE.Vector2() },
 			uText: { value: this.texture }, uReveal: { value: 0 }, uLocale: { value: 0 }, uCompact: { value: 0 },
 		};
 		this.mesh = new THREE.Mesh(new THREE.PlaneGeometry(5.2, 1.3), new THREE.ShaderMaterial({
@@ -128,9 +127,17 @@ export class CityWorldTitle {
 	}
 
 	layout(aspect) {
-		if (Math.abs(aspect - this.lastAspect) < 0.001) return;
+		const compact = this.viewport.x <= 1024;
+		this.uniforms.uScreen.value = compact;
+		this.mesh.material.depthTest = !compact;
+		if (compact) {
+			const landscape = this.viewport.y <= 480 && this.viewport.x > this.viewport.y;
+			const width = landscape ? Math.min(380, this.viewport.x * .48 - 24) : Math.min(560, this.viewport.x - 24);
+			this.uniforms.uOrigin.value.set(12, this.viewport.y <= 480 ? 66 : 84);
+			this.uniforms.uSize.value.set(width, width * HEIGHT / WIDTH);
+		}
+		if (Math.abs(aspect - this.lastAspect) < 0.001 && this.uniforms.uCompact.value === (compact ? 1 : 0)) return;
 		this.lastAspect = aspect;
-		const compact = aspect < 1;
 		this.uniforms.uCompact.value = compact ? 1 : 0;
 		this.anchor.set(compact ? 0.85 : -0.3, compact ? 1.3 : 0.7, compact ? 1 : 0.5);
 		this.parent.updateWorldMatrix(true, false);
@@ -158,13 +165,13 @@ export class CityWorldTitle {
 	getSoundReveal() {
 		const u = this.uniforms;
 		const right = this.soundBounds[u.uLocale.value + u.uCompact.value * 3];
-		const start = 12 / WIDTH * 0.72;
-		const end = right * 0.72 + 0.1 + 0.18;
+		const start = (1 - right) * 0.72;
+		const end = (1 - 12 / WIDTH) * 0.72 + 0.1 + 0.18;
 		return THREE.MathUtils.clamp((u.uReveal.value - start) / (end - start), 0, 1);
 	}
 
 	reset() { this.elapsed = 0; this.uniforms.uReveal.value = 0; this.localeMotion.reset(); }
-	beginWarmupDraw() { this.warming = true; this.uniforms.uReveal.value = 1; }
+	beginWarmupDraw() { this.warming = true; this.uniforms.uReveal.value = 0.5; }
 	endWarmupDraw() { this.warming = false; this.reset(); }
 	dispose() {
 		this.mesh.removeFromParent();

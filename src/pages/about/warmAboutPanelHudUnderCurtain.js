@@ -6,7 +6,6 @@ import { SITE_LOCALES, normalizeSiteLocale } from "@/functions/siteLocale.js";
 import { store } from "@/app/store.jsx";
 import { requestSharedAnimationFrame } from "@/functions/sharedAnimationFrame.js";
 import { ensureCaseStudyCanvasFonts } from "@/pages/portfolio/ui/CaseStudyCanvas/caseStudyCanvasText.js";
-import { readIsMobileViewport } from "@/pages/portfolio/core/useCaseStudyMobileViewport.js";
 import {
 	ensureAboutPanelHudCanvases,
 	getAboutPanelHudSessionBuffers,
@@ -62,7 +61,7 @@ export async function warmAboutPanelHudUnderCurtain({ sceneManager, renderer }) 
 	warmSceneManager = sceneManager;
 	warmRenderer = renderer;
 
-	if (typeof document === "undefined" || readIsMobileViewport()) {
+	if (typeof document === "undefined") {
 		return;
 	}
 
@@ -114,7 +113,7 @@ export async function warmAboutPanelHudUnderCurtain({ sceneManager, renderer }) 
  * without resetting visit arm / enterProgress / visibility (locale or resize while live).
  */
 export function reuploadAboutPanelHudWarmPool() {
-	if (!warmSceneManager || !warmRenderer || readIsMobileViewport()) {
+	if (!warmSceneManager || !warmRenderer) {
 		return;
 	}
 	const scene = warmSceneManager.getSceneById?.("about");
@@ -135,7 +134,7 @@ export function reuploadAboutPanelHudWarmPool() {
 }
 
 export async function rewarmAboutPanelHudGpuForLocale(locale) {
-	if (!warmSceneManager || !warmRenderer || readIsMobileViewport()) {
+	if (!warmSceneManager || !warmRenderer) {
 		return;
 	}
 

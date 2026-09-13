@@ -183,6 +183,8 @@ export function createOceanParticles(gridSize) {
 		blending: THREE.AdditiveBlending,
 		defines: getGraphicsTier() === "low" ? { LOW_OCEAN_LIGHT: 1 } : {},
 		uniforms: withFogUniforms({
+			uCompactSurface: { value: 0 },
+			uSideFade: { value: 0 },
 			uTime: { value: 0 },
 			uRippleCenter: {
 				value: new THREE.Vector2(0, 0),

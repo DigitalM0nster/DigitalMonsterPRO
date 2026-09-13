@@ -5,3 +5,13 @@ export function attachFilmActions(handler) {
 	return () => { if (activeHandler === handler) activeHandler = null; };
 }
 export function requestFilmAction(action) { activeHandler?.(action); }
+
+let snapshot = { index: 0, playing: false, progress: 0, muted: true, volume: 0, focused: false, seekable: false };
+const listeners = new Set();
+export const getFilmUiSnapshot = () => snapshot;
+export function subscribeFilmUi(listener) { listeners.add(listener); return () => listeners.delete(listener); }
+export function publishFilmUi(next) {
+	if (Object.keys(next).every(key => next[key] === snapshot[key])) return;
+	snapshot = next;
+	for (const listener of listeners) listener();
+}

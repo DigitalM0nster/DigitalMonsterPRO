@@ -36,7 +36,8 @@ export class FilmScreen {
    vertexShader:`varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
    fragmentShader:hologramFrameFragment,extensions:{derivatives:true},transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,toneMapped:false});
   this.frame=new THREE.Mesh(this.frameGeometry,this.frameMaterial);this.frame.position.z=.015;this.frame.renderOrder=6;this.art.add(this.frame);
-  this.hit=new THREE.Mesh(this.hitGeometry,new THREE.MeshBasicMaterial({transparent:true,opacity:0,depthWrite:false,side:THREE.DoubleSide}));
+  // Raycaster still sees an invisible material; the renderer need not draw this hit surface.
+  this.hit=new THREE.Mesh(this.hitGeometry,new THREE.MeshBasicMaterial({visible:false,transparent:true,opacity:0,depthWrite:false,side:THREE.DoubleSide}));
   this.hit.position.z=.002;this.hit.userData.filmAction="inspect";this.art.add(this.hit);
   if(allowTuning)this.hologramDevTools=new FilmHologramDevTools(this.hologramSettings,openTuning,(key,value)=>{
    // Apply to the rendered material immediately, including paused/zero-delta frames.

@@ -104,13 +104,12 @@ float insideRect(vec2 point, vec4 rect) {
 
 vec4 sampleHudMap(vec2 uv) {
 	vec2 textureUv = mapSampleRect.xy + uv * mapSampleRect.zw;
-	if (blur < 0.001) {
-		return texture2D(map, textureUv);
-	}
-
 	vec4 sum = vec4(0.0);
-	float weightSum = 0.0;
-
+	float weightSum = 1.0;
+	if (blur < 0.001) {
+		sum = texture2D(map, textureUv);
+	} else {
+	weightSum = 0.0;
 	for (float x = -2.0; x <= 2.0; x += 1.0) {
 		for (float y = -2.0; y <= 2.0; y += 1.0) {
 			vec2 offset = vec2(x, y) * blurStep * blur * mapSampleRect.zw;
@@ -120,6 +119,7 @@ vec4 sampleHudMap(vec2 uv) {
 		}
 	}
 
+	}
 	return sum / max(weightSum, 0.0001);
 }
 

@@ -291,7 +291,7 @@ export class HubScreenHudLayout {
 	}
 
 	_updateProjectsPointerHover(frame) {
-		const canPick = !this._projectsSelectionLocked && this.root.visible && this._visibilityMultiplier > 0.001 && this.projectsColumn.layers.length > 0;
+		const canPick = !this._projectsSelectionLocked && this.root.visible && this.rightGroup.visible && this._visibilityMultiplier > 0.001 && this.projectsColumn.layers.length > 0;
 
 		if (!canPick || !frame?.camera || !frame?.pointer) {
 			this.store.cursor.projectListHovered = false;

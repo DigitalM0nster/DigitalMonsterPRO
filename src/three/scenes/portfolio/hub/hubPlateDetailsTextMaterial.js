@@ -74,13 +74,12 @@ vec4 samplePreparedHud(vec2 uv) {
 }
 
 vec4 sampleHudMap(vec2 uv) {
-	if (blur < 0.001) {
-		return samplePreparedHud(uv);
-	}
-
 	vec4 sum = vec4(0.0);
-	float weightSum = 0.0;
-
+	float weightSum = 1.0;
+	if (blur < 0.001) {
+		sum = samplePreparedHud(uv);
+	} else {
+	weightSum = 0.0;
 	for (float x = -2.0; x <= 2.0; x += 1.0) {
 		for (float y = -2.0; y <= 2.0; y += 1.0) {
 			vec2 offset = vec2(x, y) * blurStep * blur;
@@ -90,6 +89,7 @@ vec4 sampleHudMap(vec2 uv) {
 		}
 	}
 
+	}
 	return sum / max(weightSum, 0.0001);
 }
 

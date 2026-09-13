@@ -5,7 +5,10 @@ import { advanceMarkerMagnet } from "../../../objects/sceneHud/sceneMarkerMagnet
 // Match the crane's 72 px sprite and 32 px interaction radius.
 const HALF_SIZE = 36;
 const HIT_RADIUS = 32;
-const MAX_MARKERS = 6;
+// The six districts in the approved overview. Camera motion never elects replacements.
+export const CITY_MARKER_DISTRICTS = Object.freeze([
+	"beacon-garden", "quarter-31", "quarter-27", "quarter-04", "quarter-26", "quarter-24",
+]);
 
 /** Prepared billboard batch. The same projected circles own both drawing and hits. */
 export class CityDistrictMarkers {
@@ -16,27 +19,22 @@ export class CityDistrictMarkers {
 		this.anchors = districts.map(d => new THREE.Vector3(...d.anchor).add(new THREE.Vector3(0, d.kind === "park" ? 3.4 : 1.2, 0)));
 		this.points = this.anchors.map(() => new THREE.Vector3());
 		this.offsets = this.anchors.map(() => new THREE.Vector2());
+		// Public offsets include responsive placement, so the marker, hit and HUD
+		// leader share one endpoint. Magnet motion remains a separate small spring.
+		this.magnetOffsets = this.anchors.map(() => new THREE.Vector2());
 		this.velocities = this.anchors.map(() => new THREE.Vector2());
 		this.levels = levels;
 		// One vec4 per district keeps the marker shader within mobile uniform limits.
 		this.markerState = new Float32Array(districts.length * 4);
 		this.visible = new Float32Array(districts.length);
-		this.distances = new Float32Array(districts.length);
 		this.parks = districts.map(d => d.kind === "park");
-		this.order = districts.map((_, i) => i);
-		this.accepted = new Int16Array(MAX_MARKERS);
+		this.order = CITY_MARKER_DISTRICTS.map(name => districts.findIndex(d => d.name === name)).filter(id => id >= 0);
+		this.accepted = new Int16Array(this.order.length);
 		this.count = 0;
 		this.hovered = -1;
 		this.time = { value: 0 };
-		this.cameraPosition = new THREE.Vector3();
-		this.compare = (a, b) => {
-			if (a === b) return 0;
-			if (a === this.hovered) return -1;
-			if (b === this.hovered) return 1;
-			return Number(this.parks[b]) - Number(this.parks[a]) || this.distances[a] - this.distances[b] || a - b;
-		};
 		const positions = [], uvs = [], ids = [], phases = [];
-		for (let i = 0; i < districts.length; i++) {
+		for (const i of this.order) {
 			// Stable offsets spread arc rotation across its ten-second cycle, as on the crane.
 			const phase = ((i * .61803398875) % 1) * 10;
 			for (const uv of [[0, 0], [1, 0], [1, 1], [0, 0], [1, 1], [0, 1]]) {
@@ -83,8 +81,8 @@ export class CityDistrictMarkers {
 		this.time.value += dt;
 		const x = pointer ? (pointer.x + 1) * this.viewport.x / 2 : 0;
 		const y = pointer ? (pointer.y + 1) * this.viewport.y / 2 : 0;
-		for (let i = 0; i < this.offsets.length; i++) {
-			const offset = this.offsets[i], p = this.points[i];
+		for (const i of this.order) {
+			const offset = this.magnetOffsets[i], p = this.points[i];
 			let dx = 0, dy = 0;
 			if (pointer && i === this.hovered && this.visible[i]) {
 				// Measure from the fixed anchor so attraction cannot feed back into itself.
@@ -94,38 +92,70 @@ export class CityDistrictMarkers {
 			const previousX = offset.x, previousY = offset.y;
 			advanceMarkerMagnet(offset, this.velocities[i], dx, dy, dt);
 			p.x += offset.x - previousX; p.y += offset.y - previousY;
-			this.markerState[i * 4] = offset.x; this.markerState[i * 4 + 1] = offset.y;
+			this.offsets[i].x += offset.x - previousX; this.offsets[i].y += offset.y - previousY;
+			this.markerState[i * 4] = this.offsets[i].x; this.markerState[i * 4 + 1] = this.offsets[i].y;
 		}
 	}
 
 	project(camera, renderer = this.renderer) {
 		renderer.getSize(this.viewport);
 		const { x: width, y: height } = this.viewport;
-		camera.getWorldPosition(this.cameraPosition);
-		for (let i = 0; i < this.points.length; i++) {
+		for (const i of this.order) {
 			const p = this.points[i].copy(this.anchors[i]).applyMatrix4(this.cityMatrix);
-			this.distances[i] = p.distanceToSquared(this.cameraPosition);
 			p.project(camera);
+			this.offsets[i].copy(this.magnetOffsets[i]);
 			p.x = (p.x + 1) * width / 2 + this.offsets[i].x;
 			p.y = (p.y + 1) * height / 2 + this.offsets[i].y;
 		}
-		this.order.sort(this.compare);
 		this.visible.fill(0); this.count = 0;
-		const compact = width < 700, limit = compact ? 2 : MAX_MARKERS;
+		const compact = width <= 1024;
+		const landscape = height <= 480 && width > height;
+		// Match CityWorldTitle's prepared quad; reserve the full marker radius.
+		const titleWidth = landscape ? Math.min(380, width * .48 - 24) : Math.min(560, width - 24);
+		const titleTop = height <= 480 ? 66 : 84;
+		const titleRight = 12 + titleWidth + HALF_SIZE + 8;
+		const titleBottom = titleTop + titleWidth / 4 + HALF_SIZE + 8;
+		const bottom = compact ? (height <= 480 ? 96 : 124) : 48;
+		const top = height - (compact ? titleTop + HALF_SIZE : 96);
+		const left = compact ? 38 : 154, right = width - (compact ? 38 : 156);
+		// Clamp instead of culling at the frame/chrome edges. The offsets are also
+		// consumed by the shader, hit test and card leader, so all three stay together.
+		const constrain = p => {
+			p.x = THREE.MathUtils.clamp(p.x, left, right);
+			p.y = THREE.MathUtils.clamp(p.y, bottom, top);
+			if (!compact) return;
+			if (titleBottom <= height - bottom) {
+				const release = THREE.MathUtils.smoothstep(p.x, titleRight, titleRight + 72);
+				p.y = Math.min(p.y, height - THREE.MathUtils.lerp(titleBottom, height - top, release));
+			} else if (titleRight <= right) p.x = Math.max(p.x, titleRight);
+		};
 		for (const id of this.order) {
 			const p = this.points[id];
-			if (Math.abs(p.z) > 1 || this.distances[id] > 20 * 20) continue;
-			if (p.x < (compact ? 84 : 154) || p.x > width - (compact ? 36 : 156) || p.y < 48 || p.y > height - 96) continue;
-			let crowded = false;
-			for (let j = 0; j < this.count; j++) {
-				const q = this.points[this.accepted[j]];
-				if ((q.x - p.x) ** 2 + (q.y - p.y) ** 2 < 110 ** 2) { crowded = true; break; }
-			}
-			if (crowded) continue;
+			// Only the free-flight camera can put an anchor behind the viewing plane.
+			if (!Number.isFinite(p.x + p.y + p.z) || Math.abs(p.z) > 1) continue;
+			// Temporarily retain the projected origin for the final placement offset.
+			this.offsets[id].set(p.x - this.magnetOffsets[id].x, p.y - this.magnetOffsets[id].y);
+			constrain(p);
 			this.visible[id] = 1; this.accepted[this.count++] = id;
-			if (this.count >= limit) break;
 		}
-		for (let i = 0; i < this.points.length; i++) {
+		// Six fixed points: a bounded separation pass keeps crowded circles reachable
+		// without dropping one or bringing a different district into the composition.
+		const spacing = compact ? 76 : 72;
+		for (let pass = 0; pass < 8; pass++) for (let a = 0; a < this.count; a++) for (let b = a + 1; b < this.count; b++) {
+			const p = this.points[this.accepted[a]], q = this.points[this.accepted[b]];
+			let dx = q.x - p.x, dy = q.y - p.y, distance = Math.hypot(dx, dy);
+			if (distance >= spacing) continue;
+			if (distance < .001) { dx = 1; dy = 0; distance = 1; }
+			const push = (spacing - distance) / (2 * distance);
+			p.x -= dx * push; p.y -= dy * push;
+			q.x += dx * push; q.y += dy * push;
+			constrain(p); constrain(q);
+		}
+		for (let i = 0; i < this.count; i++) {
+			const id = this.accepted[i], p = this.points[id];
+			this.offsets[id].set(p.x - this.offsets[id].x, p.y - this.offsets[id].y);
+		}
+		for (const i of this.order) {
 			this.markerState[i * 4] = this.offsets[i].x;
 			this.markerState[i * 4 + 1] = this.offsets[i].y;
 			this.markerState[i * 4 + 2] = this.levels[i];
@@ -148,6 +178,7 @@ export class CityDistrictMarkers {
 		for (let i = 0; i < this.offsets.length; i++) {
 			this.points[i].x -= this.offsets[i].x; this.points[i].y -= this.offsets[i].y;
 			this.offsets[i].set(0, 0);
+			this.magnetOffsets[i].set(0, 0);
 			this.velocities[i].set(0, 0);
 		}
 		this.markerState.fill(0);

@@ -1,4 +1,5 @@
 import { heroTextPositionConfig } from "./heroTextPositionConfig.js";
+import { getHeroResponsiveLayout } from "./heroResponsiveLayout.js";
 import { resolveHeroScrollHintPositionWithProvider } from "./heroTextLayoutSync.js";
 import {
 	HERO_STACK_FONT,
@@ -39,6 +40,7 @@ function parseCssLengthToPx(raw, viewportWidth) {
 
 /** Ширина левого меню в px (DOM → CSS-переменная → fallback). */
 export function getLeftMenuWidthPx(viewportWidth = window.innerWidth) {
+	if (viewportWidth <= 1024) return 0; // A bottom dock is not a left inset.
 	const menuEl = document.querySelector(LEFT_MENU_SELECTOR);
 	if (menuEl) {
 		const measured = menuEl.getBoundingClientRect().width;
@@ -72,12 +74,13 @@ export function resolveHeroTextOffsetX(offsetXAfterMenuVw, viewportWidth = windo
  */
 export function resolveHeroTextPosition(config, viewportWidth = window.innerWidth) {
 	const offsetX = resolveHeroTextOffsetX(config?.offsetXAfterMenuVw ?? 0, viewportWidth);
+	const responsive = getHeroResponsiveLayout(viewportWidth, window.innerHeight);
 
 	return {
-		offsetX,
-		titleOffsetY: config?.offsetY ?? 0,
-		subtitleGapVw: config?.subtitleGapVw ?? 0,
-		stackGapVw: config?.stackGapVw ?? 0,
+		offsetX: responsive.compact ? 20 / viewportWidth : offsetX,
+		titleOffsetY: responsive.top !== null ? responsive.top / viewportWidth : config?.offsetY ?? 0,
+		subtitleGapVw: responsive.gap !== null ? responsive.gap / viewportWidth : config?.subtitleGapVw ?? 0,
+		stackGapVw: responsive.gap !== null ? responsive.gap / viewportWidth : config?.stackGapVw ?? 0,
 		scrollHintGapVh: config?.scrollHintGapVh ?? 0,
 	};
 }

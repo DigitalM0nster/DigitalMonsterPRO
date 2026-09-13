@@ -4,7 +4,8 @@ export const heroGpuTextVertex = /* glsl */ `
 uniform vec2 uResolution, uOrigin, uBlockSize, uBlockPad;
 uniform float uLocaleFrom, uLocaleTo, uSnakeTime, uDecorationWidth, uPass, uLayoutDpr;
 uniform vec4 uSnakeTiming;
-uniform float uLineScales[6];
+uniform float uLineScales[32];
+uniform float uTextScale;
 attribute vec4 aRect, aAtlasRect, aLetter;
 attribute vec4 aSymbolRect0, aSymbolRect1, aSymbolRect2;
 attribute float aSymbols;
@@ -49,9 +50,9 @@ void main() {
 	vBlockUv=vec2((local.x+uBlockPad.x)/uBlockSize.x,1.0-(local.y+uBlockPad.y)/uBlockSize.y);
 	vAtlasRect=frame<0.5?aAtlasRect:(frame<1.5?aSymbolRect0:(frame<2.5?aSymbolRect1:aSymbolRect2));
 	if((uPass>1.5 && vSymbol<0.5)||(uPass>0.5 && uPass<1.5 && vSymbol>0.5))vAlpha=0.0;
-	vec2 origin=uOrigin+aRect.xy;
+	vec2 origin=uOrigin+aRect.xy*uTextScale;
 	if(vDecoration<0.5)origin=floor(origin*uLayoutDpr+0.5)/uLayoutDpr;
-	vec2 px=origin+vec2(uv.x,1.0-uv.y)*size;
+	vec2 px=origin+vec2(uv.x,1.0-uv.y)*size*uTextScale;
 	gl_Position=vAlpha>0.0?vec4(px.x/uResolution.x*2.0-1.0,1.0-px.y/uResolution.y*2.0,1.0,1.0):vec4(2.0,2.0,2.0,1.0);
 }
 `;

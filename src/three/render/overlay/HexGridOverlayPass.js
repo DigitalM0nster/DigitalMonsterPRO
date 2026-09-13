@@ -217,7 +217,7 @@ export class HexGridOverlayPass {
 		syncHexGridMaterialBlendMode(this.material);
 
 		renderer.setRenderTarget(this.modelsMixTarget);
-		renderer.autoClear = true;
+		renderer.autoClear = false;
 		renderer.setClearColor(0x000000, 1);
 		renderer.clear(true, true, true);
 		renderer.render(overlayScene, overlayCamera);
@@ -245,7 +245,7 @@ export class HexGridOverlayPass {
 		syncHexGridMaterialBlendMode(this.material);
 
 		renderer.setRenderTarget(null);
-		renderer.autoClear = true;
+		renderer.autoClear = false;
 		renderer.setClearColor(0x000000, 1);
 		renderer.clear(true, true, true);
 		renderer.render(overlayScene, overlayCamera);

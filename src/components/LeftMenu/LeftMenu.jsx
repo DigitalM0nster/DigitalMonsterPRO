@@ -304,7 +304,10 @@ export default function LeftMenu() {
 			observer.disconnect();
 			window.removeEventListener("resize", syncContentAnchor);
 		};
-	}, [pathname, navItems.length]);
+		// Route changes only change the active icon, not this content ruler.
+		// ResizeObserver/window resize handle real layout changes without forcing
+		// synchronous layout during every React route commit.
+	}, [navItems.length]);
 
 	return (
 		<nav

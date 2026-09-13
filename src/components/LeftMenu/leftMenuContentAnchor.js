@@ -19,6 +19,17 @@ export function measureLeftMenuContentAnchor(menuEl, homeButton, lastButton) {
 	if (!homeButton || !lastButton) {
 		return null;
 	}
+	// A horizontal dock is not a vertical content ruler. Publish the available
+	// content band for scene HUDs instead of the first/last icon's shared Y.
+	if (typeof window !== "undefined" && window.innerWidth <= 1024) {
+		const menuTop = menuEl?.getBoundingClientRect().top ?? window.innerHeight - 64;
+		const short = window.innerHeight <= 480;
+		const contentTop = short ? 66 : 84;
+		return {
+			homeCircleTop: contentTop,
+			lastCircleBottom: Math.max(contentTop + 44, menuTop - (short ? 8 : 20)),
+		};
+	}
 
 	const homeBounds = readNavButtonCircleBoundsPx(menuEl, homeButton);
 	const lastBounds = readNavButtonCircleBoundsPx(menuEl, lastButton);

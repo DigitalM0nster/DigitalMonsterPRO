@@ -156,17 +156,13 @@ vec4 hudOverIdle(vec4 fromColor, float fromCover, vec4 toColor, float toCover) {
  */
 vec4 sampleEnterHud(vec2 uv) {
 	float p = clamp(mixProgress, 0.0, 1.0);
-	float mixIdleEps = 0.04;
-	if (p >= 1.0 - mixIdleEps) {
-		return sampleHud(mapTo, uv);
-	}
-	if (p <= mixIdleEps) {
-		return sampleHud(mapFrom, uv);
-	}
+	vec4 result = vec4(0.0);
 	if (p >= 0.5) {
-		return sampleHud(mapTo, uv);
+		result = sampleHud(mapTo, uv);
+	} else {
+		result = sampleHud(mapFrom, uv);
 	}
-	return sampleHud(mapFrom, uv);
+	return result;
 }
 
 void mosaicReveal(float ep) {
@@ -188,17 +184,13 @@ void mosaicReveal(float ep) {
 /** Idle / stage content at a UV (no enter mosaic). */
 vec4 sampleIdleHudAt(vec2 uv) {
 	float p = clamp(mixProgress, 0.0, 1.0);
-	float mixIdleEps = 0.04;
-	if (p <= mixIdleEps) {
-		return sampleHud(mapFrom, uv);
-	}
-	if (p >= 1.0 - mixIdleEps) {
-		return sampleHud(mapTo, uv);
-	}
+	vec4 result = vec4(0.0);
 	if (p >= 0.5) {
-		return sampleHud(mapTo, uv);
+		result = sampleHud(mapTo, uv);
+	} else {
+		result = sampleHud(mapFrom, uv);
 	}
-	return sampleHud(mapFrom, uv);
+	return result;
 }
 
 void main() {

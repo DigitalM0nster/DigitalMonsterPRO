@@ -1045,7 +1045,7 @@ export class Case3Scene {
 		}
 
 		this.elapsed += delta;
-		const pointer = frame?.pointer ?? { x: 0, y: 0 };
+		const pointer = frame?.visualPointer ?? frame?.pointer ?? { x: 0, y: 0 };
 		const pointerX = frame?.pointerBlocked ? 0 : THREE.MathUtils.clamp(pointer.x ?? 0, -1, 1);
 		const pointerY = frame?.pointerBlocked ? 0 : THREE.MathUtils.clamp(pointer.y ?? 0, -1, 1);
 		this.cameraParallax.x = THREE.MathUtils.damp(this.cameraParallax.x, pointerX, 4.2, delta);

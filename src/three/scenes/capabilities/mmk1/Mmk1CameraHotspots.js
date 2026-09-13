@@ -3,7 +3,10 @@ import { HUD_MARKER_GLSL } from "../../../objects/sceneHud/sceneHudShaders.js";
 import { advanceMarkerMagnet } from "../../../objects/sceneHud/sceneMarkerMagnet.js";
 import { Mmk1HotspotLabels } from "./Mmk1HotspotLabels.js";
 import { Mmk1HotspotDetails } from "./Mmk1HotspotDetails.js";
+import { getMmk1DetailLayout } from "./mmk1HotspotDetailsConfig.js";
 import { MMK1_CAMERA_HOTSPOTS, MMK1_CAMERA_HOTSPOT_MOTION } from "./mmk1CameraHotspotsConfig.js";
+
+const AUTHORED_ROOT_POSITION = new THREE.Vector3(4.15, -3.18, 0);
 
 const clamp01 = (value) => Math.max(0, Math.min(1, value));
 const easeInOutCubic = (value) => {
@@ -113,6 +116,8 @@ export class Mmk1CameraHotspots {
 		this.parallaxEuler = new THREE.Euler(0, 0, 0, "YXZ");
 		this.fromFov = 49;
 		this.toFov = 49;
+		this.fromShiftX = 0; this.fromShiftY = 0;
+		this.toShiftX = 0; this.toShiftY = 0;
 
 		this._onClick = (event) => {
 			if (event.button !== 0 || !this.active || !this.camera || !this.inputElement) {
@@ -157,7 +162,7 @@ export class Mmk1CameraHotspots {
 		} else {
 			this.camera.copy(camera, false);
 		}
-		this.camera.updateProjectionMatrix();
+		// copy() includes the off-axis projection used by responsive framing.
 		this.camera.updateMatrixWorld(true);
 		this._layoutMarkers(this.camera);
 	}
@@ -204,19 +209,51 @@ export class Mmk1CameraHotspots {
 	_layoutMarkers(camera, layoutText = true) {
 		this._syncBoundAnchors();
 		this.renderer?.getSize(this.viewport);
-		const scale = MMK1_CAMERA_HOTSPOT_MOTION.markerSize * 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov * 0.5)) / this.viewport.y;
-		for (const marker of this.markers) {
+		const { x: width, y: height } = this.viewport;
+		const scale = MMK1_CAMERA_HOTSPOT_MOTION.markerSize * 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov * .5)) / height;
+		const adapted = width < 1280 || height <= 600;
+		const short = height <= 480;
+		// Include the complete ring and its existing 9px cursor attraction.
+		const padding = MMK1_CAMERA_HOTSPOT_MOTION.markerSize * .5 + 12;
+		const left = width <= 1024 ? 0 : 120, right = width <= 1024 ? 0 : 96;
+		const top = adapted ? (short ? 66 : 84) : 64;
+		const bottom = adapted ? (short ? 50 : 64) : 30;
+		if (adapted && (this._detailLayoutWidth !== width || this._detailLayoutHeight !== height || this._detailLayoutSelected !== this.selectedId)) {
+			this._detailLayoutWidth = width; this._detailLayoutHeight = height;
+			this._detailLayoutSelected = this.selectedId;
+			const detailIndex = Math.max(0, this.markers.findIndex(marker => marker.name === this.selectedId));
+			this._compactDetailLayout = getMmk1DetailLayout(detailIndex, width, height);
+			this._compactOverviewLayout = getMmk1DetailLayout(4, width, height);
+		}
+		const detailOpen = this.selectedId && this.selectedId !== "__overview__";
+		const card = adapted ? (detailOpen ? this._compactDetailLayout : this._compactOverviewLayout) : null;
+		for (let index = 0; index < this.markers.length; index++) {
+			const marker = this.markers[index];
 			this.projected.copy(marker.userData.anchor).project(camera);
 			const inDepth = this.projected.z >= -1 && this.projected.z <= 1;
-			marker.visible = inDepth;
-			marker.scale.setScalar(scale);
-			if (!inDepth) {
-				continue;
+			// Never clamp/reassign an anchor: every circle stays on its crane detail.
+			marker.userData.screenAnchor.copy(this.projected);
+			const x = (this.projected.x + 1) * width * .5, y = (1 - this.projected.y) * height * .5;
+			let fits = inDepth && x >= left + padding && x <= width - right - padding
+				&& y >= top + padding && y <= height - bottom - padding;
+			if (fits && card) {
+				const cardTop = height - card.y - card.height, cardBottom = height - card.y;
+				if (x + padding > card.x && x - padding < card.x + card.width
+					&& y + padding > cardTop && y - padding < cardBottom) fits = false;
 			}
-			const clampedX = THREE.MathUtils.clamp(this.projected.x, -0.92, 0.92);
-			const clampedY = THREE.MathUtils.clamp(this.projected.y, -0.86, 0.72);
-			marker.userData.screenAnchor.set(clampedX, clampedY, this.projected.z);
-			this._positionMarker(marker, camera);
+			if (fits && adapted) {
+				// Four fixed anchors: hide a crowded target, do not move it into empty space.
+				for (let previous = 0; previous < index; previous++) {
+					const other = this.markers[previous];
+					if (!other.userData.layoutVisible || other.name === this.selectedId) continue;
+					const point = other.userData.screenAnchor;
+					if (Math.hypot((point.x - this.projected.x) * width * .5, (point.y - this.projected.y) * height * .5) < 72) fits = false;
+				}
+			}
+			marker.userData.layoutVisible = fits;
+			marker.visible = inDepth && (fits || marker.material.opacity > .002);
+			marker.scale.setScalar(scale);
+			if (inDepth) this._positionMarker(marker, camera);
 		}
 		if (layoutText) this.labels?.layout(camera, this.viewport);
 		this.details?.layout(this.viewport);
@@ -247,7 +284,7 @@ export class Mmk1CameraHotspots {
 		let nearest = null;
 		let nearestDistance = 32;
 		for (const marker of this.markers) {
-			if (marker.name === this.selectedId || marker.material.opacity < 0.05) continue;
+			if (!marker.visible || marker.userData.layoutVisible === false || marker.name === this.selectedId || marker.material.opacity < 0.05) continue;
 			marker.getWorldPosition(this.markerWorldPosition);
 			this.projected.copy(this.markerWorldPosition).project(camera);
 			if (this.projected.z < -1 || this.projected.z > 1) {
@@ -272,9 +309,18 @@ export class Mmk1CameraHotspots {
 		this.fromPosition.copy(camera.position);
 		this.fromQuaternion.copy(camera.quaternion).normalize();
 		this.fromFov = camera.fov;
+		this.fromShiftX = camera.projectionMatrix.elements[8]; this.fromShiftY = camera.projectionMatrix.elements[9];
 		this.toPosition.fromArray(definition.camera.position);
+		// Close-ups were authored with the desktop root translation. Apply the
+		// live root transform so phone scale/position do not leave the camera behind.
+		const sceneRoot = this.anchorObject?.parent?.parent;
+		if (sceneRoot && sceneRoot !== this.modelsParent && !sceneRoot.isScene) {
+			sceneRoot.updateWorldMatrix(true, false);
+			this.toPosition.sub(AUTHORED_ROOT_POSITION).applyMatrix4(sceneRoot.matrixWorld);
+		}
 		this.toQuaternion.fromArray(definition.camera.quaternion).normalize();
 		this.toFov = definition.camera.fov ?? camera.fov;
+		this.toShiftX = 0; this.toShiftY = 0;
 		this.flight = { elapsed: 0, progress: 0 };
 	}
 
@@ -284,9 +330,11 @@ export class Mmk1CameraHotspots {
 		this.fromPosition.copy(camera.position);
 		this.fromQuaternion.copy(camera.quaternion).normalize();
 		this.fromFov = camera.fov;
+		this.fromShiftX = camera.projectionMatrix.elements[8]; this.fromShiftY = camera.projectionMatrix.elements[9];
 		this.toPosition.copy(target.position);
 		this.toQuaternion.copy(target.quaternion).normalize();
 		this.toFov = target.fov ?? camera.fov;
+		this.toShiftX = target.shiftX ?? 0; this.toShiftY = target.shiftY ?? 0;
 		this.flight = { elapsed: 0, progress: 0, returnToOverview: true };
 		return true;
 	}
@@ -312,6 +360,7 @@ export class Mmk1CameraHotspots {
 			uniforms.uHover.value = 0;
 			marker.material.opacity = 1;
 			marker.visible = true;
+			marker.userData.layoutVisible = true;
 			marker.userData.magnetOffset.set(0, 0);
 			marker.userData.magnetVelocity.set(0, 0);
 		}
@@ -376,7 +425,7 @@ export class Mmk1CameraHotspots {
 				attracted ? (this.pointer.y - screenAnchor.y) * this.viewport.y * .5 : 0, safeDelta);
 			if (this.camera && marker.visible) this._positionMarker(marker, this.camera);
 			const uniforms = marker.material.userData.hotspotUniforms;
-			const opacityTarget = marker.name === this.selectedId ? 0 : 1;
+			const opacityTarget = marker.name === this.selectedId || marker.userData.layoutVisible === false ? 0 : 1;
 			marker.material.opacity = THREE.MathUtils.damp(marker.material.opacity, opacityTarget, 12, safeDelta);
 			if (Math.abs(marker.material.opacity - opacityTarget) < 0.002) marker.material.opacity = opacityTarget;
 			uniforms.uTime.value = this.elapsed + marker.userData.rotationPhase;
@@ -419,9 +468,14 @@ export class Mmk1CameraHotspots {
 		camera.quaternion.multiply(this.parallaxRotation).normalize();
 		camera.up.set(0, 1, 0);
 		const fov = THREE.MathUtils.lerp(this.fromFov, this.toFov, progress);
-		if (Math.abs(camera.fov - fov) > 1e-5) {
+		const shiftX = THREE.MathUtils.lerp(this.fromShiftX, this.toShiftX, progress);
+		const shiftY = THREE.MathUtils.lerp(this.fromShiftY, this.toShiftY, progress);
+		if (Math.abs(camera.fov - fov) > 1e-5 || Math.abs(camera.projectionMatrix.elements[8] - shiftX) > 1e-8
+			|| Math.abs(camera.projectionMatrix.elements[9] - shiftY) > 1e-8) {
 			camera.fov = fov;
 			camera.updateProjectionMatrix();
+			camera.projectionMatrix.elements[8] = shiftX; camera.projectionMatrix.elements[9] = shiftY;
+			camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
 		}
 		camera.updateMatrixWorld(true);
 		return true;

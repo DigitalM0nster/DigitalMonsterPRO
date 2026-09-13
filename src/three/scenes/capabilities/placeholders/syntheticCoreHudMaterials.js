@@ -4,9 +4,10 @@ import { HUD_MARKER_GLSL, hudSnakeGlsl } from "../../../objects/sceneHud/sceneHu
 // Rasterize only the panel / signal bounds, never a full-screen quad for a small HUD.
 const PANEL_VERTEX = /* glsl */ `
 	uniform vec2 uViewport,uOrigin;
+	uniform float uDetailsAbove;
 	varying vec2 vUv;
 	void main(){
-		vec2 pixel=uOrigin-vec2(36.0,154.0)+uv*vec2(300.0,200.0);
+		vec2 pixel=uOrigin-vec2(36.0,154.0-120.0*uDetailsAbove)+uv*vec2(300.0,200.0);
 		vUv=pixel/uViewport;
 		gl_Position=vec4(vUv*2.0-1.0,0.0,1.0);
 	}
@@ -27,6 +28,7 @@ const PANEL_FRAGMENT = /* glsl */ `
 	uniform sampler2D uLetterOrder,uGlyphs;
 	uniform float uSnake,uGlyphCount;
 	uniform float uTime,uHover,uDetails,uReveal,uOpen,uLocale,uProbe,uCoreHover;
+	uniform float uDetailsAbove;
 	varying vec2 vUv;
 	${HUD_MARKER_GLSL}
 	${hudSnakeGlsl(6)}
@@ -37,14 +39,14 @@ const PANEL_FRAGMENT = /* glsl */ `
 		return progress;
 	}
 	vec4 activeLabel(vec2 uv){
-		if(uv.y>0.60)return label(uv,0.0);
-		if(uSnake<=0.0)return vec4(0.0);
+		vec4 result=vec4(0.0);
+		if(uv.y>0.60){result=label(uv,0.0);}
+		else if(uSnake>0.0){
 		float opened=settledMix(uOpen);
 		float hovered=settledMix(uCoreHover);
 		float probed=settledMix(uProbe);
 		// mix(mix(idle,hover,H),probe,P): the same RGBA weights as before.
 		vec3 modes=vec3((1.0-probed)*(1.0-hovered),(1.0-probed)*hovered,probed);
-		vec4 result=vec4(0.0);
 		// One snakeLabel call site instead of nested copies in every mix branch.
 		// Each pair is closed/open; inactive states do not sample any textures.
 		for(int state=0;state<6;state++){
@@ -52,12 +54,14 @@ const PANEL_FRAGMENT = /* glsl */ `
 			float weight=modes[state/2]*assembly;
 			if(weight>0.0)result+=weight*snakeLabel(uv,float(state));
 		}
+		}
 		return result;
 	}
 	void main(){
 		vec2 px=vUv*uViewport-uOrigin+vec2(36.0,154.0);
-		if(px.x<0.0||px.x>300.0||px.y<0.0||px.y>200.0)discard;
 		vec2 p=px-vec2(36.0,154.0);
+		if(uDetailsAbove>0.5 && px.y>=200.0)px.y-=200.0;
+		if(px.x<0.0||px.x>300.0||px.y<0.0||px.y>200.0)discard;
 		// The original concentric circles: circular in screen pixels at every aspect ratio.
 		vec2 uv=px/vec2(300.0,200.0);
 		vec4 text=activeLabel(uv);
@@ -66,6 +70,13 @@ const PANEL_FRAGMENT = /* glsl */ `
 		float ink=clamp(hudMarkerInk(p,uTime,uHover,uProbe,1.0)+divider,0.0,1.0);
 		vec3 tint=hudMarkerTint(uHover,uProbe);
 		float backing=detailArea*uDetails*(1.0-smoothstep(255.0,299.0,px.x))*smoothstep(4.0,24.0,px.y)*0.65;
+		// A short landscape places this cue over the metal ring. Keep its header
+		// readable in the existing pass, without moving hits into the site chrome.
+		if(uViewport.x<=1024.0 && uViewport.y<=480.0 && uViewport.x>uViewport.y){
+			float headerArea=smoothstep(112.0,126.0,px.y)*(1.0-smoothstep(185.0,199.0,px.y));
+			float headerSides=smoothstep(0.0,10.0,px.x)*(1.0-smoothstep(276.0,299.0,px.x));
+			backing=max(backing,headerArea*headerSides*0.88);
+		}
 		float baseAlpha=ink+backing*(1.0-ink);
 		float alpha=text.a+baseAlpha*(1.0-text.a);
 		// Compose glyph coverage once; squaring alpha softens fine letter strokes.

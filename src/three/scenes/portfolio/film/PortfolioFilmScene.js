@@ -3,7 +3,7 @@ import { getGraphicsTier } from "@/functions/getGraphicsTier.js";
 import * as THREE from "three";
 import { filmProjects } from "@/pages/portfolio/data/filmProjects.js";
 import { getPortfolioLocale } from "@/pages/portfolio/data/portfolioProjectsCopy.js";
-import { attachFilmActions } from "@/pages/portfolio/filmInteraction.js";
+import { attachFilmActions, publishFilmUi } from "@/pages/portfolio/filmInteraction.js";
 import { getSceneCarousel } from "../../../render/transition/carouselPage.js";
 import { addCarouselWheelDelta } from "../../../render/transition/carouselScroll.js";
 import { sceneOwnsHexHitAtClientY } from "../../../render/overlay/hexHitOwnership.js";
@@ -30,7 +30,7 @@ export class PortfolioFilmScene {
 		this.pointer = new THREE.Vector2();
 		this.pointerSmooth = new THREE.Vector2();
 		this.pointerSeen = false;
-		this.layout = getFilmLayout(window.innerWidth / window.innerHeight);
+		this.layout = getFilmLayout(window.innerWidth / window.innerHeight, window.innerWidth, window.innerHeight);
 		this.reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 		this.reveal = 0;
 		this.focus = 0;
@@ -79,7 +79,7 @@ export class PortfolioFilmScene {
 	shouldKeepUpdating() { return false; }
 	getModelsBloomLogoReveal() { return this.warming ? 1 : this.reveal; }
 	getModelsGrainBlurConfig() { return { enabled: false }; }
-	onViewportResize(width, height) { this.layout = getFilmLayout(width / height); }
+	onViewportResize(width, height) { this.layout = getFilmLayout(width / height, width, height); }
 	setRouteState(state) {
 		const started = this.appStarted;
 		this.appStarted = state.appStarted === true;
@@ -119,6 +119,8 @@ export class PortfolioFilmScene {
 	}
 	act(action) {
 		if (!this.ready) return;
+		if (typeof action === "object" && action?.type === "seek") { this.media.seek(action.progress); return; }
+		if (typeof action === "object" && action?.type === "volume") { this.media.setVolume(action.value); return; }
 		if (action === "projects") { this.hud.picker.state.toggle(); return; }
 		if (action === "projects-open") { this.hud.picker.state.open(); return; }
 		if (action === "project-picker") return;
@@ -143,8 +145,8 @@ export class PortfolioFilmScene {
 	hitIntersectionAt(ndc) {
 		this.threeScene.updateMatrixWorld(true);
 		this.raycaster.setFromCamera(ndc, this.camera);
-		const targets = this.hud.hitTargets.filter((mesh) => mesh.userData.enabled);
-		for (const target of this.screen.controls.hitTargets) if (target.userData.enabled) targets.push(target);
+		const targets = this.layout.mobile ? [] : this.hud.hitTargets.filter((mesh) => mesh.userData.enabled);
+		if (!this.layout.mobile) for (const target of this.screen.controls.hitTargets) if (target.userData.enabled) targets.push(target);
 		targets.push(this.screen.hit);
 		const timeline = this.screen.controls.timeline;
 		const volume = this.screen.controls.volume;
@@ -258,11 +260,12 @@ export class PortfolioFilmScene {
 		}
 		if (!this.warming) this.motion.update(delta);
 		this.media.select(this.motion.index);
-		this.pointerSmooth.lerp(frame.interactionEnabled && !frame.pointerBlocked ? frame.pointer : { x: 0, y: 0 }, ease);
+		this.pointerSmooth.lerp(frame.visualPointer ?? (frame.interactionEnabled && !frame.pointerBlocked ? frame.pointer : { x: 0, y: 0 }), ease);
 		const reveal = this.warming ? 1 : this.reveal;
 		this.screen.update(this.motion, reveal, this.focus, this.layout, this.pointerSmooth, this.reduced, this.warming ? 0 : delta);
 		this.transitionSound.update(delta, this.motion, this.appStarted && this.routeActive && current && !inMix && !this.warming && reveal > .1);
 		this.hud.update({ motion: this.motion, reveal, focus: this.focus, layout: this.layout, locale: getPortfolioLocale(), warm: this.warming, delta, reduced: this.reduced });
+		this.hud.root.visible = !this.layout.mobile;
 		this.screen.uniforms.uHeaderEnd.value = this.hud.headerEnd;
 		const play = this.appStarted && this.routeActive && !this.warming && current && !inMix && !carousel.isInteractionLocked() && !!filmProjects[this.motion.index].video && !this.motion.busy;
 		this.media.setAllowed(play && !this.hud.picker.state.pinned);
@@ -276,6 +279,15 @@ export class PortfolioFilmScene {
 		} else { this.hud.setHover(null); this.screen.controls.setHover(null); }
 		this.media.updateSound(delta, this.store.soundsActive);
 		this.screen.controls.update({ layout: this.layout, reveal, playing: this.media.playing, video: !!filmProjects[this.motion.index].video, focus: this.focus, reduced: this.reduced, delta, warm: this.warming, progress: this.media.progress, seekable: this.media.seekable && !this.motion.busy, duration: this.media.video?.duration, volume: this.media.volumeLevel, muted: !this.store.soundsActive || this.media.volumeLevel === 0 });
+		this.screen.controls.root.visible = !this.layout.mobile;
+		if (this.layout.mobile && !this.warming && current) {
+			this._uiElapsed = (this._uiElapsed ?? 0) + delta;
+			if (this._uiElapsed >= .25) {
+				this._uiElapsed = 0;
+				publishFilmUi({ index: this.motion.index, playing: this.media.playing, progress: Math.round(this.media.progress * 1000) / 1000, muted: this.media.volumeLevel === 0,
+					volume: Math.round(this.media.volumeLevel * 100) / 100, focused: this.focusTarget > .5, seekable: this.media.seekable && !this.motion.busy });
+			}
+		}
 	}
 	dispose() {
 		this.disposed = true;

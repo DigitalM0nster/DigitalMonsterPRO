@@ -164,14 +164,12 @@ export function drawGlitchTextLine(ctx, slots, x, y, style, drawOptions = {}) {
 			}
 		}
 
-		slot.replacements.forEach((replacement, index) => {
-			if (!drawSnake) {
-				return;
-			}
-
+		// Avoid allocating a closure for every glyph on every animated draw.
+		for (let index = 0; drawSnake && index < slot.replacements.length; index++) {
+			const replacement = slot.replacements[index];
 			const replacementVisible = isGlitchReplacementVisible(slot, index) || (glowPreview && index === 0);
 			if (!replacementVisible) {
-				return;
+				continue;
 			}
 
 			const metrics = profile.resolveReplacementMetrics
@@ -208,7 +206,7 @@ export function drawGlitchTextLine(ctx, slots, x, y, style, drawOptions = {}) {
 				replacementAlpha,
 			);
 			ctx.restore();
-		});
+		}
 
 		cursorX += charWidth + letterSpacingPx;
 	}

@@ -153,7 +153,7 @@ export class Mmk1CapabilityScene extends Case3Scene {
 			enableBlockHover: false,
 			settleRootOnEnter: true,
 		});
-		if (getGraphicsTier() === "medium") prepareMmk1MediumNeon(this.constructionBlocks, this.disposables);
+		if (getGraphicsTier() !== "high") prepareMmk1MediumNeon(this.constructionBlocks, this.disposables);
 		this._routeCurrentPage = "/";
 		this._defaultCraneRotationY = this.getCraneRotationY();
 		this._craneRotationFlight = null;
@@ -170,6 +170,13 @@ export class Mmk1CapabilityScene extends Case3Scene {
 		this._frameCamera = null;
 		this._overviewReturnActive = false;
 		this._dragOrbitTarget = new THREE.Vector3();
+		this._responsiveViewport = new THREE.Vector2();
+		this._responsiveTowerLocal = new THREE.Vector3();
+		this._responsiveTower = new THREE.Vector3();
+		this._responsiveFoot = new THREE.Vector3();
+		this._responsiveCraneMatrix = new THREE.Matrix4();
+		this._responsiveCraneRotation = new THREE.Euler();
+		this._responsiveCraneQuaternion = new THREE.Quaternion();
 		this._carouselMixTargetPrepared = false;
 		this.sceneSound = new CapabilitySceneSound();
 		this._cameraHotspots = new Mmk1CameraHotspots(this.threeScene, renderer.domElement, {
@@ -291,6 +298,7 @@ export class Mmk1CapabilityScene extends Case3Scene {
 	}
 
 	applyCamera(camera, frame) {
+		if (this.threeScene.fog) this.threeScene.fog.density = 0.074;
 		if (this._freeCamera?.apply(camera)) {
 			this._cameraHotspots?.syncCamera(camera);
 			return;
@@ -300,7 +308,49 @@ export class Mmk1CapabilityScene extends Case3Scene {
 			return;
 		}
 		super.applyCamera(camera, frame);
+		this._applyResponsiveOverviewCamera(camera);
 		this._cameraHotspots?.syncCamera(camera);
+	}
+
+	_applyResponsiveOverviewCamera(camera, finalOverview = false) {
+		this.renderer.getSize(this._responsiveViewport);
+		const { x: width, y: height } = this._responsiveViewport;
+		if ((width >= 1280 && height > 600) || !this.craneMesh) return;
+		if (this._responsivePreparedCrane !== this.craneMesh) {
+			// Calibrated tower point, resolved once after model preparation.
+			this._responsiveCraneMatrix.copy(this.getCraneAnchorReferenceMatrix()).invert();
+			this._responsiveTowerLocal.set(5.2967, 3.064, -.4534).applyMatrix4(this._responsiveCraneMatrix);
+			this._responsivePreparedCrane = this.craneMesh;
+		}
+		this.craneMesh.updateWorldMatrix(true, false);
+		if (finalOverview) {
+			this._responsiveCraneRotation.copy(this.craneMesh.rotation);
+			this._responsiveCraneRotation.y = this._defaultCraneRotationY;
+			this._responsiveCraneQuaternion.setFromEuler(this._responsiveCraneRotation);
+			this._responsiveCraneMatrix.compose(this.craneMesh.position, this._responsiveCraneQuaternion, this.craneMesh.scale)
+				.premultiply(this.craneMesh.parent.matrixWorld);
+		} else this._responsiveCraneMatrix.copy(this.craneMesh.matrixWorld);
+		camera.updateMatrixWorld(true);
+		this._responsiveTower.copy(this._responsiveTowerLocal).applyMatrix4(this._responsiveCraneMatrix).project(camera);
+		this._responsiveFoot.set(0, 0, 0).applyMatrix4(this._responsiveCraneMatrix).project(camera);
+		// Frame the tower's height, not the entire boom. The boom may cross the
+		// viewport while the large tower and its city background retain depth.
+		const short = height <= 480;
+		const span = Math.abs(this._responsiveTower.y - this._responsiveFoot.y) * .5;
+		const desiredSpan = short ? .54 : .58;
+		if (!Number.isFinite(span) || span < 1e-5) return;
+		camera.fov = THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(camera.fov) * .5) * span / desiredSpan));
+		camera.fov = THREE.MathUtils.clamp(camera.fov, 36, 64);
+		camera.updateProjectionMatrix();
+		this._responsiveTower.copy(this._responsiveTowerLocal).applyMatrix4(this._responsiveCraneMatrix).project(camera);
+		const portrait = width <= 768 && height > width;
+		const towerTop = portrait
+			? Math.max(height * .28, (short ? 76 : 92) + 176 * Math.min(430, width - 24) / 560 + 54)
+				+ THREE.MathUtils.clamp((width - 400) * .13, 0, 48)
+			: height * (short ? .36 : .35);
+		camera.projectionMatrix.elements[8] = this._responsiveTower.x - (.72 * 2 - 1);
+		camera.projectionMatrix.elements[9] = this._responsiveTower.y - (1 - 2 * towerTop / height);
+		camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
 	}
 
 	update(delta, frame) {
@@ -317,7 +367,7 @@ export class Mmk1CapabilityScene extends Case3Scene {
 				this._overviewReturnActive = false;
 			}
 		}
-		if (this.craneMesh) {
+		if (this.craneMesh && this._cameraHotspots?.anchorObject !== this.craneMesh) {
 			this._cameraHotspots?.bindToObject(
 				this.craneMesh,
 				this.getCraneAnchorReferenceMatrix(),
@@ -417,6 +467,7 @@ export class Mmk1CapabilityScene extends Case3Scene {
 		this._craneMaterialFlight = null;
 		this._applyCraneMaterialProfile("overview");
 		super.applyCamera(camera, { sceneProgress: 0 });
+		this._applyResponsiveOverviewCamera(camera);
 		this._freeCamera?.syncFromCamera(camera);
 	}
 
@@ -430,16 +481,21 @@ export class Mmk1CapabilityScene extends Case3Scene {
 		const fromPosition = camera.position.clone();
 		const fromQuaternion = camera.quaternion.clone();
 		const fromFov = camera.fov;
+		const fromShiftX = camera.projectionMatrix.elements[8], fromShiftY = camera.projectionMatrix.elements[9];
 		super.applyCamera(camera, { sceneProgress: 0 });
+		this._applyResponsiveOverviewCamera(camera, true);
 		const target = {
 			position: camera.position.clone(),
 			quaternion: camera.quaternion.clone(),
 			fov: camera.fov,
+			shiftX: camera.projectionMatrix.elements[8], shiftY: camera.projectionMatrix.elements[9],
 		};
 		camera.position.copy(fromPosition);
 		camera.quaternion.copy(fromQuaternion);
 		camera.fov = fromFov;
 		camera.updateProjectionMatrix();
+		camera.projectionMatrix.elements[8] = fromShiftX; camera.projectionMatrix.elements[9] = fromShiftY;
+		camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
 		camera.updateMatrixWorld(true);
 
 		this._cameraHotspots?.startOverviewFlight?.(camera, target);

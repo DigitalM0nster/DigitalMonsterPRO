@@ -68,6 +68,12 @@ export class DigitalWhaleScene {
 		this._whaleAmbientScrollAuto = 0;
 		this._lastSceneProgress = 0;
 		this._wakeCameraWorld = new THREE.Vector3();
+		this._mobileWhaleOffset = new THREE.Vector3();
+		this._mobileWhaleFit = 1;
+		this._compactHighHome = false;
+		this._compactMediumOcean = false;
+		this._whaleBodyBounds = new THREE.Box3();
+		this._whaleLocalCenter = new THREE.Vector3();
 
 		this.oceanGroup = new THREE.Group();
 		this.threeScene.add(this.oceanGroup);
@@ -277,15 +283,15 @@ export class DigitalWhaleScene {
 	}
 
 	onViewportResize() {
+		this._updateMobileWhaleLayout();
+		this._updateWhaleBodySway();
 		if (!this.heroTitle || !this._heroRenderer) {
 			return;
 		}
 
-		this.heroTitle.dispose();
-		this.heroTitle = createHeroTitleText(this._heroRenderer, this.threeScene);
-		if (this._appStarted) {
-			this.heroTitle.show({ waitForLoaderCurtain: false });
-		}
+		// Keep prepared glyph atlases, materials and the current reveal state.
+		// Recreating the hero here cold-starts its shaders on the next home visit.
+		this.heroTitle.resize();
 	}
 
 	_isHomePath(pathname) {
@@ -309,6 +315,10 @@ export class DigitalWhaleScene {
 		this._whaleEnterTo.set(w.posX, w.posY, w.posZ);
 		this._whaleEnterActive = true;
 		this._whaleEnterStartedAt = this.elapsed;
+		// Capture timing once: rotating the phone must not change progress mid-enter.
+		const compact = window.innerWidth <= 768 || (window.innerWidth <= 1024 && window.innerHeight < 480);
+		this._whaleEnterDuration = Math.max(Math.min(digitalWhaleConfig.whaleEnter?.durationMs ?? 4000,
+			compact ? 4500 : Infinity) / 1000, 0.001);
 	}
 
 	/**
@@ -350,7 +360,7 @@ export class DigitalWhaleScene {
 		}
 
 		const enter = digitalWhaleConfig.whaleEnter ?? {};
-		const duration = Math.max((enter.durationMs ?? 4000) / 1000, 0.001);
+		const duration = this._whaleEnterDuration;
 		const linear = Math.min(1, (this.elapsed - this._whaleEnterStartedAt) / duration);
 		const eased = easeLinearBlendOut(linear, enter.endEasePower ?? 5, enter.endEaseBias ?? 2.5);
 
@@ -425,6 +435,10 @@ export class DigitalWhaleScene {
 				this._whaleEdgeSpacing = w.edgeSpacing;
 				this.whaleGroup.add(whale.root);
 				this.whaleReady = true;
+				this.whaleMixer?.update(0);
+				this.whaleGroup.updateMatrixWorld(true);
+				this.whaleParticles?.updatePositions();
+				this._measureWhaleBodyBounds();
 				this._initWhaleWake(whale.root);
 				this._applyWhaleTransform();
 				this._applyWhaleVisuals();
@@ -443,6 +457,91 @@ export class DigitalWhaleScene {
 			// Medium tuning must preview the production density and bloom energy.
 			bypassTierCap: import.meta.env.DEV && tier === "high",
 		});
+	}
+
+	_measureWhaleBodyBounds() {
+		// Only prepared body samples: wake/ambient bounds cover the entire ocean.
+		// Sampling is bounded and happens once, never during animation or resize.
+		const body = this.whaleParticles?.bodySamples;
+		if (!body?.getPosition || !body.count) return;
+		const point = new THREE.Vector3();
+		this.whaleRoot.updateMatrix();
+		const count = Math.min(body.count, 1024);
+		this._whaleBodyBounds.makeEmpty();
+		for (let i = 0; i < count; i++) {
+			body.getPosition(Math.floor(i * (body.count - 1) / Math.max(1, count - 1)), point);
+			point.applyMatrix4(this.whaleRoot.matrix);
+			if (Number.isFinite(point.x + point.y + point.z)) this._whaleBodyBounds.expandByPoint(point);
+		}
+		this._whaleBodyBounds.getCenter(this._whaleLocalCenter);
+	}
+
+	_updateMobileWhaleLayout() {
+		const width = window.innerWidth, height = window.innerHeight;
+		const portrait = width <= 768 && height > width;
+		const shortLandscape = width <= 1024 && height < 480 && width > height;
+		this._compactHighHome = getGraphicsTier() === "high" && (portrait || shortLandscape);
+		this._compactMediumOcean = getGraphicsTier() === "medium" && (portrait || shortLandscape);
+		this._compactOceanPortrait = portrait;
+		this._compactOceanLandscape = shortLandscape;
+		const keep = this.whaleParticles?.material.uniforms.uSampleKeep;
+		if (keep) {
+			const budget = Math.min(18000, Math.max(9000, width * height * .04));
+			keep.value = this._compactHighHome ? Math.min(1, budget / Math.max(1, this.whaleParticles.sampleCount)) : 1;
+		}
+		this._applyOceanMaterialConfig(digitalWhaleConfig.ocean);
+		this.oceanSurfaceGroup.position.y = portrait
+			? THREE.MathUtils.lerp(-11, -10.5, THREE.MathUtils.smoothstep(height, 568, 640))
+			: shortLandscape ? -3 : 0;
+		this.oceanSurfaceGroup.position.z = portrait || shortLandscape ? -25 : 0;
+		this.oceanSurfaceGroup.rotation.z = portrait ? .12 : shortLandscape ? .05 : 0;
+		this.oceanSurfaceGroup.scale.z = portrait ? .15 : shortLandscape ? .3 : 1;
+		this._mobileWhaleFit = portrait ? .7 : shortLandscape ? .7 : 1;
+		this._mobileWhaleOffset.set(0, 0, 0);
+		if ((!portrait && !shortLandscape) || this._whaleBodyBounds.isEmpty()) return;
+		const targetX = shortLandscape ? .55 : 1.12;
+		const targetY = shortLandscape ? -.15 : height < 640 ? -.54 : -.50;
+		const maxWidth = shortLandscape ? 2.2 : 4.2;
+		// Framing is intentionally wider than the viewport: retain the sense of scale.
+		const maxHeight = shortLandscape ? 1.55 : 1.8;
+		const w = digitalWhaleConfig.whale, o = digitalWhaleConfig.ocean;
+		// Build a stationary reference from configuration, not the currently swaying,
+		// scrolling or entering world. One correction is shared by both intro endpoints.
+		const parent = new THREE.Matrix4().compose(
+			new THREE.Vector3(o.posX, o.posY, o.posZ),
+			new THREE.Quaternion().setFromEuler(new THREE.Euler(o.tiltX, o.rotationY, 0)),
+			new THREE.Vector3(o.scaleX, 1, o.scaleZ));
+		parent.multiply(new THREE.Matrix4().makeScale(1 / Math.max(o.scaleX, 1e-6), 1, 1 / Math.max(o.scaleZ, 1e-6)));
+		const parentInverse = parent.clone().invert();
+		const camera = new THREE.PerspectiveCamera(heroCamera.fov, width / height, .1, 2000);
+		camera.position.set(heroCamera.x, heroCamera.y, heroCamera.z);
+		camera.lookAt(HERO_LOOK_AT.x, HERO_LOOK_AT.y, HERO_LOOK_AT.z);
+		camera.updateMatrixWorld();
+		const rotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(w.rotationX, w.rotationY, w.rotationZ));
+		const matrix = new THREE.Matrix4(), position = new THREE.Vector3(), scale = new THREE.Vector3();
+		const projected = new THREE.Box3(), point = new THREE.Vector3(), center = new THREE.Vector3();
+		const from = new THREE.Vector3(), to = new THREE.Vector3();
+		const corners = [];
+		for (const x of [this._whaleBodyBounds.min.x, this._whaleBodyBounds.max.x])
+			for (const y of [this._whaleBodyBounds.min.y, this._whaleBodyBounds.max.y])
+				for (const z of [this._whaleBodyBounds.min.z, this._whaleBodyBounds.max.z]) corners.push(new THREE.Vector3(x, y, z));
+		// Keep the near head large; the body and tail deliberately continue beyond
+		// the viewport. These few projections run only on prepare/resize.
+		for (let pass = 0; pass < 4; pass++) {
+			position.set(w.posX, w.posY, w.posZ).add(this._mobileWhaleOffset);
+			matrix.compose(position, rotation, scale.setScalar(w.scale * this._mobileWhaleFit)).premultiply(parent);
+			projected.makeEmpty();
+			for (const corner of corners) projected.expandByPoint(point.copy(corner).applyMatrix4(matrix).project(camera));
+			projected.getCenter(center);
+			point.copy(this._whaleLocalCenter).applyMatrix4(matrix).project(camera);
+			from.set(center.x, center.y, point.z).unproject(camera).applyMatrix4(parentInverse);
+			to.set(targetX, targetY, point.z).unproject(camera).applyMatrix4(parentInverse);
+			this._mobileWhaleOffset.add(to.sub(from));
+			if (pass < 3) {
+				const fit = Math.min(1, maxWidth / Math.max(projected.max.x - projected.min.x, 1e-6), maxHeight / Math.max(projected.max.y - projected.min.y, 1e-6));
+				this._mobileWhaleFit *= fit;
+			}
+		}
 	}
 
 	/** Фактический размер сетки после tier-cap (для dev-панели). */
@@ -667,12 +766,36 @@ export class DigitalWhaleScene {
 		this.oceanMaterial.uniforms.uPointScale.value = o.pointScale;
 		this.oceanMaterial.uniforms.uAlphaMult.value = o.pointAlpha;
 		this.oceanMaterial.uniforms.uGlow.value = o.pointGlow;
+		this.oceanMaterial.uniforms.uCompactSurface.value = this._compactOceanPortrait || this._compactOceanLandscape ? 1 : 0;
+		this.oceanMaterial.uniforms.uSideFade.value = this._compactOceanLandscape ? 1 : 0;
+		if (this._compactHighHome) {
+			// Twelve-pixel sprites overlap at a compact viewport and flood the HDR
+			// bloom with a solid crest. Retain the same hue and prepared grid.
+			this.oceanMaterial.uniforms.uPointScale.value = Math.min(o.pointScale, 5.5);
+			this.oceanMaterial.uniforms.uAlphaMult.value = o.pointAlpha * .85;
+			this.oceanMaterial.uniforms.uGlow.value = o.pointGlow * .65;
+		} else if (this._compactMediumOcean) {
+			// Medium uses the same additive Points branch. Near the horizon a short
+			// viewport stacks its halos; keep the visible crest without bleaching HUD.
+			this.oceanMaterial.uniforms.uAlphaMult.value = o.pointAlpha * .3;
+			this.oceanMaterial.uniforms.uGlow.value = o.pointGlow * .5;
+		}
+		if (this._compactOceanPortrait) {
+			// The tilted surface is a shallow band. Keep individual dots resolved
+			// instead of merging its denser rows into broad luminous stripes.
+			this.oceanMaterial.uniforms.uPointScale.value = Math.min(o.pointScale, 3.2);
+		}
+		if (this._compactOceanLandscape) {
+			this.oceanMaterial.uniforms.uPointScale.value = Math.min(o.pointScale, 2.8);
+			this.oceanMaterial.uniforms.uAlphaMult.value = getGraphicsTier() === "low" ? .65 : .36;
+			this.oceanMaterial.uniforms.uGlow.value = Math.min(o.pointGlow, 2);
+		}
 
 		if (this.oceanGridMaterial) {
 			this.oceanGridMaterial.uniforms.uColor.value.set(o.gridColor);
 			this.oceanGridMaterial.uniforms.uWaveAmp.value = o.waveAmp;
 			this.oceanGridMaterial.uniforms.uRippleAmp.value = o.rippleAmp;
-			this.oceanGridMaterial.uniforms.uGridAlpha.value = o.gridAlpha;
+			this.oceanGridMaterial.uniforms.uGridAlpha.value = this._compactOceanLandscape ? 0 : o.gridAlpha * (this._compactHighHome ? .3 : this._compactMediumOcean ? .5 : 1);
 		}
 	}
 
@@ -813,7 +936,8 @@ export class DigitalWhaleScene {
 		const rollX = Math.sin(elapsed * (sway.rollSpeed ?? 0.58) + 1.2) * (sway.rollAmp ?? 0);
 		const yawY = smoothSinePhase(elapsed * (sway.yawSpeed ?? 0), sway.yawSmooth ?? 0) * (sway.yawAmp ?? 0);
 
-		this.whaleGroup.position.set(this._whaleBasePos.x, this._whaleBasePos.y + bobY, this._whaleBasePos.z);
+		this.whaleGroup.scale.setScalar(w.scale * this._mobileWhaleFit);
+		this.whaleGroup.position.set(this._whaleBasePos.x, this._whaleBasePos.y + bobY, this._whaleBasePos.z).add(this._mobileWhaleOffset);
 		this.whaleGroup.rotation.set(this._whaleBaseRot.x + rollX, this._whaleBaseRot.y + yawY, this._whaleBaseRot.z + pitchZ);
 
 		this._syncWhaleAnchorPositions();
@@ -857,6 +981,15 @@ export class DigitalWhaleScene {
 			pointScale: w.pointScale,
 			grainBlurRadius,
 		});
+		if (this._compactHighHome) {
+			const u = this.whaleParticles.material.uniforms;
+			// High's original HDR hue/pulse, calibrated for the smaller body rather
+			// than a desktop-sized sprite. Sharp single-tap cores also save work.
+			u.uPointScale.value = Math.min(w.pointScale, 4);
+			u.uGlow.value = .7 + (u.uGlow.value - .7) * .7;
+			u.uAlphaMult.value *= .85;
+			u.uGrainBlurRadius.value = 0;
+		}
 	}
 
 	applyConfig() {
@@ -898,6 +1031,8 @@ export class DigitalWhaleScene {
 		this._syncFogMaterials();
 		this.syncCamera(this.smoothPointer);
 		this._applyOceanTilt(this.smoothPointer);
+		this._updateMobileWhaleLayout();
+		this._updateWhaleBodySway();
 	}
 
 	/** DEV panel: update only ocean transforms/uniforms; rebuild geometry explicitly. */
@@ -1015,7 +1150,7 @@ export class DigitalWhaleScene {
 		this.elapsed += delta;
 		const c = digitalWhaleConfig;
 
-		const pointer = frame?.pointer ?? { x: 0, y: 0 };
+		const pointer = frame?.visualPointer ?? frame?.pointer ?? { x: 0, y: 0 };
 		const sceneProgress = frame?.sceneProgress ?? this._lastSceneProgress;
 		this._lastSceneProgress = Number.isFinite(sceneProgress) ? sceneProgress : this._lastSceneProgress;
 		this._accumulateScrollSpeeds(delta, c);

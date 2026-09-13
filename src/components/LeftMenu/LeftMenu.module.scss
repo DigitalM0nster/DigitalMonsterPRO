@@ -307,7 +307,7 @@
 
 @media (max-width: 1024px) {
 	.leftMenu {
-		--leftMenuButtonWidth: 42px;
+		--leftMenuButtonWidth: 44px;
 		--leftMenuIconSize: 17px;
 
 		left: 50%;
@@ -319,16 +319,21 @@
 		flex-direction: row;
 		justify-content: center;
 		padding: 6px 12px max(6px, env(safe-area-inset-bottom));
-		border: 1px solid rgba(255, 255, 255, 0.12);
-		border-bottom: 0;
-		border-radius: 24px 24px 0 0;
-		background:
-			linear-gradient(180deg, rgba(3, 15, 23, 0.97), rgba(0, 7, 12, 0.985)),
-			rgba(0, 8, 13, 0.96);
-		box-shadow:
-			0 -10px 34px rgba(0, 0, 0, 0.44),
-			0 0 18px color-mix(in srgb, var(--mainColor) 13%, transparent),
-			inset 0 1px 0 rgba(255, 255, 255, 0.04);
+		border: 0;
+		border-radius: 0;
+		background: transparent;
+		box-shadow: none;
+
+		&::before {
+			content: "";
+			position: absolute;
+			top: 0;
+			left: 18px;
+			right: 18px;
+			height: 1px;
+			background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--mainColor) 48%, transparent) 18%, rgba(255, 255, 255, .18) 50%, color-mix(in srgb, var(--mainColor) 48%, transparent) 82%, transparent);
+			pointer-events: none;
+		}
 
 		.topSection {
 			display: none;
@@ -362,18 +367,57 @@
 
 @media (max-width: 640px) {
 	.leftMenu {
-		--leftMenuButtonWidth: clamp(34px, 10vw, 39px);
+		--leftMenuButtonWidth: 44px;
 		--leftMenuIconSize: 15px;
 
 		width: min(100vw, 460px);
-		height: calc(58px + env(safe-area-inset-bottom));
+		height: calc(64px + env(safe-area-inset-bottom));
 		padding: 5px 8px max(5px, env(safe-area-inset-bottom));
-		border-radius: 20px 20px 0 0;
+		border-radius: 0;
 
 		.iconRail,
 		.bottomSection {
 			gap: clamp(1px, 0.8vw, 5px);
 		}
+	}
+}
+
+/* A backing is only appropriate when the dock reaches both viewport edges. */
+@media (min-width: 641px) and (max-width: 680px), (max-width: 460px) {
+	.leftMenu {
+		background: linear-gradient(180deg, transparent, rgba(0, 0, 0, .94) 42%);
+	}
+}
+
+/* Six independent 44px targets still fit a 330px viewport. */
+@media (max-width: 1024px) {
+	.leftMenu .itemButton {
+		touch-action: manipulation;
+		.snapping { transform: none; }
+		&:focus-visible { outline: 1px solid var(--mainColor); outline-offset: 1px; border-radius: 50%; }
+	}
+}
+
+@media (min-width: 1025px) and (max-height: 700px) {
+	.leftMenu {
+		--leftMenuButtonWidth: 44px;
+		--leftMenuIconSize: 18px;
+		padding: 18px 0;
+		.topSection { margin-bottom: 12px; }
+		.logoImg { width: 44px; height: 44px; }
+		.logoLink { gap: 7px; }
+		.brandLine { font-size: 8px; }
+		.iconRail { gap: 7px; }
+		.bottomSection { margin-top: 12px; }
+	}
+}
+
+@media (min-width: 1025px) and (max-height: 440px) {
+	.leftMenu {
+		padding: 10px 0;
+		.topSection { display: none; }
+		.iconRail { gap: 2px; }
+		.bottomSection { margin-top: 8px; }
 	}
 }
 
@@ -390,5 +434,14 @@
 		&.active .itemCircle::after {
 			opacity: 0.4;
 		}
+	}
+}
+
+@media (max-width: 1024px) and (max-height: 480px) {
+	.leftMenu {
+		height: calc(50px + env(safe-area-inset-bottom));
+		padding-top: 3px;
+		padding-bottom: max(3px, env(safe-area-inset-bottom));
+		border-radius: 0;
 	}
 }

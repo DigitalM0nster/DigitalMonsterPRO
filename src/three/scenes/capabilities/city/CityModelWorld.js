@@ -226,7 +226,7 @@ export class CityModelWorld {
 		if (!visible) this.title?.reset();
 		if (this.sceneFog) {
 			this.sceneFog.density = visible
-				? this.cityFogDensity
+				? this.cityFogDensity / (this._viewportCameraFit || 1)
 				: this.sceneFogDefaultDensity;
 			this.sceneFog.color.copy(visible ? this.cityFogColor : this.sceneFogDefaultColor);
 		}
@@ -238,6 +238,10 @@ export class CityModelWorld {
 
 	applyCamera(camera, parallax) {
 		camera.position.copy(this.cameraPosition);
+		const fit = Math.min(2.2, Math.max(1, 1.05 / Math.max(0.4, camera.aspect)));
+		this._viewportCameraFit = fit;
+		if (this.group.visible && this.sceneFog) this.sceneFog.density = this.cityFogDensity / fit;
+		camera.position.sub(this.cameraLookAt).multiplyScalar(fit).add(this.cameraLookAt);
 		camera.position.x += (Number(parallax?.x) || 0) * 0.58;
 		camera.position.y += (Number(parallax?.y) || 0) * 0.42;
 		camera.fov = CITY_CAMERA_FOV;
@@ -281,7 +285,7 @@ export class CityModelWorld {
 		this.cityFogDensity = this.trafficSettings.fogDensity;
 		this.cityFogColor.set(this.trafficSettings.fogColor);
 		if (this.group.visible && this.sceneFog) {
-			this.sceneFog.density = this.cityFogDensity;
+			this.sceneFog.density = this.cityFogDensity / (this._viewportCameraFit || 1);
 			this.sceneFog.color.copy(this.cityFogColor);
 		}
 		this.roadFlow?.setSettings(this.trafficSettings);

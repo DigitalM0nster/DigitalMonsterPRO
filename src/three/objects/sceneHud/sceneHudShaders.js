@@ -23,15 +23,15 @@ export const hudSnakeGlsl = (stateCount, baselines = [96, 69, 36], { width = 300
 	float hash21(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
 	vec4 snakeLabel(vec2 uv,float state){
 		// The idle path is one clean atlas sample. No order or symbol sampling at rest.
-		if(uSnake>=1.0)return label(uv,state);
-		if(uSnake<=0.0)return vec4(0.0);
+		vec4 result=vec4(0.0);
+		if(uSnake>=1.0){result=label(uv,state);}
+		else if(uSnake>0.0){
 		vec2 px=uv*vec2(${width.toFixed(1)},${height.toFixed(1)});
 		float row=${baselines.slice(0, -1).map((baseline, i) => `px.y>${Math.floor((baseline + baselines[i + 1]) / 2).toFixed(1)}?${i}.0:`).join("")}${baselines.length - 1}.0;
 		vec4 letter=texture2D(uLetterOrder,vec2((uLocale*${width.toFixed(1)}+floor(px.x)+0.5)/${(width * 3).toFixed(1)},(state*${baselines.length}.0+row+0.5)/${stateCount * baselines.length}.0));
-		if(letter.a<0.5)return vec4(0.0);
 		float phase=clamp((uSnake-(0.01+letter.r*0.80))/0.19,0.0,1.0);
-		if(phase<=0.0)return vec4(0.0);
-		if(phase>=1.0)return label(uv,state);
+		if(letter.a>=0.5 && phase>=1.0){result=label(uv,state);}
+		else if(letter.a>=0.5 && phase>0.0){
 		float head=smoothstep(0.02,0.10,phase)*(1.0-smoothstep(0.76,0.96,phase));
 		float settled=smoothstep(0.78,1.0,phase);
 		float frame=floor(clamp((phase-0.08)/0.72,0.0,0.999)*3.0);
@@ -47,7 +47,10 @@ export const hudSnakeGlsl = (stateCount, baselines = [96, 69, 36], { width = 300
 		float cleanAlpha=clean.a*settled;
 		float alpha=max(scrambled,cleanAlpha);
 		vec3 cyan=mix(vec3(0.10,0.76,1.0),vec3(0.72,0.96,1.0),smoothstep(0.5,0.85,phase));
-		return vec4(mix(cyan,clean.rgb,cleanAlpha/max(alpha,0.001)),alpha);
+		result=vec4(mix(cyan,clean.rgb,cleanAlpha/max(alpha,0.001)),alpha);
+		}
+		}
+		return result;
 	}
 `;
 

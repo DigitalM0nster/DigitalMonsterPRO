@@ -63,14 +63,21 @@ export function narrativeFrame(elapsed, variant) {
 }
 
 export function coreNarrativeLayout(width, height) {
-	const compact = width < 700;
-	const textWidth = compact ? Math.min(360, width - 60) : Math.min(540, width * 0.32);
-	const y = compact ? Math.max(100, height * 0.13) : height * 0.35;
+	const compact = width <= 1024;
+	const short = height < 560;
+	const landscape = short && width > height;
+	const textWidth = landscape ? Math.min(540, width * (compact ? .45 : .32)) : compact ? Math.min(420, width - 32) : Math.min(540, width * 0.32);
 	const textHeight = textWidth * 384 / 1024;
+	const x = compact ? 16 : Math.max(166, width * 0.12);
+	const portrait = compact && height > width;
+	const y = (compact || short) && !portrait
+		? Math.max(66, (height - textHeight - 88) * 0.5)
+		: compact ? 84 : height * 0.35;
+	const helperTop = portrait ? height - (height < 640 ? 112 : 152) : y + textHeight + 64;
 	return {
-		x: compact ? 30 : Math.max(166, width * 0.12),
+		x,
 		y, width: textWidth, height: textHeight,
-		helperX: compact ? 45 : Math.max(190, width * 0.145),
-		helperY: compact ? height - Math.max(y + textHeight + 56, Math.min(height * 0.72, height - 215)) : height * 0.34,
+		helperX: compact ? 40 : short ? x + 24 : Math.max(190, width * 0.145),
+		helperY: compact || short ? height - helperTop : height * 0.34,
 	};
 }

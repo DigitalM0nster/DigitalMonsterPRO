@@ -1,5 +1,6 @@
 import { store } from "@/app/store.jsx";
 import { normalizeSiteLocale } from "@/functions/siteLocale.js";
+import { getHeroResponsiveLayout } from "./heroResponsiveLayout.js";
 
 /** Конфиг hero-надписи (digital-monster TextMesh). */
 export const HERO_TITLE_LINES = ["DIGITAL", "MONSTER"];
@@ -32,12 +33,23 @@ export function getHeroLocale() {
 	return normalizeSiteLocale(store.siteLocale);
 }
 
+export const HERO_COMPACT_COPY = {
+	ru: { tagline: ["Создаём интерактивные сайты", "и digital-продукты.", "Расширяем границы возможного."],
+		stack: ["ИНТЕРАКТИВНЫЕ САЙТЫ", "ВЕБ-ПРИЛОЖЕНИЯ", "DIGITAL-ПРЕЗЕНТАЦИИ"] },
+	en: { tagline: ["We create interactive websites", "and digital products.", "Expanding what's possible."],
+		stack: ["INTERACTIVE WEBSITES", "WEB APPLICATIONS", "DIGITAL PRESENTATIONS"] },
+	zh: HERO_COPY.zh,
+};
+
 export function getHeroTaglineLines(locale = getHeroLocale()) {
-	return HERO_COPY[locale]?.tagline ?? HERO_COPY.ru.tagline;
+	const layout = typeof window !== "undefined" && getHeroResponsiveLayout(window.innerWidth, window.innerHeight);
+	const copy = layout.compact && !layout.landscape ? HERO_COMPACT_COPY : HERO_COPY;
+	return copy[locale]?.tagline ?? copy.ru.tagline;
 }
 
 export function getHeroStackLines(locale = getHeroLocale()) {
-	return HERO_COPY[locale]?.stack ?? HERO_COPY.ru.stack;
+	const copy = typeof window !== "undefined" && getHeroResponsiveLayout(window.innerWidth, window.innerHeight).compact ? HERO_COMPACT_COPY : HERO_COPY;
+	return copy[locale]?.stack ?? copy.ru.stack;
 }
 
 const HERO_CJK_FONT_FALLBACK = '"Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif';

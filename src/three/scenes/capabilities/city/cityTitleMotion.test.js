@@ -9,8 +9,13 @@ test("preloader, hidden scenes and incoming hex do not spend the opening delay",
 		assert.equal(advanceCityTitle(0, 20, state), 0);
 	}
 	assert.equal(cityTitleReveal(CITY_TITLE_DELAY), 0);
-	assert.equal(cityTitleReveal(advanceCityTitle(0, 1.49, idle)), 0);
-	assert.ok(cityTitleReveal(advanceCityTitle(1.49, 0.02, idle)) > 0);
+	assert.equal(cityTitleReveal(advanceCityTitle(0, CITY_TITLE_DELAY - 0.01, idle)), 0);
+	assert.ok(cityTitleReveal(advanceCityTitle(CITY_TITLE_DELAY - 0.01, 0.02, idle)) > 0);
+});
+
+test("the city title starts promptly and finishes within 1.1 seconds", () => {
+	assert.ok(cityTitleReveal(advanceCityTitle(0, 0.2, idle)) > 0);
+	assert.equal(cityTitleReveal(advanceCityTitle(0, 1.1, idle)), 1);
 });
 
 test("a partial reveal survives a reversed hex without a flash or restart", () => {

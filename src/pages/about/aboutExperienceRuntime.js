@@ -1,4 +1,5 @@
 import { store } from "@/app/store.jsx";
+import { sceneCanvasOwnsInput } from "@/three/interaction/sceneCanvasInput.js";
 import { CAROUSEL_WHEEL_PROGRESS_FACTOR } from "@/three/render/transition/carouselScroll.js";
 import { getSceneCarousel } from "@/three/render/transition/carouselPage.js";
 import {
@@ -91,6 +92,8 @@ const ABOUT_SPRING_RATES = {
 };
 const ABOUT_PROGRESS_SMOOTH = 2.2;
 const ABOUT_PROGRESS_CHASE_FINAL_SMOOTH_MUL = 1.35;
+const ABOUT_COMPACT_SPRING_RATES = { returnSmooth: 1.8, advanceSmooth: 1.8, retreatSmooth: 1.8, finalMul: 6 };
+const ABOUT_COMPACT_STOPS = [0, 1, 2, 4];
 /** Route-edge leave uses default carousel rates (empty → segmentScrollSpring defaults). */
 const CAROUSEL_EDGE_SPRING_RATES = {};
 const WHEEL_IDLE_MS = 180;
@@ -106,6 +109,12 @@ const TARGET_REST_EPS = 0.00005;
 let disposeRuntime = null;
 /** @type {null | ((entryStory: number) => void)} */
 let liveResetHandler = null;
+let liveStoryStepHandler = null;
+
+/** Compact controls share the existing story spring; no second progress owner. */
+export function requestAboutStoryStep(direction) {
+	return liveStoryStepHandler?.(Math.sign(direction)) ?? false;
+}
 
 /**
  * Dormant pose after leave — same role as home/portfolio `resetCarouselState`.
@@ -132,6 +141,18 @@ function getPixelsPerStage() {
 	return LEGACY_STAGE_INTERVALS / (CAROUSEL_WHEEL_PROGRESS_FACTOR * ABOUT_WHEEL_STRENGTH);
 }
 
+function isCompactAboutStory() {
+	return typeof window !== "undefined" && window.innerWidth <= 1024;
+}
+
+/** Four meaningful reading stops; the empty assembly pose is passed in motion. */
+function getRuntimeStorySegment(story) {
+	if (!isCompactAboutStory()) return getAboutStorySegment(story);
+	const start = story >= 2 ? 2 : Math.floor(story);
+	const span = story >= 2 ? 2 : 1;
+	return { start, span, local: (story - start) / span };
+}
+
 /** Same px → unit as SceneCarousel page transitions. */
 function getCarouselPixelsPerSegment() {
 	return 1 / CAROUSEL_WHEEL_PROGRESS_FACTOR;
@@ -150,7 +171,16 @@ function getPixelsPerStoryUnit(storyTarget, deltaPixels, inputSource) {
 	const pushingBackwardLeave = deltaPixels < 0 && storyTarget <= CAROUSEL_PROGRESS_COMMIT_EPS;
 	const pushingForwardLeave = deltaPixels > 0 && storyTarget >= STORY_MAX - CAROUSEL_PROGRESS_COMMIT_EPS;
 	if (isRouteEdgeStory(storyTarget) || pushingBackwardLeave || pushingForwardLeave) {
+		// The next thumb swipe should leave About as readily as it changed a
+		// chapter. Keep the same ring spring/overshoot, only normalize touch input.
+		if (inputSource === "touch" && isCompactAboutStory()) return clamp(window.innerHeight * 0.78, 320, 700);
 		return getCarouselPixelsPerSegment();
+	}
+	if (isCompactAboutStory()) {
+		// A deliberate thumb swipe reaches the midpoint of one content segment.
+		// Keep the authored 2→4 close, but give it the same input distance as 0→1.
+		const span = getRuntimeStorySegment(storyTarget - (deltaPixels < 0 ? 1e-6 : 0)).span;
+		return clamp(window.innerHeight * 0.78, 320, 700) / span;
 	}
 	const afterThirdStage = storyTarget > 3 || (storyTarget === 3 && deltaPixels > 0);
 	const wheelMultiplier = inputSource === "wheel" && afterThirdStage
@@ -216,12 +246,12 @@ function applyStageTargetRest(storyTarget, delta) {
 	/** Interior content stages — softer About rates. */
 	if (story <= CAROUSEL_PROGRESS_COMMIT_EPS) return 0;
 
-	const { start, span, local: segmentLocal } = getAboutStorySegment(story);
+	const { start, span, local: segmentLocal } = getRuntimeStorySegment(story);
 	let local = segmentLocal;
 	if (local <= TARGET_REST_EPS) return start;
 	if (local >= 1 - TARGET_REST_EPS) return Math.min(STORY_MAX, start + span);
 
-	local = applyLocalSegmentTargetRest(local, delta, ABOUT_SPRING_RATES);
+	local = applyLocalSegmentTargetRest(local, delta, isCompactAboutStory() ? ABOUT_COMPACT_SPRING_RATES : ABOUT_SPRING_RATES);
 	return clamp(start + local * span, 0, STORY_TARGET_MAX);
 }
 
@@ -242,10 +272,10 @@ function getStoryChaseConfig(storyProgress, storyTarget = storyProgress) {
 	} else if (storyTarget > STORY_MAX) {
 		absLocal = storyTarget - STORY_MAX;
 	} else {
-		absLocal = getAboutStorySegment(storyProgress).local;
+		absLocal = getRuntimeStorySegment(storyProgress).local;
 	}
 	return {
-		smooth: onEdge ? CAROUSEL_PROGRESS_SMOOTH : ABOUT_PROGRESS_SMOOTH,
+		smooth: onEdge ? CAROUSEL_PROGRESS_SMOOTH : isCompactAboutStory() ? 4.6 : ABOUT_PROGRESS_SMOOTH,
 		chaseMul: getAbsChaseSmoothMul(absLocal, {
 			threshold: CAROUSEL_PROGRESS_CHASE_FINAL_THRESHOLD,
 			mul: onEdge ? CAROUSEL_PROGRESS_CHASE_FINAL_SMOOTH_MUL : ABOUT_PROGRESS_CHASE_FINAL_SMOOTH_MUL,
@@ -259,8 +289,11 @@ function snapStoryPair(current, target) {
 	let nextCurrent = current;
 
 	const restPoints = [CAROUSEL_PROGRESS_SEGMENT_BACK_END];
-	restPoints.push(ABOUT_OPEN_STORY_ANCHOR);
-	for (let i = 0; i <= STORY_MAX; i += 1) restPoints.push(i);
+	if (isCompactAboutStory()) restPoints.push(...ABOUT_COMPACT_STOPS);
+	else {
+		restPoints.push(ABOUT_OPEN_STORY_ANCHOR);
+		for (let i = 0; i <= STORY_MAX; i += 1) restPoints.push(i);
+	}
 	restPoints.push(STORY_MAX + 1);
 
 	for (let i = 0; i < restPoints.length; i += 1) {
@@ -298,7 +331,7 @@ function storyNeedsAnimation(current, target) {
 		const local = target - STORY_MAX;
 		return local > eps && local < 1 - eps;
 	}
-	const { local } = getAboutStorySegment(target);
+	const { local } = getRuntimeStorySegment(target);
 	return local > eps && local < 1 - eps;
 }
 
@@ -537,7 +570,9 @@ function createAboutExperienceRuntime() {
 		const dt = Math.min(0.05, Math.max(0, (now - previousFrameAt) / 1000));
 		previousFrameAt = now;
 
-		target = applyStageTargetRest(target, dt);
+		// Let touch own its target while the finger is down. Release resumes the
+		// same continuous rest/chase spring, rather than fighting each swipe pixel.
+		if (!(isCompactAboutStory() && touchId !== null)) target = applyStageTargetRest(target, dt);
 
 		const chase = getStoryChaseConfig(current, target);
 		current = chaseSegmentValue(current, target, dt, chase);
@@ -623,6 +658,15 @@ function createAboutExperienceRuntime() {
 	};
 
 	const jumpByStage = (direction) => {
+		if (isCompactAboutStory()) {
+			const next = direction > 0
+				? ABOUT_COMPACT_STOPS.find(value => value > target + 0.02)
+				: ABOUT_COMPACT_STOPS.findLast(value => value < target - 0.02);
+			scrollIntent = direction > 0 ? "forward" : "backward";
+			target = next ?? (direction > 0 ? STORY_TARGET_MAX : STORY_TARGET_MIN);
+			publish(); startAnimation();
+			return;
+		}
 		if (direction > 0 && target < ABOUT_OPEN_STORY_ANCHOR - CAROUSEL_PROGRESS_COMMIT_EPS) {
 			jumpToStory(ABOUT_OPEN_STORY_ANCHOR);
 			return;
@@ -654,6 +698,8 @@ function createAboutExperienceRuntime() {
 	};
 
 	const onWheel = (event) => {
+		if (sceneCanvasOwnsInput(event, true)) return;
+		if (event.target?.closest?.("[data-about-reading-panel]")) return;
 		if (
 			!ownsInput() ||
 			event.defaultPrevented ||
@@ -671,6 +717,8 @@ function createAboutExperienceRuntime() {
 	};
 
 	const onKeyDown = (event) => {
+		if (event.target?.closest?.("[data-about-reading-panel]")) return;
+		if (event.target?.closest?.("button, a, [role='button']")) return;
 		if (
 			!ownsInput() ||
 			event.defaultPrevented ||
@@ -708,6 +756,9 @@ function createAboutExperienceRuntime() {
 	};
 
 	const onTouchStart = (event) => {
+		if (sceneCanvasOwnsInput(event)) { touchId = null; return; }
+		if (event.target?.closest?.("[data-about-reading-panel]")) { touchId = null; return; }
+		if (event.target?.closest?.("[data-canvas-pointer-blocker], button, a, input")) { touchId = null; return; }
 		if (!ownsInput() || getSceneCarousel().isInteractionLocked()) {
 			return;
 		}
@@ -725,6 +776,7 @@ function createAboutExperienceRuntime() {
 	};
 
 	const onTouchMove = (event) => {
+		if (event.target?.closest?.("[data-about-reading-panel]")) return;
 		if (!ownsInput() || touchId === null || getSceneCarousel().isInteractionLocked()) {
 			return;
 		}
@@ -779,6 +831,17 @@ function createAboutExperienceRuntime() {
 		});
 	};
 
+	liveStoryStepHandler = (direction) => {
+		if (!direction || !ownsInput() || getSceneCarousel().isInteractionLocked()) return false;
+		const anchors = isCompactAboutStory() ? ABOUT_COMPACT_STOPS : [0, ABOUT_OPEN_STORY_ANCHOR, ...Array.from({ length: STORY_MAX }, (_, i) => i + 1)];
+		const next = direction > 0 ? anchors.find(value => value > target + .02) : anchors.findLast(value => value < target - .02);
+		if (next == null) return false;
+		scrollIntent = null;
+		getSceneCarousel().clearAboutBoundaryDrive();
+		target = next;
+		publish(); startAnimation();
+		return true;
+	};
 	liveResetHandler = (entryStory) => {
 		if (disposed) return;
 		current = clamp(entryStory, 0, STORY_MAX);
@@ -797,9 +860,12 @@ function createAboutExperienceRuntime() {
 		id: "about",
 		sceneId: "about",
 		snapshot: () => {
-			const rest = target >= 0 && target < 1
-				? resolveStoryRest(target / ABOUT_OPEN_STORY_ANCHOR, 2) * ABOUT_OPEN_STORY_ANCHOR
-				: resolveStoryRest(target, STORY_MAX);
+			const segment = getRuntimeStorySegment(target);
+			const rest = isCompactAboutStory() && target >= 0 && target < STORY_MAX
+				? segment.start + resolveStoryRest(segment.local, 1) * segment.span
+				: target >= 0 && target < 1
+					? resolveStoryRest(target / ABOUT_OPEN_STORY_ANCHOR, 2) * ABOUT_OPEN_STORY_ANCHOR
+					: resolveStoryRest(target, STORY_MAX);
 			const carousel = getSceneCarousel();
 			if (rest < 0) {
 				return {
@@ -879,6 +945,7 @@ function createAboutExperienceRuntime() {
 		disposed = true;
 		unregisterNavigationOwner();
 		liveResetHandler = null;
+		liveStoryStepHandler = null;
 		experience.active = false;
 		getSceneCarousel().clearAboutBoundaryDrive();
 		cancelAboutPanelHudLocaleMix();

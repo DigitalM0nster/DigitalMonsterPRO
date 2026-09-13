@@ -19,6 +19,7 @@ import { AboutScene } from "./about/AboutScene.js";
 import { ContactsScene } from "./contacts/ContactsScene.js";
 import { SceneDragOrbitController } from "./interaction/SceneDragOrbitController.js";
 import { PORTFOLIO_ENABLED } from "@/app/config/routeAvailability.js";
+import { isCarouselTouchOrbitBlocked, isCarouselTouchSceneBlocked } from "../render/transition/carouselTouch.js";
 
 /** Detached reusable decorations must participate before their first live attach. */
 function attachWarmupRoots(sceneObj) {
@@ -60,6 +61,7 @@ export class SceneManager {
 		this.store = options.store;
 		this.getPointer = options.getPointer ?? (() => ({ x: 0, y: 0 }));
 		this.getViewportPointer = options.getViewportPointer ?? this.getPointer;
+		this.getVisualPointer = options.getVisualPointer ?? this.getViewportPointer;
 		this.getPointerDown = options.getPointerDown ?? (() => false);
 		this.getPointerBlocked = options.getPointerBlocked ?? (() => false);
 		this.gfx = options.gfx ?? {
@@ -398,7 +400,7 @@ export class SceneManager {
 			pointer,
 			// Passive visual response must survive hex Y-band hit ownership. The
 			// interaction frame may zero `pointer`, but never this viewport signal.
-			visualPointer: pointer,
+			visualPointer: this.getVisualPointer(),
 			pointerDown: this.getPointerDown(),
 			pointerBlocked: this.getPointerBlocked(),
 			viewportWidth: Math.floor(cssW * dpr),
@@ -549,8 +551,8 @@ export class SceneManager {
 		const orbitScene = this.scenes.get(orbitSceneId);
 		this.sceneDragOrbit.update(delta, {
 			sceneId: orbitSceneId,
-			pointer: frame.visualPointer,
-			pointerDown: frame.pointerDown && !frame.pointerBlocked,
+			pointer: frame.pointer,
+			pointerDown: frame.pointerDown && !frame.pointerBlocked && !isCarouselTouchOrbitBlocked(),
 			verticalEnabled: orbitScene?.isVerticalDragOrbitEnabled?.() === true,
 			maxVerticalOrbit: orbitScene?.getVerticalDragOrbitLimit?.(),
 			enabled: Boolean(
@@ -560,7 +562,7 @@ export class SceneManager {
 					&& getHexShaderProgress() <= 0.001
 			),
 		});
-		const dragBlocksScenePointer = this.sceneDragOrbit.isBlockingScenePointer();
+		const dragBlocksScenePointer = this.sceneDragOrbit.isBlockingScenePointer() || isCarouselTouchSceneBlocked();
 
 		for (const [id, scene] of this.scenes.entries()) {
 			const isActive = scene === this.getActiveScene();
@@ -576,6 +578,7 @@ export class SceneManager {
 					const sceneFrame = this._withInteractionFrame(this._withSceneProgressFrame(frame, id, carousel), acceptsPointer);
 					scene.setPointerState?.(pointerState);
 					scene.update?.(delta, sceneFrame);
+					scene.canvasInterface?.update(delta, sceneFrame);
 				} else if (scene.shouldKeepUpdating?.()) {
 					// Case scenes leaving via hex — update for exit, never accept hub/page hits.
 					scene.setPointerState?.({ pointerDown: false, pointerBlocked: true });
@@ -587,6 +590,7 @@ export class SceneManager {
 			if (isActive || scene.shouldKeepUpdating?.()) {
 				scene.setPointerState?.(pointerState);
 				scene.update?.(delta, this._withInteractionFrame(frame, acceptsPointer));
+				scene.canvasInterface?.update(delta, frame);
 			}
 		}
 	}
@@ -747,12 +751,14 @@ export class SceneManager {
 		const prevToneMapping = this.renderer.toneMapping;
 
 		this.renderer.setRenderTarget(target);
-		this.renderer.autoClear = true;
+		// This pass clears explicitly; renderer.render must not clear it again.
+		this.renderer.autoClear = false;
 		// HDR в RT: без tone mapping, иначе emissive clamp'ится до bloom.
 		this.renderer.toneMapping = THREE.NoToneMapping;
 		this.renderer.setClearColor(0x000000, 0);
 		this.renderer.clear(true, true, true);
 		this.renderer.render(threeScene, this.camera);
+		sceneObj.canvasInterface?.renderModelsOverlay(this.renderer);
 		const finishedTexture = sceneObj.finishSceneLayer?.(this.renderer, this.camera, target);
 
 		this.renderer.toneMapping = prevToneMapping;
@@ -795,6 +801,7 @@ export class SceneManager {
 		this.disposed = true;
 		this.sceneDragOrbit?.dispose();
 		for (const scene of this.scenes.values()) {
+			scene.canvasInterface?.dispose();
 			scene.dispose?.();
 		}
 		this.scenes.clear();

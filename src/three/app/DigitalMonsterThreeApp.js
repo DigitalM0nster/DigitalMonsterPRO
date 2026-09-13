@@ -2,6 +2,8 @@ import * as THREE from "three";
 import { getScenePixelRatio, setScenePixelRatio, resolveOutputPixelRatio } from "../renderer/renderResolution.js";
 import { PreparationScheduler, resolveFullWarm } from "./preparationScheduler.js";
 import { warmScreenOverlay } from "../renderer/warmScreenOverlay.js";
+import { prepareSceneCanvasInterfaces } from "@/app/prepareSceneCanvasInterfaces.js";
+import { DeviceTiltInput } from "../interaction/DeviceTiltInput.js";
 import { BackgroundPipeline } from "../render/background/BackgroundPipeline.js";
 import { ScreenCompositor } from "../render/toScreen/ScreenCompositor.js";
 import { updateSiteGrainBlurRadius } from "../render/toScreen/siteGrainBlurRuntime.js";
@@ -127,6 +129,8 @@ export class DigitalMonsterThreeApp {
 		this.camera.position.set(0, 0, 9);
 
 		this.pointer = { x: 0, y: 0 };
+		this.deviceTilt = new DeviceTiltInput();
+		this._inputKind = window.matchMedia("(pointer: coarse)").matches ? "touch" : "mouse";
 		this.viewportPointer = { x: 0, y: 0 };
 		this.pointerDown = false;
 		this.pointerBlocked = false;
@@ -154,6 +158,7 @@ export class DigitalMonsterThreeApp {
 			store: this.store,
 			getPointer: () => this.pointer,
 			getViewportPointer: () => this.viewportPointer,
+			getVisualPointer: () => this._inputKind === "touch" && !this.pointerDown && this.deviceTilt.available ? this.deviceTilt.pointer : this.viewportPointer,
 			getPointerDown: () => this.pointerDown,
 			getPointerBlocked: () => this.pointerBlocked,
 			gfx,
@@ -310,6 +315,7 @@ export class DigitalMonsterThreeApp {
 				sceneManager: this.sceneManager,
 				renderer: this.renderer,
 			});
+			await prepareSceneCanvasInterfaces(this.sceneManager, this.renderer);
 			this._setPreparationProgress(0.35);
 			if (this.disposed) {
 				return false;
@@ -380,6 +386,7 @@ export class DigitalMonsterThreeApp {
 		const camera = this.sceneManager.camera;
 		const jobs = [];
 		for (const scene of this.sceneManager.scenes.values()) {
+			if (scene.canvasInterface) jobs.push(() => warmScreenOverlay(scene.canvasInterface, this.renderer, camera, scheduler, [this.sceneManager.layerTargets.a, null]));
 			for (const overlay of [scene.panelHud, scene.world?.hud, scene._cameraHotspots]) {
 				if (overlay) jobs.push(() => warmScreenOverlay(overlay, this.renderer, camera, scheduler));
 			}
@@ -583,6 +590,7 @@ export class DigitalMonsterThreeApp {
 
 	/** NDC по всему окну — для наклона сетки хаба над HTML-меню. */
 	_onViewportPointerMove(event) {
+		this._inputKind = event.pointerType ?? this._inputKind;
 		const w = window.innerWidth;
 		const h = window.innerHeight;
 		if (w <= 0 || h <= 0) {
@@ -791,6 +799,9 @@ export class DigitalMonsterThreeApp {
 
 	/** @returns {THREE.Texture | null} */
 	_getAboutPanelHudHexOverlayTexture() {
+		const sceneInterface = this.sceneManager.getSceneById("about")?.canvasInterface;
+		// The open reader is already in the scene RT and covers the normal page copy.
+		if (sceneInterface?.enabled && sceneInterface.reading) return null;
 		const carousel = getSceneCarousel();
 		// Abort settle on About: leftover |progress| must not keep a static bake —
 		// screen mosaic owns the band again (same gate as aboutInHexMix below).
@@ -922,6 +933,9 @@ export class DigitalMonsterThreeApp {
 		const hexActive = hexProgressLive || hexNavLive;
 		// Like the Home hint: sharp at rest, baked into the scene during a hex wipe.
 		const currentSceneId = onCarousel ? carousel.currentId : this.sceneManager.getActiveSceneId();
+		for (const [id, scene] of this.sceneManager.scenes) {
+			scene.canvasInterface?.setComposeMode(!caseOpen && currentSceneId === id && !hexActive ? "screen" : "models");
+		}
 		for (const id of CAPABILITY_HUD_SCENES) {
 			this.sceneManager.getSceneById(id)?.world?.hud
 				?.setComposeMode(!caseOpen && currentSceneId === id && !hexActive ? "screen" : "models");
@@ -1095,6 +1109,9 @@ export class DigitalMonsterThreeApp {
 			}
 		}
 
+		// Dialogs and scene controls cover the prepared page typography.
+		for (const scene of this.sceneManager.scenes.values()) scene.canvasInterface?.renderScreenOverlay(this.renderer);
+
 		// Right arc: site chrome — keep during case→case even if openedCase flickers.
 		this.renderer.getSize(this._overlaySize);
 		const isMobile = this._overlaySize.x < 768;
@@ -1132,7 +1149,7 @@ export class DigitalMonsterThreeApp {
 		if (!this.sceneManager.isCarouselHubActive()) {
 			if (import.meta.env.DEV) {
 				this.store.sceneCarouselRenderMode = "off";
-				this.store.sceneCarouselRenderingIds = [];
+				if (this.store.sceneCarouselRenderingIds.length) this.store.sceneCarouselRenderingIds = [];
 			}
 			this.store.sceneCarouselClickTransitionActive = false;
 			this.store.sceneCarouselClickPhase = "idle";
@@ -1145,10 +1162,27 @@ export class DigitalMonsterThreeApp {
 		if (import.meta.env.DEV) {
 			const renderingIds = carousel.getActiveSceneIds(hexProgress);
 			this.store.sceneCarouselRenderMode = renderingIds.length > 1 ? "mix" : "single";
-			this.store.sceneCarouselRenderingIds = renderingIds;
+			const previousIds = this.store.sceneCarouselRenderingIds;
+			if (previousIds.length !== renderingIds.length || renderingIds.some((id, i) => id !== previousIds[i])) {
+				this.store.sceneCarouselRenderingIds = renderingIds;
+			}
 			this.store.sceneCarouselPreviousId = carousel.previousId;
 			this.store.sceneCarouselNextId = carousel.nextId;
-			this.store.sceneCarouselSceneProgress = carousel.getSceneProgressSnapshot();
+			// Keep diagnostic proxy identities stable. Replacing the nested snapshot
+			// each frame wakes store subscribers and creates garbage even at rest.
+			const snapshot = this.store.sceneCarouselSceneProgress;
+			for (const id of CAROUSEL_SCENE_IDS) {
+				const sceneProgress = carousel.getSceneProgress(id);
+				const sceneProgressTarget = carousel.getSceneProgressTarget(id);
+				const role = carousel.getSceneProgressRole(id);
+				const entry = snapshot[id];
+				if (!entry) snapshot[id] = { sceneProgress, sceneProgressTarget, role };
+				else {
+					if (entry.sceneProgress !== sceneProgress) entry.sceneProgress = sceneProgress;
+					if (entry.sceneProgressTarget !== sceneProgressTarget) entry.sceneProgressTarget = sceneProgressTarget;
+					if (entry.role !== role) entry.role = role;
+				}
+			}
 		}
 		this.store.sceneCarouselCurrentId = carousel.currentId;
 		this.store.hexShaderProgress = hexProgress;
@@ -1271,10 +1305,11 @@ export class DigitalMonsterThreeApp {
 		if (w <= 0 || h <= 0) {
 			return;
 		}
-		// Preview the sharper output separately until its hex typography path is
-		// approved. Normal Medium retains the user's accepted scene/text rendering.
+		// Phones need a sharper final canvas for prepared text. Expensive scene,
+		// bloom and hex buffers retain their independent scene DPR.
 		const nativeTextPreview = import.meta.env.DEV && new URLSearchParams(window.location.search).get("nativeText") === "1";
-		const outputDpr = nativeTextPreview ? resolveOutputPixelRatio(this.gfxTier, dpr, window.devicePixelRatio, w, h) : dpr;
+		const sharpMobileOutput = w <= 1024 && window.devicePixelRatio > 1;
+		const outputDpr = nativeTextPreview || sharpMobileOutput ? resolveOutputPixelRatio(this.gfxTier, dpr, window.devicePixelRatio, w, h) : dpr;
 		if (this._renderSize.w === w && this._renderSize.h === h && this._renderSize.dpr === dpr && this._renderSize.outputDpr === outputDpr) {
 			return;
 		}
@@ -1341,6 +1376,7 @@ export class DigitalMonsterThreeApp {
 			this.rafId = requestSharedAnimationFrame(tick);
 
 			const delta = this.clock.getDelta();
+			this.deviceTilt.update(delta);
 			// Preparation owns renderer/camera exclusively until the Start gesture.
 			// Still tick the clock so the first live frame never receives load time.
 			if (this.fullWarm && !this.startApp) {
@@ -1421,6 +1457,7 @@ export class DigitalMonsterThreeApp {
 	}
 
 	dispose() {
+		this.deviceTilt?.dispose();
 		this.disposed = true;
 		this.container.style.cursor = "";
 		this.canvas.style.cursor = "";

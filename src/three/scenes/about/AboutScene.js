@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { resolveAboutResponsiveLayout } from "@/pages/about/aboutResponsiveLayout.js";
 import { createGLTFLoader } from "@/three/assets/gltfLoader.js";
 import { applySceneProgressToCamera } from "../utils/applySceneProgressToCamera.js";
 import {
@@ -32,6 +33,7 @@ import {
 } from "./aboutGltfStoryAnimRig.js";
 import { AboutEpicTextController } from "./aboutEpicText/AboutEpicTextController.js";
 import { normalizeSiteLocale } from "@/functions/siteLocale.js";
+import { createAboutCompactFraming, fitAboutCompactCamera } from "./aboutCompactFraming.js";
 
 const ABOUT_PATH = "/about";
 /**
@@ -105,6 +107,7 @@ export class AboutScene {
 		this._scrollProgress = 0;
 		this._storyProgress = 0;
 		this._dragOrbitTarget = new THREE.Vector3();
+		this._compactFraming = null;
 		this.dragOrbitAroundTarget = true;
 		this._modelPivot = null;
 		this._modelPivotLocal = new THREE.Vector3();
@@ -563,9 +566,11 @@ export class AboutScene {
 
 				this._epicText?.dispose();
 				this._epicText = new AboutEpicTextController();
+				this._epicText.setCompactViewport(this._viewport.width, this._viewport.height);
 				return this._epicText.attach(model, store.siteLocale).then(() => {
 					if (this._disposed) return false;
 					this._applyStoryProgress(this._readAboutStoryProgress());
+					this._compactFraming = createAboutCompactFraming(model);
 					return true;
 				});
 			})
@@ -580,6 +585,8 @@ export class AboutScene {
 	 * Short/mobile only nudge FOV/distance from layout extras.
 	 */
 	_resolveStageCamera() {
+		// Refresh ancestors after resize without a second content traversal.
+		this._model?.updateWorldMatrix(true, false);
 		const pose = this._gltfStoryAnim?.sampleCamera?.()
 			?? { x: 0, y: 1.2, z: 8.2, lookAtX: 0, lookAtY: 0, lookAtZ: 0, fov: 34, rotX: 0, rotY: 0, rotZ: 0, useLookAt: true, fovIsVertical: false };
 		const layout = this._layout;
@@ -649,6 +656,7 @@ export class AboutScene {
 				},
 				sceneProgress,
 			);
+			this._applyCompactCamera(camera, sceneProgress);
 			return;
 		}
 
@@ -657,6 +665,11 @@ export class AboutScene {
 		camera.rotation.set(THREE.MathUtils.degToRad(cam.rotX), THREE.MathUtils.degToRad(cam.rotY), THREE.MathUtils.degToRad(cam.rotZ), "YXZ");
 		camera.fov = verticalFov;
 		camera.updateProjectionMatrix();
+		this._applyCompactCamera(camera, sceneProgress);
+	}
+
+	_applyCompactCamera(camera, sceneProgress) {
+		fitAboutCompactCamera(this._compactFraming, camera, this._viewport, this._compactLayout, this._storyProgress, sceneProgress);
 	}
 
 	/**
@@ -704,6 +717,8 @@ export class AboutScene {
 
 	_applyResponsiveTransform() {
 		const { mobile, short } = this._viewport;
+		this._compactLayout = resolveAboutResponsiveLayout(this._viewport.width, this._viewport.height);
+		this._epicText?.setCompactViewport(this._viewport.width, this._viewport.height);
 		this._layout = mobile ? ABOUT_LAYOUT.mobile : short ? ABOUT_LAYOUT.short : ABOUT_LAYOUT.desktop;
 		const layout = this._layout;
 		this.root.position.set(layout.rootX, layout.rootY, 0);
@@ -719,8 +734,9 @@ export class AboutScene {
 		const dt = Math.max(0, Math.min(0.05, delta));
 		this._motionTime += dt;
 		const pointerAllowed = !frame?.pointerBlocked && !frame?.pointerDown;
-		const px = pointerAllowed ? THREE.MathUtils.clamp(Number(frame?.pointer?.x) || 0, -1, 1) : 0;
-		const py = pointerAllowed ? THREE.MathUtils.clamp(Number(frame?.pointer?.y) || 0, -1, 1) : 0;
+		const pointer = frame?.visualPointer ?? frame?.pointer;
+		const px = pointerAllowed ? THREE.MathUtils.clamp(Number(pointer?.x) || 0, -1, 1) : 0;
+		const py = pointerAllowed ? THREE.MathUtils.clamp(Number(pointer?.y) || 0, -1, 1) : 0;
 		this._pointerTiltX = THREE.MathUtils.damp(this._pointerTiltX, -py * 0.018, 3, dt);
 		this._pointerTiltY = THREE.MathUtils.damp(this._pointerTiltY, px * 0.025, 3, dt);
 

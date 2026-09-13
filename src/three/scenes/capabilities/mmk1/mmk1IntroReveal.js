@@ -1,7 +1,7 @@
 import { HUD_MARKER_GLSL } from "../../../objects/sceneHud/sceneHudShaders.js";
 
 // Match CapabilityNarrative's light-trails mosaic, using the crane's prepared atlas.
-export const MMK1_INTRO_REVEAL_SECONDS = 0.95;
+export const MMK1_INTRO_REVEAL_SECONDS = 0.62;
 
 export function advanceMmk1IntroReveal(progress, requested, delta) {
 	return Math.max(0, Math.min(1, progress + Math.max(0, delta) / MMK1_INTRO_REVEAL_SECONDS * (requested ? 1 : -1)));
@@ -15,7 +15,7 @@ export function mmk1IntroSoundReveal(progress, right) {
 
 export const MMK1_INTRO_FRAGMENT = /* glsl */ `
 	uniform sampler2D uLabels;
-	uniform float uReveal,uLocale,uState,uMarkerTime;
+	uniform float uReveal,uLocale,uState,uMarkerTime,uStateCount;
 	uniform vec4 uUvBounds;
 	varying vec2 vUv;
 	${HUD_MARKER_GLSL}
@@ -23,10 +23,11 @@ export const MMK1_INTRO_FRAGMENT = /* glsl */ `
 		vec2 uv=mix(uUvBounds.xy,uUvBounds.zw,clamp(localUv,vec2(0.001),vec2(0.999)));
 		// The very same hollow ring and tapered orbit as the crane's real hotspots.
 		vec2 marker=(uv*vec2(560.0,320.0)-vec2(23.0,128.0))/0.56;
+		vec4 ink=texture2D(uLabels,vec2((uLocale+uv.x)/3.0,(uStateCount-1.0-uState+uv.y)/uStateCount));
 		if(max(abs(marker.x),abs(marker.y))<30.0){
-			return vec4(hudMarkerTint(0.0,0.0),hudMarkerInk(marker,uMarkerTime,0.0,0.0,1.0));
+			ink=vec4(hudMarkerTint(0.0,0.0),hudMarkerInk(marker,uMarkerTime,0.0,0.0,1.0));
 		}
-		return texture2D(uLabels,vec2((uLocale+uv.x)/3.0,(5.0-uState+uv.y)/6.0));
+		return ink;
 	}
 	vec2 mosaicPhase(vec2 uv){
 		vec2 cell=floor(uv*vec2(128.0,32.0));

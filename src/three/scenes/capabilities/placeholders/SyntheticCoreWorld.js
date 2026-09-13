@@ -268,13 +268,20 @@ export class SyntheticCoreWorld {
 
 	applyCamera(camera, parallax) {
 		camera.position.copy(this.cameraPosition);
-		if (this.cameraLookAt) this.cameraLookAt.x = camera.aspect < 0.8 ? 2.0 : -0.2;
+		if (this.cameraLookAt) this.cameraLookAt.x = THREE.MathUtils.lerp(1.1, -0.2, THREE.MathUtils.smoothstep(camera.aspect, 0.65, 1.2));
 		// Fit the same assembly and its surrounding field on narrow screens.
 		camera.position.z *= Math.max(1, 0.98 / Math.max(0.4, camera.aspect)) * (1 + this.assemblyUniform.value * 0.30);
 		camera.position.x += (Number(parallax?.x) || 0) * 0.65;
 		camera.position.y += (Number(parallax?.y) || 0) * 0.45;
 		camera.fov = 43;
 		camera.updateProjectionMatrix();
+		if (window.innerWidth <= 768 && window.innerHeight > window.innerWidth && window.innerHeight < 640) {
+			camera.projectionMatrix.elements[9] = .05;
+			camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
+		} else if (window.innerHeight <= 480 && window.innerWidth > window.innerHeight) {
+			camera.projectionMatrix.elements[8] = window.innerWidth <= 1024 ? -.15 : -.20;
+			camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
+		}
 		camera.lookAt(this.cameraLookAt ?? this.target);
 		camera.updateMatrixWorld(true);
 	}

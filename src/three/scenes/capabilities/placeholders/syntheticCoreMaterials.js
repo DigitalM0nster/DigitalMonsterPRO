@@ -3,7 +3,9 @@ import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment
 
 export function createReactorEnvironment(renderer) {
  const room = new RoomEnvironment(renderer), generator = new THREE.PMREMGenerator(renderer);
- try { const target = generator.fromScene(room, 0.045); target.texture.name = "SyntheticCoreReflections"; return target; }
+ // The initial 256px PMREM filter supports at most 20 samples: 0.04 fits;
+ // 0.045 requested 22 and was silently clipped by Three.
+ try { const target = generator.fromScene(room, 0.04); target.texture.name = "SyntheticCoreReflections"; return target; }
  finally { room.dispose(); generator.dispose(); }
 }
 export function createReactorMetal(color, roughness = 0.3) {

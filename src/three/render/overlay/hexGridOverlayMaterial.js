@@ -412,6 +412,7 @@ export function createHexGridOverlayMaterial() {
 
 /** Hex overlay всегда opaque (без alpha-blend). */
 export function syncHexGridMaterialBlendMode(material) {
+	if (material.transparent === false && material.blending === THREE.NoBlending) return;
 	material.transparent = false;
 	material.blending = THREE.NoBlending;
 	material.needsUpdate = true;

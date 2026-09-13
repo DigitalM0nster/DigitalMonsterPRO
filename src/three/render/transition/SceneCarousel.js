@@ -1,4 +1,5 @@
 import { hexGridOverlayDefaults } from "../overlay/hexGridOverlayConfig.js";
+import { isCarouselTouchTargetHeld } from "./carouselTouch.js";
 import { PORTFOLIO_ENABLED, isRouteAvailable } from "@/app/config/routeAvailability.js";
 import { carouselClickTransitionConfig, easeCarouselClickProgress } from "./carouselClickTransitionConfig.js";
 import {
@@ -1067,6 +1068,9 @@ export class SceneCarousel {
 	 * (−0.5, 0.5) → 0; ≥ 0.5 → 1; ≤ −0.5 → −1.
 	 */
 	_applyProgressTargetRest(delta) {
+		// A held vertical touch owns its target. Painted progress still chases it;
+		// the unchanged rest spring resumes as soon as that touch releases/cancels.
+		if (isCarouselTouchTargetHeld(this.currentId)) return;
 		this.progressTarget = applyLocalSegmentTargetRest(this.progressTarget, delta);
 	}
 

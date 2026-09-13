@@ -22,6 +22,7 @@ export class SyntheticCoreHud {
 		this.composeMode = "models";
 		this.uniforms = {
 			uTime: { value: 0 }, uHover: { value: 0 }, uDetails: { value: 0 }, uReveal: { value: 0 },
+			uDetailsAbove: { value: 0 },
 			uOpen: { value: 0 }, uLocale: { value: 0 }, uProbe: { value: 0 }, uCoreHover: { value: 0 },
 			uLabels: { value: this.texture }, uViewport: { value: new THREE.Vector2(1, 1) },
 			uOrigin: { value: new THREE.Vector2() }, uEnd: { value: new THREE.Vector2() },
@@ -52,6 +53,7 @@ export class SyntheticCoreHud {
 		const height = Math.max(1, this.viewport.y);
 		const u = this.uniforms;
 		u.uViewport.value.set(width, height);
+		u.uDetailsAbove.value = width <= 1024 || height < 560 ? 1 : 0;
 		const { helperX, helperY } = coreNarrativeLayout(width, height);
 		u.uOrigin.value.set(helperX, helperY);
 		u.uOrigin.value.multiplyScalar(this.pixelRatio).round().divideScalar(this.pixelRatio);
@@ -65,11 +67,11 @@ export class SyntheticCoreHud {
 	}
 
 	hitTest(pointer) {
-		const { uViewport, uOrigin, uDetails } = this.uniforms;
+		const { uViewport, uOrigin, uDetails, uDetailsAbove } = this.uniforms;
 		const x = (pointer.x + 1) * uViewport.value.x / 2 - uOrigin.value.x;
 		const y = (pointer.y + 1) * uViewport.value.y / 2 - uOrigin.value.y;
 		return (x > -35 && x < 244 && y > -28 && y < 34)
-			|| (uDetails.value > 0.3 && x > -24 && x < 244 && y > -133 && y <= -28);
+			|| (uDetails.value > 0.3 && x > -24 && x < 244 && (uDetailsAbove.value ? y > 46 && y < 166 : y > -133 && y <= -28));
 	}
 
 	activate() { this.probeAge = 0; }

@@ -348,22 +348,28 @@ export class InfiniteLightTrailsWorld {
 		this._cameraBankQuaternion = new THREE.Quaternion();
 		this.inputElement = inputElement;
 		this.interactionEnabled = true;
-		this._onPointerDown = () => {
+		this._onPointerDown = event => {
 			if (!this.renderEnabled || !this.interactionEnabled) return;
 			this._pointerOutside = false;
 			this._pointerWasDown = true;
-			this._triggerClickSpin();
+			this._touchTap = event.pointerType === "touch" ? { x: event.clientX, y: event.clientY, moved: false } : null;
+			if (!this._touchTap) this._triggerClickSpin();
 		};
 		this._onPointerLeave = (event) => {
 			// Crossing from canvas onto HTML chrome is still inside the viewport.
 			if (event?.type === "pointerleave" && event.relatedTarget) return;
 			this._pointerOutside = true;
 			this._pointerWasDown = false;
+			this._touchTap = null;
 		};
-		this._onPointerMove = () => { this._pointerOutside = false; };
+		this._onPointerMove = event => {
+			this._pointerOutside = false;
+			if (this._touchTap && Math.hypot(event.clientX - this._touchTap.x, event.clientY - this._touchTap.y) >= 8) this._touchTap.moved = true;
+		};
 		this._onPointerUp = (event) => {
 			this._pointerWasDown = false;
 			if (event.pointerType === "touch") {
+				if (this._touchTap && !this._touchTap.moved && !event.defaultPrevented && this.renderEnabled && this.interactionEnabled) this._triggerClickSpin();
 				this._onPointerLeave();
 				this.trailMotion.releaseTouch();
 			}
@@ -450,7 +456,7 @@ export class InfiniteLightTrailsWorld {
 			);
 		}
 		const pointerDown = clickEnabled && Boolean(frame?.pointerDown);
-		if (pointerDown && !this._pointerWasDown && this.renderEnabled) {
+		if (pointerDown && !this._pointerWasDown && this.renderEnabled && !this._touchTap) {
 			this._triggerClickSpin();
 		}
 		this._pointerWasDown = pointerDown;

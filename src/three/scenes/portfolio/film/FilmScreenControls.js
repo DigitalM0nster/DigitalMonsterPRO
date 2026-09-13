@@ -44,7 +44,8 @@ export class FilmScreenControls {
  constructor(surfaceGeometry) {
   this.root=new THREE.Group();this.root.name="Film / surface controls";
   this.geometry=new THREE.PlaneGeometry(1,1);
-  this.hitMaterial=new THREE.MeshBasicMaterial({transparent:true,opacity:0,depthWrite:false,side:THREE.DoubleSide});
+  // These meshes only receive rays, including timeline/volume dragging.
+  this.hitMaterial=new THREE.MeshBasicMaterial({visible:false,transparent:true,opacity:0,depthWrite:false,side:THREE.DoubleSide});
   this.hovered=null;this.width=0;this.controls=[];this.hitTargets=[];
   for(const [action,kind,side] of [["play",0,-1],["inspect",2,1]]){
    const material=new THREE.ShaderMaterial({uniforms:{uKind:{value:kind},uOpacity:{value:0},uHover:{value:0}},

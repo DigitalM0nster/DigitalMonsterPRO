@@ -1,4 +1,5 @@
 /* eslint-disable react/prop-types */
+import { requestDeviceTiltPermission } from "@/three/interaction/DeviceTiltInput.js";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { DefaultLoadingManager } from "three";
 import { preloadSoundDesign, playLoaderStartClickSound, playStartAppSound } from "@/sounds/soundDesign.js";
@@ -356,6 +357,7 @@ export default function DigitalMonsterLoader(props) {
 			return;
 		}
 		startingRef.current = true;
+		void requestDeviceTiltPermission();
 		stopLoadingProgress();
 		// Legacy Start path (or any entry without selectLocale): still unlock inside gesture.
 		if (!store.soundsActive) {
@@ -391,6 +393,7 @@ export default function DigitalMonsterLoader(props) {
 			return;
 		}
 		startingRef.current = true;
+		void requestDeviceTiltPermission();
 		store.siteLocale = locale;
 		// Inside the user gesture — before any await (autoplay + unlock site audio).
 		store.soundsActive = true;

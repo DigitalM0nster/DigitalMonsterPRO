@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { NARRATIVE_COPY, CORE_NARRATIVE_LABEL, advanceNarrative, narrativeFrame, coreNarrativeLayout, trailNarrativeWallPosition } from "./capabilityNarrativeContent.js";
 import { PASSAGE_RADIUS } from "../lightTrails/createLightTrailsEnvironment.js";
 import { SceneTextLocale } from "./sceneTextLocale.js";
+import { TITLE_MOSAIC_GLSL } from "./titleMosaic.js";
 
 const WIDTH = 1024, HEIGHT = 384;
 const nextPaint = () => new Promise(resolve => requestAnimationFrame(resolve));
@@ -50,44 +51,9 @@ const FRAGMENT = /* glsl */ `
 		uv = clamp(uv, vec2(0.001), vec2(0.999));
 		return texture2D(uText, vec2((uLocale + uv.x) / 3.0, (uRows - 1.0 - uState + uv.y) / uRows));
 	}
-	vec2 mosaicPhase(vec2 uv) {
-		vec2 cell = floor(uv * vec2(128.0, 32.0));
-		float stagger = fract(sin(dot(cell, vec2(127.1, 311.7))) * 43758.5453);
-		float along = uSide > 0.0 ? 1.0 - uv.x : uv.x;
-		float phase = clamp((uReveal - along * 0.72 - stagger * 0.1) / 0.18, 0.0, 1.0);
-		return vec2(smoothstep(0.0, 1.0, phase), sin(phase * 3.14159265));
-	}
+	${TITLE_MOSAIC_GLSL}
 	void main() {
-		if (uReveal <= 0.0) discard;
-		vec4 ink = textInk(vUv);
-		// Settled text retains its sharp, cheap one-sample path.
-		if (uReveal >= 1.0) {
-			#ifdef BLOOM_ONLY
-				discard;
-			#endif
-			if (ink.a < 0.002) discard;
-			gl_FragColor = ink;
-			return;
-		}
-		vec2 phase = mosaicPhase(vUv);
-		vec2 cell = floor(vUv * vec2(128.0, 32.0));
-		float glitch = fract(sin(dot(cell + floor(phase.x * 3.0), vec2(71.7, 139.3))) * 43758.5453);
-		// Only forming/dissolving cells briefly slip; settled glyphs never shake.
-		vec2 displaced = vUv + vec2((glitch - 0.5) * 0.005 * phase.y, 0.0);
-		ink = textInk(displaced);
-		ink.a *= phase.x;
-		if (ink.a < 0.002) discard;
-		// HDR radiance feeds the existing site bloom; no painted/analytic halo.
-		vec3 emission = vec3(2.5, 10.0, 18.0) * pow(max(0.0, phase.y), 1.4) * uBloomStrength;
-		#ifdef BLOOM_ONLY
-			gl_FragColor = vec4(emission, ink.a);
-		#else
-			ink.rgb = mix(ink.rgb, vec3(0.3, 0.88, 1.0), phase.y * 0.7);
-			#ifndef SHARP_ONLY
-				ink.rgb += emission;
-			#endif
-			gl_FragColor = ink;
-		#endif
+		gl_FragColor = titleMosaic(vUv, uReveal, uSide, uBloomStrength);
 	}
 `;
 
@@ -99,33 +65,35 @@ export class CapabilityNarrative {
 			states.flat().join(" ") + (variant === "syntheticCore" ? ` ${CORE_NARRATIVE_LABEL[locale]}` : ""))));
 		if (disposed()) return null;
 		const rows = copy[0].length;
+		const atlasRows = rows * (variant === "syntheticCore" ? 2 : 1);
 		const canvas = document.createElement("canvas");
-		const ratio = Math.min(1, renderer.capabilities.maxTextureSize / Math.max(WIDTH * 3, HEIGHT * rows));
+		const ratio = Math.min(1, renderer.capabilities.maxTextureSize / Math.max(WIDTH * 3, HEIGHT * atlasRows));
 		canvas.width = Math.floor(WIDTH * 3 * ratio);
-		canvas.height = Math.floor(HEIGHT * rows * ratio);
+		canvas.height = Math.floor(HEIGHT * atlasRows * ratio);
 		const ctx = canvas.getContext("2d");
 		ctx.scale(ratio, ratio);
 		const soundBounds = copy.map(() => []);
 		for (let locale = 0; locale < copy.length; locale++) {
-			for (let state = 0; state < rows; state++) {
+			for (let state = 0; state < atlasRows; state++) {
 				await nextPaint();
 				if (disposed()) return null;
 				ctx.save();
 				ctx.translate(locale * WIDTH, state * HEIGHT);
-				const lines = copy[locale][state];
+				const lines = copy[locale][state % rows];
+				const compact = state >= rows;
 				const core = variant === "syntheticCore";
-				let right = core ? paintLine(ctx, CORE_NARRATIVE_LABEL[locale], 44, 22, "#56b6cf", 3) : 12;
+				let right = core ? paintLine(ctx, CORE_NARRATIVE_LABEL[locale], 44, compact ? 34 : 22, "#56b6cf", 3) : 12;
 				right = Math.max(right, paintLine(ctx, lines[0], 149, core ? 76 : 70, "#dcebf0"));
 				right = Math.max(right, paintLine(ctx, lines[1], core ? 244 : 212, core ? 76 : 60, "#dcebf0"));
 				if (core) {
-					right = Math.max(right, paintLine(ctx, lines[2], 318, 32, "#9cbac8", 0.8));
-					right = Math.max(right, paintLine(ctx, lines[3], 368, 32, "#9cbac8", 0.8));
+					right = Math.max(right, paintLine(ctx, lines[2], compact ? 302 : 318, compact ? 48 : 32, "#9cbac8", 0.8));
+					right = Math.max(right, paintLine(ctx, lines[3], compact ? 366 : 368, compact ? 48 : 32, "#9cbac8", 0.8));
 				}
 				soundBounds[locale][state] = right / WIDTH;
 				ctx.restore();
 			}
 		}
-		return new CapabilityNarrative(parent, renderer, variant, canvas, rows, soundBounds);
+		return new CapabilityNarrative(parent, renderer, variant, canvas, atlasRows, soundBounds);
 	}
 
 	constructor(parent, renderer, variant, canvas, rows, soundBounds) {
@@ -183,12 +151,20 @@ export class CapabilityNarrative {
 	}
 
 	layout() {
-		if (this.variant === "syntheticCore") {
+		const compact = this.viewport.x <= 1024;
+		if (this.variant === "syntheticCore" || compact) {
 			const box = coreNarrativeLayout(this.viewport.x, this.viewport.y);
+			this.uniforms.uScreen.value = true;
+			if (this.variant === "syntheticCore") this.uniforms.uState.value = compact || (this.viewport.x <= 1024 && this.viewport.y < 560) ? 1 : 0;
+			// The mobile caption occupies the safe upper band, clear of the flight path.
+			// A uniform switches the prepared quad; no texture or program is rebuilt.
+			this.mesh.material.depthTest = false;
 			this.uniforms.uOrigin.value.set(box.x, box.y);
 			this.uniforms.uSize.value.set(box.width, box.height);
 			return;
 		}
+		this.uniforms.uScreen.value = false;
+		this.mesh.material.depthTest = true;
 		const { side, progress } = this.frame;
 		// Clear of the ribs; no camera position, quaternion, FOV or
 		// viewport width enters this pose. Its quiet drift is independent of fast wall flight.

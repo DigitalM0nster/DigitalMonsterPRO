@@ -12,7 +12,8 @@ import { ensureCaseStudyCanvasFonts } from "@/pages/portfolio/ui/CaseStudyCanvas
 import { paintCaseStudyPanelHudFrame } from "@/pages/portfolio/ui/CaseStudyCanvas/paintCaseStudyPanelHud.js";
 import { resolveLeftPanelDrawConfig } from "@/pages/portfolio/ui/CaseStudyCanvas/caseStudyLeftPanelConfig.js";
 import { resolveCaseProjectCanvasNavigationLayout } from "@/pages/portfolio/ui/CaseStudyCanvas/caseProjectCanvasNavigation.js";
-import { readIsMobileViewport } from "@/pages/portfolio/core/useCaseStudyMobileViewport.js";
+import { resolveAboutResponsiveLayout } from "./aboutResponsiveLayout.js";
+import { paintAboutCompactHud } from "./paintAboutCompactHud.js";
 import { getAboutPanelCopy, normalizeAboutPanelListItem } from "./aboutPanelCopy.js";
 import {
 	getAboutPanelHudState,
@@ -217,7 +218,7 @@ function applyIdleEnterForStoryPair(from, mix) {
  * }} [opts]
  */
 export async function ensureAboutPanelHudCanvases(opts = {}) {
-	if (typeof document === "undefined" || readIsMobileViewport()) {
+	if (typeof document === "undefined") {
 		return false;
 	}
 
@@ -266,7 +267,8 @@ export async function ensureAboutPanelHudCanvases(opts = {}) {
 	const c3 = document.createElement("canvas");
 	const empty = document.createElement("canvas");
 
-	const fromResult = paintCaseStudyPanelHudFrame({
+	const painter = resolveAboutResponsiveLayout(viewportW, viewportH) ? paintAboutCompactHud : paintCaseStudyPanelHudFrame;
+	const fromResult = painter({
 		...paintArgs,
 		canvas: c1,
 		frame: buildFrame("text1", locale, 0),
@@ -278,7 +280,7 @@ export async function ensureAboutPanelHudCanvases(opts = {}) {
 		return false;
 	}
 
-	paintCaseStudyPanelHudFrame({
+	painter({
 		...paintArgs,
 		canvas: c2,
 		frame: buildFrame("text2", locale, 1),
@@ -286,7 +288,7 @@ export async function ensureAboutPanelHudCanvases(opts = {}) {
 	if (opts.shouldCommit?.() === false) {
 		return false;
 	}
-	paintCaseStudyPanelHudFrame({
+	painter({
 		...paintArgs,
 		canvas: c3,
 		frame: buildFrame("text3", locale, 2),
@@ -400,10 +402,6 @@ export function publishAboutPanelHudContentMode(mode, opts = {}) {
  * @param {number} storyProgress
  */
 export function syncAboutPanelHudFromStory(storyProgress) {
-	if (readIsMobileViewport()) {
-		return;
-	}
-
 	const story = clampStoryVisual(storyProgress);
 	lastStoryVisual = story;
 	// Locale mosaic owns from/to + mixProgress until settle.
@@ -428,10 +426,6 @@ export function syncAboutPanelHudFromStory(storyProgress) {
  * @param {{ forcePaint?: boolean }} [opts]
  */
 export async function prepareAboutPanelHudForEnter(entryStory = 0, opts = {}) {
-	if (readIsMobileViewport()) {
-		return false;
-	}
-
 	const ok = await ensureAboutPanelHudCanvases({ force: opts.forcePaint === true });
 	if (!ok) {
 		return false;
@@ -471,7 +465,7 @@ export function isAboutPanelHudVisitArmed() {
  * @param {number} [storyProgress]
  */
 export function armAboutPanelHudForRoute(storyProgress = 0) {
-	if (!store.appStarted || readIsMobileViewport()) {
+	if (!store.appStarted) {
 		return Promise.resolve(false);
 	}
 

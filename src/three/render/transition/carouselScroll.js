@@ -2,6 +2,9 @@ import { getSceneCarousel } from "@/three/render/transition/carouselPage.js";
 import { isCarouselRoutePage } from "./SceneCarousel.js";
 import { isSceneDevToolsWheelTarget } from "../../dev/sceneDevPanelUtils.js";
 import { dispatchLocalSceneScroll } from "./localSceneScroll.js";
+import { attachCarouselTouch, usesSharedCarouselTouch, isCarouselTouchControlTarget } from "./carouselTouch.js";
+import { sceneCanvasOwnsInput } from "../../interaction/sceneCanvasInput.js";
+import { sceneOwnsHexHitAtClientY } from "../overlay/hexHitOwnership.js";
 
 /** Чувствительность колёсика: deltaY (px) → единицы progressTarget. */
 export const CAROUSEL_WHEEL_PROGRESS_FACTOR = 0.001;
@@ -53,6 +56,7 @@ function isOverScrollableElement(target) {
  * @param {{ getCurrentPage: () => string, getStore: () => { appStarted?: boolean, openedCase?: boolean } }} ctx
  */
 export function shouldCarouselScrollWheel(ctx, event) {
+	if (event.target?.closest?.("[data-about-reading-panel]")) return false;
 	if (isSceneDevToolsWheelTarget(event)) {
 		return false;
 	}
@@ -87,7 +91,25 @@ export function shouldCarouselScrollWheel(ctx, event) {
  * @param {{ getCurrentPage: () => string, getStore: () => object }} ctx
  */
 export function attachCarouselScroll(ctx) {
+	const canTouchContinue = owner => {
+		const state = ctx.getStore(), carousel = getSceneCarousel();
+		return state.appStarted && !state.openedCase && usesSharedCarouselTouch(owner)
+			&& carousel.currentId === owner && !carousel.isInteractionLocked();
+	};
+	const detachTouch = attachCarouselTouch({
+		target: window,
+		isBlockedTarget: target => isCarouselTouchControlTarget(target) || isOverScrollableElement(target),
+		getStartOwner: (touch, event) => {
+			if (sceneCanvasOwnsInput(event)) return null;
+			const owner = getSceneCarousel().currentId;
+			return canTouchContinue(owner) && isCarouselRoutePage(ctx.getCurrentPage())
+				&& !isSceneDevToolsWheelTarget(event) && sceneOwnsHexHitAtClientY(owner, touch.clientY) ? owner : null;
+		},
+		canContinue: canTouchContinue,
+		addDelta: addCarouselWheelDelta,
+	});
 	const onWheel = (event) => {
+		if (sceneCanvasOwnsInput(event, true)) return;
 		if (!shouldCarouselScrollWheel(ctx, event)) {
 			return;
 		}
@@ -105,6 +127,7 @@ export function attachCarouselScroll(ctx) {
 	window.addEventListener("wheel", onWheel, { passive: false, capture: true });
 
 	return () => {
+		detachTouch();
 		window.removeEventListener("wheel", onWheel, { capture: true });
 	};
 }

@@ -8,8 +8,8 @@ import { bindCityDistrictWindows } from "./cityDistrictWindows.js";
 const ring = (x0, z0, x1, z1) => [[x0, z0], [x1, z0], [x1, z1], [x0, z1]];
 const data = {
 	districts: [
-		{ anchor: [1, 4, 1], contours: [{ outer: ring(0, 0, 5, 5), holes: [ring(2, 2, 3, 3)] }], buildings: [[0.5, 0, 0.5, 1.5, 3, 1.5]] },
-		{ anchor: [8.5, 7, 1.5], contours: [{ outer: ring(7, 0, 12, 5), holes: [] }], buildings: [[8, 0, 1, 9, 6, 2]] },
+		{ name: "quarter-26", anchor: [1, 4, 1], contours: [{ outer: ring(0, 0, 5, 5), holes: [ring(2, 2, 3, 3)] }], buildings: [[0.5, 0, 0.5, 1.5, 3, 1.5]] },
+		{ name: "quarter-31", anchor: [8.5, 7, 1.5], contours: [{ outer: ring(7, 0, 12, 5), holes: [] }], buildings: [[8, 0, 1, 9, 6, 2]] },
 	],
 	positions: [0, 0.155, 0, 0, 0.155, 5, 5, 0.155, 0], ids: [0, 0, 0], kinds: [0, 0, 0],
 };
@@ -80,15 +80,15 @@ test("circle hits track every frame and respect dragging and chrome ownership", 
 	highlight.dispose(); assert.equal(disposed, 2);
 });
 
-test("overlapping, distant and offscreen markers cannot be hovered", () => {
-	const crowded = { ...data, districts: [...data.districts, { ...data.districts[0], kind: "park" }] };
+test("crowding and distance retain selected circles; free flight behind the camera hides them", () => {
+	const crowded = { ...data, districts: [...data.districts, { ...data.districts[0], name: "beacon-garden", kind: "park" }] };
 	const highlight = new CityDistrictHighlight(crowded, renderer), markers = highlight.markers;
 	markers.anchors[2].copy(markers.anchors[0]);
 	markers.project(cameraAt());
-	assert.equal(markers.visible[0], 0); assert.equal(markers.visible[2], 1, "park retains priority in a crowded view");
-	assert.equal(markers.pick(markerPointer(markers, 0)), 2);
+	assert.equal(markers.visible[0], 1); assert.equal(markers.visible[2], 1); assert.ok(markers.points[0].distanceTo(markers.points[2]) > 60);
+	assert.equal(markers.pick(markerPointer(markers, 0)), 0);
 	const camera = cameraAt(); camera.position.z += 100; camera.updateMatrixWorld();
-	markers.project(camera); assert.equal(markers.count, 0);
+	markers.project(camera); assert.equal(markers.count, 3);
 	assert.equal(markers.pick(new THREE.Vector2()), -1);
 	camera.position.z = -14; camera.lookAt(5, 10, -100); camera.updateMatrixWorld();
 	markers.project(camera); assert.equal(markers.count, 0, "markers behind the camera are hidden");
@@ -140,7 +140,7 @@ test("authored quarters contain four or five buildings and retain prepared ancho
 	assert.ok(data.ids.every(id => id >= 0 && id < data.districts.length));
 });
 
-test("both parks retain their own visible marker above the central sculpture", () => {
+test("the approved park stays marked and the second park is not added on camera motion", () => {
 	const source = JSON.parse(readFileSync(new URL("../../../../../public/models/posibility5/city-districts.json", import.meta.url)));
 	const highlight = new CityDistrictHighlight(source, renderer);
 	assert.equal(source.districts.length, 85, "preparing park overlays must not mutate the source");
@@ -150,9 +150,9 @@ test("both parks retain their own visible marker above the central sculpture", (
 		if (park.kind !== "park") continue;
 		const [x, , z] = park.anchor, markers = highlight.markers;
 		markers.project(cameraAt(x, z));
-		assert.equal(markers.visible[id], 1);
+		assert.equal(markers.visible[id], park.name === "beacon-garden" ? 1 : 0);
 		assert.ok(markers.anchors[id].y > 4.72, "circle clears the top of the monument");
-		assert.equal(markers.pick(markerPointer(markers, id)), id);
+		if (park.name === "beacon-garden") assert.equal(markers.pick(markerPointer(markers, id)), id);
 	}
 	highlight.dispose();
 });
@@ -170,4 +170,35 @@ test("window focus identifies instances independently while preserving shared dr
 	assert.deepEqual(Array.from(geometry.attributes.aCityDistrict.array), [0, 1]);
 	assert.equal(geometry.attributes.aCityDistrict.isInstancedBufferAttribute, true);
 	highlight.dispose(); mesh.dispose(); geometry.dispose(); material.dispose();
+});
+
+test("the same six districts survive the entire drag range, hover priority and return", () => {
+	const source = JSON.parse(readFileSync(new URL("../../../../../public/models/posibility5/city-districts.json", import.meta.url)));
+	const highlight = new CityDistrictHighlight(source, renderer), markers = highlight.markers;
+	highlight.mesh.position.set(2.4, -1.35, -.15);
+	highlight.mesh.rotation.y = -.19; highlight.mesh.scale.setScalar(.055);
+	highlight.mesh.updateMatrixWorld(true);
+	const camera = new THREE.PerspectiveCamera(45, 1920 / 1080, .01, 1000);
+	const target = new THREE.Vector3(.7, .1, 1), offset = new THREE.Vector3(3.6, 3, 4.3);
+	const expected = [85, 30, 26, 3, 25, 23];
+	const geometry = markers.mesh.geometry, state = markers.markerState;
+	for (let step = 0; step <= 160; step++) {
+		const yaw = Math.sin(step / 160 * Math.PI * 2) * Math.PI / 4;
+		camera.position.copy(offset).applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw).add(target);
+		camera.position.y += Math.sin(step / 160 * Math.PI * 4) * .6;
+		camera.lookAt(target); camera.updateMatrixWorld();
+		markers.hovered = step % source.districts.length;
+		markers.project(camera);
+		assert.deepEqual(markers.order.filter(id => markers.visible[id]), expected);
+		assert.equal(markers.count, 6);
+		for (const id of expected) {
+			const p = markers.points[id];
+			assert.ok(p.x >= 154 && p.x <= 1920 - 156 && p.y >= 48 && p.y <= 1080 - 96);
+			assert.equal(markers.pick(markerPointer(markers, id)), id);
+		}
+		if (step === 80) markers.reset();
+	}
+	assert.equal(markers.mesh.geometry, geometry); assert.equal(markers.markerState, state);
+	assert.equal(geometry.attributes.position.count, 6 * 6, "only the selected circles are drawn");
+	highlight.dispose();
 });

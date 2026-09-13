@@ -7,9 +7,10 @@ import { layoutDistrictHud } from "./cityDistrictHudLayout.js";
 import { CITY_HUD_STATE_COUNT, createDistrictHudContent, districtHudState, districtHudMetrics } from "./cityDistrictHudContent.js";
 
 test("nearby cards fit the scene viewport without covering the hovered point", () => {
-	for (const [width, height] of [[1920, 1080], [1024, 768], [390, 844], [320, 568], [844, 390]]) {
-		const left = width < 700 ? 16 : 128, right = width < 700 ? 12 : 132;
-		const top = height - (width < 700 ? 16 : 72);
+	for (const [width, height] of [[1920, 1080], [1024, 768], [768, 1024], [390, 844], [330, 568], [320, 568], [640, 360], [844, 390]]) {
+		const compact = width <= 1024;
+		const left = compact ? 12 : 128, right = compact ? 12 : 132;
+		const top = height - (compact ? (height <= 480 ? 66 : 84) : 72);
 		for (const x of [left + 8, (width + left - right) / 2, width - right - 8]) {
 			for (const y of [36, height / 2, height - 84]) {
 				const p = layoutDistrictHud(width, height, x, y, {});
@@ -17,11 +18,11 @@ test("nearby cards fit the scene viewport without covering the hovered point", (
 				assert.ok(p.y >= 24 && p.y + p.height <= top + .001);
 				const dx = Math.max(p.x - x, x - p.x - p.width, 0);
 				const dy = Math.max(p.y - y, y - p.y - p.height, 0);
-				if (width >= 700) {
+				if (!compact) {
 					assert.ok(Math.hypot(dx, dy) >= 20, `card covers hover at ${width}×${height}: ${x}, ${y}`);
 					assert.ok(Math.hypot(dx, dy) < 90, "card drifted away from its focus");
 				} else {
-					assert.equal(p.y + p.height, top, "narrow card must clear the navigation arc");
+					assert.equal(p.y + p.height, top, "narrow card must clear the header safe area");
 				}
 			}
 		}

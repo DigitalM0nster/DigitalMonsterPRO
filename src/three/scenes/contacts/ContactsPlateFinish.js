@@ -21,6 +21,9 @@ export class ContactsPlateFinish {
 				const material = new THREE.MeshBasicMaterial({
 					map: texture, transparent: true, opacity: 0,
 					depthWrite: false, toneMapped: false, side: THREE.DoubleSide,
+					// Flat artwork has no overlapping front/back surfaces to sort.
+					// Avoid changing material.side/program parameters twice on every draw.
+					forceSinglePass: true,
 				});
 				const mesh = new THREE.Mesh(this.geometry, material);
 				mesh.name = `contactsPlateFinish_${plate.projectIndex}`;

@@ -84,7 +84,12 @@ function buildFrame(blockId, locale, index) {
 	const copy = getAboutPanelCopy(blockId, locale);
 	const chapterNum = String(index + 1).padStart(2, "0");
 	const pathTitle = (copy.pathTitle ?? "").toUpperCase();
-	const features = (copy.listItems ?? []).map(normalizeAboutPanelListItem);
+	const items = (copy.listItems ?? []).map(normalizeAboutPanelListItem);
+	const features = blockId === "text1"
+		? items.map(({ title, subtitle }) => ({
+			quote: [title, subtitle].filter(Boolean).join(locale === "zh" ? "" : " ").replace(/^[«“]|[»”]$/g, ""),
+		}))
+		: items;
 
 	return {
 		categoryLabel: "",
@@ -107,7 +112,7 @@ function buildFrame(blockId, locale, index) {
 			maxFeatures: Math.max(5, features.length),
 			// About stages use the full text width: no decorative 1/2/3 column.
 			featureShowNumbers: false,
-			traitListTopSize: 16,
+			traitListTopSize: blockId === "text1" ? 22 : 16,
 			traitListBottomSize: 14,
 			traitListTextGap: 5,
 			traitListRowPadY: 13,

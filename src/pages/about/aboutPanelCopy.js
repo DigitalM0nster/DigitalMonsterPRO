@@ -27,21 +27,13 @@ const ABOUT_PANEL_COPY = {
 			pathTitle: "СТУДИЯ",
 			title: "DIGITAL\nMONSTER",
 			descriptionParagraphs: [
-				"Нам мало, чтобы работало.",
-				"Человеку должно нравиться этим пользоваться.",
+				"Мы создаём сайты, веб-приложения и интерактивные презентации. Нам важно всё: первое впечатление, понятные действия, удобство в мелочах. Доводим до ощущения: «Будто сделали специально для меня».",
+				"Здесь человек чувствует, что его поняли: всё удобно, понятно, отвечает тому, что ему нужно.",
 			],
 			listItems: [
 				{
-					title: "КОНЦЕПЦИЯ",
-					subtitle: "Сильная идея становится основой каждого решения.",
-				},
-				{
-					title: "ДИЗАЙН",
-					subtitle: "Интерфейс, визуальный язык и движение работают как одно целое.",
-				},
-				{
-					title: "ТЕХНОЛОГИИ",
-					subtitle: "Сложные решения остаются быстрыми, понятными и надёжными.",
+					title: "«Нам мало, чтобы работало.",
+					subtitle: "Человеку должно нравиться этим пользоваться»",
 				},
 			],
 		},
@@ -49,21 +41,13 @@ const ABOUT_PANEL_COPY = {
 			pathTitle: "STUDIO",
 			title: "DIGITAL\nMONSTER",
 			descriptionParagraphs: [
-				"Just working isn't enough for us.",
-				"People should enjoy using it.",
+				"We create websites, web applications, and interactive presentations. Every detail matters to us: the first impression, clear actions, and everyday ease of use. We refine it until it feels “made just for me.”",
+				"People feel understood here: everything is easy to use, clear, and meets their needs.",
 			],
 			listItems: [
 				{
-					title: "CONCEPT",
-					subtitle: "A strong idea becomes the foundation of every solution.",
-				},
-				{
-					title: "DESIGN",
-					subtitle: "Interface, visual language, and motion work as one.",
-				},
-				{
-					title: "TECHNOLOGY",
-					subtitle: "Complex solutions stay fast, clear, and reliable.",
+					title: "“Just working isn't enough for us.",
+					subtitle: "People should enjoy using it.”",
 				},
 			],
 		},
@@ -71,21 +55,13 @@ const ABOUT_PANEL_COPY = {
 			pathTitle: "工作室",
 			title: "DIGITAL\nMONSTER",
 			descriptionParagraphs: [
-				"对我们来说，能用还不够。",
-				"用起来还得让人喜欢。",
+				"我们打造网站、网页应用和互动演示。我们在意每个细节：第一印象、清晰的操作，以及日常使用的便利。不断打磨，直到让人觉得：“仿佛是专门为我做的。”",
+				"在这里，人们感到自己被理解：一切都方便、清楚，也符合自己的需要。",
 			],
 			listItems: [
 				{
-					title: "概念",
-					subtitle: "强有力的想法成为每个方案的基础。",
-				},
-				{
-					title: "设计",
-					subtitle: "界面、视觉语言与动效作为一个整体运作。",
-				},
-				{
-					title: "技术",
-					subtitle: "复杂方案依然保持快速、清晰与可靠。",
+					title: "“对我们来说，能用还不够。",
+					subtitle: "用起来还得让人喜欢。”",
 				},
 			],
 		},
@@ -173,10 +149,10 @@ const ABOUT_PANEL_COPY = {
 	text3: {
 		ru: {
 			pathTitle: "НАПРАВЛЕНИЯ",
-			title: "ВЕБ-ПРОДУКТЫ\nЗА ПРЕДЕЛАМИ\nСТАНДАРТНЫХ\nРЕШЕНИЙ",
+			title: "ВЕБ-ПРОЕКТЫ\nЛЮБОГО\nМАСШТАБА",
 			descriptionParagraphs: [
-				"Наша основная территория — браузер. Но мы не ограничиваемся обычными сайтами.",
-				"Создаём интерактивные продукты, в которых дизайн, движение и технологии раскрывают идею на полную.",
+				"Мы вникаем в каждый проект до мелочей, чтобы понять ваш продукт, задачи бизнеса и то, что важно вашим клиентам.",
+				"Всё это соединяем в продуманном сайте или сервисе, где люди легко находят нужное, понимают, что делать, и получают удовольствие от использования",
 			],
 			listItems: [
 				{
@@ -195,10 +171,10 @@ const ABOUT_PANEL_COPY = {
 		},
 		en: {
 			pathTitle: "DIRECTIONS",
-			title: "WEB PRODUCTS\nBEYOND\nSTANDARD\nSOLUTIONS",
+			title: "WEB PROJECTS\nOF ANY\nSCALE",
 			descriptionParagraphs: [
-				"Our primary territory is the browser. But we are not limited to ordinary websites.",
-				"We create interactive products where design, motion, and technology fully express the idea.",
+				"We get into every detail of each project to understand your product, your business goals, and what matters to your customers.",
+				"We bring it all together in a thoughtfully designed website or service where people can easily find what they need, know what to do, and enjoy the experience.",
 			],
 			listItems: [
 				{
@@ -217,10 +193,10 @@ const ABOUT_PANEL_COPY = {
 		},
 		zh: {
 			pathTitle: "方向",
-			title: "超越标准方案的\n网页产品",
+			title: "各种规模的\n网页项目",
 			descriptionParagraphs: [
-				"我们的主场是浏览器。但我们不局限于普通网站。",
-				"我们打造互动产品，让设计、动效与技术把想法充分展现出来。",
+				"我们深入每个项目的细节，了解您的产品、业务目标，以及客户真正重视的事。",
+				"我们将这些融入精心设计的网站或服务，让人们轻松找到所需、清楚下一步该做什么，并享受使用的过程。",
 			],
 			listItems: [
 				{

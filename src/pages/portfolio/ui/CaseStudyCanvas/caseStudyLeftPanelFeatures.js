@@ -1,6 +1,9 @@
-import { CASE_STUDY_BODY_FONT, CASE_STUDY_DISPLAY_FONT, fillTextWithSpacing, fillWrappedText, measureTextWithSpacing, measureWrappedTextHeight } from "./caseStudyCanvasText.js";
+import { CASE_STUDY_BODY_FONT, CASE_STUDY_DISPLAY_FONT, fillTextWithSpacing, fillWrappedText, measureTextWithSpacing, measureWrappedTextHeight, wrapTextLines } from "./caseStudyCanvasText.js";
 
 const MAX_FEATURES = 3;
+const QUOTE_INSET = 24;
+
+/** @typedef {{ title?: string, subtitle?: string, quote?: string }} PanelFeature */
 
 function getVisibleFeatures(features, cfg) {
 	const limit = Math.max(1, Math.round(cfg.maxFeatures ?? MAX_FEATURES));
@@ -35,6 +38,10 @@ function measureFeatureTextBlock(ctx, feature, textW, typo) {
 	const bottomLineH = typo.bottomSize * 1.25;
 
 	ctx.font = `400 ${typo.topSize}px ${CASE_STUDY_BODY_FONT}`;
+	if (feature.quote) {
+		const quoteLines = wrapTextLines(ctx, feature.quote, Math.max(1, textW - QUOTE_INSET * 2));
+		return { topH: quoteLines.length * topLineH, bottomH: 0, textBlockH: quoteLines.length * topLineH, quoteLines };
+	}
 	const topH = measureWrappedTextHeight(ctx, feature.title, textW, topLineH, 2);
 
 	let bottomH = 0;
@@ -55,7 +62,7 @@ function measureFeatureRowHeight(ctx, feature, textW, typo) {
 /**
  * @param {CanvasRenderingContext2D} ctx
  * @param {number} innerW
- * @param {{ title: string, subtitle?: string }[]} features
+ * @param {PanelFeature[]} features
  * @param {typeof import('./caseStudyLeftPanelConfig.js').caseStudyLeftPanelConfig} cfg
  */
 export function measureFeaturesBlockHeight(ctx, innerW, features, cfg) {
@@ -101,10 +108,25 @@ export function drawFeaturesBlock(ctx, x, y, innerW, features, theme, cfg) {
 			drawListDivider(ctx, x, rowTop, innerW, theme);
 		}
 
-		const { topH, textBlockH } = measureFeatureTextBlock(ctx, item, textW, typo);
+		const { topH, textBlockH, quoteLines } = measureFeatureTextBlock(ctx, item, textW, typo);
 		const rowContentH = typo.showNumbers ? Math.max(typo.glyphSize, textBlockH) : textBlockH;
 		const rowH = rowContentH + typo.rowPadY * 2;
 		const blockY = rowTop + typo.rowPadY + (rowContentH - textBlockH) / 2;
+
+		if (quoteLines) {
+			const quoteX = textX + QUOTE_INSET;
+			const lineHeight = typo.topSize * 1.2;
+			ctx.font = `400 ${typo.topSize}px ${CASE_STUDY_BODY_FONT}`;
+			ctx.fillStyle = theme.text;
+			quoteLines.forEach((line, i) => ctx.fillText(line, quoteX, blockY + i * lineHeight));
+			const lastLineWidth = ctx.measureText(quoteLines.at(-1) ?? "").width;
+			ctx.font = `400 ${typo.topSize * 2}px Georgia, serif`;
+			ctx.fillStyle = theme.cyan;
+			ctx.fillText("“", textX, blockY - 4);
+			ctx.fillText("”", quoteX + lastLineWidth + 4, blockY + (quoteLines.length - 1) * lineHeight - 4);
+			cursorY += rowH;
+			continue;
+		}
 
 		if (typo.showNumbers) {
 			const glyphY = rowTop + typo.rowPadY + (rowContentH - typo.glyphSize) / 2;
@@ -134,7 +156,7 @@ export function drawFeaturesBlock(ctx, x, y, innerW, features, theme, cfg) {
 /**
  * @param {CanvasRenderingContext2D} ctx
  * @param {number} innerW
- * @param {{ title: string, subtitle?: string }[]} features
+ * @param {PanelFeature[]} features
  * @param {typeof import('./caseStudyLeftPanelConfig.js').caseStudyLeftPanelConfig} cfg
  */
 export function measureFeaturesBlock(ctx, innerW, features, cfg) {

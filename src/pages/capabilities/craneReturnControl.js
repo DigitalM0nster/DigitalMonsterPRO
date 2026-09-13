@@ -1,63 +1,59 @@
-export const CRANE_RETURN_SIZE = { width: 320, height: 44 };
+import { hudSnakeGlsl } from "../../three/objects/sceneHud/sceneHudShaders.js";
 
-export const CRANE_RETURN_COPY = {
-	ru: "К ОБЩЕМУ ВИДУ",
-	en: "BACK TO OVERVIEW",
-	zh: "返回起重机全景",
-};
+export const CRANE_RETURN_SIZE = { width: 304, height: 44, rowCount: 1 };
+export const CRANE_RETURN_COPY = { ru: "К ОБЩЕМУ ВИДУ", en: "BACK TO OVERVIEW", zh: "返回起重机全景" };
 
 export function craneReturnLayout(width, height, detail) {
 	const x = detail.x + 16 * detail.scale;
-	return {
-		x, y: height - detail.y + 12,
-		width: Math.min(CRANE_RETURN_SIZE.width, width - x - 16),
-		height: CRANE_RETURN_SIZE.height, shortcut: width > 1024,
-	};
+	return { x, y: height - detail.y + 12, width: Math.min(CRANE_RETURN_SIZE.width, width - x - 16), height: 44, shortcut: width > 1024 };
 }
 
 export function advanceCraneReturnVisibility(progress, shown, delta) {
 	const dt = Math.max(0, Math.min(delta, .05));
-	return Math.max(0, Math.min(1, progress + dt * (shown ? 1 / .24 : -1 / .18)));
+	return Math.max(0, Math.min(1, progress + dt * (shown ? 1 / .52 : -1 / .24)));
 }
 
-/** One small, prepared texture per locale. Hover never repaints these pixels. */
-export function paintCraneReturn(ctx, value) {
-	ctx.textBaseline = "middle";
-	ctx.fillStyle = "#bed6e1";
-	ctx.font = '500 14px ManifoldExtended, "Segoe UI", sans-serif';
-	let x = 51;
-	for (const char of value) {
-		if (char === " ") { x += 8; continue; }
-		ctx.fillText(char, x, 22);
-		x += ctx.measureText(char).width + 0.35;
-	}
-	// An actual back arrow, independent of font fallback or icon fonts.
-	ctx.strokeStyle = "#aacad9"; ctx.lineWidth = 1;
-	ctx.strokeRect(0.5, 5.5, 33, 33);
-	ctx.strokeStyle = "#d3eaf3"; ctx.lineWidth = 1.5; ctx.lineCap = "round"; ctx.lineJoin = "round";
-	ctx.beginPath(); ctx.moveTo(24, 22); ctx.lineTo(10, 22); ctx.moveTo(16, 16); ctx.lineTo(10, 22); ctx.lineTo(16, 28); ctx.stroke();
-	ctx.strokeStyle = "#466574"; ctx.lineWidth = 1;
-	ctx.strokeRect(282.5, 14.5, 25, 15);
-	ctx.fillStyle = "#91aab6"; ctx.font = '400 10px MazzardM, "Segoe UI", sans-serif';
-	ctx.fillText("ESC", 286, 22);
+/** Keep the outgoing position/language until its last letter has disappeared. */
+export function updateCraneReturn(state, index, locale, textReady, delta) {
+	if (state.reveal === 0) { state.index = index; state.locale = locale; }
+	const shown = index >= 0 && state.index === index && state.locale === locale && textReady;
+	state.reveal = advanceCraneReturnVisibility(state.reveal, shown, delta);
+	return state;
+}
+
+export function createCraneReturnStates() {
+	return Object.values(CRANE_RETURN_COPY).map(text => [[
+		{ text, x: 42, y: 20, size: 12.5, tracking: 1.2, space: 7.5, color: "#c6dce6", row: 0 },
+		{ text: "ESC", x: 274, y: 20, size: 9, font: '500 9px "Segoe UI", sans-serif', tracking: .25, space: 3, color: "#91b0bf", row: 0 },
+	]]);
 }
 
 export const CRANE_RETURN_FRAGMENT = /* glsl */ `
-	uniform sampler2D map;
-	uniform float opacity,uHover,uShortcut;
+	uniform sampler2D uLabels,uLetterOrder,uGlyphs;
+	uniform float opacity,uHover,uShortcut,uSnake,uGlyphCount,uLocale,uRuleEnd;
 	uniform vec4 clip;
 	varying vec2 vUv,pixel;
+	${hudSnakeGlsl(1, [24], CRANE_RETURN_SIZE)}
+	float line(vec2 p,vec2 a,vec2 b){
+		vec2 ab=b-a;
+		return 1.0-smoothstep(0.35,0.95,length(p-a-ab*clamp(dot(p-a,ab)/dot(ab,ab),0.0,1.0)));
+	}
 	void main(){
-		if(opacity<=0.0||pixel.x<clip.x||pixel.y<clip.y||pixel.x>clip.z||pixel.y>clip.w)discard;
-		vec2 p=vec2(vUv.x,1.0-vUv.y)*vec2(320.0,44.0);
-		float tile=step(1.0,p.x)*step(p.x,33.0)*step(6.0,p.y)*step(p.y,38.0);
-		float backing=tile*(0.12+uHover*0.14);
-		vec3 base=vec3(0.14,0.39,0.49);
-		vec4 ink=texture2D(map,vUv);
-		if(p.x>278.0)ink.a*=uShortcut;
-		ink.rgb=mix(ink.rgb,vec3(0.78,0.94,1.0),uHover*0.45);
-		float alpha=ink.a+backing*(1.0-ink.a);
+		if(uSnake<=0.0||opacity<=0.0||pixel.x<clip.x||pixel.y<clip.y||pixel.x>clip.z||pixel.y>clip.w)discard;
+		vec2 p=vec2(vUv.x,1.0-vUv.y)*vec2(304.0,44.0);
+		vec4 ink=snakeLabel(vUv,0.0);
+		if(p.x>265.0)ink.a*=uShortcut;
+		float arrow=max(line(p,vec2(3.0,20.0),vec2(25.0,20.0)),max(line(p,vec2(3.0,20.0),vec2(9.0,14.0)),line(p,vec2(3.0,20.0),vec2(9.0,26.0))))
+			*smoothstep(0.0,0.18,uSnake);
+		float head=uSnake*(uRuleEnd+15.0);
+		float rule=line(p,vec2(0.0,35.0),vec2(uRuleEnd,35.0))*(1.0-smoothstep(head-12.0,head,p.x))*(0.44+uHover*0.3);
+		vec2 badge=abs(p-vec2(283.0,20.0))-vec2(14.0,9.0);
+		float esc=(1.0-smoothstep(0.2,0.9,abs(max(badge.x,badge.y))))*0.5*uShortcut*smoothstep(0.82,1.0,uSnake);
+		float accent=max(arrow,max(rule,esc));
+		ink.rgb=mix(ink.rgb,vec3(0.80,0.94,1.0),uHover*0.35);
+		float alpha=max(ink.a,accent);
+		vec3 color=mix(vec3(0.70,0.82,0.87),ink.rgb,ink.a/max(alpha,0.001));
 		if(alpha<0.002)discard;
-		gl_FragColor=vec4((ink.rgb*ink.a+base*backing*(1.0-ink.a))/alpha,alpha*opacity);
+		gl_FragColor=vec4(color,alpha*opacity);
 	}
 `;

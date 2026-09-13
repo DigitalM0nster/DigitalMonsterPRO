@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { advanceCraneReturnVisibility, craneReturnLayout } from "./craneReturnControl.js";
+import { advanceCraneReturnVisibility, craneReturnLayout, updateCraneReturn } from "./craneReturnControl.js";
 import { getMmk1DetailLayout } from "../../three/scenes/capabilities/mmk1/mmk1HotspotDetailsConfig.js";
 
 test("every close-up owns a visible return directly below its text, clear of site navigation", () => {
@@ -18,14 +18,31 @@ test("every close-up owns a visible return directly below its text, clear of sit
 	}
 });
 
-test("return appears promptly and reverses its exit without a position or opacity reset", () => {
+test("return reverses its letter playhead without a reset", () => {
 	let p = advanceCraneReturnVisibility(0, true, 1 / 60);
 	assert.ok(p > 0 && p < 1);
-	for (let i = 0; i < 14; i++) p = advanceCraneReturnVisibility(p, true, 1 / 60);
+	for (let i = 0; i < 32; i++) p = advanceCraneReturnVisibility(p, true, 1 / 60);
 	assert.equal(p, 1);
 	p = advanceCraneReturnVisibility(p, false, .05);
 	assert.ok(p > 0 && p < 1);
 	assert.ok(advanceCraneReturnVisibility(p, true, .02) > p);
-	for (let i = 0; i < 4; i++) p = advanceCraneReturnVisibility(p, false, .05);
+	for (let i = 0; i < 6; i++) p = advanceCraneReturnVisibility(p, false, .05);
 	assert.equal(p, 0);
+});
+
+test("return waits for all text, then exits before changing its anchor or locale", () => {
+	const state = { reveal: 0, index: -1, locale: 0 };
+	for (let i = 0; i < 90; i++) updateCraneReturn(state, 2, 0, false, 1 / 60);
+	assert.equal(state.reveal, 0, "nothing visible during camera flight or text reveal");
+	for (let i = 0; i < 32; i++) updateCraneReturn(state, 2, 0, true, 1 / 60);
+	assert.equal(state.reveal, 1);
+	updateCraneReturn(state, 3, 1, true, .05);
+	assert.equal(state.index, 2); assert.equal(state.locale, 0);
+	assert.ok(state.reveal > 0 && state.reveal < 1);
+	for (let i = 0; i < 4; i++) updateCraneReturn(state, 3, 1, false, .05);
+	assert.equal(state.reveal, 0);
+	updateCraneReturn(state, 3, 1, false, .05);
+	assert.equal(state.index, 3); assert.equal(state.locale, 1); assert.equal(state.reveal, 0);
+	updateCraneReturn(state, 3, 1, true, .05);
+	assert.ok(state.reveal > 0);
 });

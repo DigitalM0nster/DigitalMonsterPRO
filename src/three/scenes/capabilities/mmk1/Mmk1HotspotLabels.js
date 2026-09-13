@@ -26,16 +26,15 @@ const FRAGMENT = /* glsl */ `
 	varying vec2 vUv;
 	${hudSnakeGlsl(4, [96, 74, 38])}
 	vec2 clickIcon(vec2 p){
-		// 11 x 15px: an outlined mouse, not an oversized solid pictogram.
-		vec2 q=abs(p)-vec2(1.7,3.5);
-		float shell=length(max(q,0.0))+min(max(q.x,q.y),0.0)-3.5;
-		float outline=1.0-smoothstep(0.35,0.9,abs(shell));
-		float inside=1.0-smoothstep(-0.7,-0.15,shell);
-		float button=inside*(1.0-smoothstep(-0.8,-0.3,p.x))*smoothstep(0.6,1.1,p.y);
-		float seam=(1.0-smoothstep(0.2,0.7,abs(p.x)))*step(1.0,p.y)*inside;
-		float split=(1.0-smoothstep(0.2,0.7,abs(p.y-1.0)))*inside;
-		float wheel=(1.0-smoothstep(0.35,0.85,abs(p.x)))*smoothstep(2.1,2.5,p.y)*(1.0-smoothstep(4.3,4.7,p.y));
-		return vec2(max(outline,max(wheel,max(seam,split)*0.65)),button*0.46);
+		// A compact chamfered shell, clear wheel and a separate illuminated left key.
+		vec2 q=abs(p);
+		float shell=max(max(q.x-5.5,q.y-8.0),(q.x+q.y-10.7)*0.7071);
+		float outline=1.0-smoothstep(0.3,0.85,abs(shell));
+		float inside=1.0-smoothstep(-1.3,-0.75,shell);
+		float button=inside*(1.0-smoothstep(-1.5,-0.9,p.x))*smoothstep(1.5,2.1,p.y);
+		float seam=(1.0-smoothstep(0.2,0.65,abs(p.x)))*step(5.5,p.y)*inside;
+		float wheel=(1.0-smoothstep(0.4,0.85,abs(p.x)))*smoothstep(1.2,1.6,p.y)*(1.0-smoothstep(4.4,4.8,p.y));
+		return vec2(max(outline,max(wheel,seam)),button*0.82);
 	}
 	void main(){
 		if(uSnake<=0.0)discard;
@@ -182,7 +181,7 @@ function createLabelStates() {
 			})),
 			{
 				text: locale === "en" ? "LEARN MORE" : locale === "zh" ? "了解更多" : "ПОДРОБНЕЕ",
-				x: left ? 247 : 36, y: 162, size: 12.5, tracking: 0.6, space: 5.3,
+				x: left ? 247 : 37, y: 162, size: 12.5, tracking: 1.35, space: 6,
 				color: "#9bb5c2", row: 2, align: left ? "right" : "left",
 			},
 		];

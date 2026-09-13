@@ -21,17 +21,15 @@ const DETAIL_FRAGMENT = /* glsl */ `
 	uniform sampler2D uLabels,uLetterOrder,uGlyphs;
 	uniform float uSnake,uGlyphCount,uLocale,uState;
 	varying vec2 vUv;
-	${hudSnakeGlsl(MMK1_DETAIL_STATE_COUNT, [158, 116, 58, 30], MMK1_DETAIL_SIZE)}
+	${hudSnakeGlsl(MMK1_DETAIL_STATE_COUNT, [158, 116, 64, 36], MMK1_DETAIL_SIZE)}
 	void main(){
 		if(uSnake<=0.0)discard;
 		vec4 text=snakeLabel(vUv,uState);
 		vec2 px=vUv*vec2(560.0,200.0);
-		float rule=(1.0-smoothstep(0.3,0.85,abs(px.y-82.0)))*step(16.0,px.x)
-			*(1.0-smoothstep(56.0,144.0,px.x))*smoothstep(0.42,0.7,uSnake)*0.48;
 		float accent=(1.0-smoothstep(0.35,1.0,abs(px.y-193.0)))*step(16.0,px.x)
 			*(1.0-smoothstep(64.0,66.0,px.x))*smoothstep(0.0,0.18,uSnake)*0.82;
-		vec3 color=text.rgb*text.a+(vec3(0.58,0.77,0.85)*rule+vec3(0.10,0.74,0.89)*accent)*(1.0-text.a);
-		float ink=text.a+max(rule,accent)*(1.0-text.a);
+		vec3 color=text.rgb*text.a+vec3(0.10,0.74,0.89)*accent*(1.0-text.a);
+		float ink=text.a+accent*(1.0-text.a);
 		// Local atmospheric shade: one existing quad, no blur pass or texture updates.
 		float backing=(1.0-smoothstep(0.35,1.05,length((vUv-vec2(0.43,0.49))*vec2(1.9,2.0))))
 			*smoothstep(0.0,0.28,uSnake)*0.52;
@@ -60,13 +58,14 @@ function createDetailStates(measureContext) {
 	const detail = (locale) => MMK1_HOTSPOT_DETAILS.map(({ copy, headlines }) => {
 		const [, ...body] = copy[locale];
 		const titleSize = Math.min(...headlines[locale].map(text => fitHeadline(measureContext, text, 44, 528, .5).size));
+		const bodySize = Math.min(...body.map(text => fitHeadline(measureContext, text, 22, 528, .46).size));
 		return [
 			...headlines[locale].map((text, row) => ({
 				text, x: 16, y: [42, 84][row], color: row ? "#e0eef5" : "#b4d0dd", row,
 				...fitHeadline(measureContext, text, titleSize, 528, .5),
 			})),
-			...body.map((text, row) => ({ text, x: 16, y: [142, 170][row], color: "#abc0cc", row: row + 2,
-				...MMK1_DETAIL_TYPE.body, size: 26, font: '400 26px MazzardM, "Segoe UI", sans-serif' })),
+			...body.map((text, row) => ({ text, x: 16, y: [136, 164][row], color: "#abc0cc", row: row + 2,
+				...fitHeadline(measureContext, text, bodySize, 528, .46) })),
 		];
 	});
 	return ["ru", "en", "zh"].map((locale) => [...detail(locale), ...[false, true].map((compact) => {
@@ -197,7 +196,7 @@ export class Mmk1HotspotDetails {
 		}
 		let reveal = 0;
 		for (let i = 0; i < 4; i++) reveal = Math.max(reveal, this.panels[i].material.uniforms.uSnake.value);
-		return reveal;
+		return reveal * .82 + (this.returnReveal ?? 0) * .18;
 	}
 
 	containsPoint(pointer) {

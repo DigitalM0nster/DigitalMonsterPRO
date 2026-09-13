@@ -107,6 +107,7 @@ export class PortfolioFilmScene {
 			this.cancelScrub();
 			this.media.setAllowed(false);
 			this.hud.setHover(null);
+			this.hud.setInfoFocus(false);
 			this.screen?.controls.setHover(null);
 		}
 	}
@@ -145,6 +146,7 @@ export class PortfolioFilmScene {
 	}
 	act(action) {
 		if (!this.ready) return;
+		if (action?.type === "info-focus") { this.hud.setInfoFocus(action.value === true); return; }
 		if (action === "info-close") { this.setInfoOpen(false); return; }
 		if (action === "info") {
 			this.setInfoOpen(!this.infoOpen);
@@ -308,7 +310,7 @@ export class PortfolioFilmScene {
 		const reveal = this.warming ? 1 : this.reveal;
 		this.screen.update(this.motion, reveal, this.focus, this.layout, this.pointerSmooth, this.reduced, this.warming ? 0 : delta, getPortfolioLocale());
 		this.transitionSound.update(delta, this.motion, this.appStarted && this.routeActive && current && !inMix && !this.warming && reveal > .1);
-		this.hud.update({ motion: this.motion, reveal, focus: this.focus, layout: this.layout, locale: getPortfolioLocale(), warm: this.warming, delta, reduced: this.reduced });
+		this.hud.update({ motion: this.motion, reveal, focus: this.focus, layout: this.layout, locale: getPortfolioLocale(), infoOpen: this.infoOpen, warm: this.warming, delta, reduced: this.reduced });
 		this.hud.root.visible = !this.layout.mobile;
 		this.screen.uniforms.uHeaderEnd.value = this.hud.headerEnd;
 		const play = this.appStarted && this.routeActive && !this.warming && current && !inMix && !carousel.isInteractionLocked() && !!filmProjects[this.motion.index].video && !this.motion.busy;
@@ -342,7 +344,7 @@ export class PortfolioFilmScene {
 			this.screen.root.localToWorld(this.infoPoint); this.infoPoint.project(this.camera);
 			return { x: (this.infoPoint.x + 1) * width / 2, y: (1 - this.infoPoint.y) * height / 2 };
 		};
-		const left = project(-.49, 0), right = project(.49, 0), top = project(0, .239), bottom = project(0, -.239), anchor = project(0, -.391);
+		const left = project(-.49, 0), right = project(.49, 0), top = project(0, .239), bottom = project(0, -.239), anchor = project(0, this.hud.infoY);
 		const box = resolveFilmInfoPresentation(width, height, { left: left.x, right: right.x, top: top.y, bottom: bottom.y, anchorX: anchor.x, anchorY: anchor.y });
 		const { sourceId, targetId } = getSceneCarousel().getMixSourceTargetIds();
 		let clipTop = 0, clipBottom = 0;
@@ -355,7 +357,7 @@ export class PortfolioFilmScene {
 		const info = this.infoTextures.get(this.motion.index, getPortfolioLocale(), this.layout.mobile);
 		const infoVisible = this.motion.info && !this.motion.busy;
 		updateFilmInfoView({ ...box, left: left.x, top: top.y, width: right.x - left.x, height: bottom.y - top.y,
-			contentRatio: info.height / info.viewportHeight, infoVisible, clipTop, clipBottom,
+			contentRatio: info.height / info.viewportHeight, infoVisible, clipTop, clipBottom, mobile: this.layout.mobile,
 			opacity: this.appStarted && belongs ? this.reveal : 0 });
 		const snapshot = getFilmUiSnapshot();
 		if (snapshot.index !== this.motion.index || snapshot.infoOpen !== this.infoOpen || snapshot.infoVisible !== infoVisible || snapshot.infoEpoch !== this.infoEpoch)

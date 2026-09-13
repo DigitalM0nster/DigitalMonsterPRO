@@ -9,18 +9,11 @@ import { filmProjects } from "./data/filmProjects.js";
 import { filmProjectInfo, filmInfoCopy } from "./data/filmProjectInfo.js";
 import styles from "./FilmProjectInfo.module.scss";
 
-const controlsCopy = {
- ru: { back: "К видео", scroll: "Прокрутите, чтобы прочитать ↓" },
- en: { back: "Back to video", scroll: "Scroll to read ↓" },
- zh: { back: "返回视频", scroll: "向下滚动阅读 ↓" },
-};
-
-/** Persistent scene chrome + native scrolling/accessibility for the prepared GPU text. */
+/** Native scrolling and keyboard semantics only; the visible control is in the scene. */
 export default function FilmProjectInfo() {
  const state = useSyncExternalStore(subscribeFilmUi, getFilmUiSnapshot);
  const locale = useSnapshot(store).siteLocale || "ru";
  const copy = filmInfoCopy[locale] || filmInfoCopy.en;
- const labels = controlsCopy[locale] || controlsCopy.en;
  const project = filmProjects[state.index] || filmProjects[0];
  const content = filmProjectInfo[project.id]?.[locale] || filmProjectInfo[project.id]?.en;
  const open = !!state.infoOpen, readable = !!state.infoVisible;
@@ -33,6 +26,7 @@ export default function FilmProjectInfo() {
   layer.current.style.clipPath = `inset(${frame.clipTop || 0}px 0 ${frame.clipBottom || 0}px)`;
   layer.current.style.visibility = frame.opacity > .001 && visibleBand > 1 ? "visible" : "hidden";
   trigger.current.disabled = !available.current;
+  trigger.current.hidden = !!frame.mobile;
   if (!Number.isFinite(frame.anchorX)) return;
   trigger.current.style.left = `${frame.anchorX}px`;
   trigger.current.style.top = `${frame.anchorY}px`;
@@ -47,7 +41,10 @@ export default function FilmProjectInfo() {
  }), []);
  useEffect(() => {
   if (readable) surface.current.focus({ preventScroll: true });
-  else if (wasReadable.current && available.current && surface.current.contains(document.activeElement)) trigger.current.focus({ preventScroll: true });
+  else if (wasReadable.current && available.current && surface.current.contains(document.activeElement)) {
+   const button = trigger.current.hidden ? document.querySelector("[data-film-info-trigger]") : trigger.current;
+   button?.focus({ preventScroll: true });
+  }
   wasReadable.current = readable;
  }, [readable]);
  useEffect(() => { surface.current.scrollTop = 0; }, [state.infoEpoch, state.index]);
@@ -57,8 +54,10 @@ export default function FilmProjectInfo() {
  };
  return createPortal(
   <div ref={layer} className={styles.layer}>
-   <button ref={trigger} type="button" className={styles.trigger} aria-expanded={open} aria-controls="film-project-info" onClick={act}>
-    {open ? labels.back : copy.about}<svg viewBox="0 0 24 16" aria-hidden="true"><path d={open ? "M22 8H2m6-6L2 8l6 6" : "M2 8h20m-6-6 6 6-6 6"} /></svg>
+   <button ref={trigger} type="button" className={styles.accessibleText} aria-expanded={open} aria-controls="film-project-info" onClick={act}
+    onFocus={event => requestFilmAction({ type: "info-focus", value: event.currentTarget.matches(":focus-visible") })}
+    onBlur={() => requestFilmAction({ type: "info-focus", value: false })}>
+    {open ? copy.back : copy.about}
    </button>
    <div ref={surface} id="film-project-info" role="region" aria-label={`${copy.about}: ${project.name}`}
     aria-hidden={!readable} {...(!readable ? { inert: "" } : {})} data-film-project-info data-canvas-pointer-blocker="true"
@@ -76,7 +75,7 @@ export default function FilmProjectInfo() {
      {content?.result && <><h3>{copy.result}</h3><p>{content.result}</p></>}
     </div>
    </div>
-   <span ref={hint} className={styles.hint} aria-hidden="true">{labels.scroll}</span>
+   <span ref={hint} className={styles.hint} aria-hidden="true">{copy.scroll}</span>
   </div>, document.body,
  );
 }

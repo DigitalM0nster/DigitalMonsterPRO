@@ -7,6 +7,7 @@ import { filmPalette } from "./filmPalette.js";
 import { FilmProjectPicker } from "./FilmProjectPicker.js";
 import { getGraphicsTier } from "@/functions/getGraphicsTier.js";
 import { loadFilmMsdf, createFilmMsdfGeometry } from "./filmMsdfText.js";
+import { filmInfoCopy } from "@/pages/portfolio/data/filmProjectInfo.js";
 
 let fontReady;
 const prepareFont = () => fontReady ??= Promise.all([
@@ -88,13 +89,17 @@ export class FilmHud {
     return rows.length>1?this.text(rows.join("\n"),{spacing:7}):layer;
    });
    const sides=this.projects.map(p=>this.text(p.sideCopy[locale],{spacing:8,align:"left"}));
-   this.locales[locale]={details,compactDetails,sides};
+   const info=this.text(filmInfoCopy[locale].about.toUpperCase(),{spacing:9,gain:1.15});
+   const back=this.text(filmInfoCopy[locale].back.toUpperCase(),{spacing:9,gain:1.15});
+   this.locales[locale]={details,compactDetails,sides,info,back};
    await nextFilmPaint();
   }
   this.previous={hit:this.button("prev"),alpha:0};
   this.next={hit:this.button("next"),alpha:0};
   this.leftRail=this.surfaceRule(true,filmPalette.text);this.leftRailShort=this.surfaceRule(true,filmPalette.text);this.leftDash=this.surfaceRule(false,filmPalette.text);
   this.captionLeft=this.surfaceRule();this.captionRight=this.surfaceRule();
+  this.info={hit:this.button("info"),hover:0,focused:false,
+   brackets:[-1,1].map(()=>({stem:this.surfaceRule(true),top:this.surfaceRule(),bottom:this.surfaceRule()}))};
   this.picker=new FilmProjectPicker(this,posters,getScenePixelRatio(renderer));
   for(const texture of new Set(this.layers.map(layer=>layer.texture))){renderer.initTexture(texture);await nextFilmPaint();}
  }
@@ -110,10 +115,11 @@ export class FilmHud {
   const normal=filmSurfaceNormal(x);hit.rotation.y=Math.atan2(normal[0],normal[2]);
   hit.scale.set(width,height,1);hit.userData.enabled=enabled;
  }
- update({motion,reveal,focus,layout,locale,warm=false,delta=1/60,reduced=false}) {
+ update({motion,reveal,focus,layout,locale,infoOpen=false,warm=false,delta=1/60,reduced=false}) {
   const {compact}=layout;
   const titleY=compact?-.345:-.298,titleHeight=compact?.088:.047,titleLimit=compact?.54:.40;
   const alpha=reveal*(1-focus*.92);
+  this.infoY=compact?-.52:-.391;
   for(const layer of this.layers)layer.setVisibility(warm?.02:0);
   this.picker.update({layout,locale,motion,alpha,focus,delta,warm,reduced});
   const copy=this.locales[locale]??this.locales.en,p=Math.abs(motion.progress);
@@ -126,6 +132,11 @@ export class FilmHud {
    this.placeSurface(this.names[i],0,titleY,titleHeight,titleLimit,a*alpha);
    const detail=compact?copy.compactDetails[i]:copy.details[i],rows=detail.layout.rows;
    this.placeSurface(detail,0,compact?-.438-(rows-1)*.029:-.345,compact?.058*rows:.022,compact?.84:.58,a*alpha);
+   // Reserve the longest caption so the button never jumps between projects.
+   if(compact){
+    const rect=detail.mesh.material.uniforms.uRect.value;
+    this.infoY=Math.min(this.infoY,rect.y-rect.w/2-.045);
+   }
    this.placeSurface(copy.sides[i],-.567,-.125,.069,.064,compact?0:a*alpha*.9);
   }
   this.headerEnd=-.447+(compact?.10:.052)+.014;
@@ -138,6 +149,23 @@ export class FilmHud {
    mesh.material.uniforms.uOpacity.value=alpha;
   }
   const rule=(mesh,x,y,w,h,opacity)=>{mesh.material.uniforms.uRect.value.set(x,y,w,h);mesh.material.uniforms.uOpacity.value=opacity;};
+  // The control shares the caption's surface shader and parent transform. No DOM
+  // projection or texture repaint is involved in its perspective, hover or reveal.
+  const info=this.info,hovered=this.hovered==="info"||info.focused;
+  info.hover+=(Number(hovered)-info.hover)*(reduced?1:1-Math.exp(-Math.min(delta,.05)*14));
+  const infoY=this.infoY,infoHeight=compact?.052:.032;
+  const infoAlpha=reveal*(1-focus*.72),label=infoOpen?copy.back:copy.info;
+  const infoWidth=this.placeSurface(label,0,infoY,infoHeight,compact?.40:.25,infoAlpha*(.88+info.hover*.12));
+  label.mesh.material.uniforms.uGain.value=1.15+info.hover*.2;
+  const halfWidth=infoWidth/2+(compact?.035:.019)+info.hover*.003;
+  const halfHeight=compact?.023:.012,stroke=compact?.003:.0024,arm=compact?.013:.008;
+  info.brackets.forEach((bracket,i)=>{
+   const side=i===0?-1:1,x=side*halfWidth,light=infoAlpha*(.78+info.hover*.22);
+   rule(bracket.stem,x,infoY,stroke,halfHeight*2,light);
+   rule(bracket.top,x-side*arm/2,infoY+halfHeight,arm,stroke,light);
+   rule(bracket.bottom,x-side*arm/2,infoY-halfHeight,arm,stroke,light);
+  });
+  this.placeHit(info.hit,0,infoY,halfWidth*2+.024,compact?.09:.060,reveal>.1);
   rule(this.leftRail,-.522,-.020,.003,.32,compact?0:alpha*.65);
   rule(this.leftRailShort,-.534,.115,.003,.035,compact?0:alpha*.55);
   rule(this.leftDash,-.567,-.205,.014,.003,compact?0:alpha*.65);
@@ -151,6 +179,7 @@ export class FilmHud {
   if(warm)for(const layer of this.layers)layer.setVisibility(.02);
  }
  setHover(action){this.hovered=action;this.picker?.hover(action);}
+ setInfoFocus(focused){if(this.info)this.info.focused=focused;}
  dispose(){
   this.picker?.dispose();
   for(const layer of this.layers){layer.mesh.material.dispose();if(layer.mesh.geometry!==this.surfaceGeometry)layer.mesh.geometry.dispose();}

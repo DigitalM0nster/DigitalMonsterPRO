@@ -1,5 +1,6 @@
 import { SceneCanvasInterface } from "@/three/objects/sceneHud/SceneCanvasInterface.js";
 import { filmProjects, filmCopy } from "./data/filmProjects.js";
+import { filmInfoCopy } from "./data/filmProjectInfo.js";
 import { resolveFilmPresentation } from "./filmPresentationLayout.js";
 import { store } from "@/app/store.jsx";
 
@@ -19,6 +20,19 @@ export function createFilmCanvasInterface(renderer, scene) {
 	const details = {};
 	for (const locale of ["ru", "en", "zh"]) for (const [i, p] of filmProjects.entries()) details[`${locale}${i}`] = wrap(locale === "ru" ? p.detail : p[locale]);
 	ui.text("detail", details, { size: 14, width: 280, height: 54, align: "center", color: "#aebfca" });
+	const infoLabels = Object.fromEntries(Object.entries(filmInfoCopy).flatMap(([locale, copy]) =>
+		[[locale, copy.about.toUpperCase()], [`${locale}Back`, copy.back.toUpperCase()]]));
+	const info = ui.text("info", infoLabels, { size: 13, width: 224, height: 44, align: "center", color: "#ffffff", action: () => scene.act("info") });
+	info.button.dataset.filmInfoTrigger = "";
+	ui.add("infoBrackets", { width: 224, height: 44, paint(ctx, _value, w) {
+		ctx.strokeStyle = "#00a9ff"; ctx.lineWidth = 1.2;
+		ctx.beginPath();
+		for (const side of [-1, 1]) {
+			const x = side < 0 ? 1 : w - 1;
+			ctx.moveTo(x - side * 7, 15); ctx.lineTo(x, 15); ctx.lineTo(x, 29); ctx.lineTo(x - side * 7, 29);
+		}
+		ctx.stroke();
+	} });
 	ui.text("prev", { default: "‹" }, { size: 27, width: 44, height: 44, align: "center", action: () => scene.act("prev") });
 	ui.text("next", { default: "›" }, { size: 27, width: 44, height: 44, align: "center", action: () => scene.act("next") });
 	ui.text("projects", { ru: "ВСЕ ПРОЕКТЫ  ↗", en: "ALL PROJECTS  ↗", zh: "所有项目  ↗" }, { size: 13, width: 164, height: 44, align: "right",
@@ -64,6 +78,12 @@ export function createFilmCanvasInterface(renderer, scene) {
 		const nameWidth = Math.min(240, w - 78);
 		ui.place("name", x + (w - nameWidth) / 2, y - (layout.wide ? 14 : 4), nameWidth, 58, { key: index });
 		ui.place("detail", x + (w - Math.min(280, w)) / 2, y + (layout.wide ? 14 : 40), Math.min(280, w), 54, { key: `${locale}${index}` });
+		const infoWidth = Math.min(224, w), infoX = x + (w - infoWidth) / 2;
+		const infoY = Math.min(ui.height - 58, y + (layout.wide ? 24 : 90));
+		ui.place("info", infoX, infoY, infoWidth, 44, { key: `${locale}${scene.infoOpen ? "Back" : ""}` });
+		info.button.setAttribute("aria-expanded", String(scene.infoOpen));
+		info.button.setAttribute("aria-controls", "film-project-info");
+		ui.place("infoBrackets", infoX, infoY, infoWidth, 44);
 		ui.place("prev", layout.wide ? x + w - 96 : x, y + 2, 44, 44); ui.place("next", x + w - 44, y + 2, 44, 44);
 		const seekY = y + (layout.wide ? -1 : 141), controlsY = y + (layout.wide ? 4 : 153);
 		ui.place("seekTrack", x, seekY, w, 1, { color: 0x204453 });

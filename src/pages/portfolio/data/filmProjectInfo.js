@@ -1,7 +1,7 @@
 export const filmInfoCopy = {
-	ru: { about: "О проекте", close: "Закрыть сведения о проекте", purpose: "Назначение", solution: "Решение", result: "Результат" },
-	en: { about: "About the project", close: "Close project information", purpose: "Purpose", solution: "Solution", result: "Result" },
-	zh: { about: "关于项目", close: "关闭项目信息", purpose: "用途", solution: "方案", result: "成果" },
+	ru: { about: "О проекте", back: "К видео", scroll: "Прокрутите, чтобы прочитать ↓", close: "Закрыть сведения о проекте", purpose: "О проекте", solution: "Решение", result: "Результат" },
+	en: { about: "About the project", back: "Back to video", scroll: "Scroll to read ↓", close: "Close project information", purpose: "About the project", solution: "Solution", result: "Result" },
+	zh: { about: "关于项目", back: "返回视频", scroll: "向下滚动阅读 ↓", close: "关闭项目信息", purpose: "关于项目", solution: "方案", result: "成果" },
 };
 
 // Short, source-checked editorial copy. No inferred KPIs or client outcomes.
@@ -23,9 +23,9 @@ export const filmProjectInfo = {
 		zh: { summary: "交互式办公空间目录", purpose: "租赁板块支持在建筑模型中或按条件选择办公空间。", solution: "楼层、面积和平面图相互关联，用户可从园区全貌进入具体办公室。作为分包方，我们实现了该板块的界面，并完善了其内容管理功能。" },
 	},
 	globtravlink: {
-		ru: { summary: "Платформа путешествий и туристических услуг", purpose: "Платформа объединяет каталог путешествий и рабочие кабинеты туристов, агентов и поставщиков.", solution: "Посетитель выбирает тур, круиз или экскурсию, изучает условия и связывается с организатором. В кабинетах участники работают с предложениями и заказами." },
-		en: { summary: "A travel and tourism services platform", purpose: "The platform combines a travel catalogue with workspaces for travellers, agents and suppliers.", solution: "Visitors choose a tour, cruise or excursion, review the terms and contact the organiser. Participants manage offers and orders in their accounts." },
-		zh: { summary: "旅行及旅游服务平台", purpose: "平台结合旅行目录与游客、代理商和供应商的工作空间。", solution: "访客可选择旅游线路、邮轮或短途游，了解条件并联系组织方。参与者通过各自的账户管理服务方案和订单。" },
+		ru: { summary: "Платформа путешествий и туристических услуг", purpose: "GlobTrav Link — туристическая платформа, объединяющая путешественников, агентов, гидов и туроператоров", solution: "Посетитель выбирает тур, круиз или экскурсию, изучает условия и связывается с организатором. В кабинетах участники работают с предложениями и заказами." },
+		en: { summary: "A travel and tourism services platform", purpose: "GlobTrav Link is a tourism platform connecting travellers, agents, guides and tour operators.", solution: "Visitors choose a tour, cruise or excursion, review the terms and contact the organiser. Participants manage offers and orders in their accounts." },
+		zh: { summary: "旅行及旅游服务平台", purpose: "GlobTrav Link 是连接旅行者、代理商、导游和旅游运营商的旅游平台。", solution: "访客可选择旅游线路、邮轮或短途游，了解条件并联系组织方。参与者通过各自的账户管理服务方案和订单。" },
 	},
 	"universe-travel": {
 		ru: { summary: "Корпоративный сайт и карта проектов", purpose: "Сайт представляет Universe Travel & Business и объясняет связь её направлений и сервисов.", solution: "Визуальная карта показывает структуру проектов, а отдельный блок знакомит с GlobTravLink и ведёт на платформу. Действующий сервис и будущие направления обозначены раздельно." },

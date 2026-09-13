@@ -1,19 +1,19 @@
-import { HUD_MARKER_GLSL } from "@/three/objects/sceneHud/sceneHudShaders.js";
+export const CRANE_RETURN_SIZE = { width: 320, height: 60 };
 
 export const CRANE_RETURN_COPY = {
-	ru: "ОБЩИЙ ВИД\nВернуться к крану целиком",
-	en: "OVERVIEW\nBack to the whole crane",
-	zh: "总览\n返回起重机全景",
+	ru: "ВЕРНУТЬСЯ\nК ОБЩЕМУ ВИДУ",
+	en: "BACK TO\nTHE OVERVIEW",
+	zh: "返回\n起重机全景",
 };
 
 export function craneReturnLayout(width, height) {
 	const dock = width <= 1024;
-	const buttonWidth = Math.min(300, width - 32);
-	const buttonHeight = 64 * buttonWidth / 300;
-	const bottom = dock ? (height <= 480 ? 78 : 94) : 36;
+	const short = height <= 480;
+	const buttonWidth = Math.min(CRANE_RETURN_SIZE.width, width - 32);
+	const buttonHeight = (short ? 52 : CRANE_RETURN_SIZE.height) * buttonWidth / CRANE_RETURN_SIZE.width;
 	return {
-		x: dock ? (width - buttonWidth) / 2 : 120 + (width - 216 - buttonWidth) / 2,
-		y: Math.max(76, height - bottom - buttonHeight),
+		x: dock ? 16 : 152,
+		y: short ? 58 : dock ? 76 : 82,
 		width: buttonWidth, height: buttonHeight, shortcut: !dock,
 	};
 }
@@ -25,42 +25,43 @@ export function advanceCraneReturnVisibility(progress, shown, delta) {
 
 /** One small, prepared texture per locale. Hover never repaints these pixels. */
 export function paintCraneReturn(ctx, value) {
-	const [title, description] = value.split("\n");
+	const [action, destination] = value.split("\n");
 	ctx.textBaseline = "middle";
-	ctx.fillStyle = "#dceff8";
-	ctx.font = '500 15px ManifoldExtended, "Segoe UI", sans-serif';
-	ctx.fillText(title, 70, 24);
-	ctx.fillStyle = "#94adba";
-	ctx.font = '400 12px MazzardM, "Segoe UI", sans-serif';
-	ctx.fillText(description, 70, 44);
+	ctx.fillStyle = "#e0f2fa";
+	ctx.font = '500 15.5px ManifoldExtended, "Segoe UI", sans-serif';
+	ctx.fillText(action, 66, 20);
+	ctx.fillStyle = "#b6d6e5";
+	ctx.font = '500 14.5px ManifoldExtended, "Segoe UI", sans-serif';
+	ctx.fillText(destination, 66, 41);
 	// An actual back arrow, independent of font fallback or icon fonts.
-	ctx.strokeStyle = "#d1edfa"; ctx.lineWidth = 1.6; ctx.lineCap = "round"; ctx.lineJoin = "round";
-	ctx.beginPath(); ctx.moveTo(42, 32); ctx.lineTo(26, 32); ctx.moveTo(32, 26); ctx.lineTo(26, 32); ctx.lineTo(32, 38); ctx.stroke();
-	ctx.strokeStyle = "#294955"; ctx.lineWidth = 1;
-	ctx.strokeRect(252.5, 15.5, 31, 18);
-	ctx.fillStyle = "#809da9"; ctx.font = '400 10px MazzardM, "Segoe UI", sans-serif';
-	ctx.fillText("ESC", 259, 25);
+	ctx.strokeStyle = "#cff3ff"; ctx.lineWidth = 2; ctx.lineCap = "round"; ctx.lineJoin = "round";
+	ctx.beginPath(); ctx.moveTo(39, 30); ctx.lineTo(19, 30); ctx.moveTo(27, 22); ctx.lineTo(19, 30); ctx.lineTo(27, 38); ctx.stroke();
+	ctx.strokeStyle = "#466574"; ctx.lineWidth = 1;
+	ctx.strokeRect(282.5, 10.5, 25, 16);
+	ctx.fillStyle = "#a0bac7"; ctx.font = '400 10px MazzardM, "Segoe UI", sans-serif';
+	ctx.fillText("ESC", 286, 19);
 }
 
 export const CRANE_RETURN_FRAGMENT = /* glsl */ `
 	uniform sampler2D map;
-	uniform float opacity,uTime,uHover,uShortcut;
+	uniform float opacity,uHover,uShortcut;
 	uniform vec4 clip;
 	varying vec2 vUv,pixel;
-	${HUD_MARKER_GLSL}
 	void main(){
 		if(opacity<=0.0||pixel.x<clip.x||pixel.y<clip.y||pixel.x>clip.z||pixel.y>clip.w)discard;
-		vec2 p=vec2(vUv.x,1.0-vUv.y)*vec2(300.0,64.0);
-		vec2 q=abs(p-vec2(150.0,32.0))-vec2(118.0,0.0);
-		float d=length(max(q,0.0))+min(max(q.x,q.y),0.0)-31.0;
+		vec2 p=vec2(vUv.x,1.0-vUv.y)*vec2(320.0,60.0);
+		vec2 q=abs(p-vec2(160.0,30.0))-vec2(155.0,25.0);
+		float d=length(max(q,0.0))+min(max(q.x,q.y),0.0)-4.0;
 		float shape=1.0-smoothstep(-0.4,0.7,d);
 		float edge=1.0-smoothstep(0.3,1.1,abs(d+1.0));
-		vec3 base=mix(vec3(0.009,0.021,0.030),vec3(0.15,0.44,0.57),edge*(0.3+uHover*0.5));
-		float ring=hudMarkerInk((p-vec2(34.0,32.0))/0.88,uTime,uHover,0.0,1.0);
-		base=mix(base,hudMarkerTint(uHover,0.0),clamp(ring,0.0,1.0));
+		float arrowArea=1.0-smoothstep(51.0,52.0,p.x);
+		vec3 base=mix(vec3(0.012,0.032,0.043),vec3(0.035,0.18,0.24),arrowArea*(0.85+uHover*0.15));
+		base=mix(base,vec3(0.30,0.61,0.74),edge*(0.6+uHover*0.4));
+		float accent=(1.0-smoothstep(3.0,4.0,p.x))*smoothstep(5.0,9.0,p.y)*(1.0-smoothstep(51.0,55.0,p.y));
+		base=mix(base,vec3(0.48,0.81,0.93),accent);
 		vec4 ink=texture2D(map,vUv);
-		if(p.x>248.0&&p.y<36.0)ink.a*=uShortcut;
-		float backing=shape*0.96;
+		if(p.x>278.0&&p.y<29.0)ink.a*=uShortcut;
+		float backing=shape*0.98;
 		float alpha=ink.a+backing*(1.0-ink.a);
 		if(alpha<0.002)discard;
 		gl_FragColor=vec4((ink.rgb*ink.a+base*backing*(1.0-ink.a))/alpha,alpha*opacity);

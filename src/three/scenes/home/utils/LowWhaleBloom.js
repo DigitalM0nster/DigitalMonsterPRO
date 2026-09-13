@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { getScenePixelRatio } from "../../../renderer/renderResolution.js";
 import { whaleMeshParticleVertexShader, whaleMeshParticleFragmentShader } from "../shaders/digitalWhaleShaders.js";
 
 export const LOW_WHALE_BLOOM_STRENGTH = 0.85;
@@ -77,7 +78,8 @@ export class LowWhaleBloom {
  }
 
  async prepare(renderer, scheduler) {
-  const size = renderer.getDrawingBufferSize(new THREE.Vector2());
+  // Match the scene target used by render(), not the sharper final text canvas.
+  const size = renderer.getSize(new THREE.Vector2()).multiplyScalar(getScenePixelRatio(renderer)).floor();
   this.setSize(size.x, size.y);
   // Compile and draw each pass separately while the loader can still breathe.
   for (const [scene, camera, material] of [

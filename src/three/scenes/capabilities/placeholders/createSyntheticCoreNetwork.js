@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { getScenePixelRatio } from "../../../renderer/renderResolution.js";
 import { networkNodeVertex, networkNodeFragment, networkLineVertex, networkLineFragment } from "./syntheticCoreNetworkShaders.js";
 
 const random = n => { const v = Math.sin(n * 127.1 + 81.3) * 43758.5453; return v - Math.floor(v); };
@@ -60,7 +61,9 @@ export function createSyntheticCoreNetwork({ time, assembly, detail = 1 }) {
 	nodes.name = "core-network-nodes"; lines.name = "core-network-links";
 	// Vertices spread on the GPU during disassembly; keep their two tiny draws in the graph.
 	nodes.frustumCulled = lines.frustumCulled = false;
-	nodes.onBeforeRender = renderer => { uniforms.uPixelRatio.value = renderer.getPixelRatio(); };
+	nodes.onBeforeRender = renderer => {
+		uniforms.uPixelRatio.value = renderer.getRenderTarget() ? getScenePixelRatio(renderer) : renderer.getPixelRatio();
+	};
 	const viewport = new THREE.Vector4();
 	lines.onBeforeRender = renderer => {
 		renderer.getCurrentViewport(viewport);

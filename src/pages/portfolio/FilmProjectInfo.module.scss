@@ -7,14 +7,16 @@
 	visibility: hidden;
  position: absolute; box-sizing: border-box; overflow-x: hidden; overflow-y: auto;
  pointer-events: none; overscroll-behavior: contain; touch-action: pan-y;
- background: transparent; scrollbar-width: thin; scrollbar-color: #00a9ff80 transparent;
+ background: transparent; scrollbar-width: none;
+ &::-webkit-scrollbar { display: none; }
  &:focus { outline: none; }
  &:focus-visible { outline: 1px solid #00a9ff55; outline-offset: -2px; }
 }
 .readable { pointer-events: auto; visibility: inherit; }
 .accessibleText { position: absolute; width: 1px; height: 1px; padding: 0; border: 0; overflow: hidden; clip-path: inset(50%); pointer-events: none; }
-.hint {
- position: absolute; transform: translateX(-50%); visibility: hidden;
- font-size: 10px; letter-spacing: .05em; white-space: nowrap; color: #b6eaff;
- background: #040c16d9; padding: 3px 10px;
+.scrollRail {
+ // Interaction geometry only; the curved frame shader owns every visible pixel.
+ position: absolute; width: 32px; transform-origin: 50% 0; opacity: 0;
+ background: none; border: 0; padding: 0; touch-action: none; cursor: ns-resize;
+ pointer-events: none;
 }

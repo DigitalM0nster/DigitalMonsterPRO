@@ -26,6 +26,7 @@ export class FilmScreen {
   this.uniforms={uFrom:{value:media.get(0)},uTo:{value:media.get(0)},uFromAspect:{value:media.aspect(0)},uToAspect:{value:media.aspect(0)},
    uFromInfo:{value:new THREE.Vector2()},uToInfo:{value:new THREE.Vector2()},
    uInfoViewport:{value:new THREE.Vector2(0,1)},uScreenAspect:{value:2.05},
+   uReadingScroll:{value:new THREE.Vector4()},uReadingPixels:{value:new THREE.Vector2(1,1)},
    uProgress:{value:0},uDirection:{value:1},uOpacity:{value:1},uReduced:{value:reducedMotion?1:0},
    uTime:{value:0},uGlitchTime:{value:0},uFocus:{value:0},uDpr:{value:1},uLow:{value:getGraphicsTier()==="low"?1:0},uHeaderEnd:{value:-.378},uLocaleReveal:{value:1}};
   for(const [key] of hologramFields)this.uniforms[`uHolo${key}`]={value:this.hologramValues[key]};
@@ -86,6 +87,13 @@ export class FilmScreen {
    u[`u${side}Info`].value.set(entry?entry.viewportHeight*this.infoViewportScale/entry.height:0,this.infoScroll);
    if(entry){u[`u${side}`].value=entry.texture;u[`u${side}Aspect`].value=2.05;}
   }
+  const reading=this.infoTextures.get(motion.destinationInfo?motion.destination:motion.index,locale,layout.mobile);
+  const overflow=reading.height>reading.viewportHeight*this.infoViewportScale+1;
+  const scrollOpacity=overflow?this.infoAmount*siteLocaleReveal.value:0;
+  const cueTime=u.uReadingScroll.value.z+(!reduced&&scrollOpacity>.01&&this.infoScroll<.999?Math.min(delta,.05):0);
+  u.uReadingScroll.value.set(this.infoScroll,scrollOpacity,cueTime,this.scrollFocused?1:0);
+  const pixelWidth=Math.max(1,rootScale/layout.viewWidth*window.innerWidth);
+  u.uReadingPixels.value.set(pixelWidth,pixelWidth*this.art.scale.y);
   u.uProgress.value=Math.abs(motion.progress);u.uDirection.value=Math.sign(motion.progress)||1;u.uOpacity.value=reveal;
   this.root.position.set(layout.x,layout.y-(1-reveal)*.22,0).multiplyScalar(layout.compositionScale);
   if(readingLayout)this.root.position.y=THREE.MathUtils.lerp(layout.y*layout.compositionScale,readingLayout.y,this.infoAmount)-(1-reveal)*.22*layout.compositionScale;

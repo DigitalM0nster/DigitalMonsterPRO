@@ -2,6 +2,15 @@
 
 These rules apply to every coding-agent task in this repository (Cursor, Codex, Claude Code, Gemini, and others). `CLAUDE.md` points here so non-Cursor agents load the same contract. Cursor also mirrors the preloader section in `.cursor/rules/preloader-runtime-perf.mdc` (`alwaysApply: true`) — **AGENTS.md remains the source of truth**.
 
+## Git: main only (binding, every task)
+
+- All development and commits must happen in `main`, in the primary checkout `C:/websites/develope/DigitalMonsterPRO`.
+- Never create or use separate task, feature, experiment, backup or `codex/*` branches. Never create additional worktrees or develop on a detached HEAD. This project rule overrides generic advice to isolate work in branches/worktrees.
+- Before editing or committing, verify `git branch --show-current` returns `main` and that the working directory is the primary checkout. If not, inspect and preserve existing changes, then continue in the primary `main` checkout; never reset or discard work to switch.
+- Multiple tasks must coordinate writes and Git operations sequentially in this checkout. Do not solve concurrent edits by creating another branch or worktree, and do not include another task's unfinished changes in your commit.
+- Integrate existing side-branch changes into `main` before deleting their refs; preserve uncommitted work in old working copies. Do not recreate deleted branches later.
+- Publishing uses `main`. Never force-push or rewrite its history; pushing/deploying still follows the user's current publication instructions.
+
 ## Source structure (binding)
 
 The project uses a flat, page-first source layout. Do not recreate `components/HTML/components`, root feature duplicates such as `src/about` + a separate About page, or catch-all `shared` folders.

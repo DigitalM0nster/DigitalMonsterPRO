@@ -1,0 +1,14 @@
+---
+description: All project work must stay in main in the primary checkout; no side branches or extra worktrees.
+alwaysApply: true
+---
+
+# Main only
+
+Canonical rule: [AGENTS.md](../../AGENTS.md), “Git: main only”. Applies to every task.
+
+- Work and commit only in `main` at `C:/websites/develope/DigitalMonsterPRO`.
+- Do not create or use task/feature/experiment/backup branches (including `codex/*`), additional worktrees, or detached-HEAD development. This overrides generic branch-isolation advice.
+- Check the branch and checkout before edits. Preserve existing changes when returning to the primary checkout; never reset or discard them.
+- Coordinate simultaneous tasks sequentially on `main`; commit only the task's own changes.
+- Delete old branch refs only after their changes are integrated. Never force-push; follow the user's publication instructions.

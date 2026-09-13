@@ -6,7 +6,7 @@ import { sceneOwnsHexHitAtClientY } from "@/three/render/overlay/hexHitOwnership
 import { registerSceneCanvasInput } from "@/three/interaction/sceneCanvasInput.js";
 import { attachFilmInfoView, getFilmUiSnapshot, requestFilmAction, subscribeFilmUi } from "./filmInteraction.js";
 import { filmProjects } from "./data/filmProjects.js";
-import { filmProjectInfo, filmInfoCopy } from "./data/filmProjectInfo.js";
+import { filmProjectInfo, filmInfoCopy, getFilmInfoSections } from "./data/filmProjectInfo.js";
 import styles from "./FilmProjectInfo.module.scss";
 
 /** Native scrolling and keyboard semantics only; the visible control is in the scene. */
@@ -19,6 +19,7 @@ export default function FilmProjectInfo() {
  const open = !!state.infoOpen, readable = !!state.infoVisible;
  const layer = useRef(null), trigger = useRef(null), surface = useRef(null), spacer = useRef(null), hint = useRef(null);
  const wasReadable = useRef(false), available = useRef(false);
+ const contentRatio = useRef(null);
  useLayoutEffect(() => attachFilmInfoView(frame => {
   const visibleBand = window.innerHeight - (frame.clipTop || 0) - (frame.clipBottom || 0);
   available.current = frame.opacity > .1 && frame.anchorY >= (frame.clipTop || 0) && frame.anchorY <= window.innerHeight - (frame.clipBottom || 0);
@@ -30,8 +31,15 @@ export default function FilmProjectInfo() {
   if (!Number.isFinite(frame.anchorX)) return;
   trigger.current.style.left = `${frame.anchorX}px`;
   trigger.current.style.top = `${frame.anchorY}px`;
+  const ratioChanged = contentRatio.current !== frame.contentRatio;
+  const scrollFraction = ratioChanged ? surface.current.scrollTop / Math.max(1, surface.current.scrollHeight - surface.current.clientHeight) : 0;
   Object.assign(surface.current.style, { left: `${frame.left}px`, top: `${frame.top}px`, width: `${frame.width}px`, height: `${frame.height}px` });
   spacer.current.style.height = `${frame.height * frame.contentRatio}px`;
+  if (ratioChanged) {
+   // Prepared translations have different lengths; keep the native thumb and UV window together.
+   surface.current.scrollTop = scrollFraction * Math.max(0, surface.current.scrollHeight - surface.current.clientHeight);
+   contentRatio.current = frame.contentRatio;
+  }
   Object.assign(hint.current.style, { left: `${frame.left + frame.width / 2}px`, top: `${frame.top + frame.height + 6}px`,
    visibility: frame.infoVisible && frame.contentRatio > 1.01 && surface.current.scrollTop < surface.current.scrollHeight - surface.current.clientHeight - 4 ? "visible" : "hidden" });
  }), []);
@@ -70,9 +78,9 @@ export default function FilmProjectInfo() {
     <div ref={spacer} aria-hidden="true" />
     <div className={styles.accessibleText}>
      <h2>{project.name}</h2>
-     <h3>{copy.purpose}</h3><p>{content?.purpose}</p>
-     <h3>{copy.solution}</h3><p>{content?.solution}</p>
-     {content?.result && <><h3>{copy.result}</h3><p>{content.result}</p></>}
+     <h3>{content?.introLabel || copy.purpose}</h3><p>{content?.purpose}</p>
+     {getFilmInfoSections(content, copy).map(section => <section key={section.title}><h3>{section.title}</h3><p>{section.body}</p></section>)}
+     {content?.closing && <p>{content.closing}</p>}
     </div>
    </div>
    <span ref={hint} className={styles.hint} aria-hidden="true">{copy.scroll}</span>

@@ -8,9 +8,66 @@ export const filmInfoCopy = {
 // Keep the scope of contribution explicit for Ostankino and Belka Production.
 export const filmProjectInfo = {
 	nipigas: {
-		ru: { summary: "Интерактивные корпоративные спецпроекты", purpose: "Серия сайтов НИПИГАЗ: «Календарь нашей Победы», юбилейный проект и новогодняя площадка для сотрудников.", solution: "Интерактивная хроника, игры и поздравления дают разные способы познакомиться с историей и участвовать в общих событиях." },
-		en: { summary: "Interactive corporate projects", purpose: "A series of NIPIGAS websites: Calendar of Our Victory, an anniversary project and a New Year platform for employees.", solution: "An interactive timeline, games and greetings offer different ways to explore history and take part in shared events." },
-		zh: { summary: "企业互动专题网站", purpose: "为 NIPIGAS 制作的系列网站：胜利日历、周年纪念项目和员工新年活动平台。", solution: "互动时间轴、游戏和祝福，让用户以不同方式了解历史、参与共同活动。" },
+		"ru": {
+			"summary": "Интерактивные корпоративные спецпроекты",
+			"introLabel": "Сотрудничество",
+			"purpose": "Около шести лет создавали для НИПИГАЗа самые разные цифровые проекты. Три сайта в этой подборке — часть совместной работы: юбилей компании, «Календарь нашей Победы» и новогоднее путешествие для сотрудников.",
+			"sections": [
+				{
+					"title": "50-летие НИПИГАЗа",
+					"body": "Создали объёмный интерактивный рассказ о компании — её истории, проектах и людях. Объединили профессиональные династии, фотографии, воспоминания и видеопоздравления сотрудников. Конкурсы и голосования сделали коллег участниками юбилея: они сами дополняли историю компании."
+				},
+				{
+					"title": "Новогодний экспресс",
+					"body": "Разработали командную игру, которая объединила сотрудников из разных городов. Выполняя задания, участники зарабатывали баллы для своего города и зажигали огни на карте праздничного экспресса. Квиз, музыкальная игра и видеоконкурс соседствовали с общим чатом, ёлкой пожеланий и «Тайным Дедом Морозом» — соревнование становилось поводом познакомиться, поздравить коллег и обменяться подарками."
+				},
+				{
+					"title": "Календарь нашей Победы",
+					"body": "Создали сайт для сотрудников с картой и иллюстрированной хроникой войны. Через 45 исторических эпизодов, фотографии и анимированные переходы раскрыли последовательность событий, которые привели к Победе."
+				}
+			],
+			"closing": "Работали и над технической частью, и над содержанием: разрабатывали интерактивные механики, адаптировали сайты под разные устройства, оптимизировали работу, готовили фотографии и модерировали материалы сотрудников."
+		},
+		"en": {
+			"summary": "Interactive corporate projects",
+			"introLabel": "Our collaboration",
+			"purpose": "For around six years, we created a wide range of digital projects for NIPIGAS. The three websites in this selection represent part of our work together: the company’s anniversary, Calendar of Our Victory, and a New Year journey for employees.",
+			"sections": [
+				{
+					"title": "NIPIGAS at 50",
+					"body": "We created a three-dimensional, interactive story about the company — its history, projects and people. We brought together families with generations working in the profession, photographs, memories and video greetings from employees. Competitions and voting made colleagues part of the anniversary: they added their own chapters to the company’s story."
+				},
+				{
+					"title": "New Year Express",
+					"body": "We developed a team game that brought together employees from different cities. By completing challenges, participants earned points for their city and lit up the map of the festive express. A quiz, a musical game and a video competition ran alongside a shared chat, a wish tree and Secret Santa — turning competition into a reason to get to know colleagues, exchange greetings and give gifts."
+				},
+				{
+					"title": "Calendar of Our Victory",
+					"body": "We created an employee website with a map and an illustrated chronicle of the war. Through 45 historical episodes, photographs and animated transitions, we traced the sequence of events that led to Victory."
+				}
+			],
+			"closing": "We worked on both the technology and the content: developing interactive features, adapting the websites to different devices, optimising performance, preparing photographs and moderating employee submissions."
+		},
+		"zh": {
+			"summary": "企业互动专题网站",
+			"introLabel": "合作历程",
+			"purpose": "我们与 NIPIGAS 合作约六年，制作了形式多样的数字项目。本次展示的三个网站只是合作的一部分：公司周年纪念网站、《我们的胜利日历》，以及面向员工的新年之旅。",
+			"sections": [
+				{
+					"title": "NIPIGAS 50 周年",
+					"body": "我们以具有空间层次的互动叙事呈现公司的历史、项目和员工，将传承多代的职业家庭、照片、回忆和员工视频祝福汇集在一起。比赛与投票让同事们成为周年庆的参与者，亲自补充公司的故事。"
+				},
+				{
+					"title": "新年快车",
+					"body": "我们开发了一款团队游戏，将来自不同城市的员工联系起来。参与者通过完成任务为所在城市赢得积分，点亮节日快车地图上的灯光。知识问答、音乐游戏和视频比赛，与公共聊天、许愿树及“神秘圣诞老人”交换礼物活动相结合，让竞赛成为认识同事、送上祝福和互赠礼物的契机。"
+				},
+				{
+					"title": "我们的胜利日历",
+					"body": "我们为员工制作了一个包含地图和图文战争编年史的网站，通过 45 个历史片段、照片和动画转场，展现最终走向胜利的事件脉络。"
+				}
+			],
+			"closing": "我们的工作涵盖技术与内容：开发互动功能、适配不同设备、优化运行表现、处理照片，并审核员工提交的内容。"
+		}
 	},
 	hubarch: {
 		ru: { summary: "Сайт-портфолио архитектурной студии", purpose: "Архитектурные проекты, услуги и публикации HUBARCH в одном сайте.", solution: "Каталог ведёт от общего обзора к фотографиям и описанию каждого проекта. Материалы можно самостоятельно добавлять и обновлять через систему управления." },
@@ -43,3 +100,10 @@ export const filmProjectInfo = {
 		zh: { summary: "Belka Production 作品集网站", purpose: "网站汇集该机构的服务，以及品牌、网站、动画和视频制作作品。", solution: "分类筛选帮助访客找到相关案例。我们完成了目录和项目页面的前端布局与交互界面。" },
 	},
 };
+
+export function getFilmInfoSections(content, copy) {
+	if (content?.sections) return content.sections;
+	const sections = content?.solution ? [{ title: copy.solution, body: content.solution }] : [];
+	if (content?.result) sections.push({ title: copy.result, body: content.result });
+	return sections;
+}

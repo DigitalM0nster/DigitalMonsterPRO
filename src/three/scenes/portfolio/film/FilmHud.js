@@ -3,6 +3,7 @@ import * as THREE from "three";
 import { nextFilmPaint } from "./FilmMedia.js";
 import { filmSurfacePoint, filmSurfaceNormal } from "./filmSurface.js";
 import { filmHudVertex, filmHudTextFragment, filmHudRuleFragment } from "./filmHudShaders.js";
+import { filmInfoButtonFragment } from "./filmInfoButtonShader.js";
 import { filmPalette } from "./filmPalette.js";
 import { FilmProjectPicker } from "./FilmProjectPicker.js";
 import { getGraphicsTier } from "@/functions/getGraphicsTier.js";
@@ -98,8 +99,12 @@ export class FilmHud {
   this.next={hit:this.button("next"),alpha:0};
   this.leftRail=this.surfaceRule(true,filmPalette.text);this.leftRailShort=this.surfaceRule(true,filmPalette.text);this.leftDash=this.surfaceRule(false,filmPalette.text);
   this.captionLeft=this.surfaceRule();this.captionRight=this.surfaceRule();
-  this.info={hit:this.button("info"),hover:0,focused:false,
-   brackets:[-1,1].map(()=>({stem:this.surfaceRule(true),top:this.surfaceRule(),bottom:this.surfaceRule()}))};
+  const infoIcon=this.surfaceRule();
+  infoIcon.material.defines={};
+  infoIcon.material.fragmentShader=filmInfoButtonFragment;
+  infoIcon.material.uniforms.uHover={value:0};
+  infoIcon.material.uniforms.uReturn={value:0};
+  this.info={hit:this.button("info"),hover:0,focused:false,icon:infoIcon};
   this.picker=new FilmProjectPicker(this,posters,getScenePixelRatio(renderer));
   for(const texture of new Set(this.layers.map(layer=>layer.texture))){renderer.initTexture(texture);await nextFilmPaint();}
  }
@@ -155,17 +160,13 @@ export class FilmHud {
   info.hover+=(Number(hovered)-info.hover)*(reduced?1:1-Math.exp(-Math.min(delta,.05)*14));
   const infoY=this.infoY,infoHeight=compact?.052:.032;
   const infoAlpha=reveal*(1-focus*.72),label=infoOpen?copy.back:copy.info;
-  const infoWidth=this.placeSurface(label,0,infoY,infoHeight,compact?.40:.25,infoAlpha*(.88+info.hover*.12));
-  label.mesh.material.uniforms.uGain.value=1.15+info.hover*.2;
-  const halfWidth=infoWidth/2+(compact?.035:.019)+info.hover*.003;
-  const halfHeight=compact?.023:.012,stroke=compact?.003:.0024,arm=compact?.013:.008;
-  info.brackets.forEach((bracket,i)=>{
-   const side=i===0?-1:1,x=side*halfWidth,light=infoAlpha*(.78+info.hover*.22);
-   rule(bracket.stem,x,infoY,stroke,halfHeight*2,light);
-   rule(bracket.top,x-side*arm/2,infoY+halfHeight,arm,stroke,light);
-   rule(bracket.bottom,x-side*arm/2,infoY-halfHeight,arm,stroke,light);
-  });
-  this.placeHit(info.hit,0,infoY,halfWidth*2+.024,compact?.09:.060,reveal>.1);
+  const iconSize=compact?.052:.034,gap=compact?.022:.012;
+  const infoWidth=this.placeSurface(label,-(iconSize+gap)/2,infoY,infoHeight,compact?.40:.25,infoAlpha*(.9+info.hover*.1));
+  label.mesh.material.uniforms.uGain.value=1.08+info.hover*.12;
+  rule(info.icon,(infoWidth+gap)/2,infoY,iconSize,iconSize,infoAlpha);
+  info.icon.material.uniforms.uHover.value=info.hover;
+  info.icon.material.uniforms.uReturn.value=Number(infoOpen);
+  this.placeHit(info.hit,0,infoY,infoWidth+gap+iconSize+.024,compact?.09:.060,reveal>.1);
   rule(this.leftRail,-.522,-.020,.003,.32,compact?0:alpha*.65);
   rule(this.leftRailShort,-.534,.115,.003,.035,compact?0:alpha*.55);
   rule(this.leftDash,-.567,-.205,.014,.003,compact?0:alpha*.65);

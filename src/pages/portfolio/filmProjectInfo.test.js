@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { filmProjects } from "./data/filmProjects.js";
-import { filmProjectInfo } from "./data/filmProjectInfo.js";
+import { filmProjectInfo, filmInfoCopy, getFilmInfoSections } from "./data/filmProjectInfo.js";
 import { resolveFilmInfoPresentation, resolveFilmPresentation } from "./filmPresentationLayout.js";
 import { attachFilmInfoView, updateFilmInfoView } from "./filmInteraction.js";
 
@@ -21,7 +21,11 @@ test("a mounted info control immediately adopts the scene frame; stale cleanup c
 test("all published videos have complete localized information and the approved summary", () => {
 	for (const project of filmProjects) for (const locale of ["ru", "en", "zh"]) {
 		const content = filmProjectInfo[project.id][locale];
-		for (const key of ["summary", "purpose", "solution"]) assert.ok(content[key]?.trim(), `${project.id}/${locale}/${key}`);
+		for (const key of ["summary", "purpose"]) assert.ok(content[key]?.trim(), `${project.id}/${locale}/${key}`);
+		const sections = getFilmInfoSections(content, filmInfoCopy[locale]);
+		assert.ok(sections.length, "Every project has a readable contribution section");
+		for (const section of sections) assert.ok(section.title?.trim() && section.body?.trim());
+		if (project.id === "nipigas") { assert.equal(sections.length, 3); assert.ok(content.closing?.trim()); }
 		assert.equal(locale === "ru" ? project.detail : project[locale], content.summary);
 		assert.equal(content.result, undefined, "No measured outcome is claimed without evidence");
 	}

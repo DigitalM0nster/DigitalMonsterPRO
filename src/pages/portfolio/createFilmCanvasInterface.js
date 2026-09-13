@@ -22,17 +22,21 @@ export function createFilmCanvasInterface(renderer, scene) {
 	ui.text("detail", details, { size: 14, width: 280, height: 54, align: "center", color: "#aebfca" });
 	const infoLabels = Object.fromEntries(Object.entries(filmInfoCopy).flatMap(([locale, copy]) =>
 		[[locale, copy.about.toUpperCase()], [`${locale}Back`, copy.back.toUpperCase()]]));
-	const info = ui.text("info", infoLabels, { size: 13, width: 224, height: 44, align: "center", color: "#ffffff", action: () => scene.act("info") });
-	info.button.dataset.filmInfoTrigger = "";
-	ui.add("infoBrackets", { width: 224, height: 44, paint(ctx, _value, w) {
-		ctx.strokeStyle = "#00a9ff"; ctx.lineWidth = 1.2;
-		ctx.beginPath();
-		for (const side of [-1, 1]) {
-			const x = side < 0 ? 1 : w - 1;
-			ctx.moveTo(x - side * 7, 15); ctx.lineTo(x, 15); ctx.lineTo(x, 29); ctx.lineTo(x - side * 7, 29);
-		}
-		ctx.stroke();
+	const backLabels = new Set(Object.values(filmInfoCopy).map(copy => copy.back.toUpperCase()));
+	const info = ui.add("info", { values: infoLabels, width: 224, height: 44, action: () => scene.act("info"), paint(ctx, label, w) {
+		ctx.font = '500 13px ManifoldExtended, "Microsoft YaHei", sans-serif';
+		ctx.textBaseline = "middle"; ctx.fillStyle = "#ffffff";
+		const textWidth = ctx.measureText(label).width, start = (w - textWidth - 40) / 2;
+		ctx.fillText(label, start, 22);
+		const x = start + textWidth + 26, direction = backLabels.has(label) ? -1 : 1;
+		ctx.strokeStyle = "#00a9ff"; ctx.lineWidth = 1.1;
+		ctx.beginPath(); ctx.arc(x, 22, 12, -.14, Math.PI * 1.55); ctx.stroke();
+		ctx.save(); ctx.translate(x, 22); ctx.scale(direction, direction);
+		ctx.strokeStyle = "#e4f6ff"; ctx.lineWidth = 1.2;
+		ctx.beginPath(); ctx.moveTo(-3.5, 3.5); ctx.lineTo(3.5, -3.5);
+		ctx.moveTo(-2, -3.5); ctx.lineTo(3.5, -3.5); ctx.lineTo(3.5, 2); ctx.stroke(); ctx.restore();
 	} });
+	info.button.dataset.filmInfoTrigger = "";
 	ui.text("prev", { default: "‹" }, { size: 27, width: 44, height: 44, align: "center", action: () => scene.act("prev") });
 	ui.text("next", { default: "›" }, { size: 27, width: 44, height: 44, align: "center", action: () => scene.act("next") });
 	ui.text("projects", { ru: "ВСЕ ПРОЕКТЫ  ↗", en: "ALL PROJECTS  ↗", zh: "所有项目  ↗" }, { size: 13, width: 164, height: 44, align: "right",
@@ -83,7 +87,6 @@ export function createFilmCanvasInterface(renderer, scene) {
 		ui.place("info", infoX, infoY, infoWidth, 44, { key: `${locale}${scene.infoOpen ? "Back" : ""}` });
 		info.button.setAttribute("aria-expanded", String(scene.infoOpen));
 		info.button.setAttribute("aria-controls", "film-project-info");
-		ui.place("infoBrackets", infoX, infoY, infoWidth, 44);
 		ui.place("prev", layout.wide ? x + w - 96 : x, y + 2, 44, 44); ui.place("next", x + w - 44, y + 2, 44, 44);
 		const seekY = y + (layout.wide ? -1 : 141), controlsY = y + (layout.wide ? 4 : 153);
 		ui.place("seekTrack", x, seekY, w, 1, { color: 0x204453 });

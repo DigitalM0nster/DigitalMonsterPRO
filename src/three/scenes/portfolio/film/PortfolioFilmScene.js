@@ -139,7 +139,7 @@ export class PortfolioFilmScene {
 		this.infoOpen = open;
 		if (open) {
 			this.hud.picker.close(); this.cancelScrub(); this.media.setAllowed(false);
-			if (!this.motion.info && !this.motion.busy) { this.screen.infoScroll = 0; this.infoEpoch++; }
+			this.infoResetPending = true;
 		}
 		if (animate) this.motion.showInfo(open);
 		publishFilmUi({ ...getFilmUiSnapshot(), index: this.motion.index, infoOpen: open });
@@ -304,6 +304,10 @@ export class PortfolioFilmScene {
 			this.motion.step(1);
 		}
 		if (!this.warming) this.motion.update(delta);
+		// Reset only once the outgoing reading texture is gone, including queued reopen.
+		if (this.infoResetPending && !this.motion.info && this.motion.destinationInfo) {
+			this.screen.infoScroll = 0; this.infoEpoch++; this.infoResetPending = false;
+		}
 		if (this.media.index !== this.motion.index) { this.screen.infoScroll = 0; this.infoEpoch++; }
 		this.media.select(this.motion.index);
 		this.pointerSmooth.lerp(frame.visualPointer ?? (frame.interactionEnabled && !frame.pointerBlocked ? frame.pointer : { x: 0, y: 0 }), ease);

@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { filmProjectInfo, filmInfoCopy } from "@/pages/portfolio/data/filmProjectInfo.js";
+import { filmProjectInfo, filmInfoCopy, getFilmInfoSections } from "@/pages/portfolio/data/filmProjectInfo.js";
 import { nextFilmPaint } from "./FilmMedia.js";
 
 // The complete reading side is painted once per project/locale/layout under Start.
@@ -22,10 +22,9 @@ export class FilmInfoTextures {
 	get(index, locale, mobile) { return this.entries.get(`${index}:${locale}:${mobile}`) || this.entries.get(`${index}:en:${mobile}`); }
 	paint(project, locale, mobile) {
 		const width = mobile ? 640 : 1536, viewportHeight = Math.round(width / 2.05);
-		const padding = mobile ? 42 : 104, bodySize = mobile ? 32 : 34, lineHeight = mobile ? 44 : 49;
+		const padding = mobile ? 40 : 94, bodySize = mobile ? 32 : 32, lineHeight = mobile ? 44 : 45;
 		const canvas = document.createElement("canvas"), ctx = canvas.getContext("2d");
 		const copy = filmInfoCopy[locale], content = filmProjectInfo[project.id][locale];
-		const columns = mobile ? 1 : 2, gap = 86, columnWidth = (width - padding * 2 - gap * (columns - 1)) / columns;
 		const font = size => `400 ${size}px FilmSans, "Microsoft YaHei", sans-serif`;
 		const wrap = (text, size, maxWidth) => {
 			ctx.font = font(size);
@@ -39,33 +38,46 @@ export class FilmInfoTextures {
 			if (line) lines.push(line);
 			return lines;
 		};
-		const sections = [[copy.purpose, content.purpose], [copy.solution, content.solution]];
-		if (content.result) sections.push([copy.result, content.result]);
-		const titleSize = mobile ? 43 : 68;
-		const title = wrap(project.name.toUpperCase(), titleSize, width - padding * 2);
-		const headerBottom = (mobile ? 82 : 134) + title.length * titleSize * 1.15 + (mobile ? 36 : 72);
-		let nextY = headerBottom;
-		const blocks = sections.map(([label, text], index) => {
-			const lines = wrap(text, bodySize, columnWidth);
-			const x = padding + (mobile ? 0 : index % 2 * (columnWidth + gap));
-			const y = mobile || index >= 2 ? nextY : headerBottom;
-			const bottom = y + 46 + lines.length * lineHeight;
-			nextY = Math.max(nextY, bottom + (mobile ? 42 : 44));
-			return { label, lines, x, y, bottom };
-		});
-		canvas.width = width; canvas.height = Math.ceil(Math.max(viewportHeight, nextY + padding));
+		const titleSize = mobile ? 44 : 64, available = width - padding * 2;
+		const title = wrap(project.name.toUpperCase(), titleSize, available);
+		const titleY = mobile ? 36 : 54;
+		const headerBottom = titleY + title.length * titleSize * 1.15 + (mobile ? 48 : 76);
+		const gap = 92, introWidth = mobile ? available : content.sections ? 390 : (available - gap) / 2;
+		const storyWidth = mobile ? available : available - introWidth - gap;
+		const blocks = [];
+		const block = (label, text, x, y, maxWidth, intro = false) => {
+			const labelSize = mobile ? 30 : intro ? 25 : 34;
+			const headings = label ? wrap(label, labelSize, maxWidth) : [];
+			const lines = wrap(text, bodySize, maxWidth);
+			const bodyY = y + (headings.length ? headings.length * (labelSize + 8) + 20 : 0);
+			const bottom = bodyY + lines.length * lineHeight;
+			blocks.push({ headings, labelSize, lines, x, y, bodyY, maxWidth, intro });
+			return bottom;
+		};
+		let introBottom = block(content.introLabel || copy.purpose, content.purpose, padding, headerBottom, introWidth, true);
+		let storyBottom = mobile ? introBottom + 56 : headerBottom;
+		for (const section of getFilmInfoSections(content, copy)) {
+			storyBottom = block(section.title, section.body, mobile ? padding : padding + introWidth + gap, storyBottom, storyWidth) + 62;
+		}
+		if (content.closing) {
+			const closingY = mobile ? storyBottom + 6 : introBottom + 66;
+			introBottom = block("", content.closing, padding, closingY, introWidth, true);
+		}
+		canvas.width = width;
+		canvas.height = Math.ceil(Math.max(viewportHeight, introBottom + padding, storyBottom + padding - 62));
 		ctx.fillStyle = "#040c16"; ctx.fillRect(0, 0, width, canvas.height);
 		ctx.textBaseline = "top";
-		ctx.font = font(mobile ? 22 : 25); ctx.fillStyle = "#00b9ff";
-		ctx.fillText(copy.about.toUpperCase(), padding, mobile ? 32 : 70);
-		ctx.font = font(titleSize); ctx.fillStyle = "#f4f9ff";
-		title.forEach((line, index) => ctx.fillText(line, padding, (mobile ? 74 : 120) + index * titleSize * 1.15));
-		ctx.fillStyle = "#00a9ff"; ctx.fillRect(padding, headerBottom - (mobile ? 20 : 35), mobile ? 80 : 112, 2);
-		for (const { label, lines, x, y } of blocks) {
-			ctx.font = font(mobile ? 22 : 24); ctx.fillStyle = "#00b9ff";
-			ctx.fillText(label.toUpperCase(), x, y);
+		ctx.font = font(titleSize); ctx.fillStyle = "#ffffff";
+		title.forEach((line, index) => ctx.fillText(line, padding, titleY + index * titleSize * 1.15));
+		ctx.fillStyle = "#00a9ff"; ctx.fillRect(padding, headerBottom - 28, mobile ? 48 : 72, 2);
+		for (const { headings, labelSize, lines, x, y, bodyY, maxWidth, intro } of blocks) {
+			if (!intro && y > headerBottom) {
+				ctx.fillStyle = "#164154"; ctx.fillRect(x, y - 30, maxWidth, 1);
+			}
+			ctx.font = font(labelSize); ctx.fillStyle = "#ffffff";
+			headings.forEach((line, index) => ctx.fillText(line, x, y + index * (labelSize + 8)));
 			ctx.font = font(bodySize); ctx.fillStyle = "#eff5fa";
-			lines.forEach((line, index) => ctx.fillText(line, x, y + 46 + index * lineHeight));
+			lines.forEach((line, index) => ctx.fillText(line, x, bodyY + index * lineHeight));
 		}
 		const texture = new THREE.CanvasTexture(canvas);
 		texture.colorSpace = THREE.NoColorSpace; texture.generateMipmaps = false;

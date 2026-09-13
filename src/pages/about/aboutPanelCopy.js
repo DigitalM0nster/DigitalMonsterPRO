@@ -27,7 +27,7 @@ const ABOUT_PANEL_COPY = {
 			pathTitle: "СТУДИЯ",
 			title: "DIGITAL\nMONSTER",
 			descriptionParagraphs: [
-				"Мы создаём сайты, веб-приложения и интерактивные презентации. Нам важно всё: первое впечатление, понятные действия, удобство в мелочах. Доводим до ощущения: «Будто сделали специально для меня».",
+				"Мы создаём сайты, веб-приложения и интерактивные проекты. Нам важно всё: первое впечатление, понятные действия, удобство в мелочах. Доводим до ощущения: «Будто сделали специально для меня».",
 				"Здесь человек чувствует, что его поняли: всё удобно, понятно, отвечает тому, что ему нужно.",
 			],
 			listItems: [
@@ -41,7 +41,7 @@ const ABOUT_PANEL_COPY = {
 			pathTitle: "STUDIO",
 			title: "DIGITAL\nMONSTER",
 			descriptionParagraphs: [
-				"We create websites, web applications, and interactive presentations. Every detail matters to us: the first impression, clear actions, and everyday ease of use. We refine it until it feels “made just for me.”",
+				"We create websites, web applications, and interactive projects. Every detail matters to us: the first impression, clear actions, and everyday ease of use. We refine it until it feels “made just for me.”",
 				"People feel understood here: everything is easy to use, clear, and meets their needs.",
 			],
 			listItems: [
@@ -55,7 +55,7 @@ const ABOUT_PANEL_COPY = {
 			pathTitle: "工作室",
 			title: "DIGITAL\nMONSTER",
 			descriptionParagraphs: [
-				"我们打造网站、网页应用和互动演示。我们在意每个细节：第一印象、清晰的操作，以及日常使用的便利。不断打磨，直到让人觉得：“仿佛是专门为我做的。”",
+				"我们打造网站、网页应用和互动项目。我们在意每个细节：第一印象、清晰的操作，以及日常使用的便利。不断打磨，直到让人觉得：“仿佛是专门为我做的。”",
 				"在这里，人们感到自己被理解：一切都方便、清楚，也符合自己的需要。",
 			],
 			listItems: [
@@ -140,8 +140,8 @@ const ABOUT_PANEL_COPY = {
 					subtitle: "Браузерные сервисы и интерфейсы для сложных пользовательских задач.",
 				},
 				{
-					title: "DIGITAL-ПРЕЗЕНТАЦИИ",
-					subtitle: "Интерактивные презентации продуктов, шоурумы и конфигураторы.",
+					title: "ИНТЕРАКТИВНЫЕ ПРОЕКТЫ",
+					subtitle: "Помогаем показать продукт в действии, познакомиться с его возможностями и освоить работу с ним",
 				},
 			],
 		},
@@ -162,8 +162,8 @@ const ABOUT_PANEL_COPY = {
 					subtitle: "Browser services and interfaces for complex user tasks.",
 				},
 				{
-					title: "DIGITAL PRESENTATIONS",
-					subtitle: "Interactive product presentations, showrooms, and configurators.",
+					title: "INTERACTIVE PROJECTS",
+					subtitle: "We help people see your product in action, explore its features, and learn how to use it.",
 				},
 			],
 		},
@@ -184,8 +184,8 @@ const ABOUT_PANEL_COPY = {
 					subtitle: "面向复杂用户任务的浏览器服务与界面。",
 				},
 				{
-					title: "数字演示",
-					subtitle: "互动产品演示、展厅与配置器。",
+					title: "互动项目",
+					subtitle: "让人们看到产品的实际运作，了解其功能，并掌握使用方法。",
 				},
 			],
 		},

@@ -40,8 +40,8 @@ export class PortfolioFilmScene {
 		this.onViewportResize(window.innerWidth, window.innerHeight);
 		this.reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 		this.reveal = 0;
-		this.focus = 0;
-		this.focusTarget = 0;
+		this.focus = this.layout.mobile ? 1 : 0;
+		this.focusTarget = this.focus;
 		this.enterPending = true;
 		this.appStarted = false;
 		this.warming = false;
@@ -95,6 +95,7 @@ export class PortfolioFilmScene {
 	getModelsGrainBlurConfig() { return { enabled: false }; }
 	onViewportResize(width, height) {
   this.layout = getFilmLayout(width / height, width, height);
+  if (this.layout.mobile) this.focus = this.focusTarget = 1;
   const reading = resolveFilmPresentation(width, height, 1);
   const viewHeight = this.layout.viewWidth / (width / height);
   this.readingLayout = reading ? {
@@ -127,7 +128,7 @@ export class PortfolioFilmScene {
 		this.cancelScrub();
 		this.enterPending = true;
 		this.reveal = 0;
-		this.focus = this.focusTarget = 0;
+		this.focus = this.focusTarget = this.layout?.mobile ? 1 : 0;
 		this.media.setAllowed(false);
 		this.hud.setHover(null);
 		this.screen?.controls.setHover(null);
@@ -155,6 +156,7 @@ export class PortfolioFilmScene {
 	}
 	act(action) {
 		if (!this.ready) return;
+		if (this.layout.mobile && (action === "inspect" || action?.type === "reading-click")) return;
 		if (action === "fullscreen") { this.media.openFullscreen(); return; }
 		if (action?.type === "reading-click") {
 			const hit = this.eventHit(action);
@@ -205,7 +207,7 @@ export class PortfolioFilmScene {
 		this.raycaster.setFromCamera(ndc, this.camera);
 		const targets = this.layout.mobile ? [] : this.hud.hitTargets.filter((mesh) => mesh.userData.enabled);
 		if (!this.layout.mobile) for (const target of this.screen.controls.hitTargets) if (target.userData.enabled) targets.push(target);
-		targets.push(this.screen.hit);
+		if (!this.layout.mobile) targets.push(this.screen.hit);
 		const timeline = this.screen.controls.timeline;
 		const volume = this.screen.controls.volume;
 		const hits = this.raycaster.intersectObjects(targets, false);
@@ -312,6 +314,7 @@ export class PortfolioFilmScene {
 		if (visible && this.enterPending && inMix) this.enterPending = false;
 		const ease = 1 - Math.exp(-Math.min(delta, 0.05) * 7);
 		if (this.appStarted && !this.enterPending) this.reveal += (1 - this.reveal) * ease;
+		if (this.layout.mobile) this.focusTarget = 1;
 		this.focus += (this.focusTarget - this.focus) * ease;
 		if (this.appStarted && this.routeActive && current && !inMix && !this.warming && !this.motion.busy && !this.infoOpen && !this.motion.info && !this.hud.picker.state.pinned && this.media.consumeEnded()) {
 			this.media.restart((this.motion.index + 1) % filmProjects.length);

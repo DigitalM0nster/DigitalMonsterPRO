@@ -16,13 +16,20 @@ export function createFilmCanvasInterface(renderer, scene) {
 	const ui = new SceneCanvasInterface("portfolioHub", renderer); ui.projectsOpen = false; ui.volumeOpen = false; ui.sheetScroll = 0;
 	ui.text("heading", Object.fromEntries(Object.entries(filmCopy).map(([locale, copy]) => [locale, copy.eyebrow])), { size: 12, width: 260, height: 28, color: "#9cafba" });
 	ui.text("count", variants((p, i) => `${String(i + 1).padStart(2, "0")} / ${String(filmProjects.length).padStart(2, "0")}`), { size: 13, width: 70, height: 28, align: "right" });
-	ui.text("name", variants(p => wrap(p.name.toUpperCase(), 18)), { size: 21, width: 240, height: 58, align: "center" });
+	ui.add("name", { values: variants(p => p.name.toUpperCase()), width: 400, height: 44, paint(ctx, value, w, h) {
+		ctx.font = '500 24px ManifoldExtended, "Segoe UI", sans-serif';
+		const size = 24 * Math.min(1, 236 / Math.max(1, ctx.measureText(value).width));
+		ctx.font = `500 ${size}px ManifoldExtended, "Segoe UI", sans-serif`;
+		ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = "#ffffff";
+		ctx.fillText(value, w / 2, h / 2);
+	} });
 	const details = {};
 	for (const locale of ["ru", "en", "zh"]) for (const [i, p] of filmProjects.entries()) details[`${locale}${i}`] = wrap(locale === "ru" ? p.detail : p[locale]);
 	ui.text("detail", details, { size: 14, width: 280, height: 54, align: "center", color: "#aebfca" });
 	const infoLabels = Object.fromEntries(Object.entries(filmInfoCopy).flatMap(([locale, copy]) =>
 		[[locale, copy.about.toUpperCase()], [`${locale}Back`, copy.back.toUpperCase()]]));
 	const backLabels = new Set(Object.values(filmInfoCopy).map(copy => copy.back.toUpperCase()));
+	ui.add("infoShade");
 	const info = ui.add("info", { values: infoLabels, width: 224, height: 44, action: () => scene.act("info"), paint(ctx, label, w) {
 		ctx.font = '500 13px ManifoldExtended, "Microsoft YaHei", sans-serif';
 		ctx.textBaseline = "middle"; ctx.fillStyle = "#ffffff";
@@ -89,20 +96,23 @@ export function createFilmCanvasInterface(renderer, scene) {
 		const layout = resolveFilmPresentation(ui.width, ui.height, infoAmount); ui.enabled = !!layout;
 		if (!layout) { ui.projectsOpen = ui.volumeOpen = false; return; }
 		const locale = store.siteLocale || "ru", index = scene.motion.index, media = scene.media;
-		const { heading, panel, directory } = layout, x = panel.left, y = panel.top, w = panel.width;
-		ui.place("heading", heading.left, heading.top, 260, 28, { key: locale });
-		ui.place("count", heading.left + heading.width - 70, heading.top, 70, 28, { key: index });
-		const nameWidth = Math.min(240, w - 78);
-		ui.place("name", x + (w - nameWidth) / 2, y - (layout.wide ? 14 : 4), nameWidth, 58, { key: index, opacity: videoOpacity });
-		ui.place("detail", x + (w - Math.min(280, w)) / 2, y + (layout.wide ? 14 : 40), Math.min(280, w), 54, { key: `${locale}${index}`, opacity: videoOpacity });
+		const { heading, panel, screen, directory } = layout, x = panel.left, y = panel.top, w = panel.width;
+		if (layout.wide) {
+			ui.place("heading", heading.left, heading.top, 260, 28, { key: locale });
+			ui.place("count", heading.left + heading.width - 70, heading.top, 70, 28, { key: index });
+			ui.place("detail", x + (w - Math.min(280, w)) / 2, y + 14, Math.min(280, w), 54, { key: `${locale}${index}`, opacity: videoOpacity });
+		}
+		const nameScale = Math.min(1, (heading.width - 96) / 240), nameWidth = 400 * nameScale;
+		ui.place("name", heading.left + (heading.width - nameWidth) / 2, (layout.wide ? y - 14 : heading.top) + (44 - 44 * nameScale) / 2, nameWidth, 44 * nameScale, { key: index, opacity: layout.wide ? videoOpacity : 1 });
 		const infoWidth = Math.min(224, w), infoX = x + (w - infoWidth) / 2;
-		const infoY = Math.min(ui.height - 58, y + (layout.wide ? 24 : 90) * videoOpacity);
+		const infoY = layout.wide ? Math.min(ui.height - 58, y + 24 * videoOpacity) : screen.bottom - 56 * videoOpacity + 8 * infoAmount;
+		if (!layout.wide) ui.place("infoShade", infoX, infoY, infoWidth, 44, { color: 0x020a12, opacity: .78 * videoOpacity });
 		ui.place("info", infoX, infoY, infoWidth, 44, { key: `${locale}${scene.infoOpen ? "Back" : ""}` });
 		info.button.setAttribute("aria-expanded", String(scene.infoOpen));
 		info.button.setAttribute("aria-controls", "film-project-info");
-		ui.place("prev", layout.wide ? x + w - 96 : x, y + 2, 44, 44); ui.place("next", x + w - 44, y + 2, 44, 44);
-		const controlsOffset = infoAmount * (layout.landscape ? 0 : 100);
-		const seekY = y + (layout.wide ? -1 : 141) - controlsOffset, controlsY = y + (layout.wide ? 4 : 153) - controlsOffset;
+		ui.place("prev", layout.wide ? x + w - 96 : heading.left, layout.wide ? y + 2 : heading.top, 44, 44);
+		ui.place("next", heading.left + heading.width - 44, layout.wide ? y + 2 : heading.top, 44, 44);
+		const seekY = y, controlsY = y + 8;
 		ui.place("seekTrack", x, seekY, w, 1, { color: 0x204453, opacity: videoOpacity });
 		ui.place("seekValue", x, seekY - 1, Math.max(1, w * (media.progress || 0)), 2, { color: 0x00a9ff, opacity: videoOpacity });
 		ui.place("seek", x, seekY - 12, w, 24, { opacity: .002 * videoOpacity, color: 0x000000 });

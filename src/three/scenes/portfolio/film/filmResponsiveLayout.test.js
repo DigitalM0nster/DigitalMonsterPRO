@@ -96,3 +96,16 @@ test("ordinary desktop keeps its authored composition and resize never accumulat
 		assert.deepEqual(getFilmLayout(aspect, width, height), first);
 	}
 });
+
+test("mobile titles, video and player form a compact vertical stack in both orientations", () => {
+	for (const [width, height] of sizes.filter(([w]) => w <= 1024)) {
+		const layout = resolveFilmPresentation(width, height);
+		assert.ok(layout.heading.top + 44 <= layout.screen.top - 8);
+		assert.equal(layout.panel.top - layout.screen.bottom, 10);
+		assert.ok(layout.panel.width >= 296, "player and project picker retain separate touch targets");
+		assert.ok(layout.panel.top + 52 <= height - (height <= 480 ? 54 : 72));
+		const reading = resolveFilmPresentation(width, height, 1);
+		assert.ok(reading.heading.top + 44 <= reading.screen.top - 8);
+		assert.equal(reading.panel.top - reading.screen.bottom, 10);
+	}
+});

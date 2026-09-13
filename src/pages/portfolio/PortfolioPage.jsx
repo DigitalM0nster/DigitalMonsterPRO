@@ -3,7 +3,6 @@ import { usePageStateClasses } from "@/app/context/RouteTransitionContext.jsx";
 import { filmProjects } from "./data/filmProjects.js";
 import { requestFilmAction } from "./filmInteraction.js";
 import styles from "./PortfolioPage.module.scss";
-import FilmProjectInfo from "./FilmProjectInfo.jsx";
 
 /** Visible media, typography and controls belong to PortfolioFilmScene. */
 export default function PortfolioPage() {
@@ -12,7 +11,6 @@ export default function PortfolioPage() {
 	if (location.pathname.replace(/\/+$/, "") !== "/portfolio") return <Navigate to="/portfolio" replace />;
 	return (
 		<section className={`${pageClass} ${styles.page}`} aria-label="Portfolio">
-			<FilmProjectInfo />
 			<nav className={styles.accessibleControls} aria-label="Projects">
 				<button onClick={() => requestFilmAction("projects")}>Избранные проекты</button>
 				{filmProjects.map((project, index) => <button key={project.id} onClick={() => requestFilmAction(index)}>{project.name}</button>)}

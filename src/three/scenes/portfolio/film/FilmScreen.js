@@ -9,7 +9,8 @@ import { hologramFields, loadHologramSettings } from "./filmHologramConfig.js";
 import { FilmHologramDevTools } from "./FilmHologramDevTools.js";
 
 export class FilmScreen {
- constructor(media,reducedMotion) {
+ constructor(media,reducedMotion,infoTextures) {
+  this.infoTextures=infoTextures;this.infoScroll=0;
   this.media=media;this.root=new THREE.Group();this.root.name="PortfolioFilmScreen";
   this.art=new THREE.Group();this.root.add(this.art);
   this.projection=new FilmProjection({reduced:reducedMotion,low:getGraphicsTier()==="low"});this.art.add(this.projection.root);
@@ -22,6 +23,7 @@ export class FilmScreen {
   this.hologramSettings=loadHologramSettings(allowTuning);
   this.hologramValues={...this.hologramSettings};
   this.uniforms={uFrom:{value:media.get(0)},uTo:{value:media.get(0)},uFromAspect:{value:media.aspect(0)},uToAspect:{value:media.aspect(0)},
+   uFromInfo:{value:new THREE.Vector2()},uToInfo:{value:new THREE.Vector2()},
    uProgress:{value:0},uDirection:{value:1},uOpacity:{value:1},uReduced:{value:reducedMotion?1:0},
    uTime:{value:0},uGlitchTime:{value:0},uFocus:{value:0},uDpr:{value:1},uLow:{value:getGraphicsTier()==="low"?1:0},uHeaderEnd:{value:-.378}};
   for(const [key] of hologramFields)this.uniforms[`uHolo${key}`]={value:this.hologramValues[key]};
@@ -54,7 +56,7 @@ export class FilmScreen {
   geometry.setAttribute("aSeed",new THREE.InstancedBufferAttribute(seeds,1));geometry.instanceCount=blocks.length;
   return geometry;
  }
- update(motion,reveal,focus,layout,pointer,reduced,delta=0){
+ update(motion,reveal,focus,layout,pointer,reduced,delta=0,locale="ru"){
   const u=this.uniforms;if(!reduced)u.uTime.value+=Math.min(delta,.05);
   u.uFocus.value=focus;
   const target=this.hologramSettings;
@@ -67,6 +69,11 @@ export class FilmScreen {
   if(!reduced)u.uGlitchTime.value+=Math.min(delta,.05)*this.hologramValues.speed;
   u.uFrom.value=this.media.get(motion.index);u.uTo.value=this.media.get(motion.destination);
   u.uFromAspect.value=this.media.aspect(motion.index);u.uToAspect.value=this.media.aspect(motion.destination);
+  for(const [side,index,info] of [["From",motion.index,motion.info],["To",motion.destination,motion.destinationInfo]]){
+   const entry=info?this.infoTextures.get(index,locale,layout.mobile):null;
+   u[`u${side}Info`].value.set(entry?entry.viewportHeight/entry.height:0,this.infoScroll);
+   if(entry){u[`u${side}`].value=entry.texture;u[`u${side}Aspect`].value=2.05;}
+  }
   u.uProgress.value=Math.abs(motion.progress);u.uDirection.value=Math.sign(motion.progress)||1;u.uOpacity.value=reveal;
   this.root.position.set(layout.x,layout.y-(1-reveal)*.22,0).multiplyScalar(layout.compositionScale);
   this.root.scale.setScalar(layout.width*layout.compositionScale*(1+focus*(layout.compact?.02:.15)));

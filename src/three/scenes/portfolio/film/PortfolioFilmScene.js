@@ -14,6 +14,7 @@ import { isRingDormantReason } from "../../lifecycle/sceneLifecycle.js";
 import { applySceneProgressToCamera } from "../../utils/applySceneProgressToCamera.js";
 import { FilmMedia } from "./FilmMedia.js";
 import { FilmScreen } from "./FilmScreen.js";
+import { FilmInfoTextures } from "./FilmInfoTextures.js";
 import { FilmHud } from "./FilmHud.js";
 import { FilmTransitionSound } from "./FilmTransitionSound.js";
 import { FilmMotion, getFilmLayout } from "./filmMotion.js";
@@ -25,6 +26,7 @@ export class PortfolioFilmScene {
 		this.threeScene.name = "Portfolio / Digital film";
 		this.motion = new FilmMotion(filmProjects.length);
 		this.media = new FilmMedia(filmProjects);
+		this.infoTextures = new FilmInfoTextures(filmProjects);
 		this.hud = new FilmHud(filmProjects);
 		this.transitionSound = new FilmTransitionSound();
 		this.camera = new THREE.PerspectiveCamera();
@@ -33,6 +35,7 @@ export class PortfolioFilmScene {
 		this.pointerSmooth = new THREE.Vector2();
 		this.pointerSeen = false;
 		this.infoOpen = false;
+		this.infoEpoch = 0;
 		this.infoPoint = new THREE.Vector3();
 		this.layout = getFilmLayout(window.innerWidth / window.innerHeight, window.innerWidth, window.innerHeight);
 		this.reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -46,7 +49,12 @@ export class PortfolioFilmScene {
 		this.disposed = false;
 		this.readyPromise = this.prepare(renderer);
 		this.detachActions = attachFilmActions((action) => {
-			if (this.appStarted && getSceneCarousel().currentId === "portfolioHub") this.act(action);
+			const carousel = getSceneCarousel();
+			const { sourceId, targetId } = carousel.getMixSourceTargetIds();
+			// DOM callers already gate the event's Y band. The incoming screen must
+			// not wait for the HTML route commit to accept its own visible button.
+			if (this.appStarted && (carousel.currentId === "portfolioHub" ||
+				(getHexShaderProgress() > .001 && [sourceId, targetId].includes("portfolioHub")))) this.act(action);
 		});
 		this.attachInput();
 	}
@@ -55,7 +63,9 @@ export class PortfolioFilmScene {
 		if (this.disposed) return;
 		await this.hud.prepare(renderer,this.media.posters);
 		if (this.disposed) { this.hud.dispose(); return; }
-		this.screen = new FilmScreen(this.media, this.reduced);
+		await this.infoTextures.prepare(renderer);
+		if (this.disposed) return;
+		this.screen = new FilmScreen(this.media, this.reduced, this.infoTextures);
 		// Both viewing modes share the optical frame, above the opaque project selector.
 		this.screen.frame.renderOrder = 29;
 		this.screen.uniforms.uDpr.value = getScenePixelRatio(renderer);
@@ -123,17 +133,25 @@ export class PortfolioFilmScene {
 		camera.updateMatrixWorld();
 		this.camera.copy(camera);
 	}
-	setInfoOpen(open) {
+	setInfoOpen(open, animate = true) {
 		if (open === this.infoOpen) return;
 		this.infoOpen = open;
-		if (open) { this.hud.picker.close(); this.cancelScrub(); this.media.setAllowed(false); }
+		if (open) {
+			this.hud.picker.close(); this.cancelScrub(); this.media.setAllowed(false);
+			if (!this.motion.info && !this.motion.busy) { this.screen.infoScroll = 0; this.infoEpoch++; }
+		}
+		if (animate) this.motion.showInfo(open);
 		publishFilmUi({ ...getFilmUiSnapshot(), index: this.motion.index, infoOpen: open });
 	}
 	act(action) {
 		if (!this.ready) return;
 		if (action === "info-close") { this.setInfoOpen(false); return; }
 		if (action === "info") {
-			if (!this.motion.busy) this.setInfoOpen(!this.infoOpen);
+			this.setInfoOpen(!this.infoOpen);
+			return;
+		}
+		if (action?.type === "info-scroll") {
+			if (this.motion.info && !this.motion.busy && Number.isFinite(action.value)) this.screen.infoScroll = THREE.MathUtils.clamp(action.value, 0, 1);
 			return;
 		}
 		if (this.infoOpen && action === "play") {
@@ -141,7 +159,8 @@ export class PortfolioFilmScene {
 			if (this.media.active?.paused) this.media.toggle();
 			return;
 		}
-		if (["prev", "next", "projects", "projects-open", "inspect"].includes(action) || typeof action === "number") this.setInfoOpen(false);
+		if (["prev", "next"].includes(action) || typeof action === "number") this.setInfoOpen(false, false);
+		else if (["projects", "projects-open", "inspect"].includes(action)) this.setInfoOpen(false);
 		if (typeof action === "object" && action?.type === "seek") { this.media.seek(action.progress); return; }
 		if (typeof action === "object" && action?.type === "volume") { this.media.setVolume(action.value); return; }
 		if (action === "projects") { this.hud.picker.state.toggle(); return; }
@@ -272,7 +291,7 @@ export class PortfolioFilmScene {
 		const carousel = getSceneCarousel();
 		const current = carousel.currentId === "portfolioHub";
 		const inMix = getHexShaderProgress() > 0.001;
-		if (inMix || !current) this.setInfoOpen(false);
+		if (!current && !(inMix && carousel.getMixSourceTargetIds().targetId === "portfolioHub")) this.setInfoOpen(false);
 		const visible = current || inMix;
 		if (visible && this.enterPending && inMix) this.enterPending = false;
 		const ease = 1 - Math.exp(-Math.min(delta, 0.05) * 7);
@@ -283,16 +302,17 @@ export class PortfolioFilmScene {
 			this.motion.step(1);
 		}
 		if (!this.warming) this.motion.update(delta);
+		if (this.media.index !== this.motion.index) { this.screen.infoScroll = 0; this.infoEpoch++; }
 		this.media.select(this.motion.index);
 		this.pointerSmooth.lerp(frame.visualPointer ?? (frame.interactionEnabled && !frame.pointerBlocked ? frame.pointer : { x: 0, y: 0 }), ease);
 		const reveal = this.warming ? 1 : this.reveal;
-		this.screen.update(this.motion, reveal, this.focus, this.layout, this.pointerSmooth, this.reduced, this.warming ? 0 : delta);
+		this.screen.update(this.motion, reveal, this.focus, this.layout, this.pointerSmooth, this.reduced, this.warming ? 0 : delta, getPortfolioLocale());
 		this.transitionSound.update(delta, this.motion, this.appStarted && this.routeActive && current && !inMix && !this.warming && reveal > .1);
 		this.hud.update({ motion: this.motion, reveal, focus: this.focus, layout: this.layout, locale: getPortfolioLocale(), warm: this.warming, delta, reduced: this.reduced });
 		this.hud.root.visible = !this.layout.mobile;
 		this.screen.uniforms.uHeaderEnd.value = this.hud.headerEnd;
 		const play = this.appStarted && this.routeActive && !this.warming && current && !inMix && !carousel.isInteractionLocked() && !!filmProjects[this.motion.index].video && !this.motion.busy;
-		this.media.setAllowed(play && !this.hud.picker.state.pinned && !this.infoOpen);
+		this.media.setAllowed(play && !this.hud.picker.state.pinned && !this.infoOpen && !this.motion.info);
 		if (!this.warming && frame.interactionEnabled && !frame.pointerBlocked && reveal > 0.1) {
 			const target = this.hitTargetAt(frame.pointer);
 			const hit = target?.userData.filmAction ?? null;
@@ -302,7 +322,8 @@ export class PortfolioFilmScene {
 			this.store.cursor.projectListHovered = hit !== null;
 		} else { this.hud.setHover(null); this.screen.controls.setHover(null); }
 		this.media.updateSound(delta, this.store.soundsActive);
-		this.screen.controls.update({ layout: this.layout, reveal, playing: this.media.playing, video: !!filmProjects[this.motion.index].video, focus: this.focus, reduced: this.reduced, delta, warm: this.warming, progress: this.media.progress, seekable: this.media.seekable && !this.motion.busy, duration: this.media.video?.duration, volume: this.media.volumeLevel, muted: !this.store.soundsActive || this.media.volumeLevel === 0 });
+		const infoAmount = THREE.MathUtils.lerp(Number(this.motion.info), Number(this.motion.destinationInfo), Math.abs(this.motion.progress));
+		this.screen.controls.update({ layout: this.layout, reveal: reveal * (1 - infoAmount), playing: this.media.playing, video: !!filmProjects[this.motion.index].video, focus: this.focus, reduced: this.reduced, delta, warm: this.warming, progress: this.media.progress, seekable: this.media.seekable && !this.motion.busy, duration: this.media.video?.duration, volume: this.media.volumeLevel, muted: !this.store.soundsActive || this.media.volumeLevel === 0 });
 		this.screen.controls.root.visible = !this.layout.mobile;
 		if (!this.warming) this.updateInfoView(current, inMix);
 		if (this.layout.mobile && !this.warming && current) {
@@ -321,7 +342,7 @@ export class PortfolioFilmScene {
 			this.screen.root.localToWorld(this.infoPoint); this.infoPoint.project(this.camera);
 			return { x: (this.infoPoint.x + 1) * width / 2, y: (1 - this.infoPoint.y) * height / 2 };
 		};
-		const left = project(-.43, 0), right = project(.43, 0), top = project(0, .205), bottom = project(0, -.19), anchor = project(0, -.391);
+		const left = project(-.49, 0), right = project(.49, 0), top = project(0, .239), bottom = project(0, -.239), anchor = project(0, -.391);
 		const box = resolveFilmInfoPresentation(width, height, { left: left.x, right: right.x, top: top.y, bottom: bottom.y, anchorX: anchor.x, anchorY: anchor.y });
 		const { sourceId, targetId } = getSceneCarousel().getMixSourceTargetIds();
 		let clipTop = 0, clipBottom = 0;
@@ -331,11 +352,14 @@ export class PortfolioFilmScene {
 			else clipBottom = (source ? p : 1 - p) * height;
 		}
 		const belongs = current || (inMix && [sourceId, targetId].includes("portfolioHub"));
-		updateFilmInfoView({ ...box, clipTop, clipBottom,
-			opacity: this.appStarted && belongs ? this.reveal * (1 - this.focus) * (this.motion.busy ? 0 : 1) : 0 });
+		const info = this.infoTextures.get(this.motion.index, getPortfolioLocale(), this.layout.mobile);
+		const infoVisible = this.motion.info && !this.motion.busy;
+		updateFilmInfoView({ ...box, left: left.x, top: top.y, width: right.x - left.x, height: bottom.y - top.y,
+			contentRatio: info.height / info.viewportHeight, infoVisible, clipTop, clipBottom,
+			opacity: this.appStarted && belongs ? this.reveal : 0 });
 		const snapshot = getFilmUiSnapshot();
-		if (snapshot.index !== this.motion.index || snapshot.infoOpen !== this.infoOpen)
-			publishFilmUi({ ...snapshot, index: this.motion.index, infoOpen: this.infoOpen });
+		if (snapshot.index !== this.motion.index || snapshot.infoOpen !== this.infoOpen || snapshot.infoVisible !== infoVisible || snapshot.infoEpoch !== this.infoEpoch)
+			publishFilmUi({ ...snapshot, index: this.motion.index, infoOpen: this.infoOpen, infoVisible, infoEpoch: this.infoEpoch });
 	}
 	dispose() {
 		this.setInfoOpen(false);
@@ -346,6 +370,7 @@ export class PortfolioFilmScene {
 		window.removeEventListener("blur", this.onCancel);
 		for (const [type, handler] of [["pointerdown", this.onDown], ["pointermove", this.onMove], ["pointerup", this.onUp], ["pointercancel", this.onCancel], ["keydown", this.onKey]]) window.removeEventListener(type, handler);
 		this.media.dispose();
+		this.infoTextures.dispose();
 		this.transitionSound.dispose();
 		this.hud.dispose();
 		this.screen?.dispose();

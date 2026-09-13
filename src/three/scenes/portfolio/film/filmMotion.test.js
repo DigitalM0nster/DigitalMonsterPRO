@@ -5,6 +5,40 @@ import { dispatchLocalSceneScroll, registerLocalSceneScroll } from "../../../ren
 
 function settle(motion) { for (let i = 0; i < 600; i++) motion.update(1 / 60); }
 
+test("video and information share one immutable glitch pair and return without changing the project", () => {
+	const motion = new FilmMotion(7);
+	motion.select(2); settle(motion);
+	motion.showInfo(true);
+	assert.equal(motion.destination, 2); assert.equal(motion.destinationInfo, true);
+	motion.update(1 / 60); const p = motion.progress;
+	motion.showInfo(false);
+	assert.equal(motion.progress, p); assert.equal(motion.destinationInfo, true, "do not swap textures mid-glitch");
+	settle(motion);
+	assert.equal(motion.index, 2); assert.equal(motion.info, false); assert.equal(motion.busy, false);
+});
+
+test("navigation from information goes directly to the requested video and keeps all clicks", () => {
+	const motion = new FilmMotion(7);
+	motion.showInfo(true); settle(motion);
+	assert.equal(motion.info, true);
+	motion.step(1); motion.update(.03);
+	assert.equal(motion.info, true); assert.equal(motion.destinationInfo, false); assert.equal(motion.destination, 1);
+	motion.step(1); motion.step(1); motion.select(5);
+	settle(motion);
+	assert.equal(motion.index, 5); assert.equal(motion.info, false); assert.equal(motion.selectionInfo, false);
+});
+
+test("rapid information toggles during a project change coalesce into the last requested side", () => {
+	const motion = new FilmMotion(7);
+	motion.select(3); motion.update(.03);
+	motion.showInfo(true); motion.showInfo(false); motion.showInfo(true);
+	assert.equal(motion.destinationInfo, false);
+	settle(motion);
+	assert.equal(motion.index, 3); assert.equal(motion.info, true);
+	motion.select(3); settle(motion);
+	assert.equal(motion.info, false); assert.equal(motion.busy, false);
+});
+
 test("project arrows navigate in both directions", () => {
 	const motion = new FilmMotion(5);
 	assert.equal(motion.step(1), true);

@@ -3,6 +3,20 @@ import assert from "node:assert/strict";
 import { filmProjects } from "./data/filmProjects.js";
 import { filmProjectInfo } from "./data/filmProjectInfo.js";
 import { resolveFilmInfoPresentation, resolveFilmPresentation } from "./filmPresentationLayout.js";
+import { attachFilmInfoView, updateFilmInfoView } from "./filmInteraction.js";
+
+test("a mounted info control immediately adopts the scene frame; stale cleanup cannot detach its replacement", () => {
+	const frame = { opacity: .6, anchorX: 640, anchorY: 630, clipTop: 400, clipBottom: 0 };
+	updateFilmInfoView(frame);
+	const first = [], second = [];
+	const detachFirst = attachFilmInfoView(value => first.push(value));
+	assert.deepEqual(first, [frame], "no route-mounted frame waiting at the default origin");
+	const detachSecond = attachFilmInfoView(value => second.push(value));
+	detachFirst();
+	updateFilmInfoView({ opacity: 0 });
+	assert.deepEqual(second, [frame, { opacity: 0 }]);
+	assert.deepEqual(first, [frame]); detachSecond();
+});
 
 test("all published videos have complete localized information and the approved summary", () => {
 	for (const project of filmProjects) for (const locale of ["ru", "en", "zh"]) {

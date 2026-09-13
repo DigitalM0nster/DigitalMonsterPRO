@@ -118,7 +118,7 @@ export class FilmHud {
   this.picker.update({layout,locale,motion,alpha,focus,delta,warm,reduced});
   const copy=this.locales[locale]??this.locales.en,p=Math.abs(motion.progress);
   for(let i=0;i<this.projects.length;i++){
-   const a=i===motion.index?(motion.busy?1-Math.min(1,p*2):1):i===motion.destination?Math.max(0,(p-.5)*2):0;
+   const a=i===motion.index?(motion.busy&&motion.index!==motion.destination?1-Math.min(1,p*2):1):i===motion.destination?Math.max(0,(p-.5)*2):0;
    // Keep the project serial in the upper-left frame notch; the controls live below the film.
    const serialHeight=compact?.066:.035,serialLimit=compact?.10:.052;
    const serialWidth=this.surfaceWidth(this.serials[i],serialHeight,serialLimit);

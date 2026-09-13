@@ -16,11 +16,12 @@ export function publishFilmUi(next) {
 	for (const listener of listeners) listener();
 }
 
-// A small DOM information card follows the existing scene frame. No React frame
-// subscription or text texture is needed for its screen position.
+// Persistent DOM hit/reading surface follows the scene, including before route commit.
 let infoView = null;
+let infoFrame = { opacity: 0 };
 export function attachFilmInfoView(view) {
 	infoView = view;
+	view(infoFrame);
 	return () => { if (infoView === view) infoView = null; };
 }
-export function updateFilmInfoView(frame) { infoView?.(frame); }
+export function updateFilmInfoView(frame) { infoFrame = frame; infoView?.(frame); }

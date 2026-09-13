@@ -21,6 +21,7 @@ function frameBounds(width, height, focus) {
 	const frame = new THREE.Mesh(geometry); frame.position.z = .015; root.add(frame);
 	const names = ["uTime", "uFocus", "uGlitchTime", "uFrom", "uTo", "uFromAspect", "uToAspect", "uProgress", "uDirection", "uOpacity"];
 	const uniforms = Object.fromEntries(names.map(name => [name, { value: 0 }]));
+	uniforms.uFromInfo = { value: new THREE.Vector2() }; uniforms.uToInfo = { value: new THREE.Vector2() };
 	const values = Object.fromEntries(hologramFields.map(([key]) => [key, 0]));
 	for (const [key] of hologramFields) uniforms[`uHolo${key}`] = { value: 0 };
 	const screen = { root, uniforms, hologramSettings: values, hologramValues: { ...values },

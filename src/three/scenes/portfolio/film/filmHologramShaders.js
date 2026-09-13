@@ -33,6 +33,7 @@ export const hologramFragment = `
 ${filmPaletteGLSL}
 uniform sampler2D uFrom;uniform sampler2D uTo;
 uniform float uFromAspect;uniform float uToAspect;
+uniform vec2 uFromInfo;uniform vec2 uToInfo;
 uniform float uOpacity;uniform float uProgress;uniform float uReduced;uniform float uTime;uniform float uLow;
 uniform float uHolotileSize;uniform float uFocus;
 uniform float uHoloscanlines;uniform float uHoloraster;uniform float uHoloecho;uniform float uHolobrightness;uniform float uHoloopacity;
@@ -75,7 +76,8 @@ vec3 signalSlip(vec2 uv){
  float trace=seam*taper*mix(.12,1.,step(.32,fragments))*fill;
  return vec3(fill,trace,slip*fill*mix(.65,1.15,ragged));
 }
-vec3 picture(sampler2D tex,float aspect,vec2 offset){
+vec3 picture(sampler2D tex,float aspect,vec2 offset,vec2 info){
+ if(info.x>0.)return texture2D(tex,vec2(clamp(vUv.x+offset.x,0.,1.),1.-((1.-vUv.y)*info.x+info.y*(1.-info.x)))).rgb;
  // Fit the complete presentation inside the wider curved screen.
  vec2 uv=(vUv+offset-.5)*vec2(max(1.,2.05/aspect),max(1.,aspect/2.05))+.5;
  if(any(lessThan(uv,vec2(0.)))||any(greaterThan(uv,vec2(1.))))return vec3(0.);
@@ -83,24 +85,34 @@ vec3 picture(sampler2D tex,float aspect,vec2 offset){
 }
 void main(){
  // The existing expand animation owns clarity too; no alternate material or source reload.
+ if(uFromInfo.x>0.&&uProgress<=.00001){
+  vec3 clean=picture(uFrom,uFromAspect,vec2(0.),uFromInfo);
+  clean=mix(clean/12.92,pow((clean+.055)/1.055,vec3(2.4)),step(vec3(.04045),clean));
+  gl_FragColor=vec4(clean,uOpacity);
+  #include <colorspace_fragment>
+  return;
+ }
  float clarity=smoothstep(0.,1.,uFocus);
  float scanStrength=uHoloscanlines*mix(1.,.025,clarity);
  float rasterStrength=uHoloraster*mix(1.,.08,clarity);
- vec3 glitch=signalSlip(vUv)*(1.-vBurst)*mix(1.,.25,clarity);
+ float infoSide=mix(step(.0001,uFromInfo.x),step(.0001,uToInfo.x),smoothstep(.40,.59,vPhase));
+ vec3 glitch=signalSlip(vUv)*(1.-vBurst)*mix(1.,.25,clarity)*(1.-infoSide);
  float idle=glitch.x;
  float pixels=filmHash(floor(vUv*vec2(768.,374.)));
  float blend=smoothstep(.40,.59,vPhase+(pixels-.5)*.19*(1.-uReduced));
  float tear=(filmHash(vec2(floor(vUv.y*310.),vSeed))-.5)*vBurst;
  vec2 offset=vec2(tear*.002+glitch.z,0.);
  vec3 rgb;
- if(uProgress<=.00001||blend<=.0001)rgb=picture(uFrom,uFromAspect,offset);
- else if(uProgress>=.99999||blend>=.9999)rgb=picture(uTo,uToAspect,-offset);
- else rgb=mix(picture(uFrom,uFromAspect,offset),picture(uTo,uToAspect,-offset),blend);
+ if(uProgress<=.00001||blend<=.0001)rgb=picture(uFrom,uFromAspect,offset,uFromInfo);
+ else if(uProgress>=.99999||blend>=.9999)rgb=picture(uTo,uToAspect,-offset,uToInfo);
+ else rgb=mix(picture(uFrom,uFromAspect,offset,uFromInfo),picture(uTo,uToAspect,-offset,uToInfo),blend);
+ float infoWeight=mix(step(.0001,uFromInfo.x),step(.0001,uToInfo.x),blend);
+ vec3 cleanInfo=mix(rgb/12.92,pow((rgb+.055)/1.055,vec3(2.4)),step(vec3(.04045),rgb));
  // A displaced spectral echo outlines content inside the light sheet, not a blurred perimeter.
  vec3 echo=vec3(0.);
  if(uLow<.5&&uHoloecho>.001){
   vec2 shift=vec2(.0012+vBurst*.003-glitch.z*.65,.0005);
-  vec3 ghost=blend<.5?picture(uFrom,uFromAspect,offset+shift):picture(uTo,uToAspect,-offset+shift);
+  vec3 ghost=blend<.5?picture(uFrom,uFromAspect,offset+shift,uFromInfo):picture(uTo,uToAspect,-offset+shift,uToInfo);
   echo=abs(ghost-rgb)*(.8+vBurst*.8+idle*.45)*uHoloecho*mix(1.,.12,clarity);
  }
  // Resolved light rows alternate with transparent gaps, including on a phone.
@@ -145,6 +157,9 @@ void main(){
  // Cyan edge + subdued inner separation keep a tear readable on white footage too.
  vec3 source=rgb*uHolobrightness*sourceCoverage*(1.-contour*uHologlitchTint*.25);
  gl_FragColor=vec4((source+emission)/max(coverage,.0001),uOpacity*coverage);
+ // Prepared typography is a clean, opaque reading side at rest. During the
+ // same digital mosaic it inherits the existing tears and electrical seams.
+ gl_FragColor=mix(gl_FragColor,vec4(cleanInfo*signal+filmAccent*shardEdge*.35,uOpacity),infoWeight);
  #include <colorspace_fragment>
 }`;
 

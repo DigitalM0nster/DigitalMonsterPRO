@@ -14,12 +14,23 @@ export class FilmMotion {
 		this.target = 0;
 		this.requestedIndex = null;
 		this.requestedDirection = 0;
+		this.info = false;
+		this.destinationInfo = false;
+		this.requestedInfo = null;
 	}
 	get busy() { return this.target !== 0 || this.progress !== 0; }
 	get selectionIndex() { return this.requestedIndex ?? this.index; }
+	get selectionInfo() { return this.requestedInfo ?? this.info; }
+	showInfo(open) {
+		this.requestedIndex = this.selectionIndex;
+		this.requestedInfo = !!open;
+		this.requestedDirection = open ? 1 : -1;
+		if (!this.busy) this.continueSelection();
+	}
 	select(index, direction = 0) {
 		if (!Number.isInteger(index) || index < 0 || index >= this.count) return false;
 		this.requestedIndex = index;
+		this.requestedInfo = false;
 		this.requestedDirection = Math.sign(direction);
 		if (!this.busy) this.continueSelection();
 		return true;
@@ -30,14 +41,16 @@ export class FilmMotion {
 	}
 	continueSelection() {
 		if (this.requestedIndex === null) return;
-		if (this.requestedIndex === this.index) {
+		if (this.requestedIndex === this.index && this.requestedInfo === this.info) {
 			this.requestedIndex = null;
+			this.requestedInfo = null;
 			this.requestedDirection = 0;
 			return;
 		}
 		// Only retarget at rest: the two textures of a running mix remain unchanged.
 		this.destination = this.requestedIndex;
-		this.target = this.requestedDirection || Math.sign(this.destination - this.index);
+		this.destinationInfo = this.requestedInfo;
+		this.target = this.requestedDirection || Math.sign(this.destination - this.index) || (this.destinationInfo ? 1 : -1);
 	}
 	update(delta) {
 		const dt = Math.min(delta, 0.05);
@@ -45,10 +58,12 @@ export class FilmMotion {
 		this.progress = chaseSegmentValue(this.progress, this.target, dt, { smooth: 7, chaseMul: getAbsChaseSmoothMul(Math.abs(this.progress)) });
 		if (Math.abs(this.progress) > 0.9995 && Math.abs(this.target) > 0.9995) {
 			this.index = this.destination;
+			this.info = this.destinationInfo;
 			this.progress = this.target = 0;
 		} else if (this.target === 0 && Math.abs(this.progress) < 0.00005) {
 			this.progress = 0;
 			this.destination = this.index;
+			this.destinationInfo = this.info;
 		}
 		if (!this.busy) this.continueSelection();
 	}

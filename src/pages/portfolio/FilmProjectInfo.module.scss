@@ -1,49 +1,39 @@
 .layer {
-	position: fixed; inset: 0; z-index: 45; pointer-events: none; visibility: hidden;
-	color: #fff; font-family: "MazzardM", sans-serif; font-weight: 400;
-	transition: opacity 160ms ease, visibility 160ms;
+ position: fixed; inset: 0; z-index: 45; pointer-events: none; visibility: hidden;
+ color: #fff; font-family: "MazzardM", sans-serif;
+ // Reveal comes from the screen; a CSS fade here lags every scene frame.
 }
 .trigger {
-	position: absolute; transform: translate(-50%, -50%); min-height: 36px; padding: 8px 12px;
-	display: flex; align-items: center; justify-content: center; gap: 12px;
-	pointer-events: auto; border: 0; background: none; color: #00b9ff;
-	font: 500 12px/1.2 "MazzardM", sans-serif; letter-spacing: .06em; text-transform: uppercase;
-	cursor: pointer; white-space: nowrap; transition: color 150ms, text-shadow 150ms;
-	span { font-size: 18px; font-weight: 400; }
-	&:hover, &[aria-expanded="true"] { color: #fff; text-shadow: 0 0 12px #00a9ff99; }
-	&:disabled { pointer-events: none; }
+ position: absolute; transform: translate(-50%, -50%); min-height: 44px; padding: 10px 16px;
+ display: flex; align-items: center; justify-content: center; gap: 16px;
+ pointer-events: auto; border: 0; background: transparent; color: #fff;
+ font: 500 16px/1.3 "MazzardM", sans-serif; letter-spacing: .11em; text-transform: uppercase;
+ text-shadow: 0 0 14px #00a9ff80, 0 1px 4px #000; cursor: pointer; white-space: nowrap;
+ transition: color 160ms, text-shadow 160ms;
+ &::after { content: ""; position: absolute; left: 16px; right: 56px; bottom: 4px; height: 1px; background: #00b9ff; box-shadow: 0 0 8px #00a9ffb3; }
+ svg { width: 24px; height: 16px; fill: none; stroke: #00b9ff; stroke-width: 1.8; transition: transform 160ms; }
+ &:hover { color: #c6eeff; text-shadow: 0 0 18px #00a9ff; svg { transform: translateX(3px); } }
+ &:focus-visible { outline: 1px solid #00b9ff; outline-offset: 4px; }
+ &:disabled { pointer-events: none; }
 }
-.card {
-	position: absolute; box-sizing: border-box; display: flex; flex-direction: column;
-	padding: 20px 24px 24px; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y;
-	scrollbar-width: thin; scrollbar-color: #00a9ff66 #06111a;
-	border: 1px solid #00a9ff55; border-top-color: #00b9ffaa;
-	background: linear-gradient(140deg, #091723fa, #02080efc);
-	box-shadow: 0 12px 36px #0008, inset 0 1px #00a9ff19;
-	opacity: 0; visibility: hidden; transform: translateY(8px); pointer-events: none;
-	transition: opacity 180ms ease, transform 180ms ease, visibility 180ms;
-	&::after { content: ""; position: absolute; right: 0; top: 0; height: 12px; width: 12px; border-top: 2px solid #00b9ff; border-right: 2px solid #00b9ff; pointer-events: none; }
+.surface {
+	visibility: hidden;
+ position: absolute; box-sizing: border-box; overflow-x: hidden; overflow-y: auto;
+ pointer-events: none; overscroll-behavior: contain; touch-action: pan-y;
+ background: transparent; scrollbar-width: thin; scrollbar-color: #00a9ff80 transparent;
+ &:focus { outline: none; }
+ &:focus-visible { outline: 1px solid #00a9ff55; outline-offset: -2px; }
 }
-.open { opacity: 1; visibility: visible; transform: translateY(0); pointer-events: auto; }
-.header {
-	position: sticky; top: 0; z-index: 1; background: #07121b;
-	display: flex; align-items: flex-start; gap: 12px; margin-bottom: 18px;
-	> div { display: flex; flex-direction: column; align-items: flex-start; flex: 1; min-width: 0; }
-	h2 { margin: 5px 0 0; font-size: 19px; line-height: 1.15; font-weight: 500; }
-	button { display: flex; align-items: center; justify-content: center; flex: 0 0 36px; height: 36px; margin: -8px -12px 0 0; border: 0; background: none; color: #fff; cursor: pointer; }
-	button:hover { color: #00b9ff; }
-	svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.5; }
+.readable { pointer-events: auto; visibility: inherit; }
+@media (min-width: 1025px) and (min-height: 601px) {
+ // Keep the screen's project selector live above the native reading surface.
+ .surface { clip-path: polygon(0 0, 65% 0, 65% 15%, 100% 15%, 100% 100%, 0 100%); }
 }
-.eyebrow { font-size: 10px; line-height: 1.3; letter-spacing: .1em; text-transform: uppercase; color: #99aeba; }
-.content {
-	display: flex; flex-direction: column; gap: 17px;
-	h3 { margin: 0 0 5px; font-size: 11px; font-weight: 500; line-height: 1.3; letter-spacing: .09em; text-transform: uppercase; color: #00b9ff; }
-	p { margin: 0; font-size: 14px; line-height: 1.45; color: #f3f6f8; }
+.accessibleText { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.hint {
+ position: absolute; transform: translateX(-50%); visibility: hidden;
+ font-size: 10px; letter-spacing: .05em; white-space: nowrap; color: #b6eaff;
+ background: #040c16d9; padding: 3px 10px;
 }
-.layer button:focus-visible, .card:focus-visible { outline: 1px solid #00b9ff; outline-offset: 3px; }
-@media (max-width: 600px) {
-	.card { padding: 18px 20px 22px; }
-	.header button { flex-basis: 44px; height: 44px; margin-top: -10px; }
-	.trigger { min-height: 44px; }
-}
-@media (prefers-reduced-motion: reduce) { .layer, .card, .trigger { transition: none; } }
+@media (max-width: 600px) { .trigger { font-size: 15px; } }
+@media (prefers-reduced-motion: reduce) { .trigger, .trigger svg { transition: none; } }

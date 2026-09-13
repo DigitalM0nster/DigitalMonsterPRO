@@ -16,6 +16,7 @@ import LeftMenu from "@/components/LeftMenu/LeftMenu.jsx";
 import SiteTopHud from "@/components/SiteTopHud/SiteTopHud.jsx";
 import SiteArcNavigator from "@/components/SiteArc/SiteArcNavigator.jsx";
 import HtmlRoutes from "@/app/routes/HtmlRoutes.jsx";
+import FilmProjectInfo from "@/pages/portfolio/FilmProjectInfo.jsx";
 import { preloadHtmlRoutes } from "@/app/routes/routeModules.js";
 import LoaderComponent from "@/components/Loader/LoaderComponent.jsx";
 import Cursor from "@/components/Cursor/Cursor.jsx";
@@ -186,6 +187,7 @@ export default function MainContent() {
 			{startApp && !isDemoLab && <SiteTopHud startApp={startApp} />}
 			{startApp && !isDemoLab && <CaseStudyPanelHudOverlay />}
 			{startApp && !isDemoLab && <CaseGalleryScrollHint />}
+			{startApp && !isDemoLab && <FilmProjectInfo />}
 			{!isDemoLab && loaderMounted && <LoaderComponent startApp={startApp} setStartApp={setStartApp} rendered={rendered} />}
 			{SHOW_CUSTOM_CURSOR && <Cursor startApp={startApp} />}
 		</RouteTransitionProvider>

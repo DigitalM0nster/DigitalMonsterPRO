@@ -56,7 +56,8 @@ curl --fail --silent --show-error --retry 2 --max-time 15 \
     -H 'Host: digital-monster.pro' http://127.0.0.1/__release.json \
     -o "$base/.health-response"
 cmp "$release/__release.json" "$base/.health-response"
-curl --fail --silent --show-error --max-time 15 \
+curl --fail --silent --show-error --location --max-time 15 \
+    --resolve digital-monster.pro:443:127.0.0.1 \
     -H 'Host: digital-monster.pro' http://127.0.0.1/ -o /dev/null
 
 # The active version plus two prior releases fit comfortably on the 25 GB disk.

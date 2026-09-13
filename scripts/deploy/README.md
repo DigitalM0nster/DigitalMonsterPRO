@@ -29,18 +29,22 @@ already-open pages to request chunks from older builds. Public URL assets are
 cached for one hour; HTML and the release marker are not cached.
 
 The deployment workflow does not overwrite Nginx or TLS settings. `nginx.conf`
-is the initial HTTP configuration. Keep HTTP `/__release.json` and the local
-HTTP home-page check available if configuring HTTPS redirects later, or update
-the workflow and installer probes together.
+is the production HTTPS configuration. HTTP redirects to the canonical
+`https://digital-monster.pro`, except the ACME challenge path and
+`/__release.json` (used for deploy checks by IP). HTTPS `www` redirects to the
+same canonical host. The installer follows the home-page redirect and verifies
+TLS locally; Actions also checks the exact released commit over public HTTPS.
 
 ## DNS and HTTPS
 
 At the DNS provider set A records for `@` and `www` to `135.106.221.174`.
 Remove conflicting parking records and only keep AAAA records if IPv6 has been
-configured on this server. Once public DNS resolves correctly, issue a
-Let's Encrypt certificate using the webroot `/var/www/letsencrypt`, add a TLS
-server block, and enable automatic certificate renewal. The initial HTTP
-configuration alone does not enable HTTPS.
+configured on this server. The Let's Encrypt certificate covers both domains.
+Certbot uses `/var/www/letsencrypt` for HTTP-01 validation, with automatic
+renewal via `certbot.timer`. The server's deployment hook at
+`/etc/letsencrypt/renewal-hooks/deploy/reload-nginx` validates and reloads Nginx
+after renewal. On a fresh server, first serve the ACME webroot over HTTP and
+issue the certificate before installing the production TLS configuration.
 
 ## Rollback
 

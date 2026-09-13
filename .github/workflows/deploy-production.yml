@@ -63,7 +63,11 @@ jobs:
           curl --fail --silent --show-error --retry 3 --max-time 30 \
             "http://$DEPLOY_HOST/__release.json" -o "$RUNNER_TEMP/live-release.json"
           cmp dist/__release.json "$RUNNER_TEMP/live-release.json"
-          printf 'Published `%s` to http://%s\n' "$GITHUB_SHA" "$DEPLOY_HOST" >> "$GITHUB_STEP_SUMMARY"
+          curl --fail --silent --show-error --retry 3 --max-time 30 \
+            --resolve "digital-monster.pro:443:$DEPLOY_HOST" \
+            https://digital-monster.pro/__release.json -o "$RUNNER_TEMP/https-release.json"
+          cmp dist/__release.json "$RUNNER_TEMP/https-release.json"
+          printf 'Published `%s` to https://digital-monster.pro\n' "$GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
       - name: Remove runner credentials
         if: always()
         run: rm -f ~/.ssh/id_ed25519 ~/.ssh/known_hosts

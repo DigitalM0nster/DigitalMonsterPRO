@@ -26,9 +26,10 @@ const FRAGMENT = /* glsl */ `
 	varying vec2 vUv;
 	${hudSnakeGlsl(4, [96, 74, 38])}
 	float clickIcon(vec2 p){
+		p/=0.45;
 		vec2 q=abs(p)-vec2(3.5,6.0);
 		float shell=length(max(q,0.0))+min(max(q.x,q.y),0.0)-4.0;
-		float outline=1.0-smoothstep(0.55,1.25,abs(shell));
+		float outline=1.0-smoothstep(0.7,1.7,abs(shell));
 		float button=(1.0-smoothstep(-0.7,0.2,shell))*step(p.x,-0.7)*step(1.0,p.y);
 		float seam=(1.0-smoothstep(0.35,1.0,abs(p.x)))*step(1.0,p.y)*step(p.y,9.0);
 		float split=(1.0-smoothstep(0.35,1.0,abs(p.y-1.0)))*step(abs(p.x),7.0);
@@ -39,8 +40,15 @@ const FRAGMENT = /* glsl */ `
 		vec2 px=vUv*vec2(300.0,200.0);
 		bool inPanel=px.x>=0.0&&px.x<=300.0&&px.y>=0.0&&px.y<=110.0;
 		vec4 text=inPanel?snakeLabel(vUv,uState):vec4(0.0);
-		float icon=clickIcon(px-vec2(mix(23.0,263.0,uLeader),38.0))*smoothstep(0.60,0.94,uSnake);
-		text=vec4(mix(text.rgb,vec3(0.38,0.88,1.0),icon),max(text.a,icon));
+		float icon=clickIcon(px-vec2(mix(19.0,266.0,uLeader),38.0))*smoothstep(0.60,0.94,uSnake);
+		float along=mix(px.x-15.0,270.0-px.x,uLeader);
+		float divider=(1.0-smoothstep(0.25,0.85,abs(px.y-56.0)))*step(0.0,along)
+			*(1.0-smoothstep(170.0,255.0,along))*(0.28+0.28*(1.0-smoothstep(20.0,36.0,along)))
+			*smoothstep(0.42,0.72,uSnake);
+		float accent=max(icon,divider);
+		float inkAlpha=text.a+accent*(1.0-text.a);
+		vec3 actionTint=vec3(0.60784,0.70980,0.76078);
+		text=vec4((text.rgb*text.a+actionTint*accent*(1.0-text.a))/max(inkAlpha,0.001),inkAlpha);
 		float backing=inPanel?uDetails*(1.0-smoothstep(255.0,299.0,px.x))*smoothstep(4.0,24.0,px.y)*0.65:0.0;
 		vec2 ab=uLeaderEnd-uLeaderStart;
 		float t=clamp(dot(px-uLeaderStart,ab)/max(dot(ab,ab),1.0),0.0,1.0);
@@ -172,8 +180,8 @@ function createLabelStates() {
 			})),
 			{
 				text: locale === "en" ? "LEARN MORE" : locale === "zh" ? "了解更多" : "ПОДРОБНЕЕ",
-				x: left ? 241 : 44, y: 162, size: 14, tracking: 0.65, space: 5.9,
-				color: "#d3f3ff", row: 2, align: left ? "right" : "left",
+				x: left ? 253 : 32, y: 162, size: 12.5, tracking: 0.6, space: 5.3,
+				color: "#9bb5c2", row: 2, align: left ? "right" : "left",
 			},
 		];
 	}));

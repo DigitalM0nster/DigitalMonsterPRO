@@ -533,11 +533,11 @@ export class DigitalWhaleScene {
 		this._whaleViewportOffset.set(0, 0, 0);
 		const desktop = !portrait && !shortLandscape;
 		if ((desktop && !authoredWhale) || this._whaleBodyBounds.isEmpty()) return;
-		const targetX = authoredWhale ? (desktop ? .22 : shortLandscape ? .48 : height < 640 ? -.20 : -.10) : shortLandscape ? .55 : 1.12;
-		const targetY = authoredWhale ? (desktop ? -.35 : shortLandscape ? -.05 : height < 640 ? -.48 : -.32) : shortLandscape ? -.15 : height < 640 ? -.54 : -.50;
-		const maxWidth = authoredWhale ? (desktop ? 1.45 : shortLandscape ? .84 : 1.65) : shortLandscape ? 2.2 : 4.2;
+		const targetX = authoredWhale ? (desktop ? .17 : shortLandscape ? .40 : height < 640 ? -.35 : 0) : shortLandscape ? .55 : 1.12;
+		const targetY = authoredWhale ? (desktop ? -.29 : shortLandscape ? .04 : height < 640 ? -.42 : -.33) : shortLandscape ? -.15 : height < 640 ? -.54 : -.50;
+		const maxWidth = authoredWhale ? (desktop ? 1.76 : shortLandscape ? 1.06 : 1.72) : shortLandscape ? 2.2 : 4.2;
 		// Portrait echoes the reference close-up: head/fin in frame, tail beyond the right edge.
-		const maxHeight = authoredWhale ? (desktop ? 1.1 : shortLandscape ? 1.12 : height < 640 ? .54 : .85) : shortLandscape ? 1.55 : 1.8;
+		const maxHeight = authoredWhale ? (desktop ? 1.26 : shortLandscape ? 1.24 : height < 640 ? .45 : .87) : shortLandscape ? 1.55 : 1.8;
 		const w = digitalWhaleConfig.whale, o = digitalWhaleConfig.ocean;
 		// Build a stationary reference from configuration, not the currently swaying,
 		// scrolling or entering world. One correction is shared by both intro endpoints.
@@ -553,16 +553,13 @@ export class DigitalWhaleScene {
 		camera.updateMatrixWorld();
 		const rotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(w.rotationX, w.rotationY, w.rotationZ));
 		if (authoredWhale) {
-			rotation.setFromRotationMatrix(parent).invert().multiply(camera.quaternion)
-				.multiply(new THREE.Quaternion().setFromEuler(desktop
-					? new THREE.Euler(-.08, .18, -.03)
-					: new THREE.Euler(-.08, .18, shortLandscape ? -.02 : .02)));
+			rotation.setFromRotationMatrix(parent).invert().multiply(camera.quaternion);
 			this._whaleViewportRotation = new THREE.Euler().setFromQuaternion(rotation);
 		}
 		const matrix = new THREE.Matrix4(), position = new THREE.Vector3(), scale = new THREE.Vector3();
 		const projected = new THREE.Box3(), point = new THREE.Vector3(), center = new THREE.Vector3();
 		const from = new THREE.Vector3(), to = new THREE.Vector3();
-		const headBounds = !shortLandscape && this.whaleRoot?.userData.referenceHeadBounds;
+		const headBounds = portrait && this.whaleRoot?.userData.referenceHeadBounds;
 		const frameBounds = headBounds
 			? new THREE.Box3(new THREE.Vector3().fromArray(headBounds.min), new THREE.Vector3().fromArray(headBounds.max))
 			: this._whaleBodyBounds;
@@ -571,8 +568,8 @@ export class DigitalWhaleScene {
 		for (const x of [frameBounds.min.x, frameBounds.max.x])
 			for (const y of [frameBounds.min.y, frameBounds.max.y])
 				for (const z of [frameBounds.min.z, frameBounds.max.z]) corners.push(new THREE.Vector3(x, y, z));
-		// Frame the reference's head and shoulder; fitting the whole fluke spread
-		// would make the face too small. Short landscape retains the complete swim.
+		// Desktop preserves the full reference silhouette, including both tail lobes.
+		// Portrait brings the face and sweeping fin closer beneath the copy.
 		// Projections run only on prepare/resize, with the same prepared model.
 		const fitPasses = authoredWhale ? 8 : 4;
 		for (let pass = 0; pass < fitPasses; pass++) {
@@ -1029,7 +1026,7 @@ export class DigitalWhaleScene {
 				const tier = getGraphicsTier();
 				u.uOpacity.value = .92;
 				// Lower-resolution bloom concentrates nearby dots; preserve their separation.
-				u.uGlow.value = tier === "medium" ? .9 : tier === "high" ? 1.8 : 2.8;
+				u.uGlow.value = tier === "medium" ? 2.1 : tier === "high" ? 3.4 : 4.2;
 				return;
 			}
 			applyWhaleHologramVisuals(this.whaleHologramMaterial, {

@@ -1,15 +1,18 @@
-# Authored whale for mobile and desktop
+# Reference-sculpted creature for home
 
-Original whale geometry authored in Blender 4.2. `MobileWhale.blend` contains the
-editable mesh, Flow UVs, nine-bone rig, six-second `MobileWhale_CalmSwim` action and
-a lit studio camera. No geometry from the former whale is used.
+`referenceContours.json` records the silhouette and flow-line landmarks from
+supplied image `codex-clipboard-3e1e86c9-63a6-4de2-9769-ed5dd1873d05.png`
+(1219 × 679). It is the authority for this stylized creature: broad rounded jaw,
+sloping forehead, high crest followed by a concave back, swept triangular
+pectoral fin and tail lobes turned into the reference's image plane. The second
+close-up guides the elongated dark eye socket and jaw pleats; it is not an exact
+crop of the full-frame picture.
 
-The model follows the supplied close-up reference through a blunt broad rostrum,
-a rising heavy skull, deep lower jaw, small lateral eyes and broad swept pectoral
-fins. Jaw-aligned flow coordinates bend around the eye instead of scattering
-particles uniformly over a generic whale. The
-reference's blue dotted light is rendered by Three.js; the Blender studio uses
-clay so the anatomy can be inspected independently.
+The model is an original closed 3D skin, not an image plane or an imported whale.
+`MobileWhale.blend` contains the editable surface, Flow UVs, nine-bone rig,
+six-second `MobileWhale_CalmSwim` action and clay studio. Bright nodes, eyelid,
+mouth, fin rims and detached crest threads share the skin's bones. Each loop
+returns to the authored reference pose. The website supplies the blue shader.
 
 ## Regenerate
 
@@ -19,39 +22,42 @@ From the repository root, in PowerShell:
 & 'C:\Program Files\Blender Foundation\Blender 4.2\blender.exe' --background --factory-startup --python tools/assets/mobileWhale/prepareMobileWhale.py
 ```
 
-This replaces the generated master and `public/models/home/whale-mobile.glb`,
-and writes a clay review to ignored `output/mobile-whale/anatomy.png`.
-Change the Python source before regenerating; regeneration replaces manual
-edits to the generated master.
+This replaces the master and `public/models/home/whale-mobile.glb`, and writes
+`output/mobile-whale/anatomy.png` (ignored). Edit the JSON contours / Python
+source before regenerating; regeneration replaces manual master edits.
 
-## Website
+Body rows are resampled at a common longitudinal X and interpolated monotonically
+across latitude. This preserves the traced U/S curves without folding the skin
+where the crest and saddle converge. The two independently traced edges of each
+fin are lofted into a closed cambered volume. Depth stays real; the body's depth
+pass occludes the distant skin and fin.
 
-- `src/three/scenes/home/mobileWhale/loadMobileWhale.js` loads the compressed
-  skin and animation under the preloader on every device. The original mobile
-  asset path is retained; phones and desktops reuse the same prepared resources.
-- `mobileWhaleMaterial.js` draws the longitudinal dots, light bands and glints
-  in a skinned surface shader. Arc-length UVs space beads along the lip, eyelid,
-  brow and fin edges. Body and contours use two material groups; a small trail
-  uses one further draw. An opaque depth-only pass shares the body geometry and
-  skeleton, keeping the distant fin/eye from shining through the near cheek.
-- `DigitalWhaleScene.js` frames the authored `referenceHeadBounds` for a close-up
-  below the portrait copy and beside the desktop title. The slight view from
-  below exposes the lower jaw like the reference. Short landscape uses the
-  sampled complete swim envelope. The site's existing scene owns animation,
-  prewarming, visibility, transitions and disposal.
+## Website and resource budget
 
-Per-frame updates change bone matrices and shader uniforms. The treatment uses
-no bitmap animation, CPU particle skinning or per-frame geometry recreation.
-The asset has about 25,000 exported vertices and is Draco-compressed to about 139 KiB.
-These are resource budgets, not a measured phone FPS guarantee.
+- `loadMobileWhale.js` prepares the same compressed GLB on every device under the
+  preloader, including a chunked bounding-envelope sample of the complete swim.
+- `mobileWhaleMaterial.js` draws body beads, curved throat ribs, facial contours,
+  filaments and soft star nodes using two material groups. One shared skin depth
+  pass and one bounded dust draw bring the total to four draws. Transparent
+  contour/glow fragments test body depth but do not write invisible square masks.
+- Desktop frames the complete creature below/beside the title. Portrait frames
+  the face and sweeping fin beneath the copy. Resizing and returning home reuse
+  the existing model, rig, textures and shader programs.
+- Per-frame updates change bones and uniforms only. No bitmap animation, CPU
+  particle skinning, texture upload or geometry creation is needed.
 
-The authoring Flow UV V bands encode body (0–1), pectorals (2–3), flukes (4–5)
-and dorsal fin (6–7). The contour group's bands encode upper lip, lower lip,
-eyelid, brow and fin edge in that order. The shader restores Blender's V after
-the glTF UV flip. Do not repack/normalize these UVs as a conventional texture atlas.
+The asset budget is 350 KB including animation; the current export is roughly
+285 KiB with about 56,000 source vertices. Dust is capped at 512 small points.
+These are bounded resource costs, not a measured physical-phone FPS guarantee.
+
+The body-group Flow V bands encode body (0–1), pectorals (2–3), flukes (4–5).
+Contour bands encode lip (0–1), reserved lower lip (2–3), eyelid (4–5), brow (6–7),
+fin edge (8–9), soft glow cards (10–11), and detached filaments (12–13).
+Curve U is arc length; glow-card UVs are local 0–1. The shader restores Blender V
+after the glTF flip. Do not repack these coordinates as a conventional atlas.
 
 Validation:
 
 ```powershell
-node --test src/three/scenes/home/mobileWhale/mobileWhale.test.js src/three/scenes/home/particleResolution.test.js
+node --test src/three/scenes/home/mobileWhale/mobileWhale.test.js src/three/scenes/home/particleResolution.test.js src/three/scenes/home/heroText/HeroTextMesh.reveal.test.js
 ```

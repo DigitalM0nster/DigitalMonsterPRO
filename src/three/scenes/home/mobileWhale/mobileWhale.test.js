@@ -18,7 +18,7 @@ function floats(index){
 }
 
 test("mobile export contains a compact skinned whale, flow UVs and one complete swim",()=>{
- assert.ok(bytes.length<160000,"the complete animated asset stays below 160 KB");
+ assert.ok(bytes.length<350000,"traced surfaces, skinned filaments and glow nodes stay below 350 KB");
  assert.equal(gltf.skins.length,1);assert.equal(gltf.skins[0].joints.length,9);
  assert.equal(gltf.animations.length,1);
  const primitives=gltf.meshes.flatMap(mesh=>mesh.primitives);
@@ -40,7 +40,13 @@ test("tail and both fins animate, and the six-second loop closes without a pop",
   assert.ok(Math.abs(times.at(-1)-times[0]-6)<.001);
   const width=components[gltf.accessors[sampler.output].type];
   for(let i=0;i<width;i++)assert.ok(Math.abs(values[i]-values[values.length-width+i])<.0001,"loop endpoints match");
-  if(values.some((value,i)=>Math.abs(value-values[i%width])>.02))moving.add(gltf.nodes[channel.target.node].name);
+  if(channel.target.path==="rotation"){
+   const first=new THREE.Quaternion().fromArray(values),sample=new THREE.Quaternion();
+   for(let i=0;i<values.length;i+=4){
+    // A rotated bone basis can distribute one visible turn over several components.
+    if(first.angleTo(sample.fromArray(values,i))>.02)moving.add(gltf.nodes[channel.target.node].name);
+   }
+  }
  }
  for(const name of ["Tail02","Tail03","Peduncle","PectoralNear","PectoralFar","FlukeNear","FlukeFar"])assert.ok(moving.has(name),name);
 });
@@ -49,9 +55,11 @@ test("body, fine contours and the bounded trail share one shader clock without b
  const {body,details,shared}=createMobileWhaleMaterials(),trail=createMobileWhaleTrail(shared);
  assert.equal(body.uniforms.uTime,details.uniforms.uTime);
  assert.equal(trail.material.uniforms.uTime,body.uniforms.uTime);
- assert.ok(trail.geometry.attributes.position.count<=100,"glow and trail keep a small fixed particle budget");
+ assert.ok(trail.geometry.attributes.position.count<=512,"detached dust keeps a small fixed particle budget");
  for(const uniform of Object.values(shared))assert.ok(!uniform.value?.isTexture);
  assert.equal(body.side,THREE.FrontSide);
+ assert.equal(details.depthWrite,false,"transparent glow corners must not occlude later contours");
+ assert.equal(details.depthTest,true,"the body still occludes the distant contours");
  body.dispose();details.dispose();trail.geometry.dispose();trail.material.dispose();
 });
 

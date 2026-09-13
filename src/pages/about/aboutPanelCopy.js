@@ -69,79 +69,55 @@ const ABOUT_PANEL_COPY = {
 	text2: {
 		ru: {
 			pathTitle: "ПОДХОД",
-			title: "ОТ СИЛЬНОЙ\nИДЕИ ДО ЦЕЛЬНОГО\nПРОДУКТА",
+			title: "ЖИВЁМ\nВАШИМ\nПРОЕКТОМ",
 			descriptionParagraphs: [
-				"Мы не начинаем проект с шаблона или набора эффектов. Сначала разбираемся в продукте, его аудитории и задаче — и только после этого создаём форму.",
-				"Каждое дизайнерское и технологическое решение должно усиливать общую идею и впечатление от продукта.",
+				"Разбираемся в вашем продукте, его особенностях и задачах бизнеса. Продумываем, как человек будет с ним знакомиться и пользоваться: что ему важно увидеть, понять и сделать.",
+				"Каждое решение в дизайне и разработке помогает раскрыть продукт и усиливает впечатление от него.",
 			],
 			listItems: [
 				{
 					title: "ПОГРУЖЕНИЕ",
-					subtitle: "Разбираемся в продукте, аудитории и бизнес-задаче.",
+					subtitle: "Вникаем в продукт и задачи вашего бизнеса.",
 				},
 				{
-					title: "КОНЦЕПЦИЯ",
-					subtitle: "Находим сильную идею и механику взаимодействия.",
-				},
-				{
-					title: "ДИЗАЙН",
-					subtitle: "Создаём визуальную систему, UX и движение.",
-				},
-				{
-					title: "РАЗРАБОТКА",
-					subtitle: "Реализуем, оптимизируем и доводим продукт до запуска.",
+					title: "УДОБСТВО",
+					subtitle: "Продумываем, что человеку важно увидеть, понять и сделать.",
 				},
 			],
 		},
 		en: {
 			pathTitle: "APPROACH",
-			title: "FROM A STRONG\nIDEA TO A COHESIVE\nPRODUCT",
+			title: "WE LIVE\nAND BREATHE\nYOUR PROJECT",
 			descriptionParagraphs: [
-				"We never start a project from a template or a set of effects. First we understand the product, its audience, and the brief — and only then shape the form.",
-				"Every design and technology decision should strengthen the core idea and the impression the product leaves.",
+				"We get to know your product, its distinctive features, and your business goals. We plan how people will discover and use it: what they need to see, understand, and do.",
+				"Every design and development decision helps reveal the product and strengthens the impression it makes.",
 			],
 			listItems: [
 				{
 					title: "IMMERSION",
-					subtitle: "We dig into the product, audience, and business goal.",
+					subtitle: "We get to know your product and business goals.",
 				},
 				{
-					title: "CONCEPT",
-					subtitle: "We find a strong idea and interaction mechanic.",
-				},
-				{
-					title: "DESIGN",
-					subtitle: "We build the visual system, UX, and motion.",
-				},
-				{
-					title: "DEVELOPMENT",
-					subtitle: "We implement, optimize, and take the product to launch.",
+					title: "EASE OF USE",
+					subtitle: "We plan what people need to see, understand, and do.",
 				},
 			],
 		},
 		zh: {
 			pathTitle: "方法",
-			title: "从强有力的想法\n到完整产品",
+			title: "全心投入\n您的项目",
 			descriptionParagraphs: [
-				"我们从不从模板或一堆特效开始项目。先弄清产品、受众与任务，然后再塑造形式。",
-				"每一个设计与技术决策都应强化核心理念，并加深产品给人留下的印象。",
+				"我们深入了解您的产品、特点和业务目标。规划人们如何认识和使用产品：他们需要看到什么、理解什么、完成什么。",
+				"每一个设计与开发决策，都帮助展现产品，并加深它给人留下的印象。",
 			],
 			listItems: [
 				{
 					title: "沉浸",
-					subtitle: "深入了解产品、受众与业务目标。",
+					subtitle: "深入了解您的产品和业务目标。",
 				},
 				{
-					title: "概念",
-					subtitle: "找到强有力的想法与交互机制。",
-				},
-				{
-					title: "设计",
-					subtitle: "构建视觉系统、UX 与动效。",
-				},
-				{
-					title: "开发",
-					subtitle: "实现、优化，并将产品推进到上线。",
+					title: "易用性",
+					subtitle: "规划人们需要看到、理解和完成的事。",
 				},
 			],
 		},

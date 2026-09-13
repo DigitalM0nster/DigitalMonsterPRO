@@ -146,6 +146,7 @@ export class PortfolioFilmScene {
 		if (open === this.infoOpen) return;
 		this.infoOpen = open;
 		if (open) {
+			this.focusTarget = 1;
 			this.hud.picker.close(); this.cancelScrub(); this.media.setAllowed(false);
 			this.infoResetPending = true;
 		}
@@ -154,6 +155,11 @@ export class PortfolioFilmScene {
 	}
 	act(action) {
 		if (!this.ready) return;
+		if (action?.type === "reading-click") {
+			const hit = this.eventHit(action);
+			this.act(hit === "projects" || typeof hit === "number" ? hit : "inspect");
+			return;
+		}
 		if (action?.type === "info-focus") { this.hud.setInfoFocus(action.value === true); return; }
 		if (action?.type === "info-scroll-focus") { this.screen.scrollFocused = action.value === true; return; }
 		if (action === "info-close") { this.setInfoOpen(false); return; }
@@ -170,8 +176,6 @@ export class PortfolioFilmScene {
 			if (this.media.active?.paused) this.media.toggle();
 			return;
 		}
-		if (["prev", "next"].includes(action) || typeof action === "number") this.setInfoOpen(false, false);
-		else if (["projects", "projects-open"].includes(action)) this.setInfoOpen(false);
 		if (typeof action === "object" && action?.type === "seek") { this.media.seek(action.progress); return; }
 		if (typeof action === "object" && action?.type === "volume") { this.media.setVolume(action.value); return; }
 		if (action === "projects") { this.hud.picker.state.toggle(); return; }
@@ -308,7 +312,7 @@ export class PortfolioFilmScene {
 		const ease = 1 - Math.exp(-Math.min(delta, 0.05) * 7);
 		if (this.appStarted && !this.enterPending) this.reveal += (1 - this.reveal) * ease;
 		this.focus += (this.focusTarget - this.focus) * ease;
-		if (this.appStarted && this.routeActive && current && !inMix && !this.warming && !this.motion.busy && !this.hud.picker.state.pinned && this.media.consumeEnded()) {
+		if (this.appStarted && this.routeActive && current && !inMix && !this.warming && !this.motion.busy && !this.infoOpen && !this.motion.info && !this.hud.picker.state.pinned && this.media.consumeEnded()) {
 			this.media.restart((this.motion.index + 1) % filmProjects.length);
 			this.motion.step(1);
 		}
@@ -368,7 +372,7 @@ export class PortfolioFilmScene {
 		}
 		const belongs = current || (inMix && [sourceId, targetId].includes("portfolioHub"));
 		const info = this.infoTextures.get(this.motion.index, getPortfolioLocale(), this.layout.mobile);
-		const infoVisible = this.motion.info && !this.motion.busy;
+		const infoVisible = this.motion.info && !this.motion.busy && this.hud.picker.state.progress <= .08;
 		updateFilmInfoView({ ...box, left: left.x, top: top.y, width: right.x - left.x, height: bottom.y - top.y,
 			scrollRailTop: project(.476, .230), scrollRailBottom: project(.476, -.230), scrollProgress: this.screen.infoScroll,
 			contentRatio: Math.max(1, info.height / (info.viewportHeight * this.screen.infoViewportScale)), infoVisible, clipTop, clipBottom, mobile: this.layout.mobile,

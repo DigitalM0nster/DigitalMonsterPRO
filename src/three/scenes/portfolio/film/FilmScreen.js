@@ -85,7 +85,9 @@ export class FilmScreen {
   u.uFromAspect.value=this.media.aspect(motion.index);u.uToAspect.value=this.media.aspect(motion.destination);
   for(const [side,index,info] of [["From",motion.index,motion.info],["To",motion.destination,motion.destinationInfo]]){
    const entry=info?this.infoTextures.get(index,locale,layout.mobile):null;
-   u[`u${side}Info`].value.set(entry?entry.viewportHeight*this.infoViewportScale/entry.height:0,this.infoScroll);
+   // Keep the outgoing reading position while the next project's opening is revealed.
+   const infoScroll=info&&index!==motion.index?0:this.infoScroll;
+   u[`u${side}Info`].value.set(entry?entry.viewportHeight*this.infoViewportScale/entry.height:0,infoScroll);
    if(entry){u[`u${side}`].value=entry.texture;u[`u${side}Aspect`].value=2.05;}
   }
   const reading=this.infoTextures.get(motion.destinationInfo?motion.destination:motion.index,locale,layout.mobile);

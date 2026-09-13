@@ -17,15 +17,19 @@ test("video and information share one immutable glitch pair and return without c
 	assert.equal(motion.index, 2); assert.equal(motion.info, false); assert.equal(motion.busy, false);
 });
 
-test("navigation from information goes directly to the requested video and keeps all clicks", () => {
+test("navigation from information preserves reading and keeps all clicks", () => {
 	const motion = new FilmMotion(7);
 	motion.showInfo(true); settle(motion);
 	assert.equal(motion.info, true);
 	motion.step(1); motion.update(.03);
-	assert.equal(motion.info, true); assert.equal(motion.destinationInfo, false); assert.equal(motion.destination, 1);
+	assert.equal(motion.info, true); assert.equal(motion.destinationInfo, true); assert.equal(motion.destination, 1);
 	motion.step(1); motion.step(1); motion.select(5);
-	settle(motion);
-	assert.equal(motion.index, 5); assert.equal(motion.info, false); assert.equal(motion.selectionInfo, false);
+	for (let i = 0; i < 600; i++) {
+		motion.update(1 / 60);
+		assert.equal(motion.info, true, "no intermediate video side");
+		assert.equal(motion.destinationInfo, true);
+	}
+	assert.equal(motion.index, 5); assert.equal(motion.info, true); assert.equal(motion.selectionInfo, true);
 });
 
 test("rapid information toggles during a project change coalesce into the last requested side", () => {
@@ -36,7 +40,23 @@ test("rapid information toggles during a project change coalesce into the last r
 	settle(motion);
 	assert.equal(motion.index, 3); assert.equal(motion.info, true);
 	motion.select(3); settle(motion);
+	assert.equal(motion.info, true); assert.equal(motion.busy, false);
+	motion.showInfo(false); settle(motion);
 	assert.equal(motion.info, false); assert.equal(motion.busy, false);
+});
+
+test("project choices during opening and closing preserve the latest reading intent", () => {
+	const motion = new FilmMotion(7);
+	motion.showInfo(true); motion.update(.03);
+	motion.select(4); motion.step(-1);
+	assert.equal(motion.destination, 0, "finish the already painted pair");
+	assert.equal(motion.selectionInfo, true);
+	settle(motion);
+	assert.equal(motion.index, 3); assert.equal(motion.info, true);
+	motion.showInfo(false); motion.update(.03); motion.select(1);
+	assert.equal(motion.selectionInfo, false, "explicit return to video stays authoritative");
+	settle(motion);
+	assert.equal(motion.index, 1); assert.equal(motion.info, false);
 });
 
 test("project arrows navigate in both directions", () => {

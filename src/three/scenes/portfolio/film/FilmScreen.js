@@ -67,7 +67,8 @@ export class FilmScreen {
   const rootScale=layout.width*layout.compositionScale*(1+focus*(layout.compact?.02:.15));
   const readingScale=readingLayout?readingLayout.height/(rootScale/2.05):1;
   this.art.scale.y=THREE.MathUtils.lerp(1,readingScale,this.infoAmount);
-  this.infoInset=layout.mobile?0:.16;
+  // Clip reading at the curved screen edge; top spacing belongs to the content.
+  this.infoInset=0;
   this.infoViewportScale=this.art.scale.y*(1-this.infoInset);
   u.uScreenAspect.value=2.05/this.art.scale.y;
   u.uInfoViewport.value.set(this.infoInset,1-this.infoInset);

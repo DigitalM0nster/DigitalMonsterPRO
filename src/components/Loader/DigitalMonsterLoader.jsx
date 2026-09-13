@@ -7,14 +7,12 @@ import { preloadUnderwaterSound } from "@/sounds/underwaterSound.js";
 import { rewarmCasePanelHudGpuForLocale } from "@/pages/portfolio/ui/CaseStudyCanvas/warmCasePanelHudUnderCurtain.js";
 import { rewarmAboutPanelHudGpuForLocale } from "@/pages/about/warmAboutPanelHudUnderCurtain.js";
 import { store } from "@/app/store.jsx";
-import { resolveLoadingTarget } from "@/functions/loadingProgress.js";
+import { advanceLoadingProgress as advanceDisplayedProgress, resolveLoadingTarget } from "@/functions/loadingProgress.js";
 
 const SHOW_LEGACY_LOADER = false;
 const TICK_MS = 80;
 const TICK_SEC = TICK_MS / 1000;
 const MAX_TICK_DT_SEC = 0.25;
-const MAX_DISPLAY_RATE_PER_SEC = 8;
-const MIN_DISPLAY_RATE_PER_SEC = 0.65;
 
 function readBootstrapNumber(value, fallback = 0) {
 	const next = Number(value);
@@ -196,14 +194,7 @@ export default function DigitalMonsterLoader(props) {
 				...assetCountsRef.current, preparation: store.preparationProgress ?? 0, ready: isReady,
 			});
 
-			const gap = target - prev;
-			if (gap <= 0) {
-				return;
-			}
-
-			const displayRate = isReady ? 100 : Math.min(MAX_DISPLAY_RATE_PER_SEC, MIN_DISPLAY_RATE_PER_SEC + gap * 0.35);
-			const step = Math.min(gap, displayRate * dtSec);
-			const next = Math.min(100, prev + step);
+			const next = advanceDisplayedProgress(prev, target, dtSec, isReady);
 			progressRef.current = next;
 
 			if (next !== prev) {

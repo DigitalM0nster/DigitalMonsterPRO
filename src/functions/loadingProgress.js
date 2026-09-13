@@ -6,3 +6,15 @@ export function resolveLoadingTarget({ loaded = 0, total = 0, preparation = 0, r
 	const prepared = Number.isFinite(preparation) ? Math.max(0, Math.min(1, preparation)) : 0;
 	return 10 + 20 * fraction + 69 * prepared;
 }
+
+/** Estimated display progress; only the actual warm/font gate can finish it. */
+export function advanceLoadingProgress(previous, target, dtSec, ready = false) {
+	const dt = Number.isFinite(dtSec) ? Math.max(0, Math.min(0.25, dtSec)) : 0;
+	const ceiling = ready ? 100 : 99;
+	const current = Math.max(0, Math.min(ceiling, previous));
+	const gap = Math.max(0, target - current);
+	// At least one integer step per 1.34s, including long asset/compile stages.
+	// Do not let a stage's discrete target pin the display between completions.
+	const rate = ready ? 100 : Math.min(8, Math.max(0.75, 0.65 + gap * 0.35));
+	return Math.min(ceiling, current + rate * dt);
+}

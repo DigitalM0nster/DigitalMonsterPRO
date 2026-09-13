@@ -1,8 +1,8 @@
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
 
-/** Декодер Draco (GLB с KHR_draco_mesh_compression). */
-const DRACO_DECODER_PATH = "https://www.gstatic.com/draco/versioned/decoders/1.5.6/";
+/** Same-origin Draco: model readiness must not depend on an external CDN. */
+const DRACO_DECODER_PATH = "/draco/1.5.6/";
 
 let sharedDracoLoader = null;
 

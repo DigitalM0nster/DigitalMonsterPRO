@@ -109,6 +109,21 @@ test("outside scene draws invalidate cached physical targets", () => {
 	assert.deepEqual(f.frame(.3).draws, ["home:a"]);
 });
 
+test("About reading toggle refreshes the scene before its external HUD bake changes", () => {
+	const f = fixture();
+	const ui = { enabled: true, composeMode: "models", reading: false };
+	f.subject.scenes.get("about").canvasInterface = ui;
+	f.frame(0, "about", "contacts");
+	f.frame(.1);
+	f.frame(.2); // Source just drew; next frame would normally reuse it.
+	ui.reading = true;
+	assert.deepEqual(f.frame(.3).draws, ["about:a"]);
+	f.frame(.4);
+	f.frame(.5); // Source just drew again.
+	ui.reading = false;
+	assert.deepEqual(f.frame(.6).draws, ["about:a"]);
+});
+
 test("an old dormant target cannot be borrowed as the source after a long idle", () => {
 	const f = fixture(); f.frame(0); f.frame(.2);
 	for (let i = 0; i < 10; i++) f.frame(0);

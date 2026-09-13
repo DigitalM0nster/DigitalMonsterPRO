@@ -695,7 +695,9 @@ export class SceneManager {
 			| (scene?.canvasInterface?.composeMode === "screen" ? 4 : 0)
 			| (scene?.world?.hud?.composeMode === "screen" ? 8 : 0)
 			| (scene?._cameraHotspots?.composeMode === "screen" ? 16 : 0)
-			| (scene?.heroTitle?.getWarmupOverlays?.().some(overlay => overlay.composeMode === "screen") ? 32 : 0);
+			| (scene?.heroTitle?.getWarmupOverlays?.().some(overlay => overlay.composeMode === "screen") ? 32 : 0)
+			// About's live reading flag also switches the external hex HUD bake.
+			| (scene?.canvasInterface?.reading ? 64 : 0);
 	}
 
 	/**

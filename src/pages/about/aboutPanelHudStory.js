@@ -26,7 +26,7 @@ import {
 	isAboutPanelHudRevealBusy,
 } from "@/pages/about/aboutPanelHudReveal.js";
 import { isAboutPanelHudLocaleMixBusy } from "@/pages/about/aboutPanelHudBridge.js";
-import { stageLocalToHudMix } from "./aboutStoryTiming.js";
+import { ABOUT_OPEN_STORY_ANCHOR, stageLocalToHudMix } from "./aboutStoryTiming.js";
 
 export { stageLocalToHudMix } from "./aboutStoryTiming.js";
 
@@ -181,10 +181,12 @@ function estimateVerticalZone(viewportH, projectNavLayout) {
 export function resolveAboutPanelHudStoryPair(story) {
 	const s = clampStoryVisual(story);
 	if (s < 1) {
-		return { from: "text1", to: "text2", mix: stageLocalToHudMix(s) };
+		return { from: "text1", to: "text2", mix: stageLocalToHudMix(s, ABOUT_OPEN_STORY_ANCHOR) };
 	}
 	if (s < 2) {
-		return { from: "text2", to: "text3", mix: stageLocalToHudMix(s - 1) };
+		// Match the opening half-segment's wipe, including its 1.5× wheel gain.
+		// Only HUD timing changes; the model still scrubs the full story segment.
+		return { from: "text2", to: "text3", mix: stageLocalToHudMix(s - 1, ABOUT_OPEN_STORY_ANCHOR / 1.5) };
 	}
 	if (s < 3) {
 		return { from: "text3", to: "empty", mix: stageLocalToHudMix(s - 2) };

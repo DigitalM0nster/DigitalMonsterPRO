@@ -129,6 +129,20 @@ test("About full desktop keeps its authored camera projection", () => {
 	assert.deepEqual(camera.projectionMatrix.elements, before.elements);
 });
 
+test("desktop opening wheel transition is 1.5 times faster in both directions without changing other intervals", () => {
+	const { runtime } = createScrollRuntime(1440, 900);
+	const baseline = runtime.getPixelsPerStoryUnit(1, 100, "wheel");
+	for (const [story, delta] of [[0, 100], [0.2, 100], [0.2, -100], [0.5, -100]]) {
+		assert.equal(runtime.getPixelsPerStoryUnit(story, delta, "wheel"), baseline / 1.5);
+		assert.equal(runtime.getPixelsPerStoryUnit(story, delta, "touch"), baseline);
+	}
+	assert.equal(runtime.getPixelsPerStoryUnit(0.5, 100, "wheel"), baseline);
+	assert.equal(runtime.getPixelsPerStoryUnit(2, -100, "wheel"), baseline);
+	assert.equal(runtime.getPixelsPerStoryUnit(3, 100, "wheel"), baseline / 2);
+	assert.equal(runtime.getPixelsPerStoryUnit(0, -100, "wheel"), 1000);
+	assert.equal(runtime.getPixelsPerStoryUnit(4, 100, "wheel"), 1000);
+});
+
 test("Compact About has four reversible swipe stops and equally reachable touch boundaries", () => {
 	for (const [width, height] of [[330, 568], [330, 740], [768, 1024], [980, 800], [640, 360]]) {
 		const { runtime, viewport } = createScrollRuntime(width, height);

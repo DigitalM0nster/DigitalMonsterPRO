@@ -29,21 +29,20 @@ Do not drive leave with both mosaic `enterProgress` exit and hex warp. Stage scr
 ## Story → pair map (strict)
 
 `story` is About story progress in `0…4` (stage `i` owns `i → i+1`).  
-**Fast text wipe:** mosaic `mix` runs `0→1` over the first `1/7` of each segment (1.75× the previous first-quarter speed). An extra spring rest at story `0.5` holds text2 with the model slightly open and the front plate intact, matching the reference pose. The initial model/camera motion is 1.35× faster, capped at authored pose `0.5`; scrolling beyond the anchor resumes the original motion and front dissolve (`0.5→1`). Later model poses and route boundaries remain unchanged. After stage 3, mouse-wheel input advances story `3→4` at 2× sensitivity; touch input and the spring rates retain their existing settings. Canonical timing: `aboutStoryTiming.js`.
+**Synchronized story motion:** text and model use the same painted story progress throughout each text transition. Text1→text2 spans story `0→0.5`, ending together with the model at the intact-front opening anchor. The model/camera scrub the authored story directly, without an early cap/hold. Scrolling beyond the anchor keeps text2 settled while the front dissolves (`0.5→1`). Text2→text3 completes over story `1→1⅓`: its HUD-only speed matches the opening wipe including the opening desktop wheel gain of 1.5×. Text3 then holds until story 2. Text3→empty spans its full model segment. The spring, later model poses, route boundaries and final wheel sensitivity remain unchanged. Canonical timing: `aboutStoryTiming.js`.
 
 | Story range | `from` | `to` | `mixProgress` | Meaning |
 |-------------|--------|------|---------------|---------|
-| `0 → 1/7` | text1 | text2 | `story × 7` | Text1 wiped by text2 |
-| `1/7 → 1` | text1 | text2 | `1` | Hold text2; opening anchor at `0.5` |
-| `1 → 1 + 1/7` | text2 | text3 | `(story − 1) × 7` | Text2 wiped by text3 |
-| `1 + 1/7 → 2` | text2 | text3 | `1` | Hold text3 |
-| `2 → 2 + 1/7` | text3 | empty | `(story − 2) × 7` | Text3 wiped out |
-| `2 + 1/7 → 3` | text3 | empty | `1` | Hold empty |
+| `0 → 0.5` | text1 | text2 | `story × 2` | Text and model move together to the opening anchor; desktop wheel sensitivity ×1.5 in both directions |
+| `0.5 → 1` | text1 | text2 | `1` | Hold text2 during front dissolve |
+| `1 → 1⅓` | text2 | text3 | `(story − 1) × 3` | HUD wipe matches opening scroll distance; model timing is unchanged |
+| `1⅓ → 2` | text2 | text3 | `1` | Hold text3 |
+| `2 → 3` | text3 | empty | `story − 2` | Text wipes out during the model segment |
 | `≥ 3` | empty | empty | `1` | No left band |
 
 At an integer stop `n ∈ {0,1,2}` the active band is fully `from` of the next segment (`mix = 0` on that segment’s pair). At `story = 0`, text1 is idle full show. At `story = 1` / `2` the previous segment already held `mix = 1`, so the pair swap stays seamless.
 
-Reverse scroll uses the same map — mix decreases on the first `1/7` only; hold zones stay settled. The opening anchor uses the existing segment spring with local threshold `0.5`, including reverse, keyboard navigation and menu settle; it never starts a second progress owner. The visible left rail contains only text stops 1–3 and fades with text3→empty; later 3D/route stops never add rail nodes.
+Reverse scroll uses the same map. Text2 holds through the front-dissolve zone; text3 holds over story `2→1⅓`, then reverses the accelerated text wipe. The opening anchor uses the existing segment spring with local threshold `0.5`, including reverse, keyboard navigation and menu settle; it never starts a second progress owner. The visible left rail contains only text stops 1–3 and fades with text3→empty; later 3D/route stops never add rail nodes.
 
 ---
 

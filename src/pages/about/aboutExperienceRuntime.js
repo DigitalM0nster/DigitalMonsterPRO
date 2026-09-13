@@ -82,6 +82,7 @@ import { requestSiteArcScrollRepaint } from "@/pages/portfolio/core/caseStudyAni
 
 const LEGACY_STAGE_INTERVALS = Math.max(1, ABOUT_STAGE_COUNT - 1);
 const ABOUT_WHEEL_STRENGTH = 1.5;
+const ABOUT_OPEN_STAGE_WHEEL_MULTIPLIER = 1.5;
 const ABOUT_FINAL_STAGE_WHEEL_MULTIPLIER = 2;
 /** Softer than carousel — interior stages only. */
 const ABOUT_SPRING_RATES = {
@@ -183,9 +184,13 @@ function getPixelsPerStoryUnit(storyTarget, deltaPixels, inputSource) {
 		return clamp(window.innerHeight * 0.78, 320, 700) / span;
 	}
 	const afterThirdStage = storyTarget > 3 || (storyTarget === 3 && deltaPixels > 0);
-	const wheelMultiplier = inputSource === "wheel" && afterThirdStage
-		? ABOUT_FINAL_STAGE_WHEEL_MULTIPLIER
-		: 1;
+	const openingStage = storyTarget < ABOUT_OPEN_STORY_ANCHOR
+		|| (storyTarget === ABOUT_OPEN_STORY_ANCHOR && deltaPixels < 0);
+	let wheelMultiplier = 1;
+	if (inputSource === "wheel") {
+		if (openingStage) wheelMultiplier = ABOUT_OPEN_STAGE_WHEEL_MULTIPLIER;
+		else if (afterThirdStage) wheelMultiplier = ABOUT_FINAL_STAGE_WHEEL_MULTIPLIER;
+	}
 	return getPixelsPerStage() / wheelMultiplier;
 }
 

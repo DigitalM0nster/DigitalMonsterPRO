@@ -1,0 +1,6 @@
+# Only for build_geometry.py / render_previews.py. Not required by assemble_blender.py.
+numpy
+scipy
+trimesh>=4
+vtk>=9
+Pillow

@@ -6,6 +6,9 @@ The site's mobileWhaleMaterial.js supplies the final moving light treatment.
 import bpy
 import math
 import json
+import sys
+import subprocess
+from functools import lru_cache
 from pathlib import Path
 from mathutils import Vector, Quaternion
 
@@ -20,15 +23,21 @@ scene.render.fps = 24
 scene.frame_start, scene.frame_end = 1, 145
 
 def smooth_profile(keys, t):
-    # Catmull-Rom interpolation through deliberate anatomical landmarks.
+    # Physical knot spacing preserves tangent continuity at the rounded jaw.
     k = next((i for i in range(len(keys)-1) if keys[i+1][0] >= t), len(keys)-2)
     u = max(0, min(1, (t-keys[k][0])/(keys[k+1][0]-keys[k][0])))
     a,b,c,d = keys[max(0,k-1)],keys[k],keys[k+1],keys[min(len(keys)-1,k+2)]
-    return [0.5*((2*b[j])+(-a[j]+c[j])*u+(2*a[j]-5*b[j]+4*c[j]-d[j])*u*u+(-a[j]+3*b[j]-3*c[j]+d[j])*u*u*u) for j in range(1,len(b))]
+    h=c[0]-b[0]
+    return [(2*u**3-3*u*u+1)*b[j]+(u**3-2*u*u+u)*h*(c[j]-a[j])/(c[0]-a[0])
+        +(-2*u**3+3*u*u)*c[j]+(u**3-u*u)*h*(d[j]-b[j])/(d[0]-b[0]) for j in range(1,len(b))]
+
+def smoother(t):
+    t=max(0,min(1,t))
+    return t*t*t*(t*(t*6-15)+10)
 
 meshes = []
 weights_by_mesh = {}
-def ring_mesh(name, rings, sides, sample, weights, line_scale=(1,1), flow_region=0):
+def ring_mesh(name, rings, sides, sample, weights, line_scale=(1,1), flow_region=0, bridge=False):
     verts, faces, uvs = [], [], []
     for i in range(rings+1):
         s=i/rings
@@ -61,17 +70,34 @@ def ring_mesh(name, rings, sides, sample, weights, line_scale=(1,1), flow_region
 # independently traced streamline, not the latitude of a generic whale model.
 reference=json.loads((HERE/"referenceContours.json").read_text())
 rows=reference["bodyRows"]
+sys.path.insert(0,str(HERE))
+from surfaceParticles import Spline
+row_splines=[Spline(r["points"]) for r in rows]
 def screen_point(pixel,depth=0):
     return Vector(((pixel[0]-700)/100,depth,(450-pixel[1])/100))
 def traced_path(points,s):
     return smooth_profile([(i/(len(points)-1),*p) for i,p in enumerate(points)],s)
-def body_screen(s,q):
+@lru_cache(maxsize=32768)
+def body_row_values(s):
     # Resample all traced rows at a common X, then interpolate monotonically
     # across them. A free Coons patch folds where the saddle rows converge.
     x=249+761*s
-    values=[smooth_profile(r["points"],x)[0] for r in rows]
-    gap=max(.005,(values[0]-values[-1])*.001)
+    values=[spline(x) for spline in row_splines]
+    # Short elliptic arcs meet at one rounded, closed nose. No projecting prow.
+    dx=x-249
+    if dx<12:
+        top=536-24*math.sqrt(max(0,1-((dx-18)/18)**2))
+        bottom=536+28*math.sqrt(max(0,1-((dx-22)/22)**2))
+        blend=1-smoother((dx-6)/6)
+        values[0]=values[0]*(1-blend)+bottom*blend
+        values[-1]=values[-1]*(1-blend)+top*blend
+    gap=max(.00001,(values[0]-values[-1])*.001)
     for i in range(len(values)-2,-1,-1):values[i]=max(values[i],values[i+1]+gap)
+    return values
+
+def body_screen(s,q):
+    x=249+761*s
+    values=body_row_values(s)
     qs=[r["latitude"] for r in rows]
     slopes=[(values[i+1]-values[i])/(qs[i+1]-qs[i]) for i in range(len(qs)-1)]
     tangent=[slopes[0]]
@@ -81,16 +107,26 @@ def body_screen(s,q):
     h=qs[i+1]-qs[i];t=max(0,min(1,(q-qs[i])/h))
     y=(2*t**3-3*t*t+1)*values[i]+(t**3-2*t*t+t)*h*tangent[i]+(-2*t**3+3*t*t)*values[i+1]+(t**3-t*t)*h*tangent[i+1]
     p=[x,y]
-    # A rounded nose has a short vertical front arc, not a cone apex.
-    nose=math.exp(-(s/.055)**2)
-    p[0]+=3*q*q*nose
-    p[1]-=13*q*nose
     return p
+
 def body_depth(s,q):
-    width=(.12+1.08*math.sin(math.pi*s)**.62)*(1-.38*s)
+    width=1.18*math.sqrt(max(0,math.sin(math.pi*s)))*(1-.38*s)
     return width*math.sqrt(max(0,1-q*q))
 def surface(s,q,side=-1,lift=0):
     return screen_point(body_screen(s,q),side*(body_depth(s,q)+lift))
+
+@lru_cache(maxsize=8192)
+def body_coordinates(x,y):
+    s=max(.00001,min(.99999,(x-249)/761));lo=-1.;hi=1.
+    for _ in range(18):
+        q=(lo+hi)*.5
+        if body_screen(s,q)[1]>y:lo=q
+        else:hi=q
+    return s,(lo+hi)*.5
+
+def on_body(x,y,side=-1,lift=0):
+    s,q=body_coordinates(x,y)
+    return surface(s,q,side,lift)
 def flow_surface(s,q,side=-1,lift=0):
     # Feature locations retain their traced-row parameter when body UV U is
     # changed to physical longitudinal distance for an untangled surface.
@@ -112,16 +148,42 @@ body=ring_mesh("MobileWhale_Body",180,100,body_point,lambda s,p:body_weights(p.x
 # Closed, cambered swept fins. Independent edges preserve the concave trailing
 # edge and convex leading edge; depth makes a volume that can turn and swim.
 def wing_point(profile,s,theta,far=False):
+    if profile is reference["upperFluke"] or profile is reference["lowerFluke"]:
+        sign=1 if profile is reference["upperFluke"] else -1
+        across=(math.cos(theta)+1)*.5;span=1.86*s*sign
+        chord=.67*math.sin(math.pi*s)**.6+.21*(1-s)
+        along=.84*s-.11*math.sin(math.pi*s)+(across-.5)*chord
+        yaw=.48
+        return Vector((3.03+along*math.cos(yaw)-span*math.sin(yaw),
+            along*math.sin(yaw)+span*math.cos(yaw),
+            .76+.08*s*s+.032*math.sin(math.pi*s)+(.034*math.sin(math.pi*s)+.002)*math.sin(theta)))
     a=Vector(traced_path(profile["leading"],s));b=Vector(traced_path(profile["trailing"],s))
     across=(math.cos(theta)+1)*.5
     pixel=a.lerp(b,across)
+    if "root" in profile:
+        root=Vector(traced_path(profile["root"],across))
+        base=Vector(profile["leading"][0]).lerp(Vector(profile["trailing"][0]),across)
+        pixel+=(root-base)*(1-smoother(s/.55))
     depth=traced_path([[d] for d in profile["depth"]],s)[0]
     thick=.045*math.sin(math.pi*s)**.4+.003
+    if profile is reference["nearFin"]:
+        root_pixel=Vector(profile["leading"][0]).lerp(Vector(profile["trailing"][0]),across)
+        bs,bq=body_coordinates(*root_pixel)
+        # Inherit the actual attachment depth, not the shrinking belly depth
+        # below later fin sections (which folded a dark slash across the fin).
+        collar=-body_depth(bs,bq)+.006
+        blend=smoother(s/.38)
+        depth=collar*(1-blend)+depth*blend
+        thick*=blend
     if far:depth=-depth
     return screen_point(pixel,depth+thick*math.sin(theta))
-def wing_weights(s,bone,parent):
-    t=min(1,s/.30);t=t*t*(3-2*t)
-    return {parent:1-t,bone:t}
+def wing_weights(s,bone,parent,p=None):
+    t=smoother(s/.52)
+    inherited=body_weights(p.x) if p is not None and bone.startswith("Pectoral") else {parent:1}
+    result={name:weight*(1-t) for name,weight in inherited.items()}
+    tip=smoother((s-.38)/.62)*.78
+    result[bone]=t*(1-tip);result[bone+"Tip"]=t*tip
+    return {name:weight for name,weight in result.items() if weight>1e-8}
 wings=[("PectoralNear","nearFin","Body",False,1),
        ("PectoralFar","nearFin","Body",True,1),
        ("FlukeFar","upperFluke","Peduncle",False,2),
@@ -130,82 +192,7 @@ for name,key,parent,far,region in wings:
     profile=reference[key]
     ring_mesh("MobileWhale_"+name,64,28,
         lambda s,t,p=profile,f=far:wing_point(p,s,t,f),
-        lambda s,p,n=name,b=parent:wing_weights(s,n,b),flow_region=region)
-def detail_curve(name, path, radius, kind=0, rings=96, skin=None):
-    # Arc-length UVs make the lip/eyelid/fin contour a chain of distinct beads.
-    # Each contour shares the body's rig and the same second material group.
-    centers=[Vector(path(i/rings)) for i in range(rings+1)]
-    arc=[0.]
-    for a,b in zip(centers,centers[1:]):arc.append(arc[-1]+(b-a).length)
-    def point(s,theta):
-        i=min(rings,round(s*rings))
-        tangent=(centers[min(rings,i+1)]-centers[max(0,i-1)]).normalized()
-        helper=Vector((0,0,1)) if abs(tangent.z)<.9 else Vector((0,1,0))
-        normal=tangent.cross(helper).normalized();binormal=tangent.cross(normal).normalized()
-        taper=.6+.4*math.sin(math.pi*s)**.3
-        return centers[i]+radius*taper*(normal*math.cos(theta)+binormal*math.sin(theta))
-    obj=ring_mesh(name,rings,6,point,skin or (lambda s,p:body_weights(p.x)),flow_region=kind)
-    uv=obj.data.uv_layers.active.data
-    for polygon in obj.data.polygons:
-        for loop in polygon.loop_indices:
-            uv[loop].uv.x=arc[min(rings,round(uv[loop].uv.x*rings))]
-    obj["flowDetail"]=True
-    return obj
-# Curves are skinned once offline and share a single contour material. Semantic
-# UV bands identify mouth / eye / ridge / rim / glint / detached filament.
-def mouth_point(t,side):
-    p=flow_surface(.016+t*.437,-.30,side,.008)
-    end=wing_point(reference["nearFin"],0,math.pi,side>0)
-    correction=end-flow_surface(.453,-.30,side,.008)
-    join=max(0,min(1,(t-.86)/.14));join=join*join*(3-2*join)
-    return p+correction*join
-for side,label in [(-1,"Near"),(1,"Far")]:
-    detail_curve("MobileWhale_Mouth"+label,
-        lambda t,side=side:mouth_point(t,side),.0075,rings=120)
-    # One asymmetric upper lid, never a circular glowing cartoon eye.
-    detail_curve("MobileWhale_Eye"+label,
-        lambda t,side=side:flow_surface(.365+t*.064,.32+.031*math.sin(math.pi*t),side,.018),
-        .006,kind=2,rings=48)
-    for ridge in range(6):
-        detail_curve("MobileWhale_Brow"+label+str(ridge),
-            lambda t,r=ridge,side=side:flow_surface(.035+t*(.53-r*.016),.68+r*.052+.013*math.sin(t*9+r),side,.009),
-            .0035+(.001 if ridge==3 else 0),kind=3,rings=120)
-    # Sparse second-order threads peel from the crest without changing silhouette.
-    for strand in range(12):
-        def wisp(t,r=strand,side=side):
-            s=.15+t*.76;q=.84+r*.011
-            p=flow_surface(s,min(.999,q),side,.015)
-            p.z+=math.sin(math.pi*t)**1.3*(.06+r*.018)
-            p.y+=side*math.sin(math.pi*t)*(.012+r*.008)
-            return p
-        detail_curve("MobileWhale_Wisp"+label+str(strand),wisp,.0015,kind=6,rings=100)
-
-for name,key,parent,far,region in wings:
-    for edge in [0,math.pi]:
-        detail_curve("MobileWhale_Rim"+name+str(edge),
-            lambda s,p=reference[key],a=edge,f=far:wing_point(p,.01+s*.98,a,f),
-            .0045,kind=4,rings=100,
-            skin=lambda s,p,n=name,b=parent:wing_weights(s,n,b))
-
-# Soft, texture-free star nodes follow the SAME bones as their ridges. Their
-# two triangles use the existing detail draw; they are not a separate rig.
-def glow_patch(name,center,size,skin=None):
-    x,y,z=center;verts=[(x-size/2,y-.022,z-size/2),(x+size/2,y-.022,z-size/2),
-        (x+size/2,y-.022,z+size/2),(x-size/2,y-.022,z+size/2)]
-    data=bpy.data.meshes.new(name);data.from_pydata(verts,[],[(0,1,2,3)]);data.update()
-    obj=bpy.data.objects.new(name,data);scene.collection.objects.link(obj)
-    uv=data.uv_layers.new(name="Flow")
-    for loop,coord in zip(data.polygons[0].loop_indices,[(0,10),(1,10),(1,11),(0,11)]):uv.data[loop].uv=coord
-    weights_by_mesh[obj.name]=[(skin or body_weights(x)) for _ in verts]
-    obj["flowDetail"]=True;obj["glowPatch"]=True;meshes.append(obj)
-for i,(s,q,size) in enumerate([(.06,.1,.42),(.13,.87,.48),(.235,.90,.58),(.39,.35,.21),
-        (.45,.44,.39),(.48,.90,.48),(.50,.96,.44),(.61,.61,.53),(.60,0,.36),(.79,.80,.40),(.89,.90,.38)]):
-    glow_patch("MobileWhale_Glint"+str(i),flow_surface(s,q,-1,.028),size)
-for name,key,parent,far,region in wings:
-    if far:continue
-    for i,s in enumerate([.34,.63,.9]):
-        glow_patch("MobileWhale_Glint"+name+str(i),wing_point(reference[key],s,math.pi),.28,
-            skin=wing_weights(s,name,parent))
+        lambda s,p,n=name,b=parent:wing_weights(s,n,b,p),flow_region=region,bridge=region==1)
 arm=bpy.data.armatures.new("MobileWhaleRig")
 rig=bpy.data.objects.new("MobileWhaleRig",arm);scene.collection.objects.link(rig)
 bpy.context.view_layer.objects.active=rig;rig.select_set(True)
@@ -220,6 +207,15 @@ specs=[
     ("PectoralFar",(-1.05,1.05,-.68),(1.2,1.55,-1.76),"Body"),
     ("FlukeNear",(2.81,0,.76),(4.73,-.43,-.06),"Peduncle"),
     ("FlukeFar",(2.81,0,.76),(3.65,-.30,2.02),"Peduncle")]
+for name,key,parent,far,region in wings:
+    profile=reference[key]
+    head=wing_point(profile,.53,math.pi*.5,far)
+    tail=wing_point(profile,.96,math.pi*.5,far)
+        # Root hinges follow the horizontal fan, not the old vertical tail silhouette.
+    if name.startswith("Fluke"):
+        at=next(i for i,spec in enumerate(specs) if spec[0]==name)
+        specs[at]=(name,Vector((3.03,0,.76)),head,parent)
+    specs.append((name+"Tip",head,tail,name))
 for name,head,tail,parent in specs:
     bone=arm.edit_bones.new(name);bone.head=head;bone.tail=tail
     if parent:bone.parent=arm.edit_bones[parent]
@@ -234,22 +230,29 @@ for obj in meshes:
 
 rig.animation_data_create()
 action=bpy.data.actions.new("MobileWhale_CalmSwim");rig.animation_data.action=action
-for frame in range(1,146,6):
+for frame in range(1,146,3):
     phase=(frame-1)/144*math.tau
     for index,(name,_,_,_) in enumerate(specs):
         bone=rig.pose.bones[name];bone.rotation_mode="QUATERNION"
-        if name=="Body":axis=Vector((0,1,0));angle=math.radians(.55)*math.sin(phase)
+        if name=="Body":axis=Vector((1,0,0));angle=math.radians(.32)*math.sin(phase)
         elif name.startswith("Pectoral"):
-            sign=-1 if name.endswith("Near") else 1
-            axis=Vector((1,0,0));angle=sign*math.radians(5)*math.sin(phase)*(.7+.3*math.cos(phase-.8))
+            sign=-1 if "Near" in name else 1
+            tip=name.endswith("Tip");lag=.55 if tip else .1
+            beat=math.sin(phase-lag)+.12*math.sin(2*(phase-lag))
+            axis=Vector((1,.16,0));angle=sign*math.radians(6.2 if tip else 5.8)*beat
         elif name.startswith("Fluke"):
-            sign=-1 if name.endswith("Near") else 1
-            axis=Vector((1,0,0));angle=sign*math.radians(3)*math.sin(phase)*(.7+.3*math.cos(phase-1.6))
+            sign=-1 if "Near" in name else 1
+            tip=name.endswith("Tip");lag=1.45 if tip else .95
+            axis=Vector((1,.20,0));angle=sign*math.radians(21 if tip else 9.5)*math.sin(phase-lag)
         else:
-            axis=Vector((0,1,0));angle=math.radians([0,2.3,3.4,4.5,5.0][index])*math.sin(phase)*(.7+.3*math.cos(phase-index*.35))
+            amplitude,lag={"Tail01":(1.1,.1),"Tail02":(1.8,.32),"Tail03":(2.4,.58),"Peduncle":(2.6,.82)}[name]
+            axis=Vector((0,1,.10));angle=math.radians(amplitude)*(math.sin(phase-lag)+.09*math.sin(2*(phase-lag)))
         axis=arm.bones[name].matrix_local.to_3x3().inverted()@axis
-        bone.rotation_quaternion=Quaternion(axis,angle)
+        bone.rotation_quaternion=Quaternion(axis.normalized(),angle)
         bone.keyframe_insert("rotation_quaternion",frame=frame,group=name)
+    # At most 2.8 reference pixels laterally; no scene/camera repositioning.
+    rig.location=(.028*math.sin(phase),.010*math.sin(phase),.012*math.sin(phase*2))
+    rig.keyframe_insert("location",frame=frame,group="Gentle suspension")
 for fcurve in action.fcurves:
     for key in fcurve.keyframe_points:key.interpolation="BEZIER";key.handle_left_type=key.handle_right_type="AUTO_CLAMPED"
 scene.frame_set(1)
@@ -257,9 +260,8 @@ scene.frame_set(1)
 # Authoring material makes the geometry easy to inspect in Blender.
 clay=bpy.data.materials.new("Whale midnight clay");clay.diffuse_color=(.045,.15,.22,1);clay.use_nodes=True
 bsdf=clay.node_tree.nodes.get("Principled BSDF");bsdf.inputs["Base Color"].default_value=(.035,.14,.20,1);bsdf.inputs["Roughness"].default_value=.40
-detail=bpy.data.materials.new("Fine facial contours");detail.diffuse_color=(.03,.4,.62,1)
-for obj in meshes:obj.data.materials.append(detail if obj.get("flowDetail") else clay)
-# One skinned body with two material groups instead of a draw per fin/detail.
+for obj in meshes:obj.data.materials.append(clay)
+# One closed, invisible authoring surface owns occlusion and the shared rig.
 for obj in bpy.context.selected_objects:obj.select_set(False)
 for obj in meshes:obj.select_set(True)
 bpy.context.view_layer.objects.active=body
@@ -271,6 +273,16 @@ subdivision.show_viewport=False;subdivision.show_render=False
 rig["createdFrom"]="Sculpted from the supplied 1219 x 679 creature contours and flow-line landmarks."
 rig["webMaterial"]="src/three/scenes/home/mobileWhale/mobileWhaleMaterial.js"
 rig["loopSeconds"]=6
+emitters=[]
+for i in range(16):
+    s=.10+i*.052;p=surface(s,.98,-1,.013)
+    emitters.append({"position":[p.x,p.z,-p.y],"weights":body_weights(p.x)})
+for name,key,parent,far,region in wings:
+    if far:continue
+    for i in range(8):
+        s=.18+i*.105;p=wing_point(reference[key],s,0 if i%2 else math.pi)
+        emitters.append({"position":[p.x,p.z,-p.y],"weights":wing_weights(s,name,parent,p)})
+rig["wakeEmitters"]=json.dumps(emitters)
 # Y-up crop for portrait. Desktop uses the complete sampled swim envelope.
 rig["referenceHeadBounds"]=[-4.51,-1.80,-1.7,.25,1.46,1.7]
 
@@ -287,22 +299,23 @@ settings=dict(filepath=str(OUT),export_format="GLB",use_selection=True,export_an
     export_extras=True,export_cameras=False,export_lights=False)
 valid=bpy.ops.export_scene.gltf.get_rna_type().properties.keys()
 bpy.ops.export_scene.gltf(**{k:v for k,v in settings.items() if k in valid})
+sys.path.insert(0,str(HERE))
+from surfaceParticles import build_surface_particles
+cloud=build_surface_particles(reference,surface,on_body,body_coordinates,body_weights,wing_point,wing_weights,wings)
+(REVIEW/"particles.json").write_text(json.dumps(cloud))
+subprocess.run(["node",str(HERE/"packParticles.mjs"),str(OUT),str(REVIEW/"particles.json")],check=True)
+vertices=[(cloud["position"][i],-cloud["position"][i+2],cloud["position"][i+1]) for i in range(0,len(cloud["position"]),3)]
+data=bpy.data.meshes.new("Surface particle positions");data.from_pydata(vertices,[],[]);data.update()
+point_object=bpy.data.objects.new("Visible surface particles",data);scene.collection.objects.link(point_object)
+point_object.parent=rig;point_object.hide_render=True
+for name,_,_,_ in specs:point_object.vertex_groups.new(name=name)
+for i,skin in enumerate(cloud["weights"]):
+    for name,weight in skin.items():
+        if weight>0:point_object.vertex_groups[name].add([i],weight,"REPLACE")
+point_object.modifiers.new("Shared swimming motion","ARMATURE").object=rig
+rig["particleFormat"]="continuous-surface-currents-v1"
 
 # Save a useful editable studio view alongside the rig and its swim action.
-# Web-only glow cards must not appear as opaque squares in the clay studio.
-# This UV mask changes authoring shading only; the exported skin has two groups.
-detail.use_nodes=True
-nodes=detail.node_tree.nodes;links=detail.node_tree.links
-uv=nodes.new("ShaderNodeTexCoord");split=nodes.new("ShaderNodeSeparateXYZ")
-links.new(uv.outputs["UV"],split.inputs[0])
-above=nodes.new("ShaderNodeMath");above.operation="GREATER_THAN";above.inputs[1].default_value=9.5
-below=nodes.new("ShaderNodeMath");below.operation="LESS_THAN";below.inputs[1].default_value=11.5
-both=nodes.new("ShaderNodeMath");both.operation="MULTIPLY"
-links.new(split.outputs["Y"],above.inputs[0]);links.new(split.outputs["Y"],below.inputs[0])
-links.new(above.outputs[0],both.inputs[0]);links.new(below.outputs[0],both.inputs[1])
-transparent=nodes.new("ShaderNodeBsdfTransparent");mix=nodes.new("ShaderNodeMixShader")
-links.new(both.outputs[0],mix.inputs[0]);links.new(nodes.get("Principled BSDF").outputs[0],mix.inputs[1])
-links.new(transparent.outputs[0],mix.inputs[2]);links.new(mix.outputs[0],nodes.get("Material Output").inputs["Surface"])
 for obj in bpy.context.selected_objects:obj.select_set(False)
 bpy.ops.object.camera_add(location=(0,-18,0))
 camera=bpy.context.object;camera.name="Silhouette review"

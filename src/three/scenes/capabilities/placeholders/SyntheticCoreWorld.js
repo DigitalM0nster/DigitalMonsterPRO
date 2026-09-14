@@ -272,8 +272,10 @@ export class SyntheticCoreWorld {
 		camera.position.y += (Number(parallax?.y) || 0) * 0.45;
 		camera.fov = 43;
 		camera.updateProjectionMatrix();
-		if (window.innerWidth <= 768 && window.innerHeight > window.innerWidth && window.innerHeight < 640) {
-			camera.projectionMatrix.elements[9] = .05;
+		if (window.innerWidth <= 768 && window.innerHeight > window.innerWidth) {
+			// Leave a little more air below the mobile caption, in CSS pixels.
+			const shift = Math.min(34, window.innerHeight * .05);
+			camera.projectionMatrix.elements[9] = 2 * shift / window.innerHeight;
 			camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
 		} else if (window.innerHeight <= 480 && window.innerWidth > window.innerHeight) {
 			camera.projectionMatrix.elements[8] = window.innerWidth <= 1024 ? -.15 : -.20;

@@ -113,6 +113,11 @@ export class DigitalWhaleScene {
 		this._whaleLoadToken = 0;
 		this._whaleBasePos = new THREE.Vector3();
 		this._whaleBaseRot = new THREE.Euler();
+		this._whaleConfigRotationOrigin = new THREE.Euler(
+			digitalWhaleConfig.whale.rotationX,
+			digitalWhaleConfig.whale.rotationY,
+			digitalWhaleConfig.whale.rotationZ,
+		);
 		this._whaleEnterFrom = new THREE.Vector3();
 		this._whaleEnterTo = new THREE.Vector3();
 		this._whaleEnterCompleted = false;
@@ -128,6 +133,7 @@ export class DigitalWhaleScene {
 		this._lastDisplayedPage = "/";
 		this.lastRouteKey = "";
 		this.whaleWake = null;
+		this.whaleTrail = null;
 		this._heroRenderer = null;
 		this.heroTitle = null;
 
@@ -440,7 +446,7 @@ export class DigitalWhaleScene {
 		const w = digitalWhaleConfig.whale;
 		const loadToken = ++this._whaleLoadToken;
 
-		return loadAnimatedWhale({ edgeSpacing: w.edgeSpacing, renderMode: this.whaleRenderMode })
+		return loadAnimatedWhale({ edgeSpacing: w.edgeSpacing, renderMode: this.whaleRenderMode, wakeConfig: w.wake })
 			.then((whale) => {
 				if (this._disposed || loadToken !== this._whaleLoadToken) {
 					disposeWhaleRoot(whale.root);
@@ -453,6 +459,7 @@ export class DigitalWhaleScene {
 				this.whaleParticles = whale.particles;
 				this.whaleParticleMeshes = whale.particleMeshes;
 				this.whaleHologramMaterial = whale.hologramMaterial;
+				this.whaleTrail = whale.trail ?? null;
 				this.whaleRenderMode = whale.renderMode;
 				this._whaleEdgeSpacing = w.edgeSpacing;
 				this.whaleGroup.add(whale.root);
@@ -998,9 +1005,16 @@ export class DigitalWhaleScene {
 
 		const rotation = this._whaleViewportRotation ?? this._whaleBaseRot;
 		const swayScale = this._whaleViewportRotation ? .3 : 1;
+		const devRotationX = this._whaleViewportRotation ? this._whaleBaseRot.x - this._whaleConfigRotationOrigin.x : 0;
+		const devRotationY = this._whaleViewportRotation ? this._whaleBaseRot.y - this._whaleConfigRotationOrigin.y : 0;
+		const devRotationZ = this._whaleViewportRotation ? this._whaleBaseRot.z - this._whaleConfigRotationOrigin.z : 0;
 		this.whaleGroup.scale.setScalar(w.scale * this._whaleViewportFit);
 		this.whaleGroup.position.set(this._whaleBasePos.x, this._whaleBasePos.y + bobY * swayScale, this._whaleBasePos.z).add(this._whaleViewportOffset);
-		this.whaleGroup.rotation.set(rotation.x + rollX * swayScale, rotation.y + yawY * swayScale, rotation.z + pitchZ * swayScale);
+		this.whaleGroup.rotation.set(
+			rotation.x + devRotationX + rollX * swayScale,
+			rotation.y + devRotationY + yawY * swayScale,
+			rotation.z + devRotationZ + pitchZ * swayScale,
+		);
 
 		this._syncWhaleAnchorPositions();
 	}
@@ -1024,9 +1038,15 @@ export class DigitalWhaleScene {
 			if (this.whaleRoot.userData.authoredWhale) {
 				const u = this.whaleHologramMaterial.uniforms;
 				const tier = getGraphicsTier();
-				u.uOpacity.value = .92;
+				u.uOpacity.value = w.opacity;
 				// Lower-resolution bloom concentrates nearby dots; preserve their separation.
 				u.uGlow.value = tier === "medium" ? 2.1 : tier === "high" ? 3.4 : 4.2;
+				if (w.particleDensity != null && u.uParticleDensity) {
+					u.uParticleDensity.value = w.particleDensity;
+				}
+				if (w.particleScale != null && u.uParticleScale) {
+					u.uParticleScale.value = w.particleScale;
+				}
 				return;
 			}
 			applyWhaleHologramVisuals(this.whaleHologramMaterial, {
@@ -1050,13 +1070,15 @@ export class DigitalWhaleScene {
 			elapsed: this.elapsed,
 			opacity: w.opacity,
 			pointScale: w.pointScale,
+			particleScale: w.particleScale,
+			particleDensity: w.particleDensity,
 			grainBlurRadius,
 		});
 		if (this._compactHighHome) {
 			const u = this.whaleParticles.material.uniforms;
 			// High's original HDR hue/pulse, calibrated for the smaller body rather
 			// than a desktop-sized sprite. Sharp single-tap cores also save work.
-			u.uPointScale.value = Math.min(w.pointScale, 4);
+			u.uPointScale.value = Math.min(u.uPointScale.value, 4);
 			u.uGlow.value = .7 + (u.uGlow.value - .7) * .7;
 			u.uAlphaMult.value *= .85;
 			u.uGrainBlurRadius.value = 0;
@@ -1098,6 +1120,7 @@ export class DigitalWhaleScene {
 		this._applyWhaleTransform();
 		this._applyWhaleVisuals();
 		this.whaleWake?.applyConfig(c.whale.wake);
+		this.whaleTrail?.applyConfig?.(c.whale.wake);
 		this.ambientEffects?.applyConfig(buildTierScaledWhaleConfig(c));
 		this._syncFogMaterials();
 		this.syncCamera(this.smoothPointer);
@@ -1124,6 +1147,22 @@ export class DigitalWhaleScene {
 		this.oceanGroup.updateMatrixWorld(true);
 		this._applyOceanMaterialConfig(o);
 		this._syncOceanScrollState();
+		this._syncOceanRipple();
+	}
+
+	/** DEV panel: live whale tuning (position/rotation/particle params) без пересборки геометрии. */
+	applyWhaleConfigFromDev() {
+		if (!import.meta.env.DEV) {
+			return;
+		}
+
+		const w = digitalWhaleConfig.whale;
+		this._applyWhaleTransform();
+		this._applyWhaleVisuals();
+		this.whaleWake?.applyConfig?.(w.wake);
+		this.whaleTrail?.applyConfig?.(w.wake);
+		this.whaleGroup.updateMatrixWorld(true);
+		this._syncWhaleAnchorPositions();
 		this._syncOceanRipple();
 	}
 
@@ -1300,6 +1339,7 @@ export class DigitalWhaleScene {
 			this.whaleWake.dispose();
 			this.whaleWake = null;
 		}
+		this.whaleTrail = null;
 
 		this._disposeOceanSurface();
 

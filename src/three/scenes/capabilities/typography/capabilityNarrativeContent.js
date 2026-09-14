@@ -29,7 +29,7 @@ export const NARRATIVE_COPY = {
 };
 
 export const NARRATIVE_DELAY = 1.5;
-export const CORE_NARRATIVE_DELAY = 0.15;
+export const CORE_NARRATIVE_DELAY = 0;
 export const CORE_NARRATIVE_LABEL = ["ЗА ГРАНЬЮ ПРИВЫЧНОГО", "BEYOND THE ORDINARY", "超越寻常"];
 export const TRAIL_PHRASE_DURATION = 6.8;
 export const TRAIL_VISIBLE_DURATION = 6.1;
@@ -45,7 +45,12 @@ export function trailNarrativeWallPosition(side, radius) {
 
 export function advanceNarrative(elapsed, delta, state, variant = "lightTrails") {
 	const reveal = narrativeFrame(elapsed, variant).reveal;
-	return canAdvanceSceneText(state, reveal > 0 && reveal < 1)
+	// SceneManager updates only the visible mix pair. Start the core caption
+	// with its incoming layer, instead of waiting for the route to settle.
+	const canAdvance = variant === "syntheticCore"
+		? state.started && (state.current || state.transitioning)
+		: canAdvanceSceneText(state, reveal > 0 && reveal < 1);
+	return canAdvance
 		? elapsed + Math.max(0, Math.min(delta, 0.05)) : elapsed;
 }
 

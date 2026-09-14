@@ -8,7 +8,7 @@ import {
 import {
 	formatConfigNumber,
 	injectSceneDevToolsStyles,
-	shouldOpenWhaleDevFromUrl,
+	shouldOpenOceanDevFromUrl,
 } from "./sceneDevPanelUtils.js";
 
 const HOTKEY = "6";
@@ -175,7 +175,7 @@ export class OceanDevTools {
 		this._setStatus(`Press ${HOTKEY} to toggle · ${formatDevPanelHotkeyHints()}`);
 		this._syncHints();
 
-		if (shouldOpenWhaleDevFromUrl()) {
+		if (shouldOpenOceanDevFromUrl()) {
 			this.setEnabled(true);
 		}
 	}

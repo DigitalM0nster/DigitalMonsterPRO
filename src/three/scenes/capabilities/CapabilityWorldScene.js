@@ -49,7 +49,10 @@ export class CapabilityWorldScene {
 		this.sceneSound = new CapabilitySceneSound();
 		this.readyPromise = this._prepareNarrative();
 		this._freeCamera = import.meta.env.DEV && capability.sceneVariant === "spatialMatrix"
-			? new PortfolioFreeCameraController(renderer.domElement, { snapshotName: "cityCamera", logLabel: "cityCamera" })
+			? new PortfolioFreeCameraController(renderer.domElement, {
+				snapshotName: "cityCamera", logLabel: "cityCamera", mouseLookEnabled: false,
+				getSnapshotContext: () => ({ viewId: "city", route: "/capabilities/spatial-matrix" }),
+			})
 			: null;
 		if (this._freeCamera) this._freeCamera.moveSpeed = 0.65;
 	}

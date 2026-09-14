@@ -272,5 +272,10 @@ export function shouldOpenHubDevFromUrl() {
 
 export function shouldOpenWhaleDevFromUrl() {
 	const params = new URLSearchParams(window.location.search);
-	return params.has("oceanDev") || params.has("whaleDev") || params.has("heroDev");
+	return params.has("whaleDev") || params.has("heroDev");
+}
+
+export function shouldOpenOceanDevFromUrl() {
+	const params = new URLSearchParams(window.location.search);
+	return params.has("oceanDev") || params.has("heroDev");
 }

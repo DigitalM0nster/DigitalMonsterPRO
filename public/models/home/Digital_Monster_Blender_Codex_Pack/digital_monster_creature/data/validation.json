@@ -1,0 +1,75 @@
+{
+  "kind": "base_mesh_validation",
+  "axis_source": "Z-up, forward=-X",
+  "axis_glb": "Y-up, forward=-X",
+  "triangles_base": 26400,
+  "surface_sample_count": 21955,
+  "lookdev_dot_count": 10978,
+  "parts": [
+    {
+      "name": "DM_Body",
+      "vertices": 8138,
+      "triangles": 16272,
+      "watertight_component": true,
+      "positive_volume": true,
+      "finite_vertices": true
+    },
+    {
+      "name": "DM_Pectoral_L",
+      "vertices": 1094,
+      "triangles": 2184,
+      "watertight_component": true,
+      "positive_volume": true,
+      "finite_vertices": true
+    },
+    {
+      "name": "DM_Pectoral_R",
+      "vertices": 1094,
+      "triangles": 2184,
+      "watertight_component": true,
+      "positive_volume": true,
+      "finite_vertices": true
+    },
+    {
+      "name": "DM_Fluke_L",
+      "vertices": 982,
+      "triangles": 1960,
+      "watertight_component": true,
+      "positive_volume": true,
+      "finite_vertices": true
+    },
+    {
+      "name": "DM_Fluke_R",
+      "vertices": 982,
+      "triangles": 1960,
+      "watertight_component": true,
+      "positive_volume": true,
+      "finite_vertices": true
+    },
+    {
+      "name": "DM_Dorsal",
+      "vertices": 602,
+      "triangles": 1200,
+      "watertight_component": true,
+      "positive_volume": true,
+      "finite_vertices": true
+    }
+  ],
+  "limitations": [
+    "Independent intersecting appendage roots; not a welded production skin.",
+    "No rig/animation in GLB.",
+    "Look-dev FX are static meshes, not a production particle renderer.",
+    "Hidden anatomy and exact head likeness are approximated, not recovered from the image.",
+    "Blender assembly script has not been executed in Blender in this environment."
+  ],
+  "dm_creature_base.glb": {
+    "reload_ok": true,
+    "mesh_count": 8,
+    "bytes": 564444
+  },
+  "dm_creature_lookdev.glb": {
+    "reload_ok": true,
+    "mesh_count": 12,
+    "bytes": 3098432
+  }
+}

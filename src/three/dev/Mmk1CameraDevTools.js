@@ -248,7 +248,7 @@ export class Mmk1CameraDevTools {
 		});
 
 		if (shouldOpenFromUrl()) {
-			if (window.location.pathname === "/capabilities/mmk1" && !store.appStarted) {
+			if (!store.appStarted) {
 				this._autoOpenPending = true;
 			} else {
 				this.setEnabled(true);

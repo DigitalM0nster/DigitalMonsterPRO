@@ -1,60 +1,58 @@
 # Reference-sculpted creature for home
 
-`referenceContours.json` records the silhouette and flow-line landmarks from
-supplied image `codex-clipboard-3e1e86c9-63a6-4de2-9769-ed5dd1873d05.png`
-(1219 × 679). It is the authority for this stylized creature: broad rounded jaw,
-sloping forehead, high crest followed by a concave back, swept triangular
-pectoral fin and tail lobes turned into the reference's image plane. The second
-close-up guides the elongated dark eye socket and jaw pleats; it is not an exact
-crop of the full-frame picture.
+The supplied clean reference remains the authority for the head, broad rounded
+jaw, swept pectoral fin and the paths forming the eye. The latest instruction
+changes the tail: its lobes now lie horizontally in 3D and flex independently
+of the much quieter tail stalk.
 
-The model is an original closed 3D skin, not an image plane or an imported whale.
-`MobileWhale.blend` contains the editable surface, Flow UVs, nine-bone rig,
-six-second `MobileWhale_CalmSwim` action and clay studio. Bright nodes, eyelid,
-mouth, fin rims and detached crest threads share the skin's bones. Each loop
-returns to the authored reference pose. The website supplies the blue shader.
+The visible creature is actual `GL_POINTS` sampled over an authored closed 3D
+surface. There is no animated body texture, UV deformation, eye overlay, seam
+strip or star card. `bodyCurrentPaths.json` contains the continuous body currents:
+the two paths forming the eye start at the head and continue along the body.
+Shape-preserving cubic interpolation avoids overshoot between reference knots.
+`surfaceParticles.py` samples each curve by its 3D arc length (about 4.3 reference
+pixels between beads), adds throat meridians, sparse fin rows and a quiet surface
+population. Four light strengths distinguish the main currents from the volume.
+Actual normals and a shared moving light determine the individual highlights.
+
+`MobileWhale.blend` contains the editable surface, loose-vertex particle cloud,
+13-bone rig and seamless six-second `MobileWhale_CalmSwim` action. The pectoral
+attachment inherits the depth and weights of the body. Its depth is taken from
+the attachment itself, preventing the folded slash caused by projecting later
+fin sections back onto the shrinking belly. Tip motion lags behind the fin roots;
+the tail lobes flex more strongly while body drift remains under 3 reference pixels.
 
 ## Regenerate
 
-From the repository root, in PowerShell:
+From the repository root in PowerShell:
 
 ```powershell
 & 'C:\Program Files\Blender Foundation\Blender 4.2\blender.exe' --background --factory-startup --python tools/assets/mobileWhale/prepareMobileWhale.py
 ```
 
-This replaces the master and `public/models/home/whale-mobile.glb`, and writes
-`output/mobile-whale/anatomy.png` (ignored). Edit the JSON contours / Python
-source before regenerating; regeneration replaces manual master edits.
+This replaces the master and `public/models/home/whale-mobile.glb`. Review outputs
+are `output/mobile-whale/anatomy.png`, `particles.json` and `particle-path-audit.json`.
+Edit JSON paths / Python sources before regenerating; the generator replaces
+manual master edits. `packParticles.mjs` appends the compressed point primitive
+using the GLB's actual joint order and normalized skin weights.
 
-Body rows are resampled at a common longitudinal X and interpolated monotonically
-across latitude. This preserves the traced U/S curves without folding the skin
-where the crest and saddle converge. The two independently traced edges of each
-fin are lofted into a closed cambered volume. Depth stays real; the body's depth
-pass occludes the distant skin and fin.
+## Runtime and budget
 
-## Website and resource budget
-
-- `loadMobileWhale.js` prepares the same compressed GLB on every device under the
-  preloader, including a chunked bounding-envelope sample of the complete swim.
-- `mobileWhaleMaterial.js` draws body beads, curved throat ribs, facial contours,
-  filaments and soft star nodes using two material groups. One shared skin depth
-  pass and one bounded dust draw bring the total to four draws. Transparent
-  contour/glow fragments test body depth but do not write invisible square masks.
-- Desktop frames the complete creature below/beside the title. Portrait frames
-  the face and sweeping fin beneath the copy. Resizing and returning home reuse
-  the existing model, rig, textures and shader programs.
-- Per-frame updates change bones and uniforms only. No bitmap animation, CPU
-  particle skinning, texture upload or geometry creation is needed.
-
-The asset budget is 350 KB including animation; the current export is roughly
-285 KiB with about 56,000 source vertices. Dust is capped at 512 small points.
-These are bounded resource costs, not a measured physical-phone FPS guarantee.
-
-The body-group Flow V bands encode body (0–1), pectorals (2–3), flukes (4–5).
-Contour bands encode lip (0–1), reserved lower lip (2–3), eyelid (4–5), brow (6–7),
-fin edge (8–9), soft glow cards (10–11), and detached filaments (12–13).
-Curve U is arc length; glow-card UVs are local 0–1. The shader restores Blender V
-after the glTF flip. Do not repack these coordinates as a conventional atlas.
+- `loadMobileWhale.js` loads and prepares the same asset on desktop and mobile
+  before Start. The point cloud and depth surface share one rig and bone texture.
+  A conservative per-bone cage samples the full swim envelope in separate frames.
+- One visible body point draw, one invisible skin depth draw and one wake draw.
+  The depth pass hides the far surface without painting an opaque body colour.
+- `mobileWhaleTrail.js` prepares 960 points on 40 rigged emission anchors.
+  Independently seeded ages, speeds and dispersion produce irregular drifting
+  particles with an overall right/up current and smoothly fading lifetimes.
+- Frame updates change bones and uniforms only. No CPU point skinning, changing
+  bitmap texture, buffer upload or resource rebuild is used for swimming.
+- The export contains about 20,500 surface points and is about 719 KB, within
+  the 800 KB asset budget. These are bounded costs, not measured phone FPS.
+- The contour preview uses the current implementation and retains model/reference,
+  overlay, close-up, full view, animation and volume controls. The original-V3
+  switch was removed.
 
 Validation:
 

@@ -73,8 +73,24 @@ export function applyWhaleVisuals(particles, options = {}) {
 	particles.material.uniforms.uGlow.value = 0.7 + glow * 3.2;
 	particles.material.uniforms.uColor.value.set(options.colorTint ?? "#00e5ff");
 	particles.material.uniforms.uAlphaMult.value = opacity;
-	particles.material.uniforms.uPointScale.value = options.pointScale ?? 2.2;
+	const pointScale = options.pointScale ?? 2.2;
+	const particleScale = options.particleScale ?? 1;
+	particles.material.uniforms.uPointScale.value = pointScale * particleScale;
 	particles.material.uniforms.uGrainBlurRadius.value = options.grainBlurRadius ?? 0;
+
+	const density = options.particleDensity;
+	if (density != null && Number.isFinite(density)) {
+		if (particles.material.uniforms.uSampleKeep) {
+			particles.material.uniforms.uSampleKeep.value = Math.min(1, Math.max(0, density));
+		}
+		if (particles.material.uniforms.uParticleDensity) {
+			particles.material.uniforms.uParticleDensity.value = Math.min(1, Math.max(0, density));
+		}
+	}
+
+	if (particles.material.uniforms.uParticleScale) {
+		particles.material.uniforms.uParticleScale.value = particleScale;
+	}
 }
 
 export function disposeWhaleRoot(root) {

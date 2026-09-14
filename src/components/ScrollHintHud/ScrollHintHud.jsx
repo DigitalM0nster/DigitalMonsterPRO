@@ -7,6 +7,7 @@ import { getLoaderCurtainRemainingMs } from "@/app/config/loaderCurtain.js";
 import { HERO_SCROLL_HINT_TRANSLATIONS } from "@/app/localization/interfaceTranslations.js";
 import { subscribeSiteRouteTransition } from "@/three/render/transition/siteTransitionIntent.js";
 import styles from "./ScrollHintHud.module.scss";
+import CoreHintIcon from "./CoreHintIcon.jsx";
 
 const CORE_PATH = "/capabilities/synthetic-core";
 const CORE_HINT = {
@@ -69,7 +70,7 @@ export default function ScrollHintHud() {
 	return (
 		<div className={`${styles.hud} ${isCore ? styles.core : ""} ${visible ? styles.visible : ""}`} aria-hidden={!visible} data-scroll-hint-hud data-hint-kind={isCore ? "core" : "scroll"}>
 			{isCore ? <div className={styles.clickVisual} aria-hidden="true">
-				<span className={styles.sphere} />
+				<CoreHintIcon />
 				<span className={styles.clickRipple} />
 				<svg className={styles.clickPointer} viewBox="0 0 18 22" fill="none">
 					<path d="M2 2L15 12L9 13L7 19L2 2Z" fill="#06131b" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round" />

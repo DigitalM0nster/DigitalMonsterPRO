@@ -49,6 +49,7 @@ import { OceanDevTools } from "../dev/OceanDevTools.js";
 import { MediumHomeDevTools } from "../dev/MediumHomeDevTools.js";
 import { LowHomeDevTools } from "../dev/LowHomeDevTools.js";
 import { Mmk1CameraDevTools } from "../dev/Mmk1CameraDevTools.js";
+import { WhaleDevTools } from "../dev/WhaleDevTools.js";
 
 const NO_GRAIN_BLUR = { enabled: false, radius: 0 };
 const CAPABILITY_HUD_SCENES = ["capabilities:syntheticCore", "capabilities:spatialMatrix"];
@@ -194,6 +195,13 @@ export class DigitalMonsterThreeApp {
 				})
 			: null;
 		this.modelsPostProcess = new ModelsPostProcessPipeline(this.renderer, gfx);
+		this.whaleDevTools = import.meta.env.DEV
+			? new WhaleDevTools({
+					getScene: () => this.sceneManager?.getSceneById?.("home") ?? null,
+					getPostProcess: () => this.modelsPostProcess,
+					gfx,
+				})
+			: null;
 		this.screenCompositor = new ScreenCompositor();
 		this.sceneOverlayTextures = new Map();
 		this.sceneTransitionProgress = 0;
@@ -1699,6 +1707,8 @@ export class DigitalMonsterThreeApp {
 		this.mmk1CameraDevTools?.dispose?.();
 		this.mmk1CameraDevTools = null;
 		this.oceanDevTools?.dispose?.();
+		this.whaleDevTools?.dispose?.();
+		this.whaleDevTools = null;
 		this.mediumHomeDevTools?.dispose?.();
 		this.mediumHomeDevTools = null;
 		this.lowHomeDevTools?.dispose?.();

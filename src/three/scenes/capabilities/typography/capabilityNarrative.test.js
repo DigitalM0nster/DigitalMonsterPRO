@@ -26,8 +26,16 @@ test("narrative reading time waits for the active scene, but a running reveal fi
 	}
 });
 
-test("core text starts promptly without changing the tunnel caption timing", () => {
+test("core text starts on its first incoming frame without waiting for the transition to finish", () => {
 	assert.equal(narrativeFrame(0, "syntheticCore").reveal, 0);
+	for (const current of [true, false]) {
+		const incoming = { started: true, current, transitioning: true };
+		const elapsed = advanceNarrative(0, 1 / 60, incoming, "syntheticCore");
+		assert.ok(narrativeFrame(elapsed, "syntheticCore").reveal > 0);
+		assert.equal(advanceNarrative(0, 1 / 60, incoming, "lightTrails"), 0);
+	}
+	assert.equal(advanceNarrative(0, 1 / 60, { started: false, current: true, transitioning: true }, "syntheticCore"), 0);
+	assert.equal(advanceNarrative(0, 1 / 60, { started: true, current: false, transitioning: false }, "syntheticCore"), 0);
 	assert.ok(narrativeFrame(0.3, "syntheticCore").reveal > 0.1);
 	assert.equal(narrativeFrame(1.3, "syntheticCore").reveal, 1);
 	assert.equal(narrativeFrame(1.3, "lightTrails").reveal, 0);

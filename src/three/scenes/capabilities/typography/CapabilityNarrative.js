@@ -114,6 +114,9 @@ export class CapabilityNarrative {
 		this.wallRotations = [-1, 1].map(side => new THREE.Quaternion().setFromAxisAngle(
 			new THREE.Vector3(0, 1, 0), -side * THREE.MathUtils.degToRad(50),
 		));
+		this.mobileWallRotations = [-1, 1].map(side => new THREE.Quaternion().setFromAxisAngle(
+			new THREE.Vector3(0, 1, 0), -side * THREE.MathUtils.degToRad(25),
+		));
 		this.frame = narrativeFrame(0, variant);
 		this.texture = new THREE.CanvasTexture(canvas);
 		releaseStaticCanvasAfterUpload(this.texture);
@@ -159,12 +162,11 @@ export class CapabilityNarrative {
 
 	layout() {
 		const compact = this.viewport.x <= 1024;
-		if (this.variant === "syntheticCore" || compact) {
+		if (this.variant === "syntheticCore") {
 			const box = coreNarrativeLayout(this.viewport.x, this.viewport.y);
 			this.uniforms.uScreen.value = true;
 			if (this.variant === "syntheticCore") this.uniforms.uState.value = compact || (this.viewport.x <= 1024 && this.viewport.y < 560) ? 1 : 0;
-			// The mobile caption occupies the safe upper band, clear of the flight path.
-			// A uniform switches the prepared quad; no texture or program is rebuilt.
+			// Only the core uses a screen caption. Tunnel text always lives in 3D.
 			this.mesh.material.depthTest = false;
 			this.uniforms.uOrigin.value.set(box.x, box.y);
 			this.uniforms.uSize.value.set(box.width, box.height);
@@ -173,6 +175,20 @@ export class CapabilityNarrative {
 		this.uniforms.uScreen.value = false;
 		this.mesh.material.depthTest = true;
 		const { side, progress } = this.frame;
+		if (compact) {
+			// A larger inscription, turned less sharply, stays legible in portrait.
+			// Fit its closest edge to the narrow frustum, then let it approach in
+			// world space. No camera-following, screen pinning or new text textures.
+			const width = 52, angle = THREE.MathUtils.degToRad(25);
+			const halfView = Math.tan(THREE.MathUtils.degToRad(40)) * this.viewport.x / this.viewport.y;
+			const depth = Math.max(48, (width * 0.5 * Math.cos(angle) + 2.8) / (halfView * 0.88)
+				+ width * 0.5 * Math.sin(angle));
+			this.mesh.position.set(side * 2, 6, 6.2 - depth - (1 - progress) * 12);
+			this.mesh.quaternion.copy(this.mobileWallRotations[side > 0 ? 1 : 0]);
+			this.mesh.scale.set(width, width * HEIGHT / WIDTH, 1);
+			this.mesh.updateMatrixWorld(true);
+			return;
+		}
 		// Clear of the ribs; no camera position, quaternion, FOV or
 		// viewport width enters this pose. Its quiet drift is independent of fast wall flight.
 		const pose = trailNarrativeWallPosition(side, PASSAGE_RADIUS);

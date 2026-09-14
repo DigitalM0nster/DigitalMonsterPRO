@@ -877,7 +877,7 @@ export class DigitalWhaleScene {
 	}
 
 	_rebuildWhaleParticles() {
-		if (this.whaleRenderMode === "hologram") {
+		if (this.whaleRoot?.userData.authoredWhale || this.whaleRenderMode === "hologram") {
 			return;
 		}
 
@@ -1020,13 +1020,14 @@ export class DigitalWhaleScene {
 
 		const w = digitalWhaleConfig.whale;
 
-		if (this.whaleRenderMode === "hologram" && this.whaleHologramMaterial) {
+		if ((this.whaleRoot?.userData.authoredWhale || this.whaleRenderMode === "hologram") && this.whaleHologramMaterial) {
 			if (this.whaleRoot.userData.authoredWhale) {
 				const u = this.whaleHologramMaterial.uniforms;
 				const tier = getGraphicsTier();
-				u.uOpacity.value = .92;
+				u.uOpacity.value = 1;
 				// Lower-resolution bloom concentrates nearby dots; preserve their separation.
 				u.uGlow.value = tier === "medium" ? 2.1 : tier === "high" ? 3.4 : 4.2;
+				u.uSampleKeep.value = tier === "high" ? 1 : tier === "medium" ? .72 : .46;
 				return;
 			}
 			applyWhaleHologramVisuals(this.whaleHologramMaterial, {

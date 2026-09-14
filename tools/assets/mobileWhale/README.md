@@ -1,63 +1,134 @@
-# Reference-sculpted creature for home
+# Reference-driven spatial creature
 
-`referenceContours.json` records the silhouette and flow-line landmarks from
-supplied image `codex-clipboard-3e1e86c9-63a6-4de2-9769-ed5dd1873d05.png`
-(1219 × 679). It is the authority for this stylized creature: broad rounded jaw,
-sloping forehead, high crest followed by a concave back, swept triangular
-pectoral fin and tail lobes turned into the reference's image plane. The second
-close-up guides the elongated dark eye socket and jaw pleats; it is not an exact
-crop of the full-frame picture.
+The visible creature is one GPU-skinned Three.js Points cloud. Its reference
+image is used offline for authoring only. There is no visible triangular skin,
+UV dot pattern, opaque depth mask or hand-placed star layer.
 
-The model is an original closed 3D skin, not an image plane or an imported whale.
-`MobileWhale.blend` contains the editable surface, Flow UVs, nine-bone rig,
-six-second `MobileWhale_CalmSwim` action and clay studio. Bright nodes, eyelid,
-mouth, fin rims and detached crest threads share the skin's bones. Each loop
-returns to the authored reference pose. The website supplies the blue shader.
+## Source and regeneration
 
-## Regenerate
+`reference.png` is the clean 1672 × 941 artwork supplied with the user's pack.
+Only this reference image is used from that pack, not its alternative model.
+`extractReferenceFilaments.py` finds cyan ridge centerlines in the image,
+thins them, follows their tangents, and smooths them along arc length. A coarse
+pass owns the principal geometry; a fine pass preserves faint ribs outside
+its exclusion corridor. Continuation through unlit gaps is reconstructed along smooth tangents.
+Bright halos are illumination, not circular geometry. `flowGuidanceLatest.png` is the final full-composition search/role guide: red
+main, yellow secondary. Unmarked clean-reference details provide tertiary and
+faint filaments. The earlier `flowGuidance.png` / `flowGuidanceFull.png` remain
+inputs only for reproducing the superseded extraction command.
+Its brush width and wobble do not become geometry. The clean image determines
+the actual curves, including fine unmarked lines.
 
-From the repository root, in PowerShell:
+`referenceFilamentPaths.json` stores the result in the original 1219 × 679
+reference coordinate system: positions, a whole-line category (0–3), and separate sqrt(linear-sRGB
+luminance). Every connected line keeps one of four appearance roles. Dark
+reference segments do not change that role or remove beads; lighting only
+adds highlights on top of its base radiance.
+
+To reproduce extraction, use Python with NumPy and Pillow:
+
+```powershell
+python tools/assets/mobileWhale/extractReferenceFilaments.py --sigma 1.65 --threshold .50 --beta .60 --coherence .50 --minimum 9 --fair 1.7 --max-curvature .22 --gap 4.5 --name reference-extraction-coarse
+python tools/assets/mobileWhale/extractReferenceFilaments.py --sigma 1.25 --threshold .65 --beta .65 --coherence 0 --minimum 8 --fair 1.3 --max-curvature .22 --gap 4.5 --name reference-extraction-fine-stable
+python tools/assets/mobileWhale/extractReferenceFilaments.py --merge reference-extraction-coarse reference-extraction-fine-stable --name reference-extraction-final
+python tools/assets/mobileWhale/extractReferenceFilaments.py --polish reference-extraction-final --name reference-extraction-faired
+python tools/assets/mobileWhale/extractReferenceFilaments.py --connect-latest reference-extraction-faired --name reference-extraction-smooth-final
+Copy-Item output/mobile-whale/reference-extraction-smooth-final.json tools/assets/mobileWhale/referenceFilamentPaths.json
+```
+
+`referenceContours.json` supplies the broad foreground mask, hidden rounded
+volume, and rig landmarks. It does not determine the visible filament paths.
+`anatomicalParticles.py` places one bead chain per extracted filament with a
+2.9-reference-pixel step, irrespective of brightness. Junction duplicates are
+suppressed. Source light interpolates linearly so it cannot invent highlights. Main and
+secondary roles are assigned to complete guided paths, never bright fragments.
+The broad main arcs receive a final 5.5 px fairing pass; tight short anatomy
+uses a smaller radius. True endpoints soften; graph junctions and unlit
+interior spans retain the continuous line.
+`creatureSurface.py` is the shared three-dimensional surface for both the
+editable skin and particle curves. Reference positions are its authoring
+coordinates: each maps to a spatial point on the rounded body, fin or tail.
+Continuous chart blending removes the old fin-to-body depth jump. Surface
+normals come from derivatives of this final shape; the same chart weights
+bind skin and particles to the nine-bone rig. Regeneration rejects spatial
+depth discontinuities before publishing the GLB.
+
+`prepareMobileWhale.py` builds the editable envelope, the exact loose particle
+vertices, and a nine-bone six-second swim in `MobileWhale.blend`. Edit the
+Python/JSON sources first: regeneration replaces manual Blender edits.
 
 ```powershell
 & 'C:\Program Files\Blender Foundation\Blender 4.2\blender.exe' --background --factory-startup --python tools/assets/mobileWhale/prepareMobileWhale.py
 ```
 
-This replaces the master and `public/models/home/whale-mobile.glb`, and writes
-`output/mobile-whale/anatomy.png` (ignored). Edit the JSON contours / Python
-source before regenerating; regeneration replaces manual master edits.
+`packParticles.mjs` appends a Draco-compressed POINTS primitive to the rigged
+staging GLB. Only the complete result replaces `public/models/home/whale-mobile.glb`.
+Joint IDs are integers; normalized byte weights sum exactly to 255. The existing
+general Draco decoder supports POINTS; the optimized glTF mesh-only decoder does not.
+The asset format marker `four-line-roles-surface-v2` protects the shader/data
+contract. `_LIGHT` stores role, independent illumination, endpoint envelope
+(or wake phase), and kind; `_SHELL` stores the exact near/far hemisphere.
+After publishing a changed GLB, bump `MOBILE_WHALE_URL` to invalidate old caches.
+Intermediate files and diagnostic renders live in ignored `output/mobile-whale`.
 
-Body rows are resampled at a common longitudinal X and interpolated monotonically
-across latitude. This preserves the traced U/S curves without folding the skin
-where the crest and saddle converge. The two independently traced edges of each
-fin are lofted into a closed cambered volume. Depth stays real; the body's depth
-pass occludes the distant skin and fin.
+## Runtime
 
-## Website and resource budget
+`loadMobileWhale.js` prepares the shared skeleton, material, and point geometry
+under the preloader. `SkinnedWhalePoints` uses Three's GPU skinning chunks.
+The hidden envelope shares the same rig. Animation updates bones and uniforms;
+it never uploads a new position buffer or rebuilds materials.
 
-- `loadMobileWhale.js` prepares the same compressed GLB on every device under the
-  preloader, including a chunked bounding-envelope sample of the complete swim.
-- `mobileWhaleMaterial.js` draws body beads, curved throat ribs, facial contours,
-  filaments and soft star nodes using two material groups. One shared skin depth
-  pass and one bounded dust draw bring the total to four draws. Transparent
-  contour/glow fragments test body depth but do not write invisible square masks.
-- Desktop frames the complete creature below/beside the title. Portrait frames
-  the face and sweeping fin beneath the copy. Resizing and returning home reuse
-  the existing model, rig, textures and shader programs.
-- Per-frame updates change bones and uniforms only. No bitmap animation, CPU
-  particle skinning, texture upload or geometry creation is needed.
+One point draw includes body and silhouette emitters, before existing bloom.
+Light catches individual beads. Additive blending preserves gaps; far-side
+transmission is zero. Shell visibility is separate from the surface lighting
+normal: tangent rim normals must not cut holes in whole contours on yaw.
+Faint front-side filaments have lower radiance/opacity.
 
-The asset budget is 350 KB including animation; the current export is roughly
-285 KiB with about 56,000 source vertices. Dust is capped at 512 small points.
-These are bounded resource costs, not a measured physical-phone FPS guarantee.
+The bounded emitters share the rig and detach along curling shader waves.
+Birth/death fade to zero before wrapping. Density hides a stable subset of
+prepared points; speed, travel and waviness are uniforms. No runtime spawning.
+Medium/low quality also uses a stable subset, retaining main/secondary curves.
+The common current defaults to 15° right/up; it is added after skinning so fin
+rotation cannot reverse the flow. Pixel-filtered Gaussian beads avoid subpixel
+flicker that would otherwise look like gaps.
 
-The body-group Flow V bands encode body (0–1), pectorals (2–3), flukes (4–5).
-Contour bands encode lip (0–1), reserved lower lip (2–3), eyelid (4–5), brow (6–7),
-fin edge (8–9), soft glow cards (10–11), and detached filaments (12–13).
-Curve U is arc length; glow-card UVs are local 0–1. The shader restores Blender V
-after the glTF flip. Do not repack these coordinates as a conventional atlas.
+Prepared per-joint influence cages bound the full swim without per-frame scans.
+The mesh and rig survive resizing and leaving/returning home. Budget: fewer than
+35,000 points and a complete animated GLB below 1.5 MB.
 
-Validation:
+## Appearance controls
+
+Site defaults: `src/three/scenes/home/mobileWhale/particleAppearance.js`.
+
+- `global`: color and brightness/size/bloom/opacity multipliers for every body
+  level. A multiplier of 1 preserves the source curve. Color shifts its palette.
+- `levels`: optional detailed tuning of the four whole-line roles.
+- `wake`: independent color, brightness, size, bloom, opacity, density (0–1),
+  speed, travel distance, waviness and shared flow direction (degrees). Motion multipliers default to 1.
+
+All inputs update prepared uniforms. Brightness never adds extra rows or changes
+spacing. Bloom controls local halo and HDR radiance fed into existing bloom,
+without adding another render pass.
+
+Open `/tools/assets/mobileWhale/preview.html` on the Vite dev server.
+`appearanceControls.js` mounts the authoring panel. It starts on «Все 4 уровня»;
+«Отлетающие частицы» exposes the separate wake controls. Detailed levels are
+optional. Changes persist in this browser and reach the main site on reload.
+Reset restores file defaults; Download JSON exports the complete configuration.
+The animation toggle must be enabled to review wake motion in a paused preview.
+«Только основные» temporarily isolates main curves with file defaults, without
+changing saved settings; «Все частицы» restores the current browser preset.
+«Объём» exposes a −45°…+45° turn control over the actual model transform; it
+does not switch to another image or construct alternate geometry.
+
+## Validation and limits
 
 ```powershell
 node --test src/three/scenes/home/mobileWhale/mobileWhale.test.js src/three/scenes/home/particleResolution.test.js src/three/scenes/home/heroText/HeroTextMesh.reveal.test.js
 ```
+
+Tests decode the shipped POINTS data and validate four line roles and independent source-light range, skin
+weights, fin/tail motion, bounds, unchanged position buffers, and independent
+uniform controls. Visual review is still necessary: source bloom can obscure
+filaments and cause short gaps, especially around the brightest crest. A single
+image constrains the authored frontal pose, not an exact unseen 3D reverse side.

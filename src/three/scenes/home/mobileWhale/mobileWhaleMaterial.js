@@ -1,154 +1,142 @@
 import * as THREE from "three";
 import { withFogUniforms } from "../utils/shaderFogUniforms.js";
+import { applyParticleAppearance, readParticleAppearance, PARTICLE_LEVEL_COUNT } from "./particleAppearance.js";
 
 const vertexShader = `
 #include <common>
 #include <skinning_pars_vertex>
-varying vec2 vFlow;
-varying vec3 vNormal;
-varying vec3 vView;
+attribute vec4 _light;
+attribute float _shell;
+uniform float uTime, uViewportHeight, uSampleKeep, uTransmission;
+uniform vec3 uFlowColors[${PARTICLE_LEVEL_COUNT}];
+uniform vec4 uFlowLevels[${PARTICLE_LEVEL_COUNT}];
+uniform vec3 uWakeColor;
+uniform vec4 uWakeAppearance, uWakeMotion;
+uniform vec2 uWakeDirection;
+varying float vEnergy;
+varying vec3 vColor;
+varying float vBloom;
+varying float vOpacity;
+varying float vPixelFootprint;
 void main(){
  #include <beginnormal_vertex>
+ vec3 bindNormal=objectNormal;
  #include <skinbase_vertex>
  #include <skinnormal_vertex>
  #include <defaultnormal_vertex>
  #include <begin_vertex>
+ float wake=step(.70,_light.w)*(1.-step(.80,_light.w));
+ float surface=step(.20,_light.w)*(1.-step(.30,_light.w));
+ float beadSeed=mix(fract(sin(dot(position,vec3(12.9898,78.233,37.719)))*43758.5453),_light.z,wake);
+ // Category is constant along a connected filament. Source darkness is light,
+ // not a hole in its geometry or a weaker particle category.
+ int level=int(floor(clamp(_light.x,0.,1.)*${PARTICLE_LEVEL_COUNT - 1}.+.5));
+ vec4 appearance=uFlowLevels[level];
+ float brightness=appearance.x,pointScale=appearance.y;
+ vColor=uFlowColors[level];
+ vBloom=appearance.z;vOpacity=appearance.w;
+ if(wake>.5){
+  brightness=uWakeAppearance.x;pointScale=uWakeAppearance.y;
+  vBloom=uWakeAppearance.z;vOpacity=uWakeAppearance.w;vColor=uWakeColor;
+ }
+ float motionTime=uTime*uWakeMotion.x;
+ float age=fract(_light.z+motionTime*(.095+fract(_light.z*7.3)*.035));
+ float life=1.;
+ vec3 wakeOffset=vec3(0.);
+ if(wake>.5){
+  // Coherent curling streams detach from rigged silhouette anchors. Each
+  // bead has its own lifetime; zero alpha conceals the return to its anchor.
+  // The reference has one shared current, right/up across every edge.
+  // Surface normals must not send belly/fin particles in the opposite direction.
+  vec2 drift=uWakeDirection;
+  vec2 crossFlow=vec2(-drift.y,drift.x);
+  float curl=sin(age*7.5-position.x*2.2+motionTime*.22)*sin(age*3.141593);
+  wakeOffset.xy=(drift*age*(.65+_light.z*.40)+crossFlow*curl*.16*uWakeMotion.z)*uWakeMotion.y;
+  wakeOffset.z=sin(age*5.+position.x)*age*.14*uWakeMotion.z*uWakeMotion.y;
+  life=smoothstep(0.,.07,age)*(1.-smoothstep(.42,1.,age));
+ }else{
+  // Only actual filament endpoints soften; interior unlit gaps stay whole.
+  life=mix(.25,1.,_light.z);
+  // Neighboring beads share the same smooth field, avoiding animated kinks.
+  transformed += bindNormal * sin(uTime*.48 + position.x*1.7 + position.y*.8)*.003;
+ }
  #include <skinning_vertex>
+ // Anchor follows the rig; the water current keeps one direction across fins.
+ transformed+=wakeOffset;
  vec4 mvPosition=modelViewMatrix*vec4(transformed,1.);
- // glTF flips Blender's V. Restore the authored flow coordinates and regions.
- vFlow=vec2(uv.x,1.-uv.y);vNormal=normalize(transformedNormal);vView=-mvPosition.xyz;
+ vec3 n=normalize(transformedNormal);
+ vec3 viewDirection=isPerspectiveMatrix(projectionMatrix)?normalize(-mvPosition.xyz):vec3(0.,0.,1.);
+ float facing=dot(n,viewDirection);
+ // Beads have no backfaces. In particular, the rim normal is tangent to the
+ // reference view; culling it removes BOTH copies of a whole contour on yaw.
+ // Select the authored shell hemisphere separately from its lighting normal.
+ // This keeps silhouette chains continuous while the far-side copy stays dark.
+ vec3 shellNormal=normalize(normalMatrix*vec3(0.,0.,_shell*2.-1.));
+ float transmission=dot(shellNormal,viewDirection)>=0.?1.:uTransmission;
+ // Light catches actual particles; no hand-placed stars or luminous cards.
+ vec3 lightDirection=normalize(vec3(-.35+sin(uTime*.16)*.16,.65,1.));
+ float key=pow(max(0.,dot(n,lightDirection)),3.);
+ float specular=pow(max(0.,dot(n,normalize(lightDirection+viewDirection))),28.);
+ float lightSweep=pow(.5+.5*sin(position.x*2.1+position.y*3.4-uTime*.24),14.);
+ float rim=pow(1.-abs(facing),3.);
+ float lineLight=.85+key*.25+_light.y*.25+lightSweep*(.2+rim*.6)+specular*pow(beadSeed,12.)*2.;
+ // The quieter full-surface points reveal the actual rounded geometry via
+ // directional light. Anatomical chains share it but retain stronger colour
+ // and bloom; they do not need extra particles to become visible.
+ float surfaceLight=(.24+pow(max(0.,dot(n,lightDirection)),1.2)*.95+rim*.12)*(.85+_light.y*.3);
+ vEnergy=mix(lineLight,surfaceLight,surface)*transmission*life*brightness;
+ float rank=fract(beadSeed*17.37+position.x*1.213);
+ float keep=step(rank,uSampleKeep);
+ if(wake>.5)keep*=1.-step(uWakeMotion.w,fract(_light.z*31.73));
+ // Keep anatomical edges on every tier. Thinning is independent of size/light.
+ if(_light.x>.50&&wake<.5)keep=1.;
+ vEnergy*=keep;
+ float beadScale=mix(.9,.74,wake)*(.95+beadSeed*.05);
+ float projected=.018*beadScale*pointScale*length(modelViewMatrix[0].xyz)*uViewportHeight*projectionMatrix[1][1];
+ if(isPerspectiveMatrix(projectionMatrix))projected/=max(.001,-mvPosition.z);
+ gl_PointSize=clamp(projected,2.,18.);
+ vPixelFootprint=1./gl_PointSize;
  gl_Position=projectionMatrix*mvPosition;
+ if(keep<.5)gl_Position=vec4(2.,2.,2.,1.);
 }`;
 
 const fragmentShader = `
-uniform float uTime;uniform float uOpacity;uniform float uGlow;
-uniform float uDetail;uniform vec3 uColor;
-varying vec2 vFlow;varying vec3 vNormal;varying vec3 vView;
-float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
+uniform vec3 uColor;uniform float uGlow,uOpacity;
+varying float vEnergy;
+varying vec3 vColor;
+varying float vBloom;
+varying float vOpacity;
+varying float vPixelFootprint;
 void main(){
- float facing=abs(dot(normalize(vNormal),normalize(vView)));
- float rim=pow(1.-facing,2.3);
- float region=floor(vFlow.y*.5+.001);
- vec2 flow=vec2(vFlow.x,vFlow.y-region*2.);
- float light;
- if(uDetail>.5&&region>4.5&&region<5.5){
-  vec2 p=flow-.5;
-  float r2=dot(p,p);
-  float core=6.*exp(-r2*1100.);
-  float halo=.26*exp(-p.x*p.x*12.-p.y*p.y*100.);
-  float star=1.25*exp(-abs(p.x+p.y*.4)*170.-abs(p.y)*14.)
-   +.65*exp(-abs(p.y-p.x*.4)*160.-abs(p.x)*20.);
-  float edge=1.-smoothstep(.30,.50,sqrt(r2));
-  light=(core+halo+star)*edge*(.88+.12*sin(uTime*.8+vFlow.x*5.));
- }else if(uDetail>.5){
-  // Lip, eyelid and fin beads follow arc-length UVs baked into the animated skin.
-  float along=flow.x*62.;
-  float cell=floor(along),d=abs(fract(along)-.5);
-  float aa=max(fwidth(along)*.55,.035);
-  float bead=1.-smoothstep(.12,.30+aa,d);
-  float sparkle=pow(hash(vec2(cell,region+2.)),5.);
-  float travel=pow(.5+.5*sin(flow.x*6.-uTime*.6+region),12.);
-  float strength=region<.5?1.1:region<1.5?.22:region<2.5?1.2:region<3.5?.55:region<4.5?.68:.14;
-  light=(bead*(.35+sparkle*.65)+.035)*strength*(.8+travel*.7);
- }else{
- vec2 density=region<.5?vec2(260.,112.):region<1.5?vec2(110.,38.):vec2(104.,38.);
- vec2 grid=flow*density;
- float q=sin(flow.y*6.283185);
- float underJaw=clamp((-q-.30)/.70,0.,1.);
- if(region<.5)grid.x+=7.*sin(underJaw*3.141593)*sin(flow.x*5.+.6);
- // Slightly stagger points along each streamline; never move the anatomy itself.
- grid.y+=sin(flow.x*6.+flow.y*6.283)*.16;
- float row=floor(grid.y+.5);
- grid.x+=hash(vec2(row,9.))*.7;
- vec2 pixelWidth=fwidth(grid);
- vec2 d=abs(fract(grid+.5)-.5),aa=max(pixelWidth*.55,vec2(.018));
- float line=1.-smoothstep(.025,.025+aa.y,d.y);
- float dotCore=line*(1.-smoothstep(.06,.06+aa.x,d.x));
- float jaw=region<.5?1.-smoothstep(-.35,-.27,q):0.;
- float jawLine=1.-smoothstep(.022,.022+aa.x,d.x);
- line=mix(line,jawLine,jaw);
- float halo=exp(-d.y*19.)*exp(-d.x*12.);
- float seed=hash(floor(grid+.5));
- float drift=.5+.5*sin(flow.x*8.-uTime*.35+row*.31);
- float ribbon=pow(.5+.5*sin(flow.x*11.-uTime*.5+row*.63),12.);
- float glint=step(.988,seed)*pow(.5+.5*sin(uTime*.7+seed*20.),8.);
- float key=pow(max(0.,dot(normalize(vNormal),normalize(vec3(-.4,.75,.55)))),5.);
- float head=exp(-pow((flow.x-.30)/.34,2.));
- float brow=exp(-pow((q-.86)/.16,2.))*head;
- float throat=jaw*head;
- vec2 eyeDistance=vec2((flow.x-.356)/.037,(q-.32)/.070);
- float socket=1.-.97*exp(-dot(eyeDistance,eyeDistance)*1.7);
- float shoulder=exp(-pow((flow.x-.67)/.17,2.));
- float contour=region<.5?(.62+head*.48+brow*4.2+throat*2.3+shoulder*1.85)*socket:
-   1.0+pow(abs(cos(flow.y*6.283185)),12.)*2.1;
- float rowStrength=.14+.86*pow(hash(vec2(row,4.)),2.5);
- float field=line*(.003+ribbon*.008)+dotCore*(.13+pow(seed,2.)*.87)+halo*.024;
- // Preserve light energy when several beads fall inside a small-screen pixel.
- float coverage=max(.30,1./max(1.,pixelWidth.x*1.4)/max(1.,pixelWidth.y*1.4));
- light=(field*(contour+rim*.7+key*.65)*(rowStrength+drift*.08+ribbon*.7)+dotCore*glint*.9)*coverage+rim*.001;
- }
- float alpha=clamp(light*1.3,0.,.98);
- // Bound the HDR peak so small-screen dots do not merge into a solid bloom patch.
- float radiance=min(light*uGlow,uDetail>.5&&region>4.5&&region<5.5?8.:3.2);
- // Preserve radiance in additive compositing instead of squaring fine-dot alpha.
- vec3 tint=mix(uColor,vec3(.04,.54,1.),smoothstep(.65,5.,radiance)*.50);
- gl_FragColor=vec4(tint*radiance/max(alpha,.0001),alpha*uOpacity);
+ vec2 p=gl_PointCoord-.5;float r2=dot(p,p);
+ if(r2>.25)discard;
+ // Approximate the pixel integral of a Gaussian bead. Subpixel centers must
+ // not disappear between pixels and look like random holes along the chain.
+ float sharpness=105./(1.+105.*vPixelFootprint*vPixelFootprint/6.);
+ float core=exp(-r2*sharpness)*(sharpness/105.);
+ float halo=exp(-r2*21.)*.055*vBloom;
+ float radiance=vEnergy*uGlow;
+ vec3 tint=mix(vColor,min(vec3(1.),vColor*1.4+.04),smoothstep(.6,2.5,radiance)*.35);
+ float energy=min(radiance,.9)+max(0.,radiance-.9)*vBloom;
+ gl_FragColor=vec4(tint*min(energy,8.),(core+halo)*uOpacity*vOpacity);
 }`;
 
-/** The UVs and skin are prepared offline. Motion changes uniforms and bone matrices only. */
+/** One visible point draw, no opaque triangles or depth-only silhouette. */
 export function createMobileWhaleMaterials() {
  const shared=withFogUniforms({
-  uTime:{value:0},uColor:{value:new THREE.Color("#0084ff")},
-  uOpacity:{value:.9},uGlow:{value:2.8},
+  uTime:{value:0},uColor:{value:new THREE.Color("#0088ff")},
+  uOpacity:{value:1},uGlow:{value:3.4},uTransmission:{value:0},
+  uFlowColors:{value:Array.from({length:PARTICLE_LEVEL_COUNT},()=>new THREE.Color())},
+  uFlowLevels:{value:Array.from({length:PARTICLE_LEVEL_COUNT},()=>new THREE.Vector4())},
+  uWakeColor:{value:new THREE.Color()},
+  uWakeAppearance:{value:new THREE.Vector4()},uWakeMotion:{value:new THREE.Vector4()},
+  uWakeDirection:{value:new THREE.Vector2()},
+  uViewportHeight:{value:679},uSampleKeep:{value:1},
  });
- const create=detail=>new THREE.ShaderMaterial({
-  uniforms:{...shared,uDetail:{value:detail}},vertexShader,fragmentShader,
-  extensions:{derivatives:true},transparent:true,depthWrite:true,
-  blending:THREE.AdditiveBlending,toneMapped:false,
- });
- const body=create(0),details=create(1);
- // Halo corners are transparent; only the shared skin prepass owns depth.
- details.depthWrite=false;
- body.name="Mobile whale / flowing light";details.name="Mobile whale / fine contours";
- return {body,details,shared};
-}
-
-/** Transparent beads still need a solid depth silhouette, independent of triangle order. */
-export function createWhaleDepthOccluder(source) {
- const depth=source.clone(false);
- depth.name="Whale / shared skin depth";
- depth.material=new THREE.MeshBasicMaterial({colorWrite:false,depthWrite:true,toneMapped:false});
- depth.renderOrder=2;
- // SkinnedMesh.copy shares geometry, bones and bind matrices; there is no second rig.
- depth.frustumCulled=false;
- return depth;
-}
-
-export function createMobileWhaleTrail(shared) {
- const count=480;
- const positions=new Float32Array(count*3),seeds=new Float32Array(count);
- for(let i=0;i<count;i++){
-  const s=i/(count-1),a=i*2.399963;
-  const crest=-.70+Math.sin(s*Math.PI*.83)*1.95;
-  positions.set([-4.25+s*9.,crest+Math.sin(a)*(.15+Math.sin(s*Math.PI)*.5),Math.cos(a)*.45],i*3);
-  seeds[i]=(i*.618034)%1;
- }
- const geometry=new THREE.BufferGeometry();
- geometry.setAttribute("position",new THREE.BufferAttribute(positions,3));
- geometry.setAttribute("aSeed",new THREE.BufferAttribute(seeds,1));
- const material=new THREE.ShaderMaterial({
-  uniforms:shared,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,toneMapped:false,
-  vertexShader:`uniform float uTime;attribute float aSeed;varying float vLight;
-   void main(){float p=fract(aSeed+uTime*.035);vec3 pos=position;
-    pos.x+=p*.55;pos.y+=p*p*.3;
-    vLight=sin(p*3.141593)*(.07+aSeed*.12);
-    vec4 viewPosition=modelViewMatrix*vec4(pos,1.);gl_Position=projectionMatrix*viewPosition;
-    gl_PointSize=1.1+aSeed*1.1;}`,
-  fragmentShader:`uniform vec3 uColor;uniform float uOpacity;varying float vLight;
-   void main(){float r=length(gl_PointCoord-.5);float core=1.-smoothstep(.05,.5,r);
-    gl_FragColor=vec4(uColor*3.2,core*vLight*uOpacity);}`,
- });
- const points=new THREE.Points(geometry,material);points.name="Mobile whale / sparse trail";
- points.frustumCulled=false;points.renderOrder=5;
- return points;
+ const body=new THREE.ShaderMaterial({uniforms:shared,vertexShader,fragmentShader,
+  transparent:true,depthWrite:false,depthTest:true,
+  blending:THREE.AdditiveBlending,toneMapped:false});
+ body.name="Whale / anatomical 3D particles";
+ applyParticleAppearance(body,readParticleAppearance());
+ return {body,shared};
 }

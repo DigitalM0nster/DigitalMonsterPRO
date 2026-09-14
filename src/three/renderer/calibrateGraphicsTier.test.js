@@ -4,7 +4,7 @@ import test from "node:test";
 import vm from "node:vm";
 import * as THREE from "three";
 
-function setup(name, forced = null, perPassMs = null, gpuWaitMs = 0) {
+function setup(name, forced = null, perPassMs = null, gpuWaitMs = 0, mobile = false, touch = mobile) {
 	const cache = new Map();
 	let clock = 0;
 	let draws = 0;
@@ -13,6 +13,8 @@ function setup(name, forced = null, perPassMs = null, gpuWaitMs = 0) {
 		.replace(/^import .*;\s*$/gm, "").replace("export function", "function");
 	const calibrate = vm.runInNewContext(`${source}\ncalibrateGraphicsTier`, {
 		getForcedGraphicsTierFromUrl: () => forced,
+		isMobileGraphicsDevice: () => mobile,
+		navigator: { maxTouchPoints: touch ? 5 : 0 },
 		sessionStorage: { getItem: (key) => cache.get(key), setItem: (key, value) => cache.set(key, value) },
 		THREE: perPassMs === null ? {} : THREE,
 		performance: { now: () => clock }, console: { warn() {} },
@@ -38,6 +40,19 @@ test("unverified GPU families use measured performance instead of automatic high
 			assert.equal(getDraws(), 6, "cached startup must not repeat the probe");
 		}
 	}
+});
+
+test("mobile launches ignore a stale Low fill-rate cache without blocking the driver", () => {
+	const phone = setup("Apple GPU", null, 7, 80, true);
+	phone.cache.set("digitalmonster_gpu_tier_v5:Apple GPU", "low");
+	assert.equal(phone.run("high").tier, "high");
+	assert.equal(phone.run("high").cached, false);
+	assert.equal(phone.run("medium").tier, "medium", "known hardware ceiling stays authoritative");
+	assert.equal(phone.run("low").tier, "low");
+	assert.equal(phone.getDraws(), 0);
+	assert.equal(setup("Google SwiftShader", null, 1, 0, true).run("high").tier, "low");
+	assert.equal(setup("Apple GPU", "medium", 1, 0, true).run("high").tier, "medium");
+	assert.equal(setup("Intel HD Graphics", null, 7, 0, true, false).run("high").tier, "low", "a narrow desktop still measures its GPU");
 });
 
 test("CPU submission diagnostic excludes explicit GPU wait without extra draws", () => {

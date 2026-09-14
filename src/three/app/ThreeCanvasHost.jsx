@@ -14,6 +14,20 @@ import {
 	clearWebGLSessionBlock,
 } from "@/three/renderer/webglSessionGuard.js";
 
+export function PreparationFailure({ failure, onRetry }) {
+	return createPortal(
+		<div className={styles.failure} role="alert">
+			<div className={styles.message}>
+				<p className={styles.brand}>DIGITAL MONSTER</p>
+				<h1>Не удалось открыть 3D</h1>
+				<p>Подготовка остановлена. Можно повторить загрузку.</p>
+				<button type="button" onClick={onRetry}>Повторить загрузку</button>
+				<details><summary>Информация об ошибке</summary><pre style={{ whiteSpace: "pre-wrap" }}>{JSON.stringify(failure, null, 2)}</pre></details>
+			</div>
+		</div>, document.body,
+	);
+}
+
 /** React host for the imperative Three.js application. */
 export default function ThreeCanvasHost(props) {
 	const containerRef = useRef(null);
@@ -166,16 +180,6 @@ export default function ThreeCanvasHost(props) {
 
 	return <>
 		<div ref={containerRef} className={hostClassName} data-webgl={webglState} />
-		{failure && createPortal(
-			<div className={styles.failure} role="alert">
-				<div className={styles.message}>
-					<p className={styles.brand}>DIGITAL MONSTER</p>
-					<h1>Не удалось открыть 3D</h1>
-					<p>Графика остановлена. Можно повторить загрузку.</p>
-					<button type="button" onClick={retryGraphics}>Повторить загрузку</button>
-					<details><summary>Информация об ошибке</summary><pre style={{ whiteSpace: "pre-wrap" }}>{JSON.stringify(failure, null, 2)}</pre></details>
-				</div>
-			</div>, document.body,
-		)}
+		{failure && <PreparationFailure failure={failure} onRetry={retryGraphics} />}
 	</>;
 }

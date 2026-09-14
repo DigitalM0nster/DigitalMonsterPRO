@@ -10,7 +10,7 @@ import { useSceneCarouselNavigation } from "../hooks/useSceneCarouselNavigation.
 import { useHexHistoryNavigation } from "../hooks/useHexHistoryNavigation.js";
 import { RouteTransitionProvider } from "@/app/context/RouteTransitionContext.jsx";
 import "@/styles/media.css";
-import ThreeCanvasHost from "@/three/app/ThreeCanvasHost.jsx";
+import ThreeCanvasHost, { PreparationFailure } from "@/three/app/ThreeCanvasHost.jsx";
 import WebGLCanvasErrorBoundary from "@/three/renderer/WebGLCanvasErrorBoundary.jsx";
 import LeftMenu from "@/components/LeftMenu/LeftMenu.jsx";
 import SiteTopHud from "@/components/SiteTopHud/SiteTopHud.jsx";
@@ -42,6 +42,7 @@ const LOADER_UNMOUNT_DELAY_MS = LOADER_CURTAIN_HIDE_MS + 100;
 export default function MainContent() {
 	const [threeReady, setThreeReady] = useState(false);
 	const [routeAssetsReady, setRouteAssetsReady] = useState(false);
+	const [preparationFailure, setPreparationFailure] = useState(null);
 	const [startApp, setStartApp] = useState(false);
 	const [loaderMounted, setLoaderMounted] = useState(true);
 
@@ -70,6 +71,10 @@ export default function MainContent() {
 	const isDemoLab = isDomDistortDemoPath(location.pathname) || isDomDistortDemoPath(displayPathname);
 	const skipWebGL = isWebGLDisabledFromUrl();
 	const rendered = useMemo(() => routeAssetsReady && (skipWebGL || threeReady || isDemoLab), [isDemoLab, routeAssetsReady, skipWebGL, threeReady]);
+	const handleWebGLFailure = (error) => {
+		setThreeReady(false);
+		setPreparationFailure({ phase: "webgl-host", message: error instanceof Error ? error.message : String(error) });
+	};
 
 	useEffect(() => {
 		let active = true;
@@ -84,6 +89,7 @@ export default function MainContent() {
 			})
 			.catch((error) => {
 				console.error("[preloader] asset preparation failed; Start remains locked", error);
+				if (active) setPreparationFailure({ phase: "route-and-audio-preparation", message: error instanceof Error ? error.message : String(error) });
 			});
 		return () => {
 			active = false;
@@ -165,7 +171,7 @@ export default function MainContent() {
 		<RouteTransitionProvider value={routeTransitionValue}>
 			<div className={contentContainerClass} id="contentContainer">
 				{!isDemoLab && !skipWebGL && (
-					<WebGLCanvasErrorBoundary onFailure={() => setThreeReady(true)}>
+					<WebGLCanvasErrorBoundary onFailure={handleWebGLFailure}>
 						<ThreeCanvasHost
 							rendered={rendered}
 							setRendered={setThreeReady}
@@ -195,7 +201,8 @@ export default function MainContent() {
 			{startApp && !isDemoLab && <CaseStudyPanelHudOverlay />}
 			{startApp && !isDemoLab && <CaseGalleryScrollHint />}
 			{startApp && !isDemoLab && <FilmProjectInfo />}
-			{!isDemoLab && loaderMounted && <LoaderComponent startApp={startApp} setStartApp={setStartApp} rendered={rendered} />}
+			{!isDemoLab && loaderMounted && <LoaderComponent startApp={startApp} setStartApp={setStartApp} rendered={rendered && !preparationFailure} />}
+			{preparationFailure && <PreparationFailure failure={preparationFailure} onRetry={() => window.location.reload()} />}
 			{SHOW_CUSTOM_CURSOR && <Cursor startApp={startApp} />}
 		</RouteTransitionProvider>
 	);

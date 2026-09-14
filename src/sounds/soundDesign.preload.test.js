@@ -76,3 +76,37 @@ test("language readiness waits for decoded sounds and reverse hex, not native me
 	sounds.resolve(); await settle(); assert.equal(ready, false);
 	hex.resolve(); await settle(); assert.equal(ready, true);
 });
+
+test("failed route or audio preparation reports the error without unlocking Start", async () => {
+	const normalized = mainSource.replaceAll("\r\n", "\n");
+	const start = normalized.indexOf("\tuseEffect(() => {\n\t\tlet active = true;");
+	const body = normalized.slice(start + "\tuseEffect(() => {".length, normalized.indexOf("\n\t}, []);", start));
+	for (const unmount of [false, true]) {
+		const assets = deferred(); let ready = false, failure = null;
+		const run = vm.runInNewContext(`() => {${body}}`, {
+			preloadUnderwaterSound: async () => {}, preloadHtmlRoutes: () => assets.promise,
+			prefetchSoundDesign: async () => {}, preloadSoundDesign: async () => {}, preloadHexTransitionSound: async () => {},
+			setRouteAssetsReady: value => { ready = value; },
+			setPreparationFailure: value => { failure = value; }, Error, console: { error() {} },
+		});
+		const cleanup = run(); if (unmount) cleanup();
+		assets.reject(new Error("Audio preparation failed")); await settle();
+		assert.equal(ready, false);
+		if (unmount) assert.equal(failure, null);
+		else { assert.equal(failure.phase, "route-and-audio-preparation"); assert.equal(failure.message, "Audio preparation failed"); }
+	}
+});
+
+test("a synchronous WebGL host failure closes the ready gate and reports diagnostics", () => {
+	const normalized = mainSource.replaceAll("\r\n", "\n");
+	const start = normalized.indexOf("const handleWebGLFailure = ");
+	const source = normalized.slice(start, normalized.indexOf("\n\t};", start) + 5);
+	let ready = true, failure = null;
+	const fail = vm.runInNewContext(`${source}\nhandleWebGLFailure`, {
+		Error, setThreeReady: value => { ready = value; }, setPreparationFailure: value => { failure = value; },
+	});
+	fail(new Error("WebGL host unavailable"));
+	assert.equal(ready, false);
+	assert.equal(failure.phase, "webgl-host");
+	assert.equal(failure.message, "WebGL host unavailable");
+});

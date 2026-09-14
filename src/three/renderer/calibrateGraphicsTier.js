@@ -1,6 +1,6 @@
 import * as THREE from "three";
 
-import { getForcedGraphicsTierFromUrl } from "@/functions/getGraphicsTier.js";
+import { getForcedGraphicsTierFromUrl, isMobileGraphicsDevice } from "@/functions/getGraphicsTier.js";
 
 const TIER_RANK = { low: 0, medium: 1, high: 2 };
 const CACHE_PREFIX = "digitalmonster_gpu_tier_v5";
@@ -118,6 +118,14 @@ export function calibrateGraphicsTier(renderer, hardwareTier) {
 	}
 
 	const rendererName = readRendererName(renderer);
+	// A synchronous finish measures driver contention at startup as well as the
+	// GPU. On phones it was persisting a transient slow launch as Low for the
+	// whole tab. Keep the CPU/RAM ceiling; do not reuse that desktop probe/cache
+	// as a mobile quality decision. Explicit tiers and software GPUs still apply.
+	const touchDevice = typeof navigator !== "undefined" && navigator.maxTouchPoints > 0;
+	if (touchDevice && isMobileGraphicsDevice() && !SOFTWARE_RENDERER_RE.test(rendererName)) {
+		return { tier: hardwareTier, renderer: rendererName, perPassMs: null, cached: false, reason: "mobile-hardware" };
+	}
 	const cacheKey = `${CACHE_PREFIX}:${rendererName}`;
 	const cached = readCachedTier(cacheKey);
 	if (cached) {

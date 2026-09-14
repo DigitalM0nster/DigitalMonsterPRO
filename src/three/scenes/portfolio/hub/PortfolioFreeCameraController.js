@@ -12,6 +12,10 @@ const MOVEMENT_CODES = new Set([
 	"AltRight",
 	"ShiftLeft",
 	"ShiftRight",
+	"ArrowUp",
+	"ArrowDown",
+	"ArrowLeft",
+	"ArrowRight",
 ]);
 
 function isEditableTarget(target) {
@@ -37,11 +41,14 @@ export class PortfolioFreeCameraController {
 		this.inputElement = inputElement;
 		this.snapshotName = options.snapshotName ?? "portfolioHubCamera";
 		this.logLabel = options.logLabel ?? "portfolioCamera";
+		this.getSnapshotContext = options.getSnapshotContext ?? (() => null);
+		this.mouseLookEnabled = options.mouseLookEnabled !== false;
 		this.enabled = false;
 		this.pointerLocked = false;
 		this.moveSpeed = 3.5;
 		this.fastMultiplier = 3;
 		this.rollSpeed = THREE.MathUtils.degToRad(55);
+		this.turnSpeed = THREE.MathUtils.degToRad(58);
 		this.mouseSensitivity = 0.0018;
 		this.pitchLimit = THREE.MathUtils.degToRad(89);
 		this.yaw = 0;
@@ -72,6 +79,7 @@ export class PortfolioFreeCameraController {
 		window.addEventListener("blur", this._onWindowBlur);
 		document.addEventListener("mousemove", this._onMouseMove);
 		document.addEventListener("pointerlockchange", this._onPointerLockChange);
+		document.addEventListener("visibilitychange", this._onWindowBlur);
 		this.inputElement?.addEventListener("pointerdown", this._onInputPointerDown);
 	}
 
@@ -80,8 +88,9 @@ export class PortfolioFreeCameraController {
 			return;
 		}
 
-		if (event.code === "KeyC" && !event.repeat) {
+		if (event.code === "KeyC" && !event.repeat && !event.ctrlKey && !event.metaKey) {
 			event.preventDefault();
+			event.stopImmediatePropagation();
 			void this.copySnapshot();
 			return;
 		}
@@ -91,7 +100,7 @@ export class PortfolioFreeCameraController {
 		}
 
 		event.preventDefault();
-		event.stopPropagation();
+		event.stopImmediatePropagation();
 		this._keys.add(event.code);
 	}
 
@@ -102,6 +111,7 @@ export class PortfolioFreeCameraController {
 		this._keys.delete(event.code);
 		if (this.enabled) {
 			event.preventDefault();
+			event.stopImmediatePropagation();
 		}
 	}
 
@@ -110,7 +120,7 @@ export class PortfolioFreeCameraController {
 	}
 
 	_onInputPointerDown(event) {
-		if (!this.enabled || event.button !== 0 || document.pointerLockElement === this.inputElement) {
+		if (!this.enabled || !this.mouseLookEnabled || event.button !== 0 || document.pointerLockElement === this.inputElement) {
 			return;
 		}
 		const request = this.inputElement?.requestPointerLock?.();
@@ -122,7 +132,7 @@ export class PortfolioFreeCameraController {
 	}
 
 	_onMouseMove(event) {
-		if (!this.enabled || !this.pointerLocked) {
+		if (!this.enabled || !this.mouseLookEnabled || !this.pointerLocked) {
 			return;
 		}
 		this.yaw -= event.movementX * this.mouseSensitivity;
@@ -191,8 +201,16 @@ export class PortfolioFreeCameraController {
 		this._camera = camera;
 		const dt = Math.min(Math.max(delta, 0), 0.05);
 		const rollInput = (this._keys.has("KeyQ") ? 1 : 0) - (this._keys.has("KeyE") ? 1 : 0);
-		if (rollInput !== 0) {
+		const yawInput = (this._keys.has("ArrowLeft") ? 1 : 0) - (this._keys.has("ArrowRight") ? 1 : 0);
+		const pitchInput = (this._keys.has("ArrowUp") ? 1 : 0) - (this._keys.has("ArrowDown") ? 1 : 0);
+		if (rollInput !== 0 || yawInput !== 0 || pitchInput !== 0) {
 			this.roll += rollInput * this.rollSpeed * dt;
+			this.yaw += yawInput * this.turnSpeed * dt;
+			this.pitch = THREE.MathUtils.clamp(
+				this.pitch + pitchInput * this.turnSpeed * dt,
+				-this.pitchLimit,
+				this.pitchLimit,
+			);
 			this._syncQuaternion();
 		}
 
@@ -241,7 +259,14 @@ export class PortfolioFreeCameraController {
 		}
 		this._lookDirection.set(0, 0, -1).applyQuaternion(this.quaternion).normalize();
 		this._lookAt.copy(this.position).add(this._lookDirection);
+		const context = this.getSnapshotContext?.() ?? {};
 		return {
+			viewport: {
+				width: window.innerWidth,
+				height: window.innerHeight,
+				devicePixelRatio: round(window.devicePixelRatio || 1, 2),
+			},
+			...context,
 			position: vectorToArray(this.position),
 			lookAt: vectorToArray(this._lookAt),
 			rotationDeg: [
@@ -257,6 +282,9 @@ export class PortfolioFreeCameraController {
 			],
 			lookDirection: vectorToArray(this._lookDirection),
 			fov: round(this.fov, 2),
+			projectionShift: camera
+				? [round(camera.projectionMatrix.elements[8], 6), round(camera.projectionMatrix.elements[9], 6)]
+				: [0, 0],
 		};
 	}
 
@@ -284,6 +312,7 @@ export class PortfolioFreeCameraController {
 		window.removeEventListener("blur", this._onWindowBlur);
 		document.removeEventListener("mousemove", this._onMouseMove);
 		document.removeEventListener("pointerlockchange", this._onPointerLockChange);
+		document.removeEventListener("visibilitychange", this._onWindowBlur);
 		this.inputElement?.removeEventListener("pointerdown", this._onInputPointerDown);
 		this.inputElement = null;
 		this._camera = null;

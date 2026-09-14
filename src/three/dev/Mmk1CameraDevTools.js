@@ -1,4 +1,5 @@
 import { CITY_TRAFFIC_CONTROLS } from "@/three/scenes/capabilities/city/cityTrafficConfig.js";
+import { store } from "@/app/store.jsx";
 import { attachDevPanelDrag } from "./devPanelDrag.js";
 import { formatDevPanelHotkeyHints, registerDevPanelHotkey, unregisterDevPanelHotkey } from "./devPanelHotkeys.js";
 import { injectSceneDevToolsStyles } from "./sceneDevPanelUtils.js";
@@ -7,7 +8,8 @@ const HOTKEY = "0";
 
 function shouldOpenFromUrl() {
 	const params = new URLSearchParams(window.location.search);
-	return params.has("mmk1Dev") || params.has("cityDev");
+	return params.has("mmk1Dev") || params.has("cityDev")
+		|| window.location.pathname === "/capabilities/mmk1";
 }
 
 function formatVector(values = []) {
@@ -26,22 +28,33 @@ export class Mmk1CameraDevTools {
 		this.enabled = false;
 		this._lastReadoutAt = 0;
 		this._detachPanelDrag = null;
+		this._autoOpenPending = false;
 
 		injectSceneDevToolsStyles();
 		this._panel = document.createElement("div");
 		this._panel.className = "sceneDevTools mmk1CameraDevTools hidden";
 		this._panel.dataset.canvasPointerBlocker = "true";
 		this._panel.innerHTML = `
-			<div class="devPanelDragHandle"><p class="title">Capabilities / City</p></div>
+			<div class="devPanelDragHandle"><p class="title">MMK-1 / MOBILE CAMERA</p></div>
 			<p class="legend">
-				Hotkey <b>${HOTKEY}</b> · ?cityDev=1 · WASD move · Space up · Alt down · Q/E roll · Shift faster.<br/>
-				Enable control, then click the WebGL canvas to capture the mouse. Escape releases it. C copies the pose.
+				<b>${HOTKEY}</b> — открыть/закрыть · WASD — полёт · Space/Alt — вверх/вниз · стрелки — поворот · Shift — быстрее.<br/>
+				Откройте нужный кружок, затем включите полёт. Кнопка копирования сохранит ракурс, его номер и размер адаптивного экрана.
 			</p>
 			<p class="status" data-status>control disabled</p>
+			<section class="section" data-crane-flight-section>
+				<p class="sectionTitle">Ракурс крана</p>
+				<div class="actions">
+					<button type="button" data-action="control">Включить полёт</button>
+					<button type="button" data-action="copy">Скопировать ракурс (C)</button>
+					<button type="button" data-action="reset">Общий вид</button>
+				</div>
+				<p class="legend">Для обзора мышью нажмите на сцену; Esc освободит курсор. Стрелки работают без захвата мыши.</p>
+			</section>
 			<section class="section" data-city-flight-section>
-				<p class="sectionTitle">Осмотр города</p>
-				<p class="legend">WASD — движение · Пробел — вверх · Alt — вниз · Shift — быстрее.<br/>Включите полёт и нажмите на сцену для обзора мышью. Esc освобождает мышь.</p>
-				<div class="actions"><button type="button" data-action="city-flight">Включить полёт</button><button type="button" data-action="city-overview">Вернуть общий вид</button></div>
+				<p class="sectionTitle">Подбор мобильного ракурса</p>
+				<p class="legend">Включите адаптивный экран в DevTools, затем полёт.<br/>WASD — движение · Пробел — вверх · Alt — вниз · стрелки — поворот · Shift — быстрее.<br/>0 — скрыть панель и продолжить полёт. C — скопировать ракурс. Мышь остаётся свободной.</p>
+				<div class="actions"><button type="button" data-action="city-flight">Включить полёт</button><button type="button" data-action="city-copy">Скопировать ракурс (C)</button><button type="button" data-action="city-overview">Вернуть общий вид</button></div>
+				<textarea data-city-snapshot aria-label="Координаты камеры города для копирования" rows="8" readonly hidden style="width:100%;box-sizing:border-box"></textarea>
 			</section>
 			<section class="section" data-city-traffic-section>
 				<p class="sectionTitle">Город · фары и движение</p>
@@ -52,7 +65,9 @@ export class Mmk1CameraDevTools {
 				).join("")}
 				<div class="actions"><button type="button" data-action="copy-city-traffic">Скопировать конфиг</button><button type="button" data-action="reset-city-traffic">Сбросить настройки</button></div>
 			</section>
-			<section class="section">
+			<section class="section" data-camera-readout>
+				<p class="readout"><span class="k">view</span><span class="v" data-view>—</span></p>
+				<p class="readout"><span class="k">viewport</span><span class="v" data-viewport>—</span></p>
 				<p class="readout"><span class="k">position</span><span class="v" data-position>—</span></p>
 				<p class="readout"><span class="k">rotation ° (X/Y/Z)</span><span class="v" data-rotation>—</span></p>
 				<p class="readout"><span class="k">look direction</span><span class="v" data-direction>—</span></p>
@@ -146,25 +161,29 @@ export class Mmk1CameraDevTools {
 
 			<section class="section">
 				<div class="actions">
-					<button type="button" data-action="control">Enable control</button>
-					<button type="button" data-action="copy">Copy camera (C)</button>
-					<button type="button" data-action="reset">Reset</button>
 					<button type="button" data-action="close">Close</button>
 				</div>
 			</section>
 			<footer class="legend" data-hints>${formatDevPanelHotkeyHints()}</footer>
 		`;
 		document.body.appendChild(this._panel);
-		if (window.location.pathname.includes("/capabilities/spatial-matrix")) {
+		const cityPath = window.location.pathname.includes("/capabilities/spatial-matrix");
+		if (cityPath) {
+			this._panel.querySelector(".title").textContent = "CITY / MOBILE CAMERA";
 			for (const section of this._panel.querySelectorAll("section")) {
-				if (!section.hasAttribute("data-city-traffic-section") && !section.hasAttribute("data-city-flight-section") && !section.querySelector('[data-action="close"]')) section.style.setProperty("display", "none", "important");
+				if (!section.hasAttribute("data-city-traffic-section") && !section.hasAttribute("data-city-flight-section") && !section.hasAttribute("data-camera-readout") && !section.querySelector('[data-action="close"]')) section.style.setProperty("display", "none", "important");
 			}
 			this._panel.querySelector(".legend").textContent = "0 — открыть/закрыть. Ползунки работают без перезагрузки. Bloom — общий эффект сайта.";
 			for (const action of ["control", "copy", "reset"])
 				this._panel.querySelector(`[data-action="${action}"]`).style.display = "none";
+		} else {
+			this._panel.querySelector("[data-city-flight-section]").hidden = true;
+			this._panel.querySelector("[data-city-traffic-section]").hidden = true;
 		}
 
 		this._statusEl = this._panel.querySelector("[data-status]");
+		this._viewEl = this._panel.querySelector("[data-view]");
+		this._viewportEl = this._panel.querySelector("[data-viewport]");
 		this._positionEl = this._panel.querySelector("[data-position]");
 		this._rotationEl = this._panel.querySelector("[data-rotation]");
 		this._directionEl = this._panel.querySelector("[data-direction]");
@@ -181,9 +200,10 @@ export class Mmk1CameraDevTools {
 		this._cityFlightButton.addEventListener("click", () => {
 			const scene = this.getCityScene();
 			const enabled = scene?.setFreeCameraEnabled?.(!scene.isFreeCameraEnabled?.(), this.getCamera());
-			this._setStatus(enabled ? "Полёт включён · нажмите на сцену" : "Полёт выключен");
+			this._setStatus(enabled ? "Полёт включён · WASD и стрелки готовы" : "Полёт выключен");
 			this.update(true);
 		});
+		this._panel.querySelector('[data-action="city-copy"]').addEventListener("click", () => void this._copyCityCamera());
 		this._panel.querySelector('[data-action="city-overview"]').addEventListener("click", () => {
 			const scene = this.getCityScene();
 			scene?.setFreeCameraEnabled?.(false, this.getCamera());
@@ -228,7 +248,11 @@ export class Mmk1CameraDevTools {
 		});
 
 		if (shouldOpenFromUrl()) {
-			this.setEnabled(true);
+			if (window.location.pathname === "/capabilities/mmk1" && !store.appStarted) {
+				this._autoOpenPending = true;
+			} else {
+				this.setEnabled(true);
+			}
 		}
 	}
 
@@ -241,7 +265,7 @@ export class Mmk1CameraDevTools {
 	_syncControlButton() {
 		const active = this.getScene()?.isFreeCameraEnabled?.() === true;
 		if (this._controlButton) {
-			this._controlButton.textContent = active ? "Disable control" : "Enable control";
+			this._controlButton.textContent = active ? "Выключить полёт" : "Включить полёт";
 			this._controlButton.classList.toggle("active", active);
 		}
 	}
@@ -260,26 +284,47 @@ export class Mmk1CameraDevTools {
 			this.getCityScene()?.isFreeCameraEnabled?.() ? "Выключить полёт" : "Включить полёт";
 		this._setStatus(
 			next && !active
-				? "open /capabilities before enabling camera"
+				? "Откройте сцену MMK-1"
 				: active
-					? "control enabled · click canvas for mouse look"
-					: "control disabled",
+					? "Полёт включён · WASD и стрелки готовы"
+					: "Полёт выключен",
 		);
 	}
 
 	async _copy() {
 		const scene = this.getScene();
 		if (!scene?.isFreeCameraEnabled?.()) {
-			this._setStatus("enable camera control first");
+			this._setStatus("Сначала включите полёт");
 			return;
 		}
 		const copied = await scene.copyFreeCameraSnapshot?.(this.getCamera());
-		this._setStatus(copied ? "camera copied → clipboard" : "copy failed · pose printed to console");
+		this._setStatus(copied ? "Ракурс и размер экрана скопированы" : "Ракурс выведен в консоль");
+	}
+
+	async _copyCityCamera() {
+		const scene = this.getCityScene();
+		const snapshot = scene?.getFreeCameraSnapshot?.(this.getCamera());
+		if (!snapshot) {
+			this._setStatus("Город ещё загружается");
+			return;
+		}
+		const output = this._panel.querySelector("[data-city-snapshot]");
+		output.value = `cityCamera = ${JSON.stringify(snapshot, null, 2)}`;
+		try {
+			await navigator.clipboard.writeText(output.value);
+			output.hidden = true;
+			this._setStatus("Ракурс и размер экрана скопированы — пришлите их в чат");
+		} catch {
+			output.hidden = false;
+			output.focus();
+			output.select();
+			this._setStatus("Скопируйте выделенные координаты и пришлите их в чат");
+		}
 	}
 
 	_reset() {
 		this.getScene()?.resetFreeCamera?.(this.getCamera());
-		this._setStatus("camera reset to MMK-1 default");
+		this._setStatus("Восстановлен адаптивный общий вид");
 		this.update(true);
 	}
 
@@ -488,6 +533,10 @@ export class Mmk1CameraDevTools {
 	}
 
 	update(force = false) {
+		if (this._autoOpenPending && store.appStarted) {
+			this._autoOpenPending = false;
+			this.setEnabled(true);
+		}
 		if (!this.enabled) {
 			return;
 		}
@@ -501,14 +550,23 @@ export class Mmk1CameraDevTools {
 		this._syncHotspotThickness();
 		this._syncCityTrafficControls();
 		this._syncControlButton();
-		this._panel.querySelector('[data-city-flight-section]').style.display =
-			window.location.pathname === "/capabilities/spatial-matrix" ? "" : "none";
+		const cityPath = window.location.pathname === "/capabilities/spatial-matrix";
+		this._panel.querySelector('[data-city-flight-section]').hidden = !cityPath;
+		this._panel.querySelector('[data-city-traffic-section]').hidden = !cityPath;
+		this._panel.querySelector('[data-crane-flight-section]').hidden =
+			window.location.pathname !== "/capabilities/mmk1";
 		if (this._cityFlightButton) this._cityFlightButton.textContent =
 			this.getCityScene()?.isFreeCameraEnabled?.() ? "Выключить полёт" : "Включить полёт";
-		const snapshot = this.getScene()?.getFreeCameraSnapshot?.(this.getCamera());
+		const cameraScene = window.location.pathname === "/capabilities/spatial-matrix"
+			? this.getCityScene() : this.getScene();
+		const snapshot = cameraScene?.getFreeCameraSnapshot?.(this.getCamera());
 		if (!snapshot) {
 			return;
 		}
+		if (this._viewEl) this._viewEl.textContent = snapshot.viewId ?? "overview";
+		if (this._viewportEl) this._viewportEl.textContent = snapshot.viewport
+			? `${snapshot.viewport.width} × ${snapshot.viewport.height} @ ${snapshot.viewport.devicePixelRatio}`
+			: "—";
 		if (this._positionEl) this._positionEl.textContent = formatVector(snapshot.position);
 		if (this._rotationEl) this._rotationEl.textContent = formatVector(snapshot.rotationDeg);
 		if (this._directionEl) this._directionEl.textContent = formatVector(snapshot.lookDirection);
@@ -529,10 +587,14 @@ export class Mmk1CameraDevTools {
 			if (this.getCityScene()?.isFreeCameraEnabled?.() && document.pointerLockElement)
 				document.exitPointerLock?.();
 			this.update(true);
-			this._setStatus(this.getScene()?.isFreeCameraEnabled?.() ? "control enabled" : "control disabled");
+			const cameraScene = window.location.pathname === "/capabilities/spatial-matrix"
+				? this.getCityScene() : this.getScene();
+			this._setStatus(cameraScene?.isFreeCameraEnabled?.() ? "Полёт включён · WASD и стрелки готовы" : "Полёт выключен");
 			return;
 		}
-		this.getScene()?.setFreeCameraEnabled?.(false, this.getCamera());
+		// The city panel covers most of a phone viewport; hiding it must keep flight live.
+		if (window.location.pathname !== "/capabilities/spatial-matrix")
+			this.getScene()?.setFreeCameraEnabled?.(false, this.getCamera());
 		this._syncControlButton();
 	}
 

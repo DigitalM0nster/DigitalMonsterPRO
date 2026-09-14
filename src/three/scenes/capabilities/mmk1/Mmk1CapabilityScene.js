@@ -169,6 +169,7 @@ export class Mmk1CapabilityScene extends Case3Scene {
 		this._craneMaterialFlight = null;
 		this._frameCamera = null;
 		this._overviewReturnActive = false;
+		this._freeCameraViewId = "overview";
 		this._dragOrbitTarget = new THREE.Vector3();
 		this._responsiveViewport = new THREE.Vector2();
 		this._responsiveTowerLocal = new THREE.Vector3();
@@ -187,8 +188,13 @@ export class Mmk1CapabilityScene extends Case3Scene {
 			? new PortfolioFreeCameraController(renderer.domElement, {
 					snapshotName: "mmk1Camera",
 					logLabel: "mmk1Camera",
+					getSnapshotContext: () => ({ viewId: this._freeCameraViewId }),
 				})
 			: null;
+		if (this._freeCamera) {
+			this._freeCamera.moveSpeed = 0.9;
+			this._freeCamera.fastMultiplier = 2.5;
+		}
 		this.readyPromise = Promise.all([this.readyPromise, this._cameraHotspots.prepareLabels(), this.sceneSound.prepare()]).then(([craneReady]) => {
 			this._applyCraneMaterialProfile(this._activeCraneMaterialProfile);
 			return craneReady;
@@ -454,6 +460,10 @@ export class Mmk1CapabilityScene extends Case3Scene {
 			return false;
 		}
 		if (enabled) {
+			const selectedId = this._cameraHotspots?.selectedId;
+			this._freeCameraViewId = selectedId && selectedId !== "__overview__"
+				? selectedId
+				: "overview";
 			this._cameraHotspots?.reset();
 		}
 		this._freeCamera.setEnabled(enabled, camera);
@@ -465,6 +475,7 @@ export class Mmk1CapabilityScene extends Case3Scene {
 			return;
 		}
 		this._cameraHotspots?.reset();
+		this._freeCameraViewId = "overview";
 		this._craneMaterialFlight = null;
 		this._applyCraneMaterialProfile("overview");
 		super.applyCamera(camera, { sceneProgress: 0 });

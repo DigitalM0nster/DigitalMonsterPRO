@@ -340,7 +340,12 @@
 		}
 
 		.iconRail {
-			flex: 1 1 auto;
+			position: absolute;
+			left: 50%;
+			top: 50%;
+			width: max-content;
+			transform: translate(-50%, -50%);
+			flex: 0 0 auto;
 			min-width: 0;
 			flex-direction: row;
 			justify-content: center;
@@ -348,9 +353,11 @@
 		}
 
 		.bottomSection {
-			position: relative;
-			flex: 0 0 var(--leftMenuButtonWidth);
-			align-self: center;
+			position: absolute;
+			right: 12px;
+			top: 50%;
+			transform: translateY(-50%);
+			flex: none;
 			flex-direction: row;
 			justify-content: center;
 			gap: clamp(4px, 1.4vw, 14px);
@@ -372,7 +379,7 @@
 		--leftMenuButtonWidth: 44px;
 		--leftMenuIconSize: 15px;
 
-		width: min(100vw, 460px);
+		width: 100vw;
 		height: calc(64px + env(safe-area-inset-bottom));
 		padding: 5px 8px max(5px, env(safe-area-inset-bottom));
 		border-radius: 0;
@@ -380,6 +387,17 @@
 		.iconRail,
 		.bottomSection {
 			gap: clamp(1px, 0.8vw, 5px);
+		}
+
+		.iconRail {
+			left: 8px;
+			width: calc(100% - var(--leftMenuButtonWidth) - 24px);
+			transform: translateY(-50%);
+			justify-content: flex-start;
+		}
+
+		.bottomSection {
+			right: 8px;
 		}
 	}
 }

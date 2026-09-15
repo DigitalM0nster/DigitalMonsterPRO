@@ -190,13 +190,22 @@ export function getGraphicsConfig(tier) {
 
 /**
  * DPR для WebGL.
- * Follow device DPR, capped at 2 for medium/high and 1 for the low fallback.
+ * Phones follow their native display DPR in every tier, capped at 5.
+ * Desktop keeps the tier caps: 2 for medium/high and 1 for low.
  * Resolve before preparation so scene, hex, bloom and HUD resources warm at
  * their actual runtime resolution; ordinary animation never changes DPR.
  */
-export function resolveRendererPixelRatio(tier, devicePixelRatio = typeof window !== "undefined" ? window.devicePixelRatio : 1) {
+export function resolveRendererPixelRatio(
+	tier,
+	devicePixelRatio = typeof window !== "undefined" ? window.devicePixelRatio : 1,
+	mobile = isMobileGraphicsDevice(),
+) {
 	const gfx = getGraphicsConfig(tier);
 	const device = Number.isFinite(devicePixelRatio) && devicePixelRatio > 0 ? devicePixelRatio : 1;
+
+	if (mobile) {
+		return Math.min(device, 5);
+	}
 
 	return Math.min(device, gfx.dprCap);
 }

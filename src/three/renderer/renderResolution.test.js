@@ -15,13 +15,13 @@ test("a native Medium output does not change its scene ratio or another renderer
 	assert.equal(resolveOutputPixelRatio("low", 1, 2, 1440, 900), 1);
 });
 
-test("phone native DPR-3 output does not increase prepared scene resolution in any tier", () => {
+test("phone native DPR-3 is used by both prepared scenes and final output", () => {
 	for (const tier of ["medium", "high", "low"]) {
 		const renderer = { getPixelRatio: () => 2 };
-		const ratio = resolveRendererPixelRatio(tier, 3);
+		const ratio = resolveRendererPixelRatio(tier, 3, true);
 		setScenePixelRatio(renderer, ratio);
 		assert.equal(resolveOutputPixelRatio(tier, ratio, 3, 390, 700), 3);
-		assert.equal(getScenePixelRatio(renderer), tier === "low" ? 1 : 2);
+		assert.equal(getScenePixelRatio(renderer), 3);
 	}
 });
 

@@ -313,46 +313,53 @@ export class DigitalMonsterThreeApp {
 					this._setPreparationProgress(0.25 * (++completedScenes / scenes.length));
 				}, () => {}); // The canonical readyPromise below owns failure handling.
 			}
-			await Promise.all([this.sceneManager.readyPromise, this.backgroundPipeline.readyPromise]);
+			// Text/HUD preparation does not depend on downloaded model geometry. Run it
+			// while GLBs, video first frames and background assets are still in flight,
+			// then join both branches before compiling or drawing anything interactive.
+			// The renderer remains single-owner: interface jobs use the same cooperative
+			// scheduler and execute synchronously between its paint yields.
+			const interfacePreparation = (async () => {
+				this.preparationStage = "home-typography";
+				await this.sceneManager.getSceneById("home")?.prepareHeroTextUnderCurtain?.();
+				if (this.disposed || this._webglLost) return false;
+				this._setPreparationProgress(0.29);
+
+				await yieldToNextPaint();
+				this.preparationStage = "case-typography";
+				await warmCasePanelHudUnderCurtain({
+					sceneManager: this.sceneManager,
+					renderer: this.renderer,
+				});
+				this._setPreparationProgress(0.32);
+				if (this.disposed || this._webglLost) return false;
+
+				await yieldToNextPaint();
+				this.preparationStage = "about-typography";
+				await warmAboutPanelHudUnderCurtain({
+					sceneManager: this.sceneManager,
+					renderer: this.renderer,
+				});
+				if (this.disposed || this._webglLost) return false;
+
+				this.preparationStage = "scene-interfaces";
+				await prepareSceneCanvasInterfaces(this.sceneManager, this.renderer, this.preparationScheduler);
+				await this.siteArc.labels.prepare(this.renderer);
+				this._setPreparationProgress(0.35);
+				return !this.disposed && !this._webglLost;
+			})();
+
+			const [, , interfacesPrepared] = await Promise.all([
+				this.sceneManager.readyPromise,
+				this.backgroundPipeline.readyPromise,
+				interfacePreparation,
+			]);
 			if (this.disposed) {
 				return false;
 			}
+			if (!interfacesPrepared) return false;
 			// All model consumers are ready; decoded geometry no longer needs the
 			// Draco workers or their WASM heaps during GPU warming and navigation.
 			disposeSharedDracoLoader();
-
-			await yieldToNextPaint();
-			// Late UI under curtain, then compile (hero includes scroll-hint meshes).
-			this.preparationStage = "home-typography";
-			await this.sceneManager.getSceneById("home")?.prepareHeroTextUnderCurtain?.();
-			if (this.disposed || this._webglLost) return false;
-			this._setPreparationProgress(0.29);
-
-			await yieldToNextPaint();
-			// Case and capability HUD canvases/textures for every locale.
-			this.preparationStage = "case-typography";
-			await warmCasePanelHudUnderCurtain({
-				sceneManager: this.sceneManager,
-				renderer: this.renderer,
-			});
-			this._setPreparationProgress(0.32);
-			if (this.disposed) {
-				return false;
-			}
-
-			await yieldToNextPaint();
-			this.preparationStage = "about-typography";
-			await warmAboutPanelHudUnderCurtain({
-				sceneManager: this.sceneManager,
-				renderer: this.renderer,
-			});
-			this.preparationStage = "scene-interfaces";
-			await prepareSceneCanvasInterfaces(this.sceneManager, this.renderer, this.preparationScheduler);
-			await this.siteArc.labels.prepare(this.renderer);
-			this._setPreparationProgress(0.35);
-			if (this.disposed) {
-				return false;
-			}
 
 			await this.preparationScheduler.run(() => this.sceneManager.warmupRenderTargets(), { gpu: true });
 			this._setPreparationProgress(0.36);
@@ -1488,7 +1495,9 @@ export class DigitalMonsterThreeApp {
 		if (this.highDprCalibration?.accepted) {
 			// Only the normal resize path changes prepared buffer dimensions.
 			// The earned supersampling exception applies from 980 CSS pixels upward.
-			this.defaultPixelRatio = w >= 980 ? 2 : resolveRendererPixelRatio(this.gfxTier, window.devicePixelRatio);
+			this.defaultPixelRatio = isMobileGraphicsDevice()
+				? resolveRendererPixelRatio(this.gfxTier, window.devicePixelRatio, true)
+				: w >= 980 ? 2 : resolveRendererPixelRatio(this.gfxTier, window.devicePixelRatio, false);
 			this.store.graphicsDpr = this.defaultPixelRatio;
 			setScenePixelRatio(this.renderer, this.defaultPixelRatio);
 		}

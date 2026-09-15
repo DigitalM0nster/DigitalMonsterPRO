@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { setImmediate } from 'node:timers';
-import { FilmMedia } from './FilmMedia.js';
+import { FilmMedia, resolveFilmVideoSource } from './FilmMedia.js';
 import { FilmVolume } from './FilmVolume.js';
 
 class Video extends EventTarget {
@@ -20,6 +20,13 @@ function create(){
  const media=new FilmMedia([{video:'/one.mp4'},{video:'/two.mp4'},{}]);
  media.entries.filter(Boolean).forEach(entry=>{entry.ready=true;});media.posters=['poster-one','poster-two','poster-three'].map(name=>({name,dispose(){}}));return media;
 }
+
+test('mobile loads the compact film source in every graphics tier',()=>{
+ const film={video:'/film-1080.mp4',videoLow:'/film-540.mp4'};
+ for(const tier of ['low','medium','high'])assert.equal(resolveFilmVideoSource(film,{tier,mobile:true}),'/film-540.mp4');
+ assert.equal(resolveFilmVideoSource(film,{tier:'medium',mobile:false}),'/film-1080.mp4');
+ assert.equal(resolveFilmVideoSource({video:'/only.mp4'},{tier:'high',mobile:true}),'/only.mp4');
+});
 
 function nativeDom(media,mode="standard"){
  const doc=document,video=media.video;

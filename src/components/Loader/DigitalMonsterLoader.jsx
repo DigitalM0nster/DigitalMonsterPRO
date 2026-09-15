@@ -265,6 +265,18 @@ export default function DigitalMonsterLoader(props) {
 			snakeLastTsRef.current = now;
 			const dt = Math.max(0.001, Math.min(0.05, (now - last) / 1000));
 			const target = Math.min(100, Math.max(0, progressRef.current));
+			if (target >= 99.9 && renderedRef.current && fontsReadyRef.current) {
+				// Preparation is complete: present the real ready state on this paint.
+				// Keeping the decorative tail catch-up here delayed Start after all work.
+				snakeHeadRef.current = 100;
+				snakeTailRef.current = 100;
+				applySnakeCssVars(root);
+				if (!barVisuallyFullRef.current) {
+					barVisuallyFullRef.current = true;
+					setBarVisuallyFull(true);
+				}
+				return;
+			}
 			// Smooth follow — fill + snake tip share head, never snap to stepped progress.
 			snakeHeadRef.current += (target - snakeHeadRef.current) * (1 - Math.exp(-7.5 * dt));
 			if (snakeHeadRef.current > target) {

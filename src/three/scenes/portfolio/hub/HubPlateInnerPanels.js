@@ -6,6 +6,7 @@ import { getHeroGlitchSnakeRunOptions } from "@/three/scenes/home/heroText/heroT
 import { SITE_MAIN_COLOR, siteMainRgba } from "@/app/config/siteMainColor.js";
 import { normalizeSiteLocale } from "@/functions/siteLocale.js";
 import { getPortfolioLocale } from "@/pages/portfolio/data/portfolioProjectsCopy.js";
+import { releaseStaticCanvasAfterUpload } from "@/three/assets/releaseStaticCanvasAfterUpload.js";
 import { projectsData } from "./projectsData.js";
 import { getHubPlateInnerPanelData } from "./hubPlateInnerPanelData.js";
 import {
@@ -632,7 +633,7 @@ function syncGalleryChrome(entry, galleryIndex) {
 	if (!entry) {
 		return;
 	}
-	const galleryCount = entry.galleryCarousel?.imageCount ?? entry.images?.length ?? 1;
+	const galleryCount = entry.galleryCarousel?.imageCount ?? entry.imageCount ?? 1;
 	const nextIndex = wrapHubPlateGalleryIndex(galleryIndex, galleryCount);
 	if (entry.paintedGalleryIndex === nextIndex) {
 		return;
@@ -659,7 +660,7 @@ function startGalleryTransition(entry, targetIndex, nowSeconds, options = {}) {
 		return false;
 	}
 
-	const galleryCount = entry.galleryCarousel?.imageCount ?? entry.images?.length ?? 1;
+	const galleryCount = entry.galleryCarousel?.imageCount ?? entry.imageCount ?? 1;
 	const forwardDistance = wrapHubPlateGalleryIndex(
 		targetIndex - entry.galleryIndex,
 		galleryCount,
@@ -792,10 +793,13 @@ export class HubPlateInnerPanels {
 			);
 			paintInnerPanelSecondaryTextCanvas(secondaryTextCanvas, 0, images.length);
 			const galleryAtlas = createGalleryAtlasCanvas(loadedImages);
-			const texture = createCanvasTexture(canvas);
+			// These two canvases never repaint. On mobile, release their large CPU
+			// backing stores immediately after Three uploads the prepared pixels.
+			// The final-resolution GPU textures remain alive for every runtime route.
+			const texture = releaseStaticCanvasAfterUpload(createCanvasTexture(canvas));
 			// Keep source screenshots at 1920×945 and sample the full-resolution
 			// pixels directly. Mipmap averaging softens the tiny UI lettering.
-			const galleryAtlasTexture = createCanvasTexture(galleryAtlas.canvas);
+			const galleryAtlasTexture = releaseStaticCanvasAfterUpload(createCanvasTexture(galleryAtlas.canvas));
 			const accentTextTexture = createCanvasTexture(accentTextCanvas);
 			const secondaryTextTexture = createCanvasTexture(secondaryTextCanvas);
 			const textShaderConfig = cfg.caseSelection?.innerPanel?.textShader ?? {};
@@ -921,7 +925,7 @@ export class HubPlateInnerPanels {
 				localizedTextLayers,
 				textRevealConfig,
 				project,
-				images,
+				imageCount: images.length,
 				galleryIndex: 0,
 				requestedGalleryIndex: 0,
 				paintedGalleryIndex: 0,

@@ -99,3 +99,40 @@ test("full warm rejects an unusable shader but permits driver warnings", async (
 		} else assert.equal(app.progress, 1);
 	}
 });
+
+test("full warm prepares independent interfaces while scene assets are still loading", async () => {
+	const assets = deferred();
+	const events = [];
+	const home = {
+		prepareHeroTextUnderCurtain: async () => { events.push("home-typography"); },
+	};
+	const fullPrepare = vm.runInNewContext(`({${method}})._prepareApplication`, {
+		console: { error() {} }, performance, yieldToNextPaint: async () => {}, disposeSharedDracoLoader() {},
+		warmCasePanelHudUnderCurtain: async () => { events.push("case-typography"); },
+		warmAboutPanelHudUnderCurtain: async () => { events.push("about-typography"); },
+		prepareSceneCanvasInterfaces: async () => { events.push("scene-interfaces"); },
+	});
+	const app = {
+		fullWarm: true, ready: false, disposed: false, _webglLost: false,
+		renderer: { info: { programs: [] } },
+		sceneManager: {
+			scenes: new Map([["home", home]]), readyPromise: assets.promise,
+			getSceneById: () => home, warmupRenderTargets() {}, warmupPrograms: async () => {},
+		},
+		backgroundPipeline: { readyPromise: Promise.resolve() },
+		siteArc: { labels: { prepare: async () => { events.push("site-arc"); } } },
+		preparationScheduler: { run: async job => job() },
+		_warmupScreenOverlays: async () => {}, _warmupRenderPipeline: async () => {},
+		_calibratePreparedHighDpr: async () => {}, _setPreparationProgress() {},
+	};
+
+	const ready = fullPrepare.call(app);
+	await Promise.resolve();
+	await Promise.resolve();
+	assert.equal(events[0], "home-typography");
+	assert.equal(app.ready, false);
+
+	assets.resolve();
+	assert.equal(await ready, true);
+	assert.deepEqual(events, ["home-typography", "case-typography", "about-typography", "scene-interfaces", "site-arc"]);
+});

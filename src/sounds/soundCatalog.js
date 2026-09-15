@@ -7,7 +7,7 @@ export const SOUND_CATALOG = Object.freeze({
 	start_app: startAppSoundUrl,
 	logo_reveal: "/audio/logo_reveal.mp3",
 	about_back_dissolve: "/audio/text2.mp3",
-	about_particles: "/audio/about_particles.wav",
+	about_particles: "/audio/about_particles.mp3",
 	teleport_out: "/audio/teleportOut.mp3",
 	digital_sound: "/audio/digital_sound.mp3",
 	card_movement: "/audio/card_movement.mp3",
@@ -17,9 +17,9 @@ export const SOUND_CATALOG = Object.freeze({
 	panel_hud_text: "/audio/text4.mp3",
 	underwater: "/audio/underwater.mp3",
 	glitch_button: "/audio/glitch_button.mp3",
-	capability_flight_air: "/audio/capability_flight_air.wav",
-	capability_line_energy: "/audio/capability_line_continuous_hum.wav",
-	capability_line_sweep: "/audio/capability_line_continuous_sweep.wav",
+	capability_flight_air: "/audio/capability_flight_air.mp3",
+	capability_line_energy: "/audio/capability_line_continuous_hum.mp3",
+	capability_line_sweep: "/audio/capability_line_continuous_sweep.mp3",
 });
 
 export function getUniqueSoundSources() {

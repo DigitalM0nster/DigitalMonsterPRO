@@ -19,6 +19,17 @@ test("Low retains its pixel budget and invalid device ratios fall back safely", 
 	}
 });
 
+test("mobile always follows native DPR up to five in every tier", () => {
+	for (const tier of ["low", "medium", "high"]) {
+		for (const [device, expected] of [[1, 1], [2, 2], [3, 3], [4, 4], [5, 5], [6, 5]]) {
+			assert.equal(resolveRendererPixelRatio(tier, device, true), expected, `${tier}, mobile DPR ${device}`);
+		}
+		for (const device of [NaN, Infinity, 0, -1]) {
+			assert.equal(resolveRendererPixelRatio(tier, device, true), 1);
+		}
+	}
+});
+
 function setup({ cores = 8, ram, width = 1920, reduced = false, search = "" } = {}) {
 	const source = readFileSync(new URL("./getGraphicsTier.js", import.meta.url), "utf8").replace(/export /g, "");
 	return vm.runInNewContext(`${source}\n({ getGraphicsTier, getGraphicsTierDiagnostics })`, {

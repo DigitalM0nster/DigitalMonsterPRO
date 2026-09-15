@@ -1,8 +1,15 @@
 import * as THREE from "three";
-import { getGraphicsTier } from "../../../../functions/getGraphicsTier.js";
+import { getGraphicsTier, isMobileGraphicsDevice } from "../../../../functions/getGraphicsTier.js";
 import { FilmNativePlayer } from "./FilmNativePlayer.js";
 
 export const nextFilmPaint = () => new Promise((resolve) => requestAnimationFrame(resolve));
+
+export function resolveFilmVideoSource(film, {
+ tier = getGraphicsTier(),
+ mobile = isMobileGraphicsDevice(),
+} = {}) {
+ return tier === "low" || mobile ? film.videoLow ?? film.video : film.video;
+}
 
 /** All film textures are prepared under the curtain; only the selected decoder plays. */
 export class FilmMedia {
@@ -52,7 +59,7 @@ export class FilmMedia {
     };
     const timer=setTimeout(finish,12000);entry.finish=finish;
     entry.video.addEventListener("loadeddata",finish);entry.video.addEventListener("error",finish);
-    const film=this.projects[index];entry.video.src=getGraphicsTier()==="low"?film.videoLow??film.video:film.video;entry.video.load();
+    const film=this.projects[index];entry.video.src=resolveFilmVideoSource(film);entry.video.load();
    });
   });
   const loader=new THREE.TextureLoader();

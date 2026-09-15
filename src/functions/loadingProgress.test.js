@@ -40,6 +40,7 @@ test("estimated motion never unlocks Start, and real readiness completes promptl
 	for (let tick = 0; tick < 4000; tick++) progress = advanceLoadingProgress(progress, 39, 0.08);
 	assert.equal(progress, 99);
 	assert.equal(advanceLoadingProgress(progress, 100, 0.08, true), 100);
+	assert.equal(advanceLoadingProgress(40, 100, 0.08, true), 100);
 	assert.equal(advanceLoadingProgress(40, 20, 0.08), 40.06);
 	assert.equal(advanceLoadingProgress(40, 90, NaN), 40);
 });

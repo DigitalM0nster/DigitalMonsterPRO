@@ -38,7 +38,7 @@ export class Mmk1CameraDevTools {
 			<div class="devPanelDragHandle"><p class="title">MMK-1 / MOBILE CAMERA</p></div>
 			<p class="legend">
 				<b>${HOTKEY}</b> — открыть/закрыть · WASD — полёт · Space/Alt — вверх/вниз · стрелки — поворот · Shift — быстрее.<br/>
-				Откройте нужный кружок, затем включите полёт. Кнопка копирования сохранит ракурс, его номер и размер адаптивного экрана.
+				Откройте нужный кружок, затем включите полёт. На мобильной ширине панель скроется сама; клавиша 0 вернёт её, не прерывая полёт.
 			</p>
 			<p class="status" data-status>control disabled</p>
 			<section class="section" data-crane-flight-section>
@@ -161,7 +161,7 @@ export class Mmk1CameraDevTools {
 
 			<section class="section">
 				<div class="actions">
-					<button type="button" data-action="close">Close</button>
+					<button type="button" data-action="close">Скрыть панель</button>
 				</div>
 			</section>
 			<footer class="legend" data-hints>${formatDevPanelHotkeyHints()}</footer>
@@ -289,6 +289,9 @@ export class Mmk1CameraDevTools {
 					? "Полёт включён · WASD и стрелки готовы"
 					: "Полёт выключен",
 		);
+		if (active && window.innerWidth <= 768) {
+			this.setEnabled(false);
+		}
 	}
 
 	async _copy() {
@@ -592,9 +595,8 @@ export class Mmk1CameraDevTools {
 			this._setStatus(cameraScene?.isFreeCameraEnabled?.() ? "Полёт включён · WASD и стрелки готовы" : "Полёт выключен");
 			return;
 		}
-		// The city panel covers most of a phone viewport; hiding it must keep flight live.
-		if (window.location.pathname !== "/capabilities/spatial-matrix")
-			this.getScene()?.setFreeCameraEnabled?.(false, this.getCamera());
+		// On adaptive viewports the panel may cover the subject. Hiding it keeps
+		// keyboard flight and the C snapshot shortcut live for both capability scenes.
 		this._syncControlButton();
 	}
 

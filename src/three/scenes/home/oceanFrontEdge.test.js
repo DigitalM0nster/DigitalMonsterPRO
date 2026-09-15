@@ -5,6 +5,7 @@ import vm from "node:vm";
 import * as THREE from "three";
 import { heroCamera, HERO_LOOK_AT, getHeroCameraForSceneProgress } from "./heroCamera.js";
 import { oceanFrontEdgeGlsl } from "./shaders/oceanFrontEdge.glsl.js";
+import { createAmbientFlowState, updateAmbientFlowState } from "./utils/ambientParticleFlow.js";
 
 const source=readFileSync(new URL("./DigitalWhaleScene.js",import.meta.url),"utf8");
 const method=(start,end)=>source.slice(source.indexOf(`\t${start}`),source.indexOf(`\n\t${end}`,source.indexOf(`\t${start}`)));
@@ -55,6 +56,16 @@ test("configured horizontal speed can change magnitude but not rightward directi
   scene._accumulateScrollSpeeds(.5,{ocean:{scrollSpeedX:speed},ambient:{}});
   assert.ok(scene.oceanScrollAuto>=before);
  }
+});
+
+test("nearby particles integrate a changing swim direction without reprojecting old motion",()=>{
+	const flow=createAmbientFlowState();
+	updateAmbientFlowState(flow,0,new THREE.Vector3(1,0,0),20);
+	updateAmbientFlowState(flow,1,new THREE.Vector3(1,0,0),20);
+	assert.deepEqual(flow.offset.toArray(),[1,0]);
+	updateAmbientFlowState(flow,2,new THREE.Vector3(0,0,-1),20);
+	assert.deepEqual(flow.offset.toArray(),[1,-1]);
+	assert.deepEqual(flow.direction.toArray(),[0,0,-1]);
 });
 
 // Execute the numeric GLSL helper itself, using Three's matching smoothstep.

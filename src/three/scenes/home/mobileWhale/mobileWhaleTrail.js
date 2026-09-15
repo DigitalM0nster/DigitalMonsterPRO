@@ -95,11 +95,19 @@ export function createMobileWhaleTrail(shared,source,emitters=[],config={}){
    attribute vec3 aFlowDirection,aFlowBend;
    varying float vLight;
    ${whaleDepthMistGLSL}
+   vec3 rotateWake(vec3 value,vec2 turn){
+    float cy=cos(turn.x),sy=sin(turn.x),cp=cos(turn.y),sp=sin(turn.y);
+    vec3 yawed=vec3(cy*value.x-sy*value.z,value.y,sy*value.x+cy*value.z);
+    return vec3(cp*yawed.x-sp*yawed.y,sp*yawed.x+cp*yawed.y,yawed.z);
+   }
    void main(){
     float activity=mix(.34,1.,smoothstep(0.,1.,uMotionEnergy));
     float visible=step(aSeed.y,uParticleDensity*activity);
     #include <skinbase_vertex>
     #include <begin_vertex>
+    // Skin only the live emission origin. The wake displacement stays in root
+    // space, so an already detached stream cannot reverse with a flapping fin.
+    #include <skinning_vertex>
     float age=fract(aSeed.x+uTime*(uTrailSpeed*mix(1.75,3.25,uMotionEnergy)+aSeed.y*uTrailSpeed));
     float phase=position.x*3.7+position.y*2.3+uTime*.17;
     float curl=sin(age*7.5+phase)-sin(phase);
@@ -108,13 +116,13 @@ export function createMobileWhaleTrail(shared,source,emitters=[],config={}){
     // Curved anatomical flow in 3D, then skin both the origin and its trajectory.
     // +X follows head -> tail and already recedes into depth in the hero pose.
     float travel=age*(.74+aSeed.y*.52);
-    vec3 particleFan=vec3((aSeed.z-.5)*.22,(aSeed.w-.5)*.38,(aSeed.y-.5)*.55);
-    vec3 turnFlow=vec3(0.,uFlowTurn.y,uFlowTurn.x)*travel*(.35+.65*uMotionEnergy);
-    transformed+=((aFlowDirection+particleFan)*travel+aFlowBend*travel*travel+turnFlow)*uFlowX;
+    vec3 particleFan=vec3((aSeed.z-.5)*.05,(aSeed.w-.5)*.14,(aSeed.y-.5)*.12);
+    vec3 stableDirection=rotateWake(aFlowDirection+particleFan,uFlowTurn);
+    vec3 stableBend=rotateWake(aFlowBend,uFlowTurn);
+    transformed+=(stableDirection*travel+stableBend*travel*travel)*uFlowX;
     transformed.y+=travel*uFlowY;
     transformed+=vec3(.08,.7,.35)*(curl*.04+ripple*.015)*age*uWander;
     transformed+=vec3(aSeed.y-.5,aSeed.z-.5,aSeed.w-.5)*spread*uSpread*mix(.2,.38,uMotionEnergy);
-    #include <skinning_vertex>
     vLight=visible*age*(.11+.39*pow(aSeed.w,2.))*mix(.58,1.12,uMotionEnergy);
     float envelope=smoothstep(0.,.10,age)*(1.-smoothstep(.42,1.,age));
     vLight*=envelope;
@@ -153,12 +161,18 @@ export function createMobileWhaleTrail(shared,source,emitters=[],config={}){
   uniforms.uTrailSpeed.value=Math.max(0,next.speed??.05);
   uniforms.uFlowX.value=next.flowX??.84;
   uniforms.uFlowY.value=next.flowY??.36;
-  uniforms.uSpread.value=Math.max(0,next.spread??.18)*(.64/.18);
+  uniforms.uSpread.value=Math.max(0,next.spread??.18);
   uniforms.uWander.value=Math.max(0,next.wanderAmp??2.8)/2.8;
  };
  trail.setMotionActivity=(energy=0,direction=null)=>{
   uniforms.uMotionEnergy.value=THREE.MathUtils.clamp(energy,0,1);
-  if(direction)uniforms.uFlowTurn.value.set(direction.z??0,direction.y??0);
+  if(direction){
+   const horizontal=Math.hypot(direction.x??1,direction.z??0);
+   uniforms.uFlowTurn.value.set(
+    Math.atan2(direction.z??0,direction.x??1),
+    Math.atan2(direction.y??0,Math.max(1e-6,horizontal)),
+   );
+  }
  };
  trail.applyConfig(config);
  return trail;

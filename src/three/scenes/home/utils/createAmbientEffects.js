@@ -10,6 +10,7 @@ import {
 	getOceanSpaceCeilingY,
 } from "./oceanSurfaceClip.js";
 import { withFogUniforms } from "./shaderFogUniforms.js";
+import { createAmbientFlowState, updateAmbientFlowState } from "./ambientParticleFlow.js";
 
 function createDriftMaterial(color, options = {}) {
 	const useFog = options.fog !== false;
@@ -30,13 +31,22 @@ function createDriftMaterial(color, options = {}) {
 			uAnchorY: { value: options.anchorY ?? 0 },
 			uOceanCeilingY: { value: options.oceanCeilingY ?? -1 },
 			uOceanFadeBand: { value: options.oceanFadeBand ?? 2.5 },
-			uScrollPhase: { value: 0 },
+			uFlowOffset: { value: new THREE.Vector2() },
 			uWrapWidth: { value: options.wrapWidth ?? 40 },
 			uFlowDirection: { value: new THREE.Vector3(1, 0, 0) },
 		}),
 		vertexShader: ambientDriftVertexShader,
 		fragmentShader: ambientDriftFragmentShader,
 	});
+}
+
+/** Integrate direction changes instead of rebuilding the wrapped coordinate
+ * basis. This lets particles curve without teleporting when the whale turns. */
+function updateDriftFlow(material, state, elapsed, scrollPhase, flowDirection) {
+	material.uniforms.uTime.value = elapsed;
+	updateAmbientFlowState(state, scrollPhase, flowDirection, material.uniforms.uWrapWidth.value);
+	material.uniforms.uFlowOffset.value.copy(state.offset);
+	material.uniforms.uFlowDirection.value.copy(state.direction);
 }
 
 function fillDriftAttributes(count, phases, sizes, pulses) {
@@ -135,6 +145,7 @@ export function createDeepOceanParticles(
 	});
 
 	const points = new THREE.Points(geometry, material);
+	const flowState = createAmbientFlowState();
 	points.renderOrder = 8;
 	points.frustumCulled = false;
 
@@ -164,9 +175,7 @@ export function createDeepOceanParticles(
 		getCount: () => count,
 		rebuild,
 		update(elapsed, scrollPhase = 0, flowDirection = null) {
-			material.uniforms.uTime.value = elapsed;
-			material.uniforms.uScrollPhase.value = scrollPhase;
-			if (flowDirection) material.uniforms.uFlowDirection.value.copy(flowDirection);
+			updateDriftFlow(material, flowState, elapsed, scrollPhase, flowDirection);
 		},
 		applyConfig,
 	};
@@ -262,6 +271,7 @@ export function createWhaleAmbientParticles(
 	});
 
 	const points = new THREE.Points(geometry, material);
+	const flowState = createAmbientFlowState();
 	points.renderOrder = 7;
 	points.frustumCulled = false;
 
@@ -291,9 +301,7 @@ export function createWhaleAmbientParticles(
 		getCount: () => count,
 		rebuild,
 		update(elapsed, scrollPhase = 0, flowDirection = null) {
-			material.uniforms.uTime.value = elapsed;
-			material.uniforms.uScrollPhase.value = scrollPhase;
-			if (flowDirection) material.uniforms.uFlowDirection.value.copy(flowDirection);
+			updateDriftFlow(material, flowState, elapsed, scrollPhase, flowDirection);
 		},
 		applyConfig,
 	};
@@ -337,7 +345,7 @@ export function createAmbientEffects() {
 			replaceDisposable(prevWhaleGeo, whaleAmbient.geometry);
 		},
 		update(delta, elapsed, scrollPhases = {}, whaleFlowDirection = null) {
-			deepOcean.update(elapsed, scrollPhases.deep ?? 0);
+			deepOcean.update(elapsed, scrollPhases.deep ?? 0, whaleFlowDirection);
 			whaleAmbient.update(elapsed, scrollPhases.whale ?? 0, whaleFlowDirection);
 		},
 	};

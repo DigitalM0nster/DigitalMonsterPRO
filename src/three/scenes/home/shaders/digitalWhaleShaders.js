@@ -611,10 +611,9 @@ uniform float uDriftAmp;
 uniform float uLocalSurfaceY;
 uniform float uAnchorY;
 uniform float uOceanCeilingY;
-/** Тот же поток, что у сетки океана — частицы уезжают вправо и появляются слева. */
-uniform float uScrollPhase;
 uniform float uWrapWidth;
 uniform vec3 uFlowDirection;
+uniform vec2 uFlowOffset;
 
 attribute float aPhase;
 attribute float aSize;
@@ -625,21 +624,18 @@ void main() {
 	vec3 pos = position;
 
 	float halfW = max(uWrapWidth, 0.001) * 0.5;
+	pos.x = mod(pos.x + uFlowOffset.x + halfW, halfW * 2.0) - halfW;
+	pos.z = mod(pos.z + uFlowOffset.y + halfW, halfW * 2.0) - halfW;
+
 	vec2 flowXZ = uFlowDirection.xz;
 	if (length(flowXZ) < 0.001) flowXZ = vec2(1.0, 0.0);
 	flowXZ = normalize(flowXZ);
 	vec2 crossFlow = vec2(-flowXZ.y, flowXZ.x);
-	float along = dot(pos.xz, flowXZ);
-	float across = dot(pos.xz, crossFlow);
-	along = mod(along + uScrollPhase + halfW, halfW * 2.0) - halfW;
-	pos.xz = flowXZ * along + crossFlow * across;
-	pos.y += uFlowDirection.y * along * 0.22;
-
-	float driftX = sin(uTime * 0.45 + aPhase) * uDriftAmp;
+	float driftForward = sin(uTime * 0.45 + aPhase) * uDriftAmp;
+	float driftAcross = cos(uTime * 0.38 + aPhase * 0.9) * uDriftAmp;
 	float driftY = sin(uTime * 0.32 + aPhase * 1.7) * uDriftAmp * 0.35;
-	float driftZ = cos(uTime * 0.38 + aPhase * 0.9) * uDriftAmp;
-
-	pos += vec3(driftX, driftY, driftZ);
+	pos.xz += flowXZ * driftForward + crossFlow * driftAcross;
+	pos.y += driftY + uFlowDirection.y * driftForward * .4;
 	pos.y = min(pos.y, uLocalSurfaceY);
 	vOceanY = uAnchorY + pos.y;
 

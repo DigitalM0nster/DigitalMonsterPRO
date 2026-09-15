@@ -258,7 +258,12 @@ test("surface points and irregular wake share one shader clock and rig without b
  assert.ok(new Set(Array.from(seeds.array).filter((_,i)=>i%4===1)).size>600,"independent wake speeds, no identical strings");
 	trail.setMotionActivity(.9,new THREE.Vector3(1,.2,-.3));
 	assert.equal(trail.material.uniforms.uMotionEnergy.value,.9);
-	assert.deepEqual(trail.material.uniforms.uFlowTurn.value.toArray(),[-.3,.2]);
+	assert.ok(Math.abs(trail.material.uniforms.uFlowTurn.value.x-Math.atan2(-.3,1))<1e-12);
+	assert.ok(Math.abs(trail.material.uniforms.uFlowTurn.value.y-Math.atan2(.2,Math.hypot(1,-.3)))<1e-12);
+	trail.applyConfig({spread:1.39});
+	assert.equal(trail.material.uniforms.uSpread.value,1.39,"spread is not multiplied into a glitchy fan");
+	assert.ok(trail.material.vertexShader.indexOf("#include <skinning_vertex>")
+		<trail.material.vertexShader.indexOf("stableDirection"),"detached displacement is applied after skinning");
  assert.ok(!/vFlow|uv1|sampler2D/.test(body.vertexShader+body.fragmentShader));
  for(const uniform of Object.values(shared))assert.ok(!uniform.value?.isTexture);
  assert.equal(body.side,THREE.FrontSide);

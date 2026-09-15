@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import * as THREE from "three";
 import { CityWorldTitle } from "./CityWorldTitle.js";
-import { CityDistrictMarkers, CITY_MARKER_DISTRICTS } from "./CityDistrictMarkers.js";
+import { CityDistrictMarkers } from "./CityDistrictMarkers.js";
 import { coreNarrativeLayout } from "../typography/capabilityNarrativeContent.js";
 import { layoutDistrictHud } from "./cityDistrictHudLayout.js";
 
@@ -43,7 +43,7 @@ test("compact city circles clear the actual caption and keep shader, hit and lea
 		const districts = [[.22, .40], [.46, .51], [.77, .43], [.82, .65], [.22, .73]].map(([x, y], i) => {
 			const anchor = new THREE.Vector3(x * 2 - 1, 1 - y * 2, depth).unproject(camera);
 			anchor.y -= 1.2;
-			return { name: CITY_MARKER_DISTRICTS[i + 1], anchor: anchor.toArray() };
+			return { name: ["quarter-28", "quarter-27", "quarter-04", "quarter-26", "quarter-24"][i], anchor: anchor.toArray() };
 		});
 		const renderer = { getSize: target => target.set(w, h) };
 		const markers = new CityDistrictMarkers(districts, new Float32Array(districts.length), renderer, new THREE.Matrix4());
@@ -106,7 +106,7 @@ test("city circles cross the caption corner continuously during slow camera-rela
 	const w = 640, h = 360, camera = new THREE.PerspectiveCamera(40, w / h, .1, 1000);
 	camera.position.z = 10; camera.updateMatrixWorld();
 	const depth = new THREE.Vector3().project(camera).z;
-	const markers = new CityDistrictMarkers([{ name: "quarter-26", anchor: [0, -1.2, 0] }], new Float32Array(1),
+	const markers = new CityDistrictMarkers([{ name: "quarter-28", anchor: [0, -1.2, 0] }], new Float32Array(1),
 		{ getSize: target => target.set(w, h) }, new THREE.Matrix4());
 	let previous = null;
 	for (let x = 310; x <= 450; x++) {

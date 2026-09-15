@@ -9,7 +9,7 @@ const HIT_RADIUS = 32;
 export const CITY_MARKER_DISTRICTS = Object.freeze([
 	"beacon-garden", "quarter-31", "quarter-27", "quarter-04", "quarter-26", "quarter-24",
 ]);
-export const CITY_MOBILE_MARKER_DISTRICTS = Object.freeze(["beacon-garden", "quarter-27", "quarter-26"]);
+export const CITY_MOBILE_MARKER_DISTRICTS = Object.freeze(["beacon-garden", "quarter-27", "quarter-28"]);
 
 /** Prepared billboard batch. The same projected circles own both drawing and hits. */
 export class CityDistrictMarkers {
@@ -31,12 +31,14 @@ export class CityDistrictMarkers {
 		this.parks = districts.map(d => d.kind === "park");
 		this.order = CITY_MARKER_DISTRICTS.map(name => districts.findIndex(d => d.name === name)).filter(id => id >= 0);
 		this.mobileOrder = CITY_MOBILE_MARKER_DISTRICTS.map(name => districts.findIndex(d => d.name === name)).filter(id => id >= 0);
-		this.accepted = new Int16Array(this.order.length);
+		// Prepare both compositions once; resizing only changes visibility and hits.
+		this.preparedOrder = [...new Set([...this.order, ...this.mobileOrder])];
+		this.accepted = new Int16Array(Math.max(this.order.length, this.mobileOrder.length));
 		this.count = 0;
 		this.hovered = -1;
 		this.time = { value: 0 };
 		const positions = [], uvs = [], ids = [], phases = [];
-		for (const i of this.order) {
+		for (const i of this.preparedOrder) {
 			// Stable offsets spread arc rotation across its ten-second cycle, as on the crane.
 			const phase = ((i * .61803398875) % 1) * 10;
 			for (const uv of [[0, 0], [1, 0], [1, 1], [0, 0], [1, 1], [0, 1]]) {
@@ -83,7 +85,7 @@ export class CityDistrictMarkers {
 		this.time.value += dt;
 		const x = pointer ? (pointer.x + 1) * this.viewport.x / 2 : 0;
 		const y = pointer ? (pointer.y + 1) * this.viewport.y / 2 : 0;
-		for (const i of this.order) {
+		for (const i of this.preparedOrder) {
 			const offset = this.magnetOffsets[i], p = this.points[i];
 			let dx = 0, dy = 0;
 			if (pointer && i === this.hovered && this.visible[i]) {
@@ -157,7 +159,7 @@ export class CityDistrictMarkers {
 			const id = this.accepted[i], p = this.points[id];
 			this.offsets[id].set(p.x - this.offsets[id].x, p.y - this.offsets[id].y);
 		}
-		for (const i of this.order) {
+		for (const i of this.preparedOrder) {
 			this.markerState[i * 4] = this.offsets[i].x;
 			this.markerState[i * 4 + 1] = this.offsets[i].y;
 			this.markerState[i * 4 + 2] = this.levels[i];

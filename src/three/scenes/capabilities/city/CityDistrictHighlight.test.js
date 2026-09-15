@@ -199,10 +199,12 @@ test("the same six districts survive the entire drag range, hover priority and r
 		if (step === 80) markers.reset();
 	}
 	assert.equal(markers.mesh.geometry, geometry); assert.equal(markers.markerState, state);
-	assert.equal(geometry.attributes.position.count, 6 * 6, "only the selected circles are drawn");
+	assert.equal(geometry.attributes.position.count, 7 * 6, "both viewport selections are prepared in one batch");
 	for (const [width, height] of [[390, 844], [844, 390], [768, 1024], [1920, 1080]]) {
 		markers.project(camera, { getSize: target => target.set(width, height) });
-		assert.deepEqual(markers.order.filter(id => markers.visible[id]), width <= 1024 ? [85, 26, 25] : expected);
+		assert.deepEqual(markers.preparedOrder.filter(id => markers.visible[id]), width <= 1024 ? [85, 26, 27] : expected);
+		assert.equal(markers.markerState[25 * 4 + 3], width <= 1024 ? 0 : 1, "old mobile marker is hidden in the shader as well as hit testing");
+		assert.equal(markers.markerState[27 * 4 + 3], width <= 1024 ? 1 : 0, "replacement is drawn only in the mobile composition");
 		assert.equal(markers.mesh.geometry, geometry, "responsive marker count reuses the same batch");
 	}
 	highlight.dispose();

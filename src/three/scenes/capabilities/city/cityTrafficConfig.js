@@ -3,7 +3,7 @@ export const CITY_TRAFFIC_DEFAULTS = Object.freeze({
 	frontSize: 1, rearSize: 1, bodyScale: 1, speed: 1, density: 1,
 	blueColor: "#24bdff", whiteColor: "#8dc4fc", yellowColor: "#ffdd89",
 	whiteShare: 0.26, yellowShare: 0.01,
-	roadIntensity: 1.5, windowIntensity: 1, fogDensity: 0.12, fogColor: "#00050b", bloom: 3,
+	roadIntensity: 1.5, windowIntensity: 1, fogDensity: 0.09, fogColor: "#00050b", bloom: 3,
 });
 
 export const CITY_TRAFFIC_CONTROLS = [

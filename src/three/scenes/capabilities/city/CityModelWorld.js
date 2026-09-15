@@ -244,8 +244,8 @@ export class CityModelWorld {
 		const mobile = this.cameraViewport.x <= 1024;
 		if (mobile) {
 			camera.position.fromArray(CITY_MOBILE_CAMERA.position);
-			const landscape = this.cameraViewport.x > this.cameraViewport.y && this.cameraViewport.y <= 480;
-			this.activeCameraLookAt.fromArray(landscape ? CITY_MOBILE_CAMERA.landscapeTarget : CITY_MOBILE_CAMERA.target);
+			this.activeCameraLookAt.fromArray(CITY_MOBILE_CAMERA.target).sub(camera.position)
+				.normalize().multiplyScalar(CITY_MOBILE_CAMERA.orbitDistance).add(camera.position);
 		} else {
 			camera.position.copy(this.cameraPosition);
 			this.activeCameraLookAt.copy(this.cameraLookAt);

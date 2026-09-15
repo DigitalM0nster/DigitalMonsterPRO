@@ -1,11 +1,13 @@
-// The portrait view aligns the tower and the garden along the depth of the city.
-// Moving closer is possible without squeezing the whole desktop panorama into a phone.
+// User-picked mobile view, captured at 404 × 800 (DPR 2).
 export const CITY_MOBILE_CAMERA = Object.freeze({
-	position: Object.freeze([4.8, 3, -3]),
-	target: Object.freeze([-.15, -.95, 1.2]),
-	landscapeTarget: Object.freeze([.55, -.95, 2]),
+	position: Object.freeze([-4.4997, .2632, 5.1855]),
+	target: Object.freeze([-3.8385, .1137, 4.4503]),
+	fov: 48,
+	// The exported lookAt is only one unit away. Keep orbit/parallax at city depth
+	// along that same sightline, without changing the captured viewing direction.
+	orbitDistance: 8,
 });
 
 export function cityMobileCameraFov(height) {
-	return 48 + Math.max(0, Math.min(8, (700 - height) / 30));
+	return CITY_MOBILE_CAMERA.fov + Math.max(0, Math.min(8, (700 - height) / 30));
 }

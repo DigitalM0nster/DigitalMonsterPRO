@@ -11,6 +11,13 @@ These rules apply to every coding-agent task in this repository (Cursor, Codex, 
 - Integrate existing side-branch changes into `main` before deleting their refs; preserve uncommitted work in old working copies. Do not recreate deleted branches later.
 - Publishing uses `main`. Never force-push or rewrite its history; pushing/deploying still follows the user's current publication instructions.
 
+## Temporary files and verification artifacts (binding)
+
+- Keep all task-generated files inside the primary project checkout. Never write scripts, logs, screenshots, test bundles, patches, caches, or audit folders into `C:/websites/develope` or create sibling project copies.
+- Use ignored `output/<task>/` for verification results and temporary test bundles, and ignored `.codex-artifacts/<task>/` for disposable agent scratch files. Resolve output paths from the project root, not the shell's working directory or a script placed outside the project.
+- Keep maintained, reusable utilities in the existing `scripts/` or `tools/` folders. Historical recovery archives belong in ignored `output/development-recovery/`; do not execute archived scripts or treat recovered source snapshots as active checkouts.
+- Before completing a task, check that it left no generated files outside the project. Preserve unique work before cleaning up obsolete copies; never follow a `node_modules` junction when archiving or deleting one.
+
 ## Source structure (binding)
 
 The project uses a flat, page-first source layout. Do not recreate `components/HTML/components`, root feature duplicates such as `src/about` + a separate About page, or catch-all `shared` folders.

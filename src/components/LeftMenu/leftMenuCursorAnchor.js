@@ -23,7 +23,21 @@ export function setMenuCursorAnchor(index, buttonRefs, entry = null) {
 					diameter: rect.width,
 				};
 			})();
-	const anchorKey = `leftMenu:${index}`;
+	publishMenuCursorAnchor(`leftMenu:${index}`, anchor);
+}
+
+/** Static circular controls share the menu HUD without the navigation snap offset. */
+export function setMenuElementCursorAnchor(circle, anchorKey) {
+	if (!circle) return;
+	const rect = circle.getBoundingClientRect();
+	publishMenuCursorAnchor(anchorKey, {
+		x: rect.left + rect.width / 2,
+		y: rect.top + rect.height / 2,
+		diameter: rect.width,
+	});
+}
+
+function publishMenuCursorAnchor(anchorKey, anchor) {
 	if (store.cursor.menuAnchorKey !== anchorKey) {
 		store.cursor.menuAnchorKey = anchorKey;
 		store.cursor.menuAnchorRevision += 1;
@@ -37,7 +51,8 @@ export function setMenuCursorAnchor(index, buttonRefs, entry = null) {
 	store.cursor.hovered = true;
 }
 
-export function clearMenuCursorAnchor() {
+export function clearMenuCursorAnchor(anchorKey = null) {
+	if (anchorKey && store.cursor.menuAnchorKey !== anchorKey) return;
 	if (store.cursor.menuAnchorSource && store.cursor.menuAnchorSource !== "leftMenu") {
 		return;
 	}

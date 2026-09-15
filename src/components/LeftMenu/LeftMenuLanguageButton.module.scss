@@ -1,0 +1,156 @@
+.languagePicker {
+	position: relative;
+	z-index: 2;
+	width: var(--leftMenuButtonWidth);
+	height: var(--leftMenuButtonWidth);
+	flex: 0 0 var(--leftMenuButtonWidth);
+}
+
+.trigger,
+.option {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 0;
+	border: 0;
+	border-radius: 50%;
+	background: transparent;
+	color: rgba(255, 255, 255, 0.72);
+	font-family: "Jost", sans-serif;
+	font-size: 10px;
+	font-weight: 500;
+	letter-spacing: 0.08em;
+	cursor: pointer;
+	touch-action: manipulation;
+	-webkit-tap-highlight-color: transparent;
+
+	&:focus-visible { outline: none; }
+	&:focus-visible .circle {
+		outline: 1px solid var(--mainColor);
+		outline-offset: 4px;
+	}
+}
+
+.circle {
+	position: relative;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 34px;
+	height: 34px;
+	border: 1px solid rgba(255, 255, 255, 0.32);
+	border-radius: 50%;
+	pointer-events: none;
+	transition: border-color 180ms ease, color 180ms ease;
+}
+
+/* Two fine arcs and opposing registration ticks; the center stays transparent. */
+.hudMarks {
+	position: absolute;
+	inset: -5px;
+	border: 1px solid transparent;
+	border-top-color: var(--mainColor);
+	border-bottom-color: var(--mainColor);
+	border-radius: 50%;
+	opacity: 0;
+	transform: rotate(-80deg) scale(0.88);
+	transition: transform 480ms cubic-bezier(0.22, 1, 0.36, 1), opacity 180ms ease;
+
+	&::before,
+	&::after {
+		content: "";
+		position: absolute;
+		top: calc(50% - 1px);
+		width: 3px;
+		height: 1px;
+		background: var(--mainColor);
+	}
+	&::before { left: -2px; }
+	&::after { right: -2px; }
+}
+
+.trigger {
+	position: relative;
+	z-index: 2;
+	width: 100%;
+	height: 100%;
+	font-size: 11px;
+
+	.circle { width: 78%; height: 78%; }
+}
+
+.options {
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+}
+
+.option {
+	--orbit-x: -12px;
+	--orbit-y: -52px;
+	position: absolute;
+	left: calc(50% - 22px);
+	top: calc(50% - 22px);
+	width: 44px;
+	height: 44px;
+	opacity: 0;
+	visibility: hidden;
+	transform: translate(0, 0) scale(0.8);
+	transition:
+		transform 280ms cubic-bezier(0.22, 1, 0.36, 1),
+		opacity 120ms ease,
+		visibility 0s 280ms;
+
+	&:nth-child(2) { --orbit-x: 38px; --orbit-y: -38px; }
+	&:nth-child(3) { --orbit-x: 54px; --orbit-y: 14px; }
+
+	&[aria-pressed="true"] .circle {
+		border-color: var(--mainColor);
+		color: var(--mainColor);
+	}
+}
+
+.open {
+	.trigger .circle { color: var(--mainColor); border-color: var(--mainColor); }
+	.option {
+		pointer-events: auto;
+		opacity: 1;
+		visibility: visible;
+		transform: translate(var(--orbit-x), var(--orbit-y)) scale(1);
+		transition-delay: calc(var(--option-index) * 25ms), calc(var(--option-index) * 25ms), 0s;
+	}
+}
+
+.languagePicker[data-dismissed="true"] .option { transition: none; }
+
+.trigger:focus-visible,
+.option:focus-visible {
+	.hudMarks { opacity: 0.8; transform: rotate(0deg) scale(1); }
+}
+
+@media (hover: hover) {
+	.trigger:hover,
+	.option:hover {
+		.circle { color: #fff; border-color: var(--mainColor); }
+		.hudMarks { opacity: 0.8; transform: rotate(0deg) scale(1); }
+	}
+}
+
+@media (max-width: 1024px) {
+	.option {
+		--orbit-x: 0px;
+		--orbit-y: -52px;
+		&:nth-child(2) { --orbit-x: -46px; --orbit-y: -52px; }
+		&:nth-child(3) { --orbit-x: -92px; --orbit-y: -52px; }
+	}
+}
+
+@media (min-width: 1025px) and (max-height: 440px) {
+	.option:nth-child(3) { --orbit-y: 10px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.circle,
+	.hudMarks,
+	.option { transition: none; }
+}

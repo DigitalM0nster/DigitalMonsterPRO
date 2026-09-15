@@ -35,6 +35,7 @@ import { LowWhaleBloom } from "./utils/LowWhaleBloom.js";
 import { WhaleCursorReaction, whaleCursorReactionConfig } from "./whaleCursorReaction.js";
 import { sampleWhaleReactions } from "./mobileWhale/whaleSkeletalReactions.js";
 import { applyMobileWhaleVisuals } from "./mobileWhale/mobileWhaleMaterial.js";
+import { setWhaleViewRotation } from "./mobileWhale/whaleComposition.js";
 import { WhaleSurfaceHit, WhaleSurfaceInteraction } from "./whaleSurfaceInteraction.js";
 import { sceneOwnsHexHitAtClientY } from "@/three/render/overlay/hexHitOwnership.js";
 
@@ -543,7 +544,7 @@ export class DigitalWhaleScene {
 		this._whaleViewportOffset.set(0, 0, 0);
 		const desktop = !portrait && !shortLandscape;
 		if ((desktop && !authoredWhale) || this._whaleBodyBounds.isEmpty()) return;
-		const targetX = authoredWhale ? (desktop ? .17 : shortLandscape ? .40 : height < 640 ? -.35 : 0) : shortLandscape ? .55 : 1.12;
+		const targetX = authoredWhale ? (desktop ? .14 : shortLandscape ? .40 : height < 640 ? -.35 : 0) : shortLandscape ? .55 : 1.12;
 		const targetY = authoredWhale ? (desktop ? -.29 : shortLandscape ? .04 : height < 640 ? -.42 : -.33) : shortLandscape ? -.15 : height < 640 ? -.54 : -.50;
 		const maxWidth = authoredWhale ? (desktop ? 1.76 : shortLandscape ? 1.06 : 1.72) : shortLandscape ? 2.2 : 4.2;
 		// Portrait echoes the reference close-up: head/fin in frame, tail beyond the right edge.
@@ -565,13 +566,13 @@ export class DigitalWhaleScene {
 		camera.updateMatrixWorld();
 		const rotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(w.rotationX, w.rotationY, w.rotationZ));
 		if (authoredWhale) {
-			rotation.setFromRotationMatrix(parent).invert().multiply(camera.quaternion);
+			setWhaleViewRotation(rotation, parent, camera.quaternion);
 			this._whaleViewportRotation = new THREE.Euler().setFromQuaternion(rotation);
 		}
 		const matrix = new THREE.Matrix4(), position = new THREE.Vector3(), scale = new THREE.Vector3();
 		const projected = new THREE.Box3(), point = new THREE.Vector3(), center = new THREE.Vector3();
 		const from = new THREE.Vector3(), to = new THREE.Vector3();
-		const headBounds = portrait && this.whaleRoot?.userData.referenceHeadBounds;
+		const headBounds = (portrait || desktop) && this.whaleRoot?.userData.referenceHeadBounds;
 		const frameBounds = headBounds
 			? new THREE.Box3(new THREE.Vector3().fromArray(headBounds.min), new THREE.Vector3().fromArray(headBounds.max))
 			: this._whaleBodyBounds;
@@ -580,8 +581,7 @@ export class DigitalWhaleScene {
 		for (const x of [frameBounds.min.x, frameBounds.max.x])
 			for (const y of [frameBounds.min.y, frameBounds.max.y])
 				for (const z of [frameBounds.min.z, frameBounds.max.z]) corners.push(new THREE.Vector3(x, y, z));
-		// Desktop preserves the full reference silhouette, including both tail lobes.
-		// Portrait brings the face and sweeping fin closer beneath the copy.
+		// Frame the huge foreground head; the tail is allowed to recede beyond it.
 		// Projections run only on prepare/resize, with the same prepared model.
 		const fitPasses = authoredWhale ? 8 : 4;
 		for (let pass = 0; pass < fitPasses; pass++) {

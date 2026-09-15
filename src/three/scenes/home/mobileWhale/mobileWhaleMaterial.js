@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { withFogUniforms } from "../utils/shaderFogUniforms.js";
 import { smoothSinePhase } from "../heroCamera.js";
+import { whaleDepthMistGLSL } from "./whaleComposition.js";
 export { createMobileWhaleTrail } from "./mobileWhaleTrail.js";
 
 const vertexShader = `
@@ -16,6 +17,8 @@ varying float vEnergy;
 varying float vKey;
 varying float vCursorLight;
 varying float vSonarLight;
+varying float vDepthMist;
+${whaleDepthMistGLSL}
 void main(){
  #include <beginnormal_vertex>
  #include <skinbase_vertex>
@@ -24,6 +27,7 @@ void main(){
  #include <begin_vertex>
  #include <skinning_vertex>
  vec4 viewPosition=modelViewMatrix*vec4(transformed,1.);
+ vDepthMist=whaleDepthMist(viewPosition.xyz,modelViewMatrix);
  vec3 n=normalize(transformedNormal);
  vec3 viewDirection=isPerspectiveMatrix(projectionMatrix)?normalize(-viewPosition.xyz):vec3(0.,0.,1.);
  vec3 keyDirection=normalize(vec3(-.38+sin(uTime*.16)*.13,.65,1.));
@@ -44,7 +48,7 @@ void main(){
  if(isPerspectiveMatrix(projectionMatrix))projected/=max(.001,-viewPosition.z);
  // Keep subpixel controls responsive instead of flooring every small bead to 2px.
  vEnergy*=min(projected*projected,1.);
- gl_PointSize=clamp(projected,1.,64.);
+ gl_PointSize=clamp(projected,1.,64.)*(1.+vDepthMist*1.25);
  gl_Position=projectionMatrix*viewPosition;
  vec2 screen=gl_Position.xy/max(.001,gl_Position.w);
  vSonarLight=0.;
@@ -76,6 +80,7 @@ varying float vEnergy;
 varying float vKey;
 varying float vCursorLight;
 varying float vSonarLight;
+varying float vDepthMist;
 void main(){
  vec2 p=gl_PointCoord-.5;float radius2=dot(p,p);
  if(radius2>.25)discard;
@@ -88,7 +93,9 @@ void main(){
  // Radiance still approaches the same ceiling, without a sudden white flood.
  float energy=vEnergy*uGlow*(1.+vCursorLight*.4+vSonarLight*1.3);
  float radiance=6.*energy/(6.+energy);
- gl_FragColor=vec4(tint*radiance,(core+halo)*uOpacity*uEntranceReveal);
+ float spread=1.+vDepthMist*1.25;
+ float transmission=(1.-vDepthMist*.94)/(spread*spread);
+ gl_FragColor=vec4(tint*radiance,(core+halo)*uOpacity*uEntranceReveal*transmission);
 }`;
 
 /** Actual skinned points; no surface texture, UV deformation or separate eye mesh. */
@@ -109,7 +116,7 @@ const shared=withFogUniforms({
  return {body,shared};
 }
 
-/** One prepared skinned surface: independent colour alpha, stable rear occlusion. */
+/** Transparent skin must not hide rear particles through an invisible depth mask. */
 export function createWhaleDepthOccluder(source,shared){
  const depth=source.clone(false);
  depth.name="Whale / surface and shared skin depth";
@@ -120,6 +127,8 @@ export function createWhaleDepthOccluder(source,shared){
    #include <common>
    #include <skinning_pars_vertex>
    varying vec3 vSkinNormal;
+   varying float vDepthMist;
+   ${whaleDepthMistGLSL}
    void main(){
     #include <beginnormal_vertex>
     #include <skinbase_vertex>
@@ -129,21 +138,29 @@ export function createWhaleDepthOccluder(source,shared){
     #include <begin_vertex>
     #include <skinning_vertex>
     #include <project_vertex>
+    vDepthMist=whaleDepthMist(mvPosition.xyz,modelViewMatrix);
    }`,
   fragmentShader:`
    uniform vec3 uColor;
    uniform float uModelOpacity,uEntranceReveal;
    varying vec3 vSkinNormal;
+   varying float vDepthMist;
    void main(){
     vec3 n=normalize(vSkinNormal);
     float key=max(0.,dot(n,normalize(vec3(-.4,.65,1.))));
     float rim=pow(1.-abs(n.z),3.);
-    gl_FragColor=vec4(uColor*(.16+.55*key)+vec3(.02,.06,.08)*rim,uModelOpacity*uEntranceReveal);
+    gl_FragColor=vec4(uColor*(.16+.55*key)+vec3(.02,.06,.08)*rim,uModelOpacity*uEntranceReveal*(1.-vDepthMist*.94));
    }`,
-  transparent:true,depthWrite:true,depthTest:true,toneMapped:false,
+  transparent:true,depthWrite:false,depthTest:true,toneMapped:false,
  });
  depth.material.polygonOffset=true;depth.material.polygonOffsetFactor=1;depth.material.polygonOffsetUnits=1;
  depth.renderOrder=2;depth.frustumCulled=false;
+ // Read shared live controls at draw time, including the entrance fade.
+ // Depth writes are a render state change; no new material/program is needed.
+ depth.onBeforeRender=()=>{
+  const u=depth.material.uniforms;
+  depth.material.depthWrite=u.uModelOpacity.value*u.uEntranceReveal.value>=1;
+ };
  return depth;
 }
 

@@ -5,6 +5,7 @@ import * as THREE from "three";
 import draco3d from "draco3d";
 import { applyMobileWhaleVisuals, createMobileWhaleMaterials, createMobileWhaleTrail, createWhaleDepthOccluder } from "./mobileWhaleMaterial.js";
 import { prepareWhaleReactionActions, sampleWhaleReactions } from "./whaleSkeletalReactions.js";
+import { setWhaleViewRotation } from "./whaleComposition.js";
 
 const bytes=readFileSync(new URL("../../../../../public/models/home/whale-mobile.glb",import.meta.url));
 const jsonLength=bytes.readUInt32LE(12);
@@ -50,6 +51,21 @@ async function decodedPoints(){
  return result;
 }
 const decoded=decodedPoints();
+
+test("fitted whale keeps its head nearer than its tail across viewport sizes and scene tilt",()=>{
+ for(const aspect of [390/844,1280/720,1920/1080]){
+  const camera=new THREE.PerspectiveCamera(50,aspect,.1,2000);
+  camera.position.set(-11.5,1.5,26.5);camera.lookAt(10,-1.5,-38);camera.updateMatrixWorld();
+  const parent=new THREE.Matrix4().makeRotationFromEuler(new THREE.Euler(.31,-.02,0));
+  const rotation=setWhaleViewRotation(new THREE.Quaternion(),parent,camera.quaternion);
+  const model=new THREE.Matrix4().compose(new THREE.Vector3(6.4,-4.3,-6.8),rotation,new THREE.Vector3(5,5,5));
+  const view=new THREE.Matrix4().multiplyMatrices(camera.matrixWorldInverse,parent).multiply(model);
+  const head=new THREE.Vector3(-3.7,0,0).applyMatrix4(view);
+  const tail=new THREE.Vector3(3.4,0,0).applyMatrix4(view);
+  assert.ok(head.z-tail.z>15,"tail lies deep behind the head, not parallel to the screen");
+  assert.ok(tail.x>head.x,"tail recedes toward the right side of the composition");
+ }
+});
 
 test("decoded points have finite surface normals and normalized weights for the shared rig",async()=>{
  const attributes=await decoded,positions=attributes.POSITION;
@@ -239,7 +255,7 @@ test("surface points and irregular wake share one shader clock and rig without b
  body.dispose();trail.geometry.dispose();trail.material.dispose();source.geometry.dispose();source.skeleton.dispose();
 });
 
-test("rear fins are occluded by a depth pass reusing the animated surface and rig",()=>{
+test("transparent skin reveals rear fins, opaque skin occludes them on the same prepared rig",()=>{
  const geometry=new THREE.BufferGeometry(),material=new THREE.MeshBasicMaterial();
  const mesh=new THREE.SkinnedMesh(geometry,material),bone=new THREE.Bone();
  mesh.add(bone);mesh.bind(new THREE.Skeleton([bone]));
@@ -254,8 +270,16 @@ test("rear fins are occluded by a depth pass reusing the animated surface and ri
  assert.equal(depth.children.length,0,"the existing bones are shared, never cloned");
  assert.equal(depth.material.colorWrite,true);
  assert.equal(depth.material.transparent,true);
- assert.equal(depth.material.uniforms.uModelOpacity.value,0,"surface starts invisible while still occluding rear beads");
- assert.equal(depth.material.depthWrite,true);
+ assert.equal(depth.material.uniforms.uModelOpacity.value,0);
+ assert.equal(depth.material.depthWrite,false,"invisible surface cannot hide rear beads");
+ const version=depth.material.version;
+ for(const [opacity,reveal,writesDepth] of [[0,1,false],[.5,1,false],[1,1,true],[1,.5,false],[0,1,false]]){
+  depth.material.uniforms.uModelOpacity.value=opacity;
+  depth.material.uniforms.uEntranceReveal.value=reveal;
+  depth.onBeforeRender();
+  assert.equal(depth.material.depthWrite,writesDepth,`model ${opacity}, entrance ${reveal}`);
+ }
+ assert.equal(depth.material.version,version,"live transparency does not recompile the shader");
  assert.equal(depth.frustumCulled,false);
  depth.material.dispose();mesh.skeleton.dispose();geometry.dispose();material.dispose();
 });
@@ -285,7 +309,8 @@ test("live point size and skin opacity update prepared materials independently o
   assert.ok(Math.abs(shared.uGlow.value-dim*9)<1e-8,"pulse peak reaches the shader");
  }
  assert.equal(body.version,bodyVersion);assert.equal(skin.material.version,skinVersion);
- assert.equal(skin.material.depthWrite,true,"fading the colour keeps far-side particle occlusion");
+ skin.onBeforeRender();
+ assert.equal(skin.material.depthWrite,false,"transparent surface reveals far-side particles");
  assert.equal(skin.geometry,source.geometry);assert.equal(skin.skeleton,source.skeleton);
  body.dispose();skin.material.dispose();source.geometry.dispose();
 });

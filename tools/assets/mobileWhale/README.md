@@ -84,13 +84,20 @@ Position and ambient sway settle continuously into the idle composition.
 Reduced motion uses the settled pose. `whale.scale` also controls the fitted size
 after resize/reload (0.03 is the original composition; 0.033 is 10% larger).
 
+`whaleComposition.js` keeps the fitted view in three-quarter perspective: the head
+is nearer the camera and the tail recedes rightward into depth. All three whale
+materials use the same view-depth mist; distant particles soften and lose light
+without increasing their energy. This remains independent of DPR and does not
+add a blur pass or change the ocean fog. Resize preserves the perspective.
+
 ## Runtime and budget
 
 - `loadMobileWhale.js` loads and prepares the same asset on desktop and mobile
   before Start. The point cloud and depth surface share one rig and bone texture.
   A conservative per-bone cage samples the full swim envelope in separate frames.
-- One visible body point draw, one invisible skin depth draw and one wake draw.
-  The depth pass hides the far surface without painting an opaque body colour.
+- One body point draw, one skin surface draw and one wake draw. The surface writes
+  depth only at full model opacity and reveal. Transparent skin leaves rear fins
+  and particles visible; changing opacity does not rebuild or recompile materials.
 - `mobileWhaleTrail.js` prepares 960 points on 40 rigged emission anchors.
   Independently seeded ages, speeds and dispersion produce irregular drifting
   particles with an overall right/up current and smoothly fading lifetimes.

@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { whaleDepthMistGLSL } from "./whaleComposition.js";
 
 // One prepared point draw. Emission anchors share the creature's original rig.
 class RiggedTrail extends THREE.Points {
@@ -57,6 +58,7 @@ export function createMobileWhaleTrail(shared,source,emitters=[],config={}){
    #include <skinning_pars_vertex>
    uniform float uTime,uViewportHeight,uParticleDensity,uPointScale,uTrailSpeed,uFlowX,uFlowY,uSpread,uWander;
    attribute vec4 aSeed;varying float vLight;
+   ${whaleDepthMistGLSL}
    void main(){
     float visible=step(aSeed.y,uParticleDensity);
     #include <skinbase_vertex>
@@ -75,6 +77,7 @@ export function createMobileWhaleTrail(shared,source,emitters=[],config={}){
     float envelope=smoothstep(0.,.10,age)*(1.-smoothstep(.42,1.,age));
     vLight*=envelope;
     vec4 viewPosition=modelViewMatrix*vec4(transformed,1.);
+    vLight*=1.-whaleDepthMist(viewPosition.xyz,modelViewMatrix)*.94;
     gl_Position=projectionMatrix*viewPosition;
     float pixels=.019*uViewportHeight*projectionMatrix[1][1]*length(modelViewMatrix[0].xyz)*uPointScale;
     if(isPerspectiveMatrix(projectionMatrix))pixels/=max(.001,-viewPosition.z);

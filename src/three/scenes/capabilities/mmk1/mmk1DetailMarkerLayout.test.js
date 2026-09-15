@@ -90,6 +90,21 @@ test("mobile close-ups inherit the same live root transform as their crane", () 
 	hotspots.dispose();
 });
 
+test("approved mobile close-ups bypass the desktop root remap", () => {
+	const { camera, hotspots } = fixture(404, 800);
+	const root = new THREE.Group(), model = new THREE.Group(), crane = new THREE.Group();
+	root.position.set(0, -2.15, 0); root.scale.setScalar(.72);
+	hotspots.modelsParent.add(root); root.add(model); model.add(crane); hotspots.bindToObject(crane);
+	for (const index of [0, 2, 3]) {
+		const definition = hotspots.markers[index].userData.hotspotDefinition;
+		hotspots._startFlight(definition, camera);
+		assert.deepEqual(hotspots.toPosition.toArray(), definition.mobileCamera.position);
+		assert.ok(1 - Math.abs(hotspots.toQuaternion.dot(new THREE.Quaternion().fromArray(definition.mobileCamera.quaternion).normalize())) < 1e-12);
+		assert.equal(hotspots.toFov, 49);
+	}
+	hotspots.dispose();
+});
+
 // Exercise the real framing method without initializing loaders, DOM or WebGL.
 const sceneSource = readFileSync(new URL("./Mmk1CapabilityScene.js", import.meta.url), "utf8")
 	.replace(/^import .*;\r?$/gm, "").replaceAll("import.meta.env.DEV", "false").replace("export class Mmk1CapabilityScene", "class Mmk1CapabilityScene");

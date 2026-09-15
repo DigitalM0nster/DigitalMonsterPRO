@@ -12,6 +12,11 @@ export const MMK1_CAMERA_HOTSPOTS = [
 			quaternion: [0.155816, 0.245484, 0.040013, -0.955959],
 			fov: 49,
 		},
+		mobileCamera: {
+			position: [-1.3751, 3.3235, 1.4415],
+			quaternion: [-0.080944, -0.582785, -0.057669, 0.806526],
+			fov: 49,
+		},
 	},
 	{
 		id: "mmk1-point-02",
@@ -42,6 +47,11 @@ export const MMK1_CAMERA_HOTSPOTS = [
 			quaternion: [-0.067124, 0.267201, -0.018661, -0.961119],
 			fov: 49,
 		},
+		mobileCamera: {
+			position: [1.2613, 2.0185, 0.9771],
+			quaternion: [0.041341, -0.515112, 0.026141, 0.855726],
+			fov: 49,
+		},
 	},
 	{
 		id: "mmk1-point-04",
@@ -56,6 +66,11 @@ export const MMK1_CAMERA_HOTSPOTS = [
 		camera: {
 			position: [7.143, 3.2972, 1.8144],
 			quaternion: [-0.062036, 0.208425, 0.013238, 0.975979],
+			fov: 49,
+		},
+		mobileCamera: {
+			position: [6.7373, 3.2138, 1.8013],
+			quaternion: [-0.099904, 0.255123, 0.027149, 0.96135],
 			fov: 49,
 		},
 	},

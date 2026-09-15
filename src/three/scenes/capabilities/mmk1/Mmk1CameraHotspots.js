@@ -308,21 +308,23 @@ export class Mmk1CameraHotspots {
 		if (!definition?.camera || !camera) {
 			return;
 		}
+		const mobileCamera = this.viewport.x <= 768 ? definition.mobileCamera : null;
+		const targetCamera = mobileCamera ?? definition.camera;
 		this.selectedId = definition.id;
 		this.fromPosition.copy(camera.position);
 		this.fromQuaternion.copy(camera.quaternion).normalize();
 		this.fromFov = camera.fov;
 		this.fromShiftX = camera.projectionMatrix.elements[8]; this.fromShiftY = camera.projectionMatrix.elements[9];
-		this.toPosition.fromArray(definition.camera.position);
+		this.toPosition.fromArray(targetCamera.position);
 		// Close-ups were authored with the desktop root translation. Apply the
 		// live root transform so phone scale/position do not leave the camera behind.
 		const sceneRoot = this.anchorObject?.parent?.parent;
-		if (sceneRoot && sceneRoot !== this.modelsParent && !sceneRoot.isScene) {
+		if (!mobileCamera && sceneRoot && sceneRoot !== this.modelsParent && !sceneRoot.isScene) {
 			sceneRoot.updateWorldMatrix(true, false);
 			this.toPosition.sub(AUTHORED_ROOT_POSITION).applyMatrix4(sceneRoot.matrixWorld);
 		}
-		this.toQuaternion.fromArray(definition.camera.quaternion).normalize();
-		this.toFov = definition.camera.fov ?? camera.fov;
+		this.toQuaternion.fromArray(targetCamera.quaternion).normalize();
+		this.toFov = targetCamera.fov ?? camera.fov;
 		this.toShiftX = 0; this.toShiftY = 0;
 		this.flight = { elapsed: 0, progress: 0 };
 	}

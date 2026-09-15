@@ -2,6 +2,41 @@ import { cancelSharedAnimationFrame, requestSharedAnimationFrame } from "../../f
 
 export const BACKGROUND_PREPARATION_DELAY_MS = 32;
 
+let backgroundChannel = null;
+let nextBackgroundTaskId = 1;
+const backgroundTasks = new Map();
+
+function ensureBackgroundChannel() {
+	if (backgroundChannel || typeof MessageChannel === "undefined") return backgroundChannel;
+	backgroundChannel = new MessageChannel();
+	backgroundChannel.port1.onmessage = ({ data: id }) => {
+		const callback = backgroundTasks.get(id);
+		if (!callback) return;
+		backgroundTasks.delete(id);
+		callback();
+	};
+	return backgroundChannel;
+}
+
+/** MessageChannel tasks avoid Chromium's one-second background timer clamp. */
+export function postBackgroundPreparationTask(callback) {
+	const channel = ensureBackgroundChannel();
+	if (!channel) {
+		const timerId = globalThis.setTimeout(callback, BACKGROUND_PREPARATION_DELAY_MS);
+		return { type: "timer", id: timerId };
+	}
+	const id = nextBackgroundTaskId++;
+	backgroundTasks.set(id, callback);
+	channel.port2.postMessage(id);
+	return { type: "message", id };
+}
+
+export function cancelBackgroundPreparationTask(task) {
+	if (!task) return;
+	if (task.type === "timer") globalThis.clearTimeout(task.id);
+	else backgroundTasks.delete(task.id);
+}
+
 /** Device identity, independent of a narrow desktop browser window. */
 export function isMobilePreparationDevice({
 	navigatorRef = globalThis.navigator,
@@ -17,29 +52,28 @@ export function isMobilePreparationDevice({
 
 /**
  * Active tabs yield to a real paint. Hidden phones keep the browser-managed rAF
- * pause, while hidden desktops keep preparation moving at a restrained cadence.
+ * pause, while hidden desktops yield through MessageChannel without timer clamp.
  */
 export function yieldToPreparationFrame({
 	documentRef = globalThis.document,
 	mobile = isMobilePreparationDevice(),
 	requestFrame = requestSharedAnimationFrame,
 	cancelFrame = cancelSharedAnimationFrame,
-	setTimer = globalThis.setTimeout,
-	clearTimer = globalThis.clearTimeout,
+	postTask = postBackgroundPreparationTask,
+	cancelTask = cancelBackgroundPreparationTask,
 	now = () => performance.now(),
-	backgroundDelayMs = BACKGROUND_PREPARATION_DELAY_MS,
 } = {}) {
 	return new Promise((resolve) => {
 		let frameId = 0;
-		let timerId = 0;
+		let backgroundTask = null;
 		let settled = false;
 
 		const cleanup = () => {
 			if (frameId) cancelFrame(frameId);
-			if (timerId) clearTimer(timerId);
+			if (backgroundTask) cancelTask(backgroundTask);
 			documentRef?.removeEventListener?.("visibilitychange", onVisibilityChange);
 			frameId = 0;
-			timerId = 0;
+			backgroundTask = null;
 		};
 		const finish = (timestamp = now()) => {
 			if (settled) return;
@@ -48,8 +82,8 @@ export function yieldToPreparationFrame({
 			resolve(timestamp);
 		};
 		const scheduleBackgroundFrame = () => {
-			if (timerId) return;
-			timerId = setTimer(() => finish(now()), backgroundDelayMs);
+			if (backgroundTask) return;
+			backgroundTask = postTask(() => finish(now()));
 		};
 		const isHiddenDesktop = () => documentRef?.visibilityState === "hidden" && !mobile;
 		const animationFramesAvailable = requestFrame !== requestSharedAnimationFrame || typeof window !== "undefined";

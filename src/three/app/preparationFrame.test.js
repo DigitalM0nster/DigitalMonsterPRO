@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { BACKGROUND_PREPARATION_DELAY_MS, isMobilePreparationDevice, yieldToPreparationFrame } from "./preparationFrame.js";
+import { isMobilePreparationDevice, yieldToPreparationFrame } from "./preparationFrame.js";
 
 function createDocument(visibilityState) {
 	const listeners = new Set();
@@ -19,53 +19,53 @@ test("mobile preparation detection does not mistake a narrow desktop window for 
 	assert.equal(isMobilePreparationDevice({ navigatorRef: { platform: "MacIntel", maxTouchPoints: 5 } }), true);
 });
 
-test("hidden desktop preparation uses a restrained timer instead of waiting for rAF", async () => {
+test("hidden desktop preparation posts a task instead of waiting for rAF or a throttled timer", async () => {
 	const documentRef = createDocument("hidden");
-	let requestedFrames = 0, delay = -1;
+	let requestedFrames = 0, postedTasks = 0;
 	const promise = yieldToPreparationFrame({
 		documentRef,
 		mobile: false,
 		requestFrame: () => { requestedFrames++; return 1; },
-		setTimer: (callback, milliseconds) => { delay = milliseconds; queueMicrotask(callback); return 1; },
-		clearTimer: () => {},
+		postTask: (callback) => { postedTasks++; queueMicrotask(callback); return { id: 1 }; },
+		cancelTask: () => {},
 		now: () => 17,
 	});
 	assert.equal(await promise, 17);
 	assert.equal(requestedFrames, 0);
-	assert.equal(delay, BACKGROUND_PREPARATION_DELAY_MS);
+	assert.equal(postedTasks, 1);
 });
 
 test("hidden mobile preparation remains paused on the browser animation frame", async () => {
 	const documentRef = createDocument("hidden");
-	let frameCallback, timers = 0;
+	let frameCallback, postedTasks = 0;
 	const promise = yieldToPreparationFrame({
 		documentRef,
 		mobile: true,
 		requestFrame: (callback) => { frameCallback = callback; return 3; },
 		cancelFrame: () => {},
-		setTimer: () => { timers++; return 1; },
-		clearTimer: () => {},
+		postTask: () => { postedTasks++; return { id: 1 }; },
+		cancelTask: () => {},
 	});
-	assert.equal(timers, 0);
+	assert.equal(postedTasks, 0);
 	frameCallback(21);
 	assert.equal(await promise, 21);
 });
 
-test("a desktop tab hidden during an awaited paint switches to the background timer", async () => {
+test("a desktop tab hidden during an awaited paint switches to a posted task", async () => {
 	const documentRef = createDocument("visible");
-	let cancelled = 0, timerCallback;
+	let cancelled = 0, taskCallback;
 	const promise = yieldToPreparationFrame({
 		documentRef,
 		mobile: false,
 		requestFrame: () => 9,
 		cancelFrame: (id) => { cancelled = id; },
-		setTimer: (callback) => { timerCallback = callback; return 4; },
-		clearTimer: () => {},
+		postTask: (callback) => { taskCallback = callback; return { id: 4 }; },
+		cancelTask: () => {},
 		now: () => 29,
 	});
 	documentRef.visibilityState = "hidden";
 	documentRef.dispatchVisibility();
 	assert.equal(cancelled, 9);
-	timerCallback();
+	taskCallback();
 	assert.equal(await promise, 29);
 });

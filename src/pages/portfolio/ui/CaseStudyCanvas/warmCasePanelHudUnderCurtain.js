@@ -8,7 +8,7 @@ import { buildCaseStudyFrameData } from "@/pages/portfolio/core/caseStudyFrameDa
 import { resolveSceneId } from "@/three/scenes/resolveSceneId.js";
 import { SITE_LOCALES, normalizeSiteLocale } from "@/functions/siteLocale.js";
 import { store } from "@/app/store.jsx";
-import { requestSharedAnimationFrame } from "@/functions/sharedAnimationFrame.js";
+import { yieldToPreparationFrame } from "@/three/app/preparationFrame.js";
 import { ensureCaseStudyCanvasFonts } from "./caseStudyCanvasText.js";
 import {
 	paintCaseStudyPanelHudFrame,
@@ -62,10 +62,6 @@ function getAllWarmHudProjects(sceneManager) {
  *   chromeBounds: object | null,
  * }} WarmHudEntry
  */
-
-function yieldToNextPaint() {
-	return new Promise((resolve) => requestSharedAnimationFrame(() => resolve()));
-}
 
 function cacheKey(route, locale, viewportW, viewportH) {
 	return `${route}|${normalizeSiteLocale(locale)}|${viewportW}x${viewportH}`;
@@ -283,7 +279,7 @@ export async function warmCasePanelHudUnderCurtain({ sceneManager, renderer }) {
 		return;
 	}
 	await ensureCaseStudyCanvasFonts();
-	await yieldToNextPaint();
+	await yieldToPreparationFrame();
 
 	const activeLocale = normalizeSiteLocale(store.siteLocale);
 
@@ -292,7 +288,7 @@ export async function warmCasePanelHudUnderCurtain({ sceneManager, renderer }) {
 			if (sceneManager.disposed) {
 				return;
 			}
-			await yieldToNextPaint();
+			await yieldToPreparationFrame();
 			const entry = paintProjectEntry(project, locale, viewportW, viewportH);
 			if (!entry) {
 				throw new Error(`[casePanelHud] warm paint produced no entry for ${project?.config?.route} (${locale})`);
@@ -328,7 +324,7 @@ export async function rewarmCasePanelHudGpuForLocale(locale) {
 		if (warmSceneManager.disposed) {
 			return;
 		}
-		await yieldToNextPaint();
+		await yieldToPreparationFrame();
 		const key = cacheKey(project.config.route, siteLocale, viewportW, viewportH);
 		let entry = cache.get(key);
 		if (!entry) {

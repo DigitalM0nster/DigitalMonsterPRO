@@ -4,7 +4,7 @@
  */
 import { SITE_LOCALES, normalizeSiteLocale } from "@/functions/siteLocale.js";
 import { store } from "@/app/store.jsx";
-import { requestSharedAnimationFrame } from "@/functions/sharedAnimationFrame.js";
+import { yieldToPreparationFrame } from "@/three/app/preparationFrame.js";
 import { ensureCaseStudyCanvasFonts } from "@/pages/portfolio/ui/CaseStudyCanvas/caseStudyCanvasText.js";
 import {
 	ensureAboutPanelHudCanvases,
@@ -23,10 +23,6 @@ import { syncAboutPanelHudDisplayedLocale } from "@/pages/about/aboutPanelHudLoc
 let warmSceneManager = null;
 /** @type {import('three').WebGLRenderer | null} */
 let warmRenderer = null;
-
-function yieldToNextPaint() {
-	return new Promise((resolve) => requestSharedAnimationFrame(() => resolve()));
-}
 
 /**
  * @param {import('@/three/scenes/SceneManager.js').SceneManager} sceneManager
@@ -67,7 +63,7 @@ export async function warmAboutPanelHudUnderCurtain({ sceneManager, renderer }) 
 	}
 
 	await ensureCaseStudyCanvasFonts();
-	await yieldToNextPaint();
+	await yieldToPreparationFrame();
 
 	const viewportW = Math.max(1, window.innerWidth);
 	const viewportH = Math.max(1, window.innerHeight);
@@ -77,7 +73,7 @@ export async function warmAboutPanelHudUnderCurtain({ sceneManager, renderer }) 
 		if (sceneManager.disposed) {
 			return;
 		}
-		await yieldToNextPaint();
+		await yieldToPreparationFrame();
 		try {
 			const ok = await ensureAboutPanelHudCanvases({
 				locale,
@@ -89,7 +85,7 @@ export async function warmAboutPanelHudUnderCurtain({ sceneManager, renderer }) 
 			const buffers = getAboutPanelHudSessionBuffers();
 			const hud = sceneManager.getSceneById?.("about")?.panelHud;
 			for (const canvas of [buffers.text1Canvas, buffers.text2Canvas, buffers.text3Canvas, buffers.emptyCanvas]) {
-				await yieldToNextPaint();
+				await yieldToPreparationFrame();
 				hud?.warmTexturePool([canvas], renderer);
 			}
 		} catch (error) {
@@ -145,7 +141,7 @@ export async function rewarmAboutPanelHudGpuForLocale(locale) {
 	const viewportH = Math.max(1, window.innerHeight);
 
 	await ensureCaseStudyCanvasFonts();
-	await yieldToNextPaint();
+	await yieldToPreparationFrame();
 
 	const ok = await ensureAboutPanelHudCanvases({
 		locale: siteLocale,

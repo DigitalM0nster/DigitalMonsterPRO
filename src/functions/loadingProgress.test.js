@@ -1,6 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { advanceLoadingProgress, resolveLoadingTarget } from "./loadingProgress.js";
+import { advanceLoadingProgress, resolveLoadingTarget, shouldPauseLoadingProgress } from "./loadingProgress.js";
+
+test("only a hidden mobile tab pauses displayed loading progress", () => {
+	assert.equal(shouldPauseLoadingProgress({ hidden: true, mobile: true }), true);
+	assert.equal(shouldPauseLoadingProgress({ hidden: true, mobile: false }), false);
+	assert.equal(shouldPauseLoadingProgress({ hidden: false, mobile: true }), false);
+});
 
 test("completed file requests cannot make an unwarmed application look nearly ready", () => {
 	const files = { loaded: 200, total: 200 };

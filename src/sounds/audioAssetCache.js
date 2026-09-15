@@ -1,4 +1,5 @@
 import { getMasterAudioContext } from "./masterAudioBus.js";
+import { yieldToPreparationFrame } from "@/three/app/preparationFrame.js";
 
 const audioDataPromises = new Map();
 const decodedBufferPromises = new Map();
@@ -49,10 +50,6 @@ export function prefetchAudioAssets(sources) {
 	return Promise.allSettled([...new Set(sources)].map((src) => fetchAudioData(src)));
 }
 
-function yieldToPaint() {
-	return new Promise((resolve) => requestAnimationFrame(() => resolve()));
-}
-
 /** Decode sequentially under the loader curtain, yielding after every buffer. */
 export async function preloadAudioBuffers(sources, context = getMasterAudioContext()) {
 	const results = [];
@@ -62,7 +59,7 @@ export async function preloadAudioBuffers(sources, context = getMasterAudioConte
 		} catch (reason) {
 			results.push({ src, status: "rejected", reason });
 		}
-		await yieldToPaint();
+		await yieldToPreparationFrame();
 	}
 	return results;
 }

@@ -27,6 +27,7 @@ import {
 } from "@/pages/about/aboutPanelHudReveal.js";
 import { isAboutPanelHudLocaleMixBusy } from "@/pages/about/aboutPanelHudBridge.js";
 import { ABOUT_OPEN_STORY_ANCHOR, stageLocalToHudMix } from "./aboutStoryTiming.js";
+import { yieldToPreparationFrame } from "@/three/app/preparationFrame.js";
 
 export { stageLocalToHudMix } from "./aboutStoryTiming.js";
 
@@ -69,7 +70,7 @@ let paintKey = "";
 const preparedLocales = new Map();
 const pendingLocalePaints = new Map();
 let preparedViewport = "";
-const nextPaint = () => new Promise(resolve => requestAnimationFrame(resolve));
+const nextPaint = yieldToPreparationFrame;
 
 export function selectPreparedAboutPanelHudLocale(locale, width = window.innerWidth, height = window.innerHeight) {
 	const buffers = preparedLocales.get(`${normalizeSiteLocale(locale)}|${width}x${height}`);

@@ -6,7 +6,12 @@ import { playLoaderStartClickSound, playStartAppSound } from "@/sounds/soundDesi
 import { rewarmCasePanelHudGpuForLocale } from "@/pages/portfolio/ui/CaseStudyCanvas/warmCasePanelHudUnderCurtain.js";
 import { rewarmAboutPanelHudGpuForLocale } from "@/pages/about/warmAboutPanelHudUnderCurtain.js";
 import { store } from "@/app/store.jsx";
-import { advanceLoadingProgress as advanceDisplayedProgress, resolveLoadingTarget } from "@/functions/loadingProgress.js";
+import {
+	advanceLoadingProgress as advanceDisplayedProgress,
+	resolveLoadingTarget,
+	shouldPauseLoadingProgress,
+} from "@/functions/loadingProgress.js";
+import { isMobilePreparationDevice } from "@/three/app/preparationFrame.js";
 import LoaderLanguageButton from "./LoaderLanguageButton.jsx";
 
 const SHOW_LEGACY_LOADER = false;
@@ -30,6 +35,7 @@ export default function DigitalMonsterLoader(props) {
 	const progressStoppedRef = useRef(false);
 	const progressRef = useRef(initialProgressRef.current);
 	const intervalIdRef = useRef(null);
+	const mobilePreparationDeviceRef = useRef(isMobilePreparationDevice());
 	const progressTrackRef = useRef(null);
 	// Keep 0 as a valid bootstrap value — `||` would wrongly jump tail/head to progress.
 	const snakeTailRef = useRef(readBootstrapNumber(window.__loaderBootstrapSnakeTail, 0));
@@ -180,9 +186,13 @@ export default function DigitalMonsterLoader(props) {
 			}
 
 			const now = Date.now();
-			// Hidden tab: freeze the clock. GPU warm uses rAF and stalls in background —
-			// advancing to 98% here leaves the user staring at a lie until they return.
-			if (typeof document !== "undefined" && document.hidden) {
+			// Phones retain the battery-saving pause. Desktop preparation keeps
+			// running through MessageChannel, so its honest displayed progress must
+			// continue as well instead of appearing frozen when the tab is reopened.
+			if (shouldPauseLoadingProgress({
+				hidden: typeof document !== "undefined" && document.hidden,
+				mobile: mobilePreparationDeviceRef.current,
+			})) {
 				lastTickTsRef.current = now;
 				return;
 			}

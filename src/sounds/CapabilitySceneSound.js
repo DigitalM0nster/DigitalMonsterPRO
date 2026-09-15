@@ -5,6 +5,7 @@ import { isPageSoundAllowed, registerPageVisibilitySoundHandlers } from "./pageV
 import { isSoundAudible, isSiteSoundMuteFading, registerSiteSoundMuteHandler } from "./siteSoundToggle.js";
 import { LightTrailSoundMotion } from "./lightTrailSoundMotion.js";
 import { getLetterSnakeVolume, LETTER_SNAKE_SOUND } from "./letterSnakeSound.js";
+import { yieldToPreparationFrame } from "@/three/app/preparationFrame.js";
 
 let preparedBuffers = null;
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
@@ -41,17 +42,17 @@ async function prepareBuffers() {
 	if (!ctx) return null;
 	// Cached recording used by the opened sphere's information streams.
 	const letterFlow = await loadAudioBuffer(SOUND_CATALOG[LETTER_SNAKE_SOUND.soundId], ctx);
-	await new Promise(resolve => requestAnimationFrame(resolve));
+	await yieldToPreparationFrame();
 	const glitch = await loadAudioBuffer(SOUND_CATALOG.glitch_button, ctx);
-	await new Promise(resolve => requestAnimationFrame(resolve));
+	await yieldToPreparationFrame();
 	const logo = await loadAudioBuffer(SOUND_CATALOG.logo_reveal, ctx);
-	await new Promise(resolve => requestAnimationFrame(resolve));
+	await yieldToPreparationFrame();
 	const titleReveal = createTitleRevealBuffer(ctx, logo, glitch);
-	await new Promise(resolve => requestAnimationFrame(resolve));
+	await yieldToPreparationFrame();
 	const flight = await loadAudioBuffer(SOUND_CATALOG.capability_flight_air, ctx);
-	await new Promise(resolve => requestAnimationFrame(resolve));
+	await yieldToPreparationFrame();
 	const movement = await loadAudioBuffer(SOUND_CATALOG.capability_line_energy, ctx);
-	await new Promise(resolve => requestAnimationFrame(resolve));
+	await yieldToPreparationFrame();
 	const glide = await loadAudioBuffer(SOUND_CATALOG.capability_line_sweep, ctx);
 	return { letterFlow, mosaicAppear: titleReveal, mosaicDisappear: titleReveal, flight, movement, glide };
 }

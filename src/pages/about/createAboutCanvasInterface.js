@@ -2,6 +2,7 @@ import { SceneCanvasInterface } from "@/three/objects/sceneHud/SceneCanvasInterf
 import { store } from "@/app/store.jsx";
 import { getAboutPanelCopy, normalizeAboutPanelListItem } from "./aboutPanelCopy.js";
 import { resolveAboutResponsiveLayout } from "./aboutResponsiveLayout.js";
+import { yieldToPreparationFrame } from "@/three/app/preparationFrame.js";
 
 function chapterRows(copy) {
 	const canvas = document.createElement("canvas"), ctx = canvas.getContext("2d");
@@ -48,7 +49,7 @@ export async function createAboutCanvasInterface(renderer) {
 			ctx.textBaseline = "top";
 			for (const row of rows) { ctx.font = `400 ${row.size}px ${row.size >= 20 ? "ManifoldExtended" : "MazzardM"}, "Segoe UI", sans-serif`; ctx.fillStyle = row.color; ctx.fillText(row.text, 4, row.y); }
 		} });
-		await new Promise(resolve => requestAnimationFrame(resolve));
+		await yieldToPreparationFrame();
 	}
 	ui.add("scrollHit", { drag: (x, y, dy) => { ui.scrollY = Math.max(0, Math.min(ui.scrollMax ?? 0, ui.scrollY - dy)); } });
 	ui.add("scrollTrack"); ui.add("scrollThumb");

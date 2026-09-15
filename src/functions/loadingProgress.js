@@ -7,6 +7,11 @@ export function resolveLoadingTarget({ loaded = 0, total = 0, preparation = 0, r
 	return 10 + 20 * fraction + 69 * prepared;
 }
 
+/** Background loading is intentionally paused only on actual mobile devices. */
+export function shouldPauseLoadingProgress({ hidden = false, mobile = false } = {}) {
+	return Boolean(hidden && mobile);
+}
+
 /** Estimated display progress; only the actual warm/font gate can finish it. */
 export function advanceLoadingProgress(previous, target, dtSec, ready = false) {
 	// Readiness is authoritative. Do not spend another second animating an

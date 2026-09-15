@@ -10,6 +10,7 @@ import { hudSnakeGlsl } from "@/three/objects/sceneHud/sceneHudShaders.js";
 import { ensureCaseStudyCanvasFonts } from "@/pages/portfolio/ui/CaseStudyCanvas/caseStudyCanvasText.js";
 import { SITE_ARC_DISPLAY_FONT } from "../siteArcConfig.js";
 import { wrapTitleLines } from "../siteArcNavLayout.js";
+import { yieldToPreparationFrame } from "@/three/app/preparationFrame.js";
 
 export const siteArcLabelBridge = { owner: null, layout: null, width: 0, height: 0, opacity: 0 };
 const WIDTH = 256, HEIGHT = 32, PAD = 6, FONT_SIZE = 9, TRACKING = 1.44;
@@ -45,7 +46,7 @@ export class SiteArcLabels {
 		this.atlas = await createSceneHudAtlasChunked(Math.min(2, renderer.getPixelRatio()), states, "site-arc-labels", { width: WIDTH, height: HEIGHT, rowCount: 2 }, () => this.disposed);
 		if (!this.atlas || this.disposed) return;
 		for (const texture of [this.atlas.texture, this.atlas.orderTexture, this.atlas.glyphTexture]) {
-			await new Promise(resolve => requestAnimationFrame(resolve));
+			await yieldToPreparationFrame();
 			if (this.disposed) return;
 			renderer.initTexture(texture);
 		}

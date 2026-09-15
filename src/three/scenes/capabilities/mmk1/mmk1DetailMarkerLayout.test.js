@@ -115,15 +115,23 @@ function sceneFixture(width, height) {
 	return { scene, camera };
 }
 
-test("responsive framing keeps a large right-hand tower and a visible cab anchor across required sizes", () => {
+test("responsive framing uses the approved phone camera and keeps landscape/tablet framing stable", () => {
 	for (const [width, height] of viewports) {
 		const { scene, camera } = sceneFixture(width, height);
 		scene._applyResponsiveOverviewCamera(camera);
 		const tower = scene._responsiveTowerLocal.clone().applyMatrix4(scene.craneMesh.matrixWorld).project(camera);
 		const foot = new THREE.Vector3().applyMatrix4(scene.craneMesh.matrixWorld).project(camera);
-		assert.ok(Math.abs((tower.x + 1) / 2 - .72) < 1e-9, `${width}×${height}: crane must stay on the right`);
 		const span = Math.abs(tower.y - foot.y) / 2;
 		assert.ok(span >= .43 && span <= .7, `${width}×${height}: tower occupies ${span} of viewport height`);
+		if (width <= 768 && height > width) {
+			assert.ok(camera.position.distanceTo(new THREE.Vector3(-2.1304, 2.9855, 6.8661)) < 1e-9);
+			assert.ok(1 - Math.abs(camera.quaternion.dot(new THREE.Quaternion(-.042621, -.347981, -.015839, .936398).normalize())) < 1e-12);
+			assert.equal(camera.fov, 54.65);
+			assert.equal(camera.projectionMatrix.elements[8], 0);
+			assert.equal(camera.projectionMatrix.elements[9], 0);
+			continue;
+		}
+		assert.ok(Math.abs((tower.x + 1) / 2 - .72) < 1e-9, `${width}×${height}: crane must stay on the right`);
 		const { hotspots } = fixture(width, height);
 		for (const marker of hotspots.markers) marker.userData.anchor.fromArray(marker.userData.hotspotDefinition.point);
 		hotspots.bindToObject(scene.craneMesh, scene.getCraneAnchorReferenceMatrix()); hotspots.syncCamera(camera);

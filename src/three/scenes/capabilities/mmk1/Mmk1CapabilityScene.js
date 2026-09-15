@@ -17,6 +17,11 @@ const easeInOutCubic = (value) => {
 };
 
 const CRANE_MATERIAL_TRANSITION_DURATION = 0.46;
+const MOBILE_OVERVIEW_CAMERA = {
+	position: [-2.1304, 2.9855, 6.8661],
+	quaternion: [-0.042621, -0.347981, -0.015839, 0.936398],
+	fov: 54.65,
+};
 // Audible body of the prepared logo_reveal + glitch_button recording (seconds).
 // Its remaining 180 ms are a quiet tail, too early for the intro's last moving letters.
 const INTRO_SOUND_SAMPLE_RANGE = { start: 0.03, end: 0.54 };
@@ -48,21 +53,10 @@ const OVERVIEW_CRANE_MATERIAL = {
 	weathering: 1,
 	brushing: 1,
 };
-const CLOSE_CRANE_MATERIAL = {
-	baseColor: 0x767d8f,
-	rimColor: 0x00d5ff,
-	rimStrength: 0,
-	rimPower: 2.45,
-	metalness: 1,
-	keyStrength: 0.68,
-	fillStrength: 0.34,
-	ambient: 0.2,
-	specularStrength: 0.03,
-	roughness: 1,
-	surfaceVariation: 0,
-	weathering: 1,
-	brushing: 1,
-};
+// Keep the authored steel treatment when a hotspot opens. The former close-up
+// profile removed the cyan rim and surface response, making the crane turn flat
+// exactly when the camera approached it.
+const CLOSE_CRANE_MATERIAL = { ...OVERVIEW_CRANE_MATERIAL };
 
 function cloneCraneMaterialConfig(config) {
 	return { ...config };
@@ -328,6 +322,22 @@ export class Mmk1CapabilityScene extends Case3Scene {
 			this._responsiveTowerLocal.set(5.2967, 3.064, -.4534).applyMatrix4(this._responsiveCraneMatrix);
 			this._responsivePreparedCrane = this.craneMesh;
 		}
+		const portrait = width <= 768 && height > width;
+		if (portrait) {
+			camera.position.fromArray(MOBILE_OVERVIEW_CAMERA.position);
+			camera.quaternion.fromArray(MOBILE_OVERVIEW_CAMERA.quaternion).normalize();
+			camera.up.set(0, 1, 0);
+			camera.fov = MOBILE_OVERVIEW_CAMERA.fov;
+			camera.updateProjectionMatrix();
+			camera.projectionMatrix.elements[8] = 0;
+			camera.projectionMatrix.elements[9] = 0;
+			camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
+			camera.updateMatrixWorld(true);
+			this.craneMesh.updateWorldMatrix(true, false);
+			this._responsiveTower.copy(this._responsiveTowerLocal).applyMatrix4(this.craneMesh.matrixWorld).project(camera);
+			this._responsiveFoot.set(0, 0, 0).applyMatrix4(this.craneMesh.matrixWorld).project(camera);
+			return;
+		}
 		this.craneMesh.updateWorldMatrix(true, false);
 		if (finalOverview) {
 			this._responsiveCraneRotation.copy(this.craneMesh.rotation);
@@ -349,7 +359,6 @@ export class Mmk1CapabilityScene extends Case3Scene {
 		camera.fov = THREE.MathUtils.clamp(camera.fov, 36, 64);
 		camera.updateProjectionMatrix();
 		this._responsiveTower.copy(this._responsiveTowerLocal).applyMatrix4(this._responsiveCraneMatrix).project(camera);
-		const portrait = width <= 768 && height > width;
 		const towerTop = portrait
 			? Math.max(height * .28, (short ? 76 : 92) + 176 * Math.min(430, width - 24) / 560 + 54)
 				+ THREE.MathUtils.clamp((width - 400) * .13, 0, 48)

@@ -348,7 +348,9 @@
 		}
 
 		.bottomSection {
-			flex: 0 0 auto;
+			position: relative;
+			flex: 0 0 var(--leftMenuButtonWidth);
+			align-self: center;
 			flex-direction: row;
 			justify-content: center;
 			gap: clamp(4px, 1.4vw, 14px);

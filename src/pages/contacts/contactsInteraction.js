@@ -1,9 +1,10 @@
 import { proxy } from "valtio";
 
-export const contactsInteraction = proxy({ activeIndex: -1 });
+export const contactsInteraction = proxy({ activeIndex: -1, mobileIndex: 3 });
 
 export function focusContactsChannel(index) {
 	contactsInteraction.activeIndex = index;
+	if (index >= 0) contactsInteraction.mobileIndex = index;
 }
 
 /** Isolate selection/cursor state while reading the shared application lifecycle. */

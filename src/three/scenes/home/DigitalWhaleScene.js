@@ -558,7 +558,8 @@ export class DigitalWhaleScene {
 		this._whaleViewportOffset.set(0, 0, 0);
 		const desktop = !portrait && !shortLandscape;
 		if ((desktop && !authoredWhale) || this._whaleBodyBounds.isEmpty()) return;
-		const targetX = authoredWhale ? (desktop ? .14 : shortLandscape ? .40 : height < 640 ? -.35 : 0) : shortLandscape ? .55 : 1.12;
+		const narrowShift = 1 - THREE.MathUtils.smoothstep(width, 1000, 1600);
+		const targetX = authoredWhale ? (desktop ? .14 + .58 * narrowShift : shortLandscape ? .70 : height < 640 ? -.35 : 0) : shortLandscape ? .55 : 1.12;
 		const targetY = authoredWhale ? (desktop ? -.29 : shortLandscape ? .04 : height < 640 ? -.42 : -.33) : shortLandscape ? -.15 : height < 640 ? -.54 : -.50;
 		const maxWidth = authoredWhale ? (desktop ? 1.76 : shortLandscape ? 1.06 : 1.72) : shortLandscape ? 2.2 : 4.2;
 		// Portrait echoes the reference close-up: head/fin in frame, tail beyond the right edge.

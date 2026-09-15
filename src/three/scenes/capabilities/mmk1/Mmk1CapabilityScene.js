@@ -53,10 +53,21 @@ const OVERVIEW_CRANE_MATERIAL = {
 	weathering: 1,
 	brushing: 1,
 };
-// Keep the authored steel treatment when a hotspot opens. The former close-up
-// profile removed the cyan rim and surface response, making the crane turn flat
-// exactly when the camera approached it.
-const CLOSE_CRANE_MATERIAL = { ...OVERVIEW_CRANE_MATERIAL };
+const CLOSE_CRANE_MATERIAL = {
+	baseColor: 0x767d8f,
+	rimColor: 0x00d5ff,
+	rimStrength: 0,
+	rimPower: 2.45,
+	metalness: 1,
+	keyStrength: 0.68,
+	fillStrength: 0.34,
+	ambient: 0.2,
+	specularStrength: 0.03,
+	roughness: 1,
+	surfaceVariation: 0,
+	weathering: 1,
+	brushing: 1,
+};
 
 function cloneCraneMaterialConfig(config) {
 	return { ...config };
@@ -159,7 +170,9 @@ export class Mmk1CapabilityScene extends Case3Scene {
 			overview: cloneCraneMaterialConfig(this._craneMaterialDefaults.overview),
 			close: cloneCraneMaterialConfig(this._craneMaterialDefaults.close),
 		};
+		this._requestedCraneMaterialProfile = "overview";
 		this._activeCraneMaterialProfile = "overview";
+		this._mobileCraneMaterial = null;
 		this._craneMaterialFlight = null;
 		this._frameCamera = null;
 		this._overviewReturnActive = false;
@@ -260,7 +273,12 @@ export class Mmk1CapabilityScene extends Case3Scene {
 	}
 
 	_applyCraneMaterialProfile(profile) {
-		const resolvedProfile = profile === "close" ? "close" : "overview";
+		const requestedProfile = profile === "close" ? "close" : "overview";
+		this._requestedCraneMaterialProfile = requestedProfile;
+		this.renderer.getSize(this._responsiveViewport);
+		const mobile = this._responsiveViewport.x <= 768;
+		this._mobileCraneMaterial = mobile;
+		const resolvedProfile = mobile ? "close" : requestedProfile;
 		this._activeCraneMaterialProfile = resolvedProfile;
 		return applyCraneMaterialState(
 			this.craneBodyMesh?.material,
@@ -269,7 +287,12 @@ export class Mmk1CapabilityScene extends Case3Scene {
 	}
 
 	_startCraneMaterialFlight(profile) {
-		const resolvedProfile = profile === "close" ? "close" : "overview";
+		const requestedProfile = profile === "close" ? "close" : "overview";
+		this._requestedCraneMaterialProfile = requestedProfile;
+		this.renderer.getSize(this._responsiveViewport);
+		const mobile = this._responsiveViewport.x <= 768;
+		this._mobileCraneMaterial = mobile;
+		const resolvedProfile = mobile ? "close" : requestedProfile;
 		const from = captureCraneMaterialState(this.craneBodyMesh?.material);
 		this._activeCraneMaterialProfile = resolvedProfile;
 		if (!from) {
@@ -375,6 +398,11 @@ export class Mmk1CapabilityScene extends Case3Scene {
 			this.setMixPreviewActive(true);
 		}
 		super.update(delta, frame);
+		const mobileCraneMaterial = (frame?.viewportWidth ?? window.innerWidth) <= 768;
+		if (mobileCraneMaterial !== this._mobileCraneMaterial) {
+			this._mobileCraneMaterial = mobileCraneMaterial;
+			this._startCraneMaterialFlight(this._requestedCraneMaterialProfile);
+		}
 		this._frameCamera = frame?.camera ?? this._frameCamera;
 		if (this._overviewReturnActive) {
 			this.cameraParallax.set(0, 0);

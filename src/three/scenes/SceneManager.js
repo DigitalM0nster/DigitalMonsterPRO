@@ -2,6 +2,7 @@ import { getScenePixelRatio } from "@/three/renderer/renderResolution.js";
 import * as THREE from "three";
 import { compileSceneChunked, waitForCompiledPrograms } from "../renderer/compileSceneChunked.js";
 import { PreparationScheduler } from "../app/preparationScheduler.js";
+import { yieldToPreparationFrame } from "../app/preparationFrame.js";
 import { PLACEHOLDER_SCENE_DEFINITIONS } from "./sceneDefinitions.js";
 import { resolveSceneId } from "./resolveSceneId.js";
 import { getSceneCarousel } from "@/three/render/transition/carouselPage.js";
@@ -306,11 +307,7 @@ export class SceneManager {
 
 	/** Two rAFs between compiles so preloader chrome can paint after a shader spike. */
 	_yieldWarmupBreath() {
-		return new Promise((resolve) => {
-			requestAnimationFrame(() => {
-				requestAnimationFrame(() => resolve());
-			});
-		});
+		return yieldToPreparationFrame().then(() => yieldToPreparationFrame());
 	}
 
 	/** Компилирует материалы сцен под прелоадером, отдавая браузеру кадр между сценами. */

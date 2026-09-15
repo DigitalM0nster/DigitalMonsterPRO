@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { PreparationScheduler } from "../../../app/preparationScheduler.js";
+import { yieldToPreparationFrame } from "../../../app/preparationFrame.js";
 import { compileSceneChunked } from "../../../renderer/compileSceneChunked.js";
 
 const hash = (x) => { const h = Math.sin(x * 127.1 + 311.7) * 43758.5453; return h - Math.floor(h); };
@@ -58,12 +59,12 @@ export async function prepareCityOfficeReflections(renderer, model, cityGroup, w
   // in one render() call. Prepare those exact RT variants between paints first.
   // Ordinary RTs use NoToneMapping in r155, matching the capture below.
   const scheduler = new PreparationScheduler({
-   nextFrame: () => new Promise(resolve => requestAnimationFrame(resolve)), cancelled,
+  nextFrame: yieldToPreparationFrame, cancelled,
   });
   await scheduler.breath();
   await compileSceneChunked(renderer, capture, camera.children[0], scheduler, cube, { visibleOnly: true });
   for (let face = 0; face < 6; face++) {
-   await new Promise(resolve => requestAnimationFrame(resolve));
+   await yieldToPreparationFrame();
    if (cancelled()) return null;
    // Other preloader tasks share the renderer: restore it before yielding.
    const previous = renderer.getRenderTarget(), activeFace = renderer.getActiveCubeFace();
@@ -128,7 +129,7 @@ export async function createCityReflectionEnvironment(renderer, cancelled = () =
    pixels[i + 2] = energy; pixels[i + 3] = 1;
   }
   if (y % 32 === 31) {
-   await new Promise(resolve => requestAnimationFrame(resolve));
+   await yieldToPreparationFrame();
    if (cancelled()) return null;
   }
  }
@@ -138,7 +139,7 @@ export async function createCityReflectionEnvironment(renderer, cancelled = () =
  const generator = new THREE.PMREMGenerator(renderer);
  try {
   generator.compileEquirectangularShader();
-  await new Promise(resolve => requestAnimationFrame(resolve));
+  await yieldToPreparationFrame();
   if (cancelled()) return null;
   const target = generator.fromEquirectangular(source);
   target.texture.name = "CityStaticNightReflections";

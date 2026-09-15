@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { yieldToPreparationFrame } from "../../../app/preparationFrame.js";
 
 /**
  * Closed-shell stand-in for NutBodyMain: surface points that hold until the
@@ -127,7 +128,7 @@ function sampleMeshSurface(mesh, count) {
 }
 
 function yieldParticleBreath() {
-	return new Promise((resolve) => requestAnimationFrame(() => resolve()));
+	return yieldToPreparationFrame();
 }
 
 /**

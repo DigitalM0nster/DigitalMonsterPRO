@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { yieldToPreparationFrame } from "../../../app/preparationFrame.js";
 
 /** POINTS rasterization with Three's GPU skinning and one shared rig. */
 export class SkinnedWhalePoints extends THREE.Points {
@@ -26,7 +27,7 @@ export class SkinnedWhalePoints extends THREE.Points {
   target.fromBufferAttribute(this.geometry.attributes.position,index);
   return THREE.SkinnedMesh.prototype.applyBoneTransform.call(this,index,target);
  }
- async prepareBounds(yieldFrame=()=>new Promise(resolve=>requestAnimationFrame(resolve))) {
+	async prepareBounds(yieldFrame=yieldToPreparationFrame) {
   // A skinned point is a convex combination of its joint transforms. The
   // transformed influence cages conservatively enclose every particle.
   this.boneBounds=this.skeleton.bones.map(()=>new THREE.Box3());

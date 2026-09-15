@@ -3,6 +3,7 @@ import { createGLTFLoader } from "../../../assets/gltfLoader.js";
 import { createMobileWhaleMaterials, createMobileWhaleTrail, createWhaleDepthOccluder } from "./mobileWhaleMaterial.js";
 import { SkinnedWhalePoints } from "./SkinnedWhalePoints.js";
 import { prepareWhaleReactionActions, sampleWhaleReactions } from "./whaleSkeletalReactions.js";
+import { yieldToPreparationFrame } from "../../../app/preparationFrame.js";
 
 export const MOBILE_WHALE_URL="/models/home/whale-mobile.glb?v=authored-curiosity-r2";
 
@@ -45,7 +46,7 @@ export async function loadMobileWhale(options={}){
  for(let sample=0;sample<12;sample++){
   mixer.setTime((swimClip?.duration||0)*sample/12);
   root.updateMatrixWorld(true);points.expandSwimBounds(bounds);
-  await new Promise(resolve=>requestAnimationFrame(resolve));
+  await yieldToPreparationFrame();
  }
  // Include directed and diagonal reaches at several swim phases in the cage.
  // Every action is evaluated before Start; runtime only scrubs these bindings.
@@ -54,7 +55,7 @@ export async function loadMobileWhale(options={}){
    mixer.setTime((swimClip?.duration||0)*sample/4);
    sampleWhaleReactions(reactionActions,x,y,1,1);mixer.update(0);
    root.updateMatrixWorld(true);points.expandSwimBounds(bounds);
-   await new Promise(resolve=>requestAnimationFrame(resolve));
+   await yieldToPreparationFrame();
   }
  }
  root.userData.swimBounds={min:bounds.min.toArray(),max:bounds.max.toArray()};

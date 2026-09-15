@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { yieldToPreparationFrame } from "../../../app/preparationFrame.js";
 
 const STEP = 0.2;
 export const CITY_PATH_SAMPLES = 2048;
@@ -85,7 +86,7 @@ export async function prepareCityTrafficMotion(paths) {
    }
    pixels[index + 3] = clock;
   }
-  if (row % 6 === 5) await new Promise((resolve) => requestAnimationFrame(resolve));
+  if (row % 6 === 5) await yieldToPreparationFrame();
  }
  const texture = new THREE.DataTexture(pixels, CITY_PATH_SAMPLES, paths.length, THREE.RGBAFormat, THREE.FloatType);
  texture.name = 'CityTrafficPreparedMotion'; texture.needsUpdate = true;

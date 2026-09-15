@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { releaseStaticCanvasAfterUpload } from "../../assets/releaseStaticCanvasAfterUpload.js";
+import { yieldToPreparationFrame } from "../../app/preparationFrame.js";
 
 const SYMBOLS = "0123456789ABCDEF<>/+=*#?[]";
 
@@ -35,7 +36,7 @@ export function createSceneHudAtlas(pixelRatio, states, name, { width = 300, hei
 
 /** Same pixels as the synchronous path; all work still completes before ready. */
 export async function createSceneHudAtlasChunked(pixelRatio, states, name, size, cancelled = () => false,
-	nextFrame = () => new Promise(resolve => requestAnimationFrame(resolve))) {
+	nextFrame = yieldToPreparationFrame) {
 	const steps = paintSceneHudAtlas(pixelRatio, states, name, size);
 	let start = performance.now();
 	try {

@@ -5,6 +5,7 @@ import { sceneOwnsHexHitAtClientY } from "@/three/render/overlay/hexHitOwnership
 import { registerSceneCanvasInput } from "../../interaction/sceneCanvasInput.js";
 import { siteLocaleReveal } from "@/functions/siteLocaleTransitionState.js";
 import { PreparationScheduler } from "../../app/preparationScheduler.js";
+import { yieldToPreparationFrame } from "../../app/preparationFrame.js";
 
 const vertexShader = `uniform vec2 viewport;uniform vec4 rect;varying vec2 vUv;varying vec2 pixel;
 void main(){vUv=uv;pixel=rect.xy+vec2(uv.x,1.-uv.y)*rect.zw;
@@ -127,7 +128,7 @@ export class SceneCanvasInterface {
 		} });
 	}
 	async prepare(scheduler = new PreparationScheduler({
-		nextFrame: () => new Promise(resolve => requestAnimationFrame(resolve)), cancelled: () => this.disposed,
+		nextFrame: yieldToPreparationFrame, cancelled: () => this.disposed,
 	})) {
 		await document.fonts.load('500 16px ManifoldExtended');
 		for (const item of this.elements.values()) {

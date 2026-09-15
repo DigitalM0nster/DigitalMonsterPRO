@@ -4,6 +4,7 @@ import { syncVisibleViewport } from "../renderer/syncVisibleViewport.js";
 import { publishSceneViewportResize } from "../renderer/sceneViewportEvents.js";
 import { getHexVisibleBands } from "../render/overlay/hexVisibleBands.js";
 import { PreparationScheduler, resolveFullWarm } from "./preparationScheduler.js";
+import { yieldToPreparationFrame } from "./preparationFrame.js";
 import { warmScreenOverlay } from "../renderer/warmScreenOverlay.js";
 import { waitForCompiledPrograms } from "../renderer/compileSceneChunked.js";
 import { prepareSceneCanvasInterfaces } from "@/app/prepareSceneCanvasInterfaces.js";
@@ -60,10 +61,6 @@ const CANVAS_POINTER_BLOCKER_SELECTOR = '[data-canvas-pointer-blocker="true"]';
 function isCanvasPointerBlocked(event) {
 	const target = event?.target;
 	return target instanceof Element && Boolean(target.closest(CANVAS_POINTER_BLOCKER_SELECTOR));
-}
-
-function yieldToNextPaint() {
-	return new Promise((resolve) => requestSharedAnimationFrame(() => resolve()));
 }
 
 /**
@@ -267,7 +264,7 @@ export class DigitalMonsterThreeApp {
 		this._syncHexShaderProgress();
 		this.onResize();
 		this.preparationScheduler = new PreparationScheduler({
-			nextFrame: yieldToNextPaint, cancelled: () => this.disposed || this._webglLost,
+			nextFrame: yieldToPreparationFrame, cancelled: () => this.disposed || this._webglLost,
 		});
 		this.preparePromise = this._prepareApplication();
 		if (this.mediumHomeDevTools) this.preparePromise.then(() => this.mediumHomeDevTools?.apply());
@@ -324,7 +321,7 @@ export class DigitalMonsterThreeApp {
 				if (this.disposed || this._webglLost) return false;
 				this._setPreparationProgress(0.29);
 
-				await yieldToNextPaint();
+				await yieldToPreparationFrame();
 				this.preparationStage = "case-typography";
 				await warmCasePanelHudUnderCurtain({
 					sceneManager: this.sceneManager,
@@ -333,7 +330,7 @@ export class DigitalMonsterThreeApp {
 				this._setPreparationProgress(0.32);
 				if (this.disposed || this._webglLost) return false;
 
-				await yieldToNextPaint();
+				await yieldToPreparationFrame();
 				this.preparationStage = "about-typography";
 				await warmAboutPanelHudUnderCurtain({
 					sceneManager: this.sceneManager,
@@ -443,7 +440,7 @@ export class DigitalMonsterThreeApp {
 		const measuredViewport = viewportKey();
 		const sceneIds = this.sceneManager.getWarmupDrawSceneIds();
 		const result = await measurePreparedHighDpr({
-			sceneIds, nextFrame: yieldToNextPaint,
+			sceneIds, nextFrame: yieldToPreparationFrame,
 			draw: (sceneId) => this._drawPreparedHighDprFrame(sceneId),
 			cancelled: () => this.disposed || this._webglLost || this.renderer.getContext().isContextLost(),
 			isCurrentViewport: () => window.innerWidth >= 980 && viewportKey() === measuredViewport
@@ -458,7 +455,7 @@ export class DigitalMonsterThreeApp {
 			this.defaultPixelRatio = resolveRendererPixelRatio(this.gfxTier, window.devicePixelRatio);
 			this.store.graphicsDpr = this.defaultPixelRatio;
 			this.setPixelRatio(this.defaultPixelRatio);
-			await yieldToNextPaint();
+			await yieldToPreparationFrame();
 			if (viewportKey() !== measuredViewport) {
 				await warmCasePanelHudUnderCurtain({ sceneManager: this.sceneManager, renderer: this.renderer });
 				await warmAboutPanelHudUnderCurtain({ sceneManager: this.sceneManager, renderer: this.renderer });

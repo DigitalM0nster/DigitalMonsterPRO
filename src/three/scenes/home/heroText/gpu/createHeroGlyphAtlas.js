@@ -5,6 +5,7 @@ import { createGlitchTextSlots } from "@/components/GlitchText/glitchLetterModel
 import { getSnakeLength } from "@/components/GlitchText/glitchSnakeEngine.js";
 import { drawGlitchTextLine } from "@/components/GlitchText/drawGlitchText.js";
 import { heroTextGlitchConfig, resolveHeroReplacementMetrics, resolveHeroReplacementDisplayChar } from "../heroTextGlitchConfig.js";
+import { yieldToPreparationFrame } from "../../../../app/preparationFrame.js";
 
 /** Cache compact glyph/replacement tiles, not full-panel animation frames. */
 export async function createHeroGlyphAtlas(renderer, copies, style, cancelled = () => false) {
@@ -94,7 +95,7 @@ export async function createHeroGlyphAtlas(renderer, copies, style, cancelled = 
 		if (painter === nativeContext) { ctx.imageSmoothingEnabled = false; ctx.drawImage(nativeCanvas, 0, 0); }
 		ctx.restore();
 		if (performance.now() - sliceStart >= 3) {
-			await new Promise(resolve => requestAnimationFrame(resolve));
+			await yieldToPreparationFrame();
 			if (cancelled()) return null;
 			sliceStart = performance.now();
 		}

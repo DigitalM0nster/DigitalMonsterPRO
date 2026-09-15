@@ -70,7 +70,7 @@ test("High and Medium retain their fast dev readiness", async () => {
 
 test("full warm rejects an unusable shader but permits driver warnings", async () => {
 	const fullPrepare = vm.runInNewContext(`({${method}})._prepareApplication`, {
-		console: { error() {} }, performance, yieldToNextPaint: async () => {}, disposeSharedDracoLoader() {},
+		console: { error() {} }, performance, yieldToPreparationFrame: async () => {}, disposeSharedDracoLoader() {},
 		warmCasePanelHudUnderCurtain: async () => {}, warmAboutPanelHudUnderCurtain: async () => {},
 		prepareSceneCanvasInterfaces: async () => {},
 	});
@@ -107,7 +107,7 @@ test("full warm prepares independent interfaces while scene assets are still loa
 		prepareHeroTextUnderCurtain: async () => { events.push("home-typography"); },
 	};
 	const fullPrepare = vm.runInNewContext(`({${method}})._prepareApplication`, {
-		console: { error() {} }, performance, yieldToNextPaint: async () => {}, disposeSharedDracoLoader() {},
+		console: { error() {} }, performance, yieldToPreparationFrame: async () => {}, disposeSharedDracoLoader() {},
 		warmCasePanelHudUnderCurtain: async () => { events.push("case-typography"); },
 		warmAboutPanelHudUnderCurtain: async () => { events.push("about-typography"); },
 		prepareSceneCanvasInterfaces: async () => { events.push("scene-interfaces"); },

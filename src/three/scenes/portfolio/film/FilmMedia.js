@@ -1,8 +1,9 @@
 import * as THREE from "three";
 import { getGraphicsTier, isMobileGraphicsDevice } from "../../../../functions/getGraphicsTier.js";
 import { FilmNativePlayer } from "./FilmNativePlayer.js";
+import { yieldToPreparationFrame } from "../../../app/preparationFrame.js";
 
-export const nextFilmPaint = () => new Promise((resolve) => requestAnimationFrame(resolve));
+export const nextFilmPaint = yieldToPreparationFrame;
 
 export function resolveFilmVideoSource(film, {
  tier = getGraphicsTier(),

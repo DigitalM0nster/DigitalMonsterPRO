@@ -3,6 +3,7 @@ import { SOUND_CATALOG } from "@/sounds/soundCatalog.js";
 import { connectGainWithPanToMasterBus, getMasterAudioContext, resumeMasterAudioContext } from "@/sounds/masterAudioBus.js";
 import { isPageSoundAllowed, registerPageVisibilitySoundHandlers } from "@/sounds/pageVisibilitySound.js";
 import { isSoundAudible, isSiteSoundMuteFading, registerSiteSoundMuteHandler } from "@/sounds/siteSoundToggle.js";
+import { yieldToPreparationFrame } from "../../../app/preparationFrame.js";
 
 const VOLUME = .22;
 const REST_FADE = .32;
@@ -14,7 +15,7 @@ async function prepareGrains(ctx) {
  let peak=0;
  for(let channel=0;channel<source.numberOfChannels;channel++){
   for(const sample of source.getChannelData(channel))peak=Math.max(peak,Math.abs(sample));
-  await new Promise(resolve=>requestAnimationFrame(resolve));
+  await yieldToPreparationFrame();
  }
  // The site's source is deliberately very quiet. Normalise a private copy once,
  // then use the envelope's modest gain; never alter the cache used by menu sounds.
@@ -23,7 +24,7 @@ async function prepareGrains(ctx) {
  for(let channel=0;channel<source.numberOfChannels;channel++){
   const input=source.getChannelData(channel),output=buffer.getChannelData(channel);
   for(let i=0;i<input.length;i++)output[i]=input[i]*gain;
-  await new Promise(resolve=>requestAnimationFrame(resolve));
+  await yieldToPreparationFrame();
  }
  return buffer;
 }

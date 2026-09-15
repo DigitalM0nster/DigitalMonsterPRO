@@ -1,7 +1,8 @@
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
+import { yieldToPreparationFrame } from "../../../app/preparationFrame.js";
 
-const nextPaint = () => new Promise(resolve => requestAnimationFrame(resolve));
+const nextPaint = yieldToPreparationFrame;
 
 function batchKey(mesh) {
 	const geometry = mesh.geometry, material = mesh.material;

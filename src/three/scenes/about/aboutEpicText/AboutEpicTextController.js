@@ -12,6 +12,7 @@ import {
 import { aboutEpicTextFragmentShader } from "@/three/shaders/about/aboutEpicTextFragment.glsl.js";
 import { aboutEpicTextVertexShader } from "@/three/shaders/about/aboutEpicTextVertex.glsl.js";
 import { aboutEpicTextTune } from "./aboutEpicTextConfig.js";
+import { yieldToPreparationFrame } from "../../../app/preparationFrame.js";
 import {
 	computeAboutEpicLetterEdgeDistance,
 	createAboutEpicOutlineStrokeGeometry,
@@ -228,7 +229,7 @@ export class AboutEpicTextController {
 			mesh.visible = false;
 
 			/** Let the preloader curtain paint between locale meshes. */
-			await new Promise((resolve) => requestAnimationFrame(() => resolve()));
+			await yieldToPreparationFrame();
 		}
 
 		if (this._variants.size === 0) return false;

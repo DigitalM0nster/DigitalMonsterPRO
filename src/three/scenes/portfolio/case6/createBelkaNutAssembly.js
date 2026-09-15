@@ -16,9 +16,10 @@ import {
 	setBelkaShellStyle,
 } from "./belkaShellMaterial.js";
 import { BELKA_DIAMOND_GLB, belkaGodrayTune, belkaSceneTune } from "./belkaSceneConfig.js";
+import { yieldToPreparationFrame } from "../../../app/preparationFrame.js";
 
 function yieldToNextPaint() {
-	return new Promise((resolve) => requestAnimationFrame(() => resolve()));
+	return yieldToPreparationFrame();
 }
 
 /**

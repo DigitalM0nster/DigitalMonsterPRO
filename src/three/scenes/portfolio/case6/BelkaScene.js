@@ -18,14 +18,11 @@ import {
 import { createBelkaNutAssembly } from "./createBelkaNutAssembly.js";
 import { createBelkaHaloField } from "./createBelkaHaloField.js";
 import { applyBelkaEmeraldTune, belkaEmeraldTune } from "./belkaEmeraldMaterial.js";
+import { yieldToPreparationFrame } from "../../../app/preparationFrame.js";
 
 /** Two rAFs — preloader UI can paint between heavy prepare chunks. */
 function yieldForPrepareBreath() {
-	return new Promise((resolve) => {
-		requestAnimationFrame(() => {
-			requestAnimationFrame(() => resolve());
-		});
-	});
+	return yieldToPreparationFrame().then(() => yieldToPreparationFrame());
 }
 
 /**

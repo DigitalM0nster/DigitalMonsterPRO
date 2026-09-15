@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { drawGlitchTextLine } from "@/components/GlitchText/drawGlitchText.js";
 import { getGlitchDrawProfile } from "@/components/GlitchText/glitchTextDrawProfiles.js";
 import { getSnakeLength } from "@/components/GlitchText/glitchSnakeEngine.js";
+import { yieldToPreparationFrame } from "../../../app/preparationFrame.js";
 
 /** Preserve the existing HUD bitmap scale, baseline and subpixel letter positions. */
 export async function createContactsGlyphAtlas(slots, cfg) {
@@ -38,7 +39,7 @@ export async function createContactsGlyphAtlas(slots, cfg) {
 			drawGlitchTextLine(draw, [slot], tile.x + tile.cursor - tile.left, frame * height + (cfg.paddingTop ?? 12), style, { clear: false });
 			draw.restore();
 			if (performance.now() - sliceStart >= 3) {
-				await new Promise(resolve => requestAnimationFrame(resolve));
+				await yieldToPreparationFrame();
 				sliceStart = performance.now();
 			}
 		}

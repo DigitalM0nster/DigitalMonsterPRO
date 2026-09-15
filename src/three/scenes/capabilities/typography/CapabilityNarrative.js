@@ -4,9 +4,10 @@ import { NARRATIVE_COPY, CORE_NARRATIVE_LABEL, advanceNarrative, narrativeFrame,
 import { PASSAGE_RADIUS } from "../lightTrails/createLightTrailsEnvironment.js";
 import { SceneTextLocale } from "./sceneTextLocale.js";
 import { TITLE_MOSAIC_GLSL } from "./titleMosaic.js";
+import { yieldToPreparationFrame } from "../../../app/preparationFrame.js";
 
 const WIDTH = 1024, HEIGHT = 384;
-const nextPaint = () => new Promise(resolve => requestAnimationFrame(resolve));
+const nextPaint = yieldToPreparationFrame;
 
 function paintLine(ctx, text, y, size, color, tracking = 2, weight = 500) {
 	const chars = Array.from(text);

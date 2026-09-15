@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { createCityTrafficCars } from "./createCityTrafficCars.js";
 import { CITY_TRAFFIC_DEFAULTS } from "./cityTrafficConfig.js";
 import { prepareCityTrafficMotion, cityTrafficMotionShader } from "./cityTrafficMotion.js";
+import { yieldToPreparationFrame } from "../../../app/preparationFrame.js";
 
 const ROUNDABOUTS = [[-85, -69], [94, 66]];
 const noise = (seed) => { const value = Math.sin(seed * 127.1 + 311.7) * 43758.5453; return value - Math.floor(value); };
@@ -157,7 +158,7 @@ export class CityRoadFlow {
          ribbon.indices.push(n - 2, n, n - 1, n - 1, n, n + 1);
        }
      }
-     if (row % 12 === 11) await new Promise((resolve) => requestAnimationFrame(resolve));
+   if (row % 12 === 11) await yieldToPreparationFrame();
    }
    for (let row = 0; row < routes.length; row++) {
      const route = routes[row];
@@ -189,7 +190,7 @@ export class CityRoadFlow {
        }
      }
      // Keep the preloader responsive while preparing many routes.
-     if (row % 12 === 11) await new Promise((resolve) => requestAnimationFrame(resolve));
+   if (row % 12 === 11) await yieldToPreparationFrame();
    }
    return new CityRoadFlow(prepared, routeAttributes, motionAttributes, particleAttributes, sizes, ribbon);
  }

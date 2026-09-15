@@ -1,6 +1,7 @@
 import * as THREE from "three";
+import { yieldToPreparationFrame } from "../../../app/preparationFrame.js";
 
-const nextPaint = () => new Promise(resolve => requestAnimationFrame(resolve));
+const nextPaint = yieldToPreparationFrame;
 const sameValues = (a, b) => a.length === b.length && a.every((value, i) => value === b[i]);
 
 function prepareMember(mesh) {

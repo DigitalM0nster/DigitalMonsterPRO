@@ -1,8 +1,9 @@
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
+import { yieldToPreparationFrame } from "../../../app/preparationFrame.js";
 
 const TAU = Math.PI * 2;
-const breath = () => new Promise(resolve => requestAnimationFrame(resolve));
+const breath = yieldToPreparationFrame;
 
 function dataMaterial(world) {
 	const material = new THREE.ShaderMaterial({

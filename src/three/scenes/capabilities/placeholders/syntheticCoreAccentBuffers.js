@@ -11,7 +11,7 @@ export async function prepareCoreAccentBuffers(context, cancelled = () => false)
 			const slowAlpha = 1 - Math.exp(-TAU * 170 / context.sampleRate);
 			let seed = 731 + channel * 103, fast = 0, slow = 0;
 			for (let start = 0; start < samples.length; start += 16384) {
-				await new Promise(resolve => requestAnimationFrame(resolve));
+				await yieldToPreparationFrame();
 				if (cancelled()) return null;
 				for (let i = start; i < Math.min(start + 16384, samples.length); i++) {
 					const t = i / context.sampleRate;
@@ -41,9 +41,10 @@ export async function prepareCoreAccentBuffers(context, cancelled = () => false)
 	buffers.closing = context.createBuffer(1, opening.length, opening.sampleRate);
 	const source = opening.getChannelData(0), target = buffers.closing.getChannelData(0);
 	for (let start = 0; start < source.length; start += 16384) {
-		await new Promise(resolve => requestAnimationFrame(resolve));
+		await yieldToPreparationFrame();
 		if (cancelled()) return null;
 		for (let i = start; i < Math.min(start + 16384, source.length); i++) target[i] = source[source.length - 1 - i];
 	}
 	return buffers;
 }
+import { yieldToPreparationFrame } from "../../../app/preparationFrame.js";

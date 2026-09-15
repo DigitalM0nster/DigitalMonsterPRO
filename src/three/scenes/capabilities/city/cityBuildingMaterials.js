@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { toCreasedNormals } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { applyCityWindowShader } from "./cityWindowShader.js";
 import { createCityOfficeGlass } from "./cityOfficeGlass.js";
+import { yieldToPreparationFrame } from "../../../app/preparationFrame.js";
 
 const declarations = /* glsl */ `
 varying vec3 vCitySurface;
@@ -205,7 +206,7 @@ export async function replaceCitySurfaceMaterials(root, { normalsPrepared = fals
       const source = object.geometry;
       if (!geometries.has(source)) {
         geometries.set(source, toCreasedNormals(source, Math.PI / 5));
-        await new Promise((resolve) => requestAnimationFrame(resolve));
+		await yieldToPreparationFrame();
       }
       object.geometry = geometries.get(source);
     }

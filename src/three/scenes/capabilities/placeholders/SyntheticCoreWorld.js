@@ -5,6 +5,7 @@ import { batchSyntheticCoreDraws } from "./batchSyntheticCoreDraws.js";
 import { createReactorEnvironment } from "./syntheticCoreMaterials.js";
 import { SyntheticCoreHud } from "./SyntheticCoreHud.js";
 import { createSyntheticCoreNetwork } from "./createSyntheticCoreNetwork.js";
+import { yieldToPreparationFrame } from "../../../app/preparationFrame.js";
 
 const SYNTHETIC_CORE_CONFIG = { camera: [0, 0.5, 11.8], build: "core" };
 
@@ -58,7 +59,7 @@ export class SyntheticCoreWorld {
 	}
 
 	async _prepare(scene, renderer) {
-		await new Promise(resolve => requestAnimationFrame(resolve));
+		await yieldToPreparationFrame();
 		if (this.disposed) return;
 		if (renderer) {
 			this.environment = createReactorEnvironment(renderer);

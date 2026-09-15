@@ -4,9 +4,10 @@ import { createReactorMetal, createEnergyFlowMaterial, createCoreLensMaterial, c
 
 import { tagAssemblyPart, bindAssemblyMaterial, createAssemblyLinks } from "./syntheticCoreAssembly.js";
 import { buildCoreMechanism } from "./syntheticCoreMechanism.js";
+import { yieldToPreparationFrame } from "../../../app/preparationFrame.js";
 
 const TAU = Math.PI * 2;
-const breath = () => new Promise(resolve => requestAnimationFrame(resolve));
+const breath = yieldToPreparationFrame;
 const random = n => { const v = Math.sin(n * 127.1 + 31.7) * 43758.5453; return v - Math.floor(v); };
 const point = (radius, phi, theta) => new THREE.Vector3(radius * Math.sin(theta) * Math.cos(phi), radius * Math.sin(theta) * Math.sin(phi), radius * Math.cos(theta));
 

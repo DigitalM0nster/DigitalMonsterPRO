@@ -1,0 +1,38 @@
+<!doctype html><html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Существо — сравнение с референсом</title>
+<style>html,body{margin:0;height:100%;background:#010711;color:#9fccdf;font:12px system-ui;overflow:hidden}main{position:absolute;width:100%;height:100%;display:flex;align-items:center;justify-content:center}#stage{overflow:hidden;position:relative;width:1219px;height:679px;flex-shrink:0;transform-origin:center}canvas,#ref{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}#ref{opacity:0;pointer-events:none}#angle-control{align-self:center}#angle-control input{width:110px;accent-color:#00b8ff}nav{position:fixed;bottom:16px;left:16px;right:16px;display:flex;flex-wrap:wrap;gap:8px}button{color:inherit;background:#051421ed;border:1px solid #19435b;padding:10px 14px;border-radius:20px;cursor:pointer}output{position:fixed;top:18px;left:20px;letter-spacing:.1em}</style>
+<main><div id="stage"><svg id="ref" viewBox="0 0 1219 679" role="img" aria-label="Исходный референс пользователя"><image href="/tools/assets/mobileWhale/reference.png" width="1672" height="941" transform="matrix(.7344577059 -.0000012383 .0000328756 .7343678251 -2.158698 -7.155774)"/></svg></div></main><output>ОДИН РЯД НА КОНТУР · ЗАГРУЗКА</output>
+<nav><button id="model">3D-модель</button><button id="overlay">Наложение 50%</button><button id="reference">Референс</button><button id="close">Крупный план</button><button id="full">Вся композиция</button><button id="pause">Анимация</button><button id="volume">Объём</button><label id="angle-control" hidden>Поворот <input id="angle" aria-label="Поворот модели" type="range" min="-45" max="45" value="16" step="1"></label><button id="inspect">Только основные</button></nav>
+<script type="module">
+import * as THREE from '/node_modules/three/build/three.module.js';
+import {EffectComposer, RenderPass, EffectPass, BloomEffect} from '/node_modules/postprocessing/build/index.js';
+import {mountAppearanceControls} from '/tools/assets/mobileWhale/appearanceControls.js';
+import {applyParticleAppearance,readParticleAppearance,particleAppearance} from '/src/three/scenes/home/mobileWhale/particleAppearance.js';
+import {loadMobileWhale} from '/src/three/scenes/home/mobileWhale/loadMobileWhale.js';
+const renderer=new THREE.WebGLRenderer({antialias:true,alpha:false});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setSize(1219,679);document.querySelector('#stage').prepend(renderer.domElement);
+const scene=new THREE.Scene(),camera=new THREE.OrthographicCamera(-7,5.19,4.5,-2.29,.1,100);camera.position.z=30;
+const composer=new EffectComposer(renderer,{frameBufferType:THREE.HalfFloatType});composer.addPass(new RenderPass(scene,camera));composer.addPass(new EffectPass(camera,new BloomEffect({intensity:3,luminanceThreshold:1,luminanceSmoothing:.05,mipmapBlur:true,radius:.85})));let close=false,paused=true,dirty=true;const clock=new THREE.Clock();
+const whale=await loadMobileWhale();whale.root.scale.setScalar(1);scene.add(whale.root);whale.hologramMaterial.uniforms.uGlow.value=3.4;
+document.querySelector("output").textContent="3D-ПОВЕРХНОСТЬ · АНАТОМИЧЕСКИЕ ЛИНИИ · V10";
+function resize(){document.querySelector('#stage').style.transform=`scale(${Math.min(innerWidth/1219,innerHeight/679)})`;dirty=true}addEventListener('resize',resize);resize();
+function frame(){camera.left=close?-4.7:-7;camera.right=close?.9:5.19;camera.top=close?1.65:4.5;camera.bottom=close?-1.47:-2.29;camera.updateProjectionMatrix();const ref=document.querySelector('#ref');ref.style.width=close?'2653.36px':'100%';ref.style.height=close?'1477.721px':'100%';ref.style.left=close?'-500.66px':'0';ref.style.top=close?'-620.24px':'0';dirty=true}
+document.querySelector('#close').onclick=()=>{close=true;frame()};document.querySelector('#full').onclick=()=>{close=false;frame()};
+for(const [id,alpha,model] of [['model',0,1],['overlay',.5,1],['reference',1,0]])document.getElementById(id).onclick=()=>{document.querySelector('#ref').style.opacity=alpha;renderer.domElement.style.opacity=model;dirty=true};
+document.querySelector('#pause').onclick=e=>{paused=!paused;e.target.textContent=paused?'Анимация':'Стоп-кадр';if(paused){whale.mixer.setTime(0);whale.hologramMaterial.uniforms.uTime.value=0;dirty=true}};
+mountAppearanceControls(whale.hologramMaterial,()=>{dirty=true});
+let inspecting=false;
+document.querySelector('#inspect').onclick=e=>{
+ inspecting=!inspecting;
+ const config=inspecting?structuredClone(particleAppearance):readParticleAppearance();
+ if(inspecting){for(const [key,values] of Object.entries(config.levels))if(key!=='03')values.opacity=0;config.wake.opacity=0;document.querySelector('#ref').style.opacity=0;renderer.domElement.style.opacity=1}
+ applyParticleAppearance(whale.hologramMaterial,config);
+ document.querySelector('.particle-settings').hidden=inspecting;
+ e.target.textContent=inspecting?'Все частицы':'Только основные';
+ document.querySelector('main+output').textContent=inspecting?'ТОЛЬКО ОСНОВНЫЕ · ИСХОДНЫЕ НАСТРОЙКИ':'3D-ПОВЕРХНОСТЬ · АНАТОМИЧЕСКИЕ ЛИНИИ · V10';
+ dirty=true;
+};
+let angled=false;
+document.querySelector('#volume').onclick=()=>{angled=!angled;document.querySelector('#angle-control').hidden=!angled;whale.root.rotation.y=angled?THREE.MathUtils.degToRad(Number(document.querySelector('#angle').value)):0;close=false;frame()};
+document.querySelector('#angle').oninput=e=>{whale.root.rotation.y=THREE.MathUtils.degToRad(Number(e.target.value));dirty=true};
+renderer.setAnimationLoop(()=>{const dt=Math.min(clock.getDelta(),.05);if(!paused){whale.mixer.update(dt);whale.hologramMaterial.uniforms.uTime.value+=dt}if(!paused||dirty){composer.render();dirty=false}});
+addEventListener('pagehide',()=>{renderer.setAnimationLoop(null);composer.dispose();renderer.dispose()});
+</script></html>

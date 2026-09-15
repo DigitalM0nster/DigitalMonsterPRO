@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import * as THREE from "three";
 import { heroCamera, HERO_LOOK_AT, getHeroCameraForSceneProgress } from "./heroCamera.js";
+import { whaleCursorReactionConfig } from "./whaleCursorReaction.js";
 import { oceanFrontEdgeGlsl } from "./shaders/oceanFrontEdge.glsl.js";
 import { createAmbientFlowState, updateAmbientFlowState } from "./utils/ambientParticleFlow.js";
 
@@ -11,10 +12,12 @@ const source=readFileSync(new URL("./DigitalWhaleScene.js",import.meta.url),"utf
 const method=(start,end)=>source.slice(source.indexOf(`\t${start}`),source.indexOf(`\n\t${end}`,source.indexOf(`\t${start}`)));
 const methods=method("syncCamera(","/** Автоскролл")+method("_syncOceanScroll() {","/** Сдвигаем")
  +method("_accumulateScrollSpeeds(delta","_applyWhaleTransform")
+	+method("_updateWhaleLocalFlow(delta) {","_applyWhaleVisuals")
  +method("_applyOceanTilt() {","_publishSceneProgressDebug");
 const config={ocean:{tiltX:.31,rotationY:-.02,mouseTiltX:.1,mouseTiltY:.1}};
 const Scene=vm.runInNewContext(`class Scene { ${methods} }\nScene`,{
- heroCamera,HERO_LOOK_AT,getHeroCameraForSceneProgress,digitalWhaleConfig:config,
+ THREE,heroCamera,HERO_LOOK_AT,getHeroCameraForSceneProgress,digitalWhaleConfig:config,
+	whaleCursorReactionConfig,
  getOceanTileScrollX:(phase,slot)=>slot*120+((phase%120)+120)%120,
 });
 
@@ -66,6 +69,30 @@ test("nearby particles integrate a changing swim direction without reprojecting 
 	updateAmbientFlowState(flow,2,new THREE.Vector3(0,0,-1),20);
 	assert.deepEqual(flow.offset.toArray(),[1,-1]);
 	assert.deepEqual(flow.direction.toArray(),[0,0,-1]);
+});
+
+test("nearby particles follow the whale tail axis with a restrained cursor turn",()=>{
+	const scene=new Scene(),parent=new THREE.Group();
+	scene.whaleGroup=new THREE.Group();scene.whaleAmbientGroup=new THREE.Group();
+	parent.rotation.set(.31,-.02,0);parent.add(scene.whaleGroup,scene.whaleAmbientGroup);
+	scene.whaleGroup.rotation.set(.07,-1.24,.3);parent.updateMatrixWorld(true);
+	scene.cursorReaction={yaw:0,pitch:0,yawVelocity:0,pitchVelocity:0};
+	scene.surfaceInteraction={responseEnergy:0};scene._whaleEntrance={maneuver:0};
+	scene._whaleLocalFlow=new THREE.Vector3(1,0,0);
+	scene._whaleLocalFlowTarget=new THREE.Vector3(1,0,0);
+	scene._whaleAmbientFlow=new THREE.Vector3(1,0,0);
+	scene._whaleAmbientFlowTarget=new THREE.Vector3(1,0,0);
+	scene._whaleWorldFlow=new THREE.Vector3(1,0,0);
+	scene._whaleFlowParentInverse=new THREE.Matrix4();scene._whaleManeuverEnergy=.12;
+	scene._updateWhaleLocalFlow(10);
+	const neutral=scene._whaleAmbientFlow.clone();
+	const expected=new THREE.Vector3(1,0,0).transformDirection(scene.whaleGroup.matrixWorld)
+		.transformDirection(parent.matrixWorld.clone().invert());
+	assert.ok(neutral.angleTo(expected)<1e-6,"neutral current is exactly head-to-tail");
+	scene.cursorReaction.yaw=whaleCursorReactionConfig.yaw;
+	scene._updateWhaleLocalFlow(10);
+	assert.ok(neutral.angleTo(scene._whaleAmbientFlow)<.38,"screen edge cannot over-rotate the current");
+	assert.ok(scene._whaleLocalFlow.x>.93,"the wake always remains opposite the creature's travel");
 });
 
 // Execute the numeric GLSL helper itself, using Three's matching smoothstep.

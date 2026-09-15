@@ -1,6 +1,5 @@
 import * as THREE from "three";
 import { whaleDepthMistGLSL } from "./whaleComposition.js";
-import { prepareWhaleWakeFlow } from "./whaleWakeFlow.js";
 import { getOceanSpaceCeilingY } from "../utils/oceanSurfaceClip.js";
 
 // One prepared point draw. Emission anchors share the creature's original rig.
@@ -41,9 +40,9 @@ class RiggedTrail extends THREE.Points {
 
 export function createMobileWhaleTrail(shared,source,emitters=[],config={}){
  // Prepare the maximum once; the dev count control only changes GPU visibility.
- const perStream=32,anchors=prepareWhaleWakeFlow(emitters,source),count=anchors.length*perStream;
+ const perStream=32,anchors=emitters.slice(0,40),count=anchors.length*perStream;
  const positions=new Float32Array(count*3),seeds=new Float32Array(count*4);
- const directions=new Float32Array(count*3),bends=new Float32Array(count*3);
+ const originOffsets=new Float32Array(count*3);
  const indices=new Uint16Array(count*4),weights=new Float32Array(count*4);
  const names=source?.skeleton.bones.map(bone=>bone.name)||[];
  let randomState=74621;
@@ -53,16 +52,18 @@ export function createMobileWhaleTrail(shared,source,emitters=[],config={}){
   for(let i=0;i<perStream;i++){
    const index=stream*perStream+i;
    positions.set(anchor.position,index*3);
-   directions.set(anchor.direction,index*3);bends.set(anchor.bend,index*3);
-   seeds.set([(i+random())/perStream,random(),random(),random()],index*4);
+   const seedY=random(),seedZ=random(),seedW=random();
+   seeds.set([(i+random())/perStream,seedY,seedZ,seedW],index*4);
+   // Each prepared stream owns a small emission patch around its real surface
+   // anchor. The vector is shared; the spray no longer erupts from one pixel.
+   originOffsets.set([(seedY-.5)*2,(seedZ-.5)*1.25,(seedW-.5)*1.7],index*3);
    skin.forEach(([name,weight],j)=>{indices[index*4+j]=names.indexOf(name);weights[index*4+j]=weight;});
   }
  });
  const geometry=new THREE.BufferGeometry();
  geometry.setAttribute("position",new THREE.BufferAttribute(positions,3));
  geometry.setAttribute("aSeed",new THREE.BufferAttribute(seeds,4));
- geometry.setAttribute("aFlowDirection",new THREE.BufferAttribute(directions,3));
- geometry.setAttribute("aFlowBend",new THREE.BufferAttribute(bends,3));
+ geometry.setAttribute("aOriginOffset",new THREE.BufferAttribute(originOffsets,3));
  geometry.setAttribute("skinIndex",new THREE.BufferAttribute(indices,4));
  geometry.setAttribute("skinWeight",new THREE.BufferAttribute(weights,4));
  const uniforms={
@@ -76,7 +77,7 @@ export function createMobileWhaleTrail(shared,source,emitters=[],config={}){
   uColor:{value:new THREE.Color(config.color??"#38d4ff")},
   uOpacity:{value:1},uGlow:{value:3.4},uParticleDensity:{value:.5},uPointScale:{value:1},
   uTrailSpeed:{value:.05},uFlowX:{value:.84},uFlowY:{value:.36},uSpread:{value:.64},uWander:{value:1},
-  uMotionEnergy:{value:.15},uFlowTurn:{value:new THREE.Vector2()},
+  uMotionEnergy:{value:.15},
  };
  const material=new THREE.ShaderMaterial({
   uniforms,transparent:true,depthWrite:false,
@@ -86,43 +87,38 @@ export function createMobileWhaleTrail(shared,source,emitters=[],config={}){
    #include <skinning_pars_vertex>
     uniform float uTime,uViewportHeight,uParticleDensity,uPointScale,uTrailSpeed,uFlowX,uFlowY,uSpread,uWander,uEntranceReveal;
    uniform float uMotionEnergy;
-   uniform vec2 uFlowTurn;
    uniform mat4 uWhaleToOcean;
    uniform float uOceanClipEnabled,uOceanCeilingY,uOceanFadeBand,uOceanEdgeCeilingY;
    uniform vec3 uCameraOcean;
    uniform float uOceanZNear;
    attribute vec4 aSeed;
-   attribute vec3 aFlowDirection,aFlowBend;
+   attribute vec3 aOriginOffset;
    varying float vLight;
    ${whaleDepthMistGLSL}
-   vec3 rotateWake(vec3 value,vec2 turn){
-    float cy=cos(turn.x),sy=sin(turn.x),cp=cos(turn.y),sp=sin(turn.y);
-    vec3 yawed=vec3(cy*value.x-sy*value.z,value.y,sy*value.x+cy*value.z);
-    return vec3(cp*yawed.x-sp*yawed.y,sp*yawed.x+cp*yawed.y,yawed.z);
-   }
    void main(){
     float activity=mix(.34,1.,smoothstep(0.,1.,uMotionEnergy));
     float visible=step(aSeed.y,uParticleDensity*activity);
     #include <skinbase_vertex>
     #include <begin_vertex>
-    // Skin only the live emission origin. The wake displacement stays in root
-    // space, so an already detached stream cannot reverse with a flapping fin.
+    float sourceRadius=.025+min(uSpread,2.)*.018;
+    transformed+=aOriginOffset*sourceRadius;
+    // Only the distributed source patch follows the rig. All displacement
+    // below is the original stable flow and cannot reverse with a fin turn.
     #include <skinning_vertex>
     float age=fract(aSeed.x+uTime*(uTrailSpeed*mix(1.75,3.25,uMotionEnergy)+aSeed.y*uTrailSpeed));
     float phase=position.x*3.7+position.y*2.3+uTime*.17;
     float curl=sin(age*7.5+phase)-sin(phase);
     float ripple=sin(age*16.+phase*1.3+aSeed.z*1.7)-sin(phase*1.3+aSeed.z*1.7);
     float spread=age*age;
-    // Curved anatomical flow in 3D, then skin both the origin and its trajectory.
-    // +X follows head -> tail and already recedes into depth in the hero pose.
-    float travel=age*(.74+aSeed.y*.52);
-    vec3 particleFan=vec3((aSeed.z-.5)*.05,(aSeed.w-.5)*.14,(aSeed.y-.5)*.12);
-    vec3 stableDirection=rotateWake(aFlowDirection+particleFan,uFlowTurn);
-    vec3 stableBend=rotateWake(aFlowBend,uFlowTurn);
-    transformed+=(stableDirection*travel+stableBend*travel*travel)*uFlowX;
-    transformed.y+=travel*uFlowY;
-    transformed+=vec3(.08,.7,.35)*(curl*.04+ripple*.015)*age*uWander;
-    transformed+=vec3(aSeed.y-.5,aSeed.z-.5,aSeed.w-.5)*spread*uSpread*mix(.2,.38,uMotionEnergy);
+    // Restore the original independent vectors. They are authored in whale
+    // space and deliberately ignore cursor/body turning after emission.
+    transformed+=vec3(
+     age*(uFlowX+aSeed.y*abs(uFlowX)*.75),
+     age*(uFlowY+aSeed.z*max(abs(uFlowY),.12)*.7),
+     0.
+    );
+    transformed+=vec3(-.35,1.,.25)*(curl*.10+ripple*.025)*age*uWander;
+    transformed+=vec3(aSeed.y-.5,aSeed.z-.5,aSeed.w-.5)*spread*uSpread*.34;
     vLight=visible*age*(.11+.39*pow(aSeed.w,2.))*mix(.58,1.12,uMotionEnergy);
     float envelope=smoothstep(0.,.10,age)*(1.-smoothstep(.42,1.,age));
     vLight*=envelope;
@@ -164,15 +160,8 @@ export function createMobileWhaleTrail(shared,source,emitters=[],config={}){
   uniforms.uSpread.value=Math.max(0,next.spread??.18);
   uniforms.uWander.value=Math.max(0,next.wanderAmp??2.8)/2.8;
  };
- trail.setMotionActivity=(energy=0,direction=null)=>{
+ trail.setMotionActivity=(energy=0)=>{
   uniforms.uMotionEnergy.value=THREE.MathUtils.clamp(energy,0,1);
-  if(direction){
-   const horizontal=Math.hypot(direction.x??1,direction.z??0);
-   uniforms.uFlowTurn.value.set(
-    Math.atan2(direction.z??0,direction.x??1),
-    Math.atan2(direction.y??0,Math.max(1e-6,horizontal)),
-   );
-  }
  };
  trail.applyConfig(config);
  return trail;

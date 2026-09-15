@@ -85,9 +85,6 @@ export class DigitalWhaleScene {
 		this._whaleAmbientFlow = new THREE.Vector3(1, 0, 0);
 		this._whaleAmbientFlowTarget = new THREE.Vector3(1, 0, 0);
 		this._whaleWorldFlow = new THREE.Vector3(1, 0, 0);
-		this._whaleCameraForward = new THREE.Vector3(0, 0, -1);
-		this._whaleCameraRight = new THREE.Vector3(1, 0, 0);
-		this._whaleWorldUp = new THREE.Vector3(0, 1, 0);
 		this._whaleFlowParentInverse = new THREE.Matrix4();
 		this._whaleManeuverEnergy = .12;
 		this._lastSceneProgress = 0;
@@ -1072,29 +1069,25 @@ export class DigitalWhaleScene {
 		this.whaleAmbientGroup.position.set(x, y, z);
 	}
 
-	/** The rigged wake stays in whale space. Nearby water uses a camera-space
-	 * current so a whale facing the viewer sends its wake away into the scene. */
+	/** Nearby water follows the creature's actual head-to-tail axis. The wake is
+	 * the reverse of its travel direction; it never steers independently toward
+	 * the camera just because the cursor reaches a screen edge. */
 	_updateWhaleLocalFlow(delta) {
 		const yaw = this.cursorReaction.yaw / whaleCursorReactionConfig.yaw;
 		const pitch = this.cursorReaction.pitch / whaleCursorReactionConfig.pitch;
 		const click = this.surfaceInteraction.responseEnergy;
-		const clickDirection = this.surfaceInteraction.responseDirection;
 		this._whaleLocalFlowTarget.set(
 			1,
-			pitch * .3 - clickDirection.y * click * .06,
-			yaw * .9 + clickDirection.x * click * .08,
+			pitch * .16,
+			yaw * .36,
 		).normalize();
 		this._whaleLocalFlow.lerp(this._whaleLocalFlowTarget, 1 - Math.exp(-3.8 * Math.max(0, delta)));
 		this._whaleLocalFlow.normalize();
 
-		this._whaleCameraForward.subVectors(this.lookAtTarget, this.cameraPos).normalize();
-		this._whaleCameraRight.crossVectors(this._whaleCameraForward, this._whaleWorldUp).normalize();
-		const depthTurn = THREE.MathUtils.clamp(yaw, -1, 1);
-		const rightWeight = 1 - Math.abs(depthTurn) * .88;
-		this._whaleWorldFlow.copy(this._whaleCameraRight).multiplyScalar(rightWeight)
-			.addScaledVector(this._whaleCameraForward, depthTurn)
-			.addScaledVector(this._whaleWorldUp, pitch * .18)
-			.normalize();
+		// In the authored creature, +X runs from the head towards the tail. That
+		// is exactly the direction in which displaced water must travel.
+		this._whaleWorldFlow.copy(this._whaleLocalFlow)
+			.transformDirection(this.whaleGroup.matrixWorld);
 		this.whaleAmbientGroup.parent?.updateWorldMatrix(true, false);
 		if (this.whaleAmbientGroup.parent) {
 			this._whaleFlowParentInverse.copy(this.whaleAmbientGroup.parent.matrixWorld).invert();
@@ -1113,7 +1106,7 @@ export class DigitalWhaleScene {
 			+ click * .38 + this._whaleEntrance.maneuver * .45, .08, 1);
 		this._whaleManeuverEnergy += (targetEnergy - this._whaleManeuverEnergy)
 			* (1 - Math.exp(-(targetEnergy > this._whaleManeuverEnergy ? 8 : 2.4) * Math.max(0, delta)));
-		this.whaleTrail?.setMotionActivity?.(this._whaleManeuverEnergy, this._whaleLocalFlow);
+		this.whaleTrail?.setMotionActivity?.(this._whaleManeuverEnergy);
 	}
 
 	_applyWhaleVisuals() {

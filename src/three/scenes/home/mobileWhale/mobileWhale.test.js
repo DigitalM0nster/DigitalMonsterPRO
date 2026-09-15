@@ -6,7 +6,6 @@ import draco3d from "draco3d";
 import { applyMobileWhaleVisuals, createMobileWhaleMaterials, createMobileWhaleTrail, createWhaleDepthOccluder } from "./mobileWhaleMaterial.js";
 import { prepareWhaleGestureAction, prepareWhaleReactionActions, sampleWhaleGesture, sampleWhaleReactions } from "./whaleSkeletalReactions.js";
 import { setWhaleViewRotation } from "./whaleComposition.js";
-import { prepareWhaleWakeFlow } from "./whaleWakeFlow.js";
 import { getOceanSpaceCeilingY } from "../utils/oceanSurfaceClip.js";
 
 const bytes=readFileSync(new URL("../../../../../public/models/home/whale-mobile.glb",import.meta.url));
@@ -256,52 +255,22 @@ test("surface points and irregular wake share one shader clock and rig without b
  const seeds=trail.geometry.attributes.aSeed;
  assert.equal(seeds.itemSize,4);
  assert.ok(new Set(Array.from(seeds.array).filter((_,i)=>i%4===1)).size>600,"independent wake speeds, no identical strings");
-	trail.setMotionActivity(.9,new THREE.Vector3(1,.2,-.3));
+	trail.setMotionActivity(.9);
 	assert.equal(trail.material.uniforms.uMotionEnergy.value,.9);
-	assert.ok(Math.abs(trail.material.uniforms.uFlowTurn.value.x-Math.atan2(-.3,1))<1e-12);
-	assert.ok(Math.abs(trail.material.uniforms.uFlowTurn.value.y-Math.atan2(.2,Math.hypot(1,-.3)))<1e-12);
+	assert.equal(trail.material.uniforms.uFlowTurn,undefined,"detached vectors ignore live body turns");
 	trail.applyConfig({spread:1.39});
 	assert.equal(trail.material.uniforms.uSpread.value,1.39,"spread is not multiplied into a glitchy fan");
 	assert.ok(trail.material.vertexShader.indexOf("#include <skinning_vertex>")
-		<trail.material.vertexShader.indexOf("stableDirection"),"detached displacement is applied after skinning");
+		<trail.material.vertexShader.indexOf("Restore the original independent vectors"),"detached displacement is applied after skinning");
+	const offsets=trail.geometry.attributes.aOriginOffset;
+	assert.equal(offsets.itemSize,3);
+	assert.ok(new Set(Array.from(offsets.array)).size>100,"each vector emits from a distributed source patch");
  assert.ok(!/vFlow|uv1|sampler2D/.test(body.vertexShader+body.fragmentShader));
  for(const uniform of Object.values(shared))assert.ok(!uniform.value?.isTexture);
  assert.equal(body.side,THREE.FrontSide);
  assert.equal(body.depthWrite,false,"transparent glow corners must not occlude later contours");
  assert.equal(body.depthTest,true,"the body still occludes the distant contours");
  body.dispose();trail.geometry.dispose();trail.material.dispose();source.geometry.dispose();source.skeleton.dispose();
-});
-
-test("wake sheds from real side points and curves rearward/upward in the whale's perspective",async()=>{
- const data=await decoded,geometry=new THREE.BufferGeometry();
- for(const [key,values,size] of [["position",data.POSITION,3],["normal",data.NORMAL,3],
-  ["skinIndex",data.JOINTS_0,4]])
-  geometry.setAttribute(key,new THREE.BufferAttribute(values,size));
- geometry.setAttribute("skinWeight",new THREE.Uint8BufferAttribute(data.WEIGHTS_0,4,true));
- const source={geometry,skeleton:{bones:gltf.skins[0].joints.map(index=>({name:gltf.nodes[index].name}))}};
- const emitters=JSON.parse(gltf.nodes.find(node=>node.name==="MobileWhaleRig").extras.wakeEmitters);
- const anchors=prepareWhaleWakeFlow(emitters,source);
- assert.equal(anchors.length,64,"crest and fins plus twenty-four real flank emitters");
- assert.equal(emitters.length,40,"the original prepared asset is not modified");
- const view=new THREE.Matrix4().makeRotationFromQuaternion(setWhaleViewRotation(
-  new THREE.Quaternion(),new THREE.Matrix4(),new THREE.Quaternion()));
- for(const anchor of anchors){
-  const direction=new THREE.Vector3(...anchor.direction),bend=new THREE.Vector3(...anchor.bend);
-  for(let age=0;age<=1;age+=.1){
-   const velocity=direction.clone().addScaledVector(bend,2*age).transformDirection(view);
-   assert.ok(velocity.x>0&&velocity.y>0&&velocity.z<0,"flow travels right/up/away, never reverses");
-  }
-  if(anchor.side){
-   assert.ok(bend.y>.7,"side flow progressively curls upward");
-   const sum=Object.values(anchor.weights).reduce((a,b)=>a+b,0);
-   assert.ok(Math.abs(sum-1)<1e-6);
-   const match=Array.from({length:data.POSITION.length/3},(_,i)=>i)
-    .some(i=>anchor.position.every((value,j)=>value===data.POSITION[i*3+j]));
-   assert.ok(match,"emission starts on the actual skin, not in surrounding space");
-  }
- }
- assert.ok(anchors[0].direction[1]>anchors[10].direction[1],"crest slope changes across the shoulder");
- geometry.dispose();
 });
 
 test("wake clipping follows the ocean instead of the whale pose, without rebuilding materials",()=>{

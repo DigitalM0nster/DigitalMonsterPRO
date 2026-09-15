@@ -52,7 +52,7 @@ const DIGITAL_WHALE_PRESETS = {
 			rotationX: 0.07,
 			rotationY: -1.24,
 			rotationZ: 0.3,
-			scale: 0.03,
+			scale: 0.033,
 			swimSpeed: 0.05,
 			sway: {
 				bobAmp: 0.6,
@@ -69,38 +69,39 @@ const DIGITAL_WHALE_PRESETS = {
 				yawSmooth: 0.7,
 			},
 			wake: {
-				count: 200,
+				count: 64,
 				color: "#38d4ff",
-				pointScale: 1.6,
-				alpha: 0.32,
-				glow: 3.4,
-				speed: 0.05,
-				flowX: 0.84,
-				flowY: 0.36,
+				pointScale: 1.8,
+				alpha: 0.39,
+				glow: 1.9,
+				speed: 0.105,
+				flowX: 1.21,
+				flowY: 0.53,
 				spawnMinT: 0.3,
 				spawnMaxT: 0.98,
 				tailFadeT: 0.5,
-				spread: 0.18,
-				wanderAmp: 2.8,
+				spread: 0.08,
+				wanderAmp: 1.4,
 				driftZRatio: -3.9,
 				driftDepthAngle: 6,
 				driftDepthAngleY: -4,
 				driftCameraBlend: 0,
 				rearDepthBias: 0.4,
 			},
-			pointScale: 6,
+			pointScale: 8.05,
 			particleDensity: 1,
-			particleScale: 1,
+			particleScale: 0.65,
 			edgeSpacing: 0.24,
 			colorTint: "#0f93cc",
-			emissiveIntensity: 3.05,
+			emissiveIntensity: 8.8,
 			/** Пульсация uGlow точек: от emissiveIntensity до max. */
 			glowPulse: {
-				max: 6.6,
+				max: 6.3,
 				speed: 0.2,
 				smooth: 0,
 			},
-			opacity: 0.34,
+			opacity: 1,
+			modelOpacity: 0,
 			// Затухание партиклов в прямоугольной области (локальные координаты whale.root).
 			// FBX — один mesh HumpbackWhale004, по имени не разделить.
 			particleFade: {
@@ -147,21 +148,12 @@ const DIGITAL_WHALE_PRESETS = {
 			whaleAmbientRadiusY: 6.5,
 			whaleAmbientRadiusZ: 14.5,
 		},
-		/** Стартовая позиция кита до первого захода на главную (после «Начать»). */
-		whaleIntro: {
-			posX: 38.3,
-			posY: -10.6,
-			posZ: -33.4,
-		},
-		/** Первый заход на / — плавный переход whaleIntro → whale. */
+		/** Крупный силуэт проявляется из темноты и медленно приближается. */
 		whaleEnter: {
-			durationMs: 10000,
-			/** Линейный старт (legacy, см. endEase*). */
-			easePower: 1,
-			/** Сила замедления к финишу (>1 — мягче посадка). */
-			endEasePower: 5,
-			/** Длина «линейной» фазы: больше — дольше как сейчас в начале. */
-			endEaseBias: 2.5,
+			durationMs: 6500,
+			distance: 1.2,
+			depth: 14,
+			rise: 0.6,
 		},
 	},
 	low: {
@@ -305,19 +297,11 @@ const DIGITAL_WHALE_PRESETS = {
 			whaleAmbientRadiusY: 6.5,
 			whaleAmbientRadiusZ: 14.5,
 		},
-		whaleIntro: {
-			posX: 38.3,
-			posY: -10.6,
-			posZ: -33.4,
-		},
 		whaleEnter: {
-			durationMs: 10000,
-			/** Линейный старт (legacy, см. endEase*). */
-			easePower: 1,
-			/** Сила замедления к финишу (>1 — мягче посадка). */
-			endEasePower: 5,
-			/** Длина «линейной» фазы: больше — дольше как сейчас в начале. */
-			endEaseBias: 2.5,
+			durationMs: 6500,
+			distance: 1.2,
+			depth: 14,
+			rise: 0.6,
 		},
 	},
 };
@@ -366,8 +350,7 @@ const LOW_WHALE_PRESET = {
 	ocean: { ...DIGITAL_WHALE_PRESETS.high.ocean, gridCols: 192, gridRows: 64,
 		pointScale: 6, pointAlpha: 0.9, pointGlow: 1, gridAlpha: 0.32,
 		pointColor: "#28baff", gridColor: "#005aa8" },
-	whale: { ...DIGITAL_WHALE_PRESETS.high.whale, edgeSpacing: 0.65, pointScale: 5,
-		opacity: 0.8, wake: { ...DIGITAL_WHALE_PRESETS.high.whale.wake, count: 96, alpha: 0.2 } },
+	whale: { ...DIGITAL_WHALE_PRESETS.high.whale, edgeSpacing: 0.65 },
 	ambient: { ...DIGITAL_WHALE_PRESETS.high.ambient, deepPointScale: 2.2,
 		deepAlpha: 0.2, deepGlow: 1, deepScrollSpeed: 3,
 		whaleAmbientPointScale: 2, whaleAmbientAlpha: 0.12, whaleAmbientGlow: 1 },

@@ -25,6 +25,12 @@ const FIELD_SECTIONS = [
 		],
 	},
 	{
+		title: "Поверхность модели",
+		fields: [
+			["modelOpacity", 0, 1, 0.01],
+		],
+	},
+	{
 		title: "Визуал партиклов",
 		fields: [
 			["pointScale", 0.2, 24, 0.05],
@@ -208,7 +214,7 @@ export class WhaleDevTools {
 				if (key === "particleDensity") {
 					next = clamp01(next);
 				}
-				if (key === "opacity") {
+				if (key === "opacity" || key === "modelOpacity") {
 					next = clamp01(next);
 				}
 				if (key === "glowPulseMax") {
@@ -279,6 +285,7 @@ export class WhaleDevTools {
 				particleDensity: digitalWhaleConfig.whale.particleDensity,
 				particleScale: digitalWhaleConfig.whale.particleScale,
 				opacity: digitalWhaleConfig.whale.opacity,
+				modelOpacity: digitalWhaleConfig.whale.modelOpacity,
 				emissiveIntensity: digitalWhaleConfig.whale.emissiveIntensity,
 				colorTint: digitalWhaleConfig.whale.colorTint,
 				glowPulseMax: digitalWhaleConfig.whale.glowPulse?.max,
@@ -318,6 +325,7 @@ export class WhaleDevTools {
 					particleDensity: digitalWhaleConfig.whale.particleDensity,
 					particleScale: digitalWhaleConfig.whale.particleScale,
 					opacity: digitalWhaleConfig.whale.opacity,
+					modelOpacity: digitalWhaleConfig.whale.modelOpacity,
 					emissiveIntensity: digitalWhaleConfig.whale.emissiveIntensity,
 					colorTint: digitalWhaleConfig.whale.colorTint,
 					glowPulseMax: digitalWhaleConfig.whale.glowPulse?.max,
@@ -359,6 +367,7 @@ export class WhaleDevTools {
 			["scale", w.scale],
 			["pointScale", w.pointScale], ["particleDensity", w.particleDensity], ["particleScale", w.particleScale],
 			["opacity", w.opacity], ["emissiveIntensity", w.emissiveIntensity], ["glowPulseMax", w.glowPulse?.max],
+			["modelOpacity", w.modelOpacity],
 			["wake.count", w.wake?.count], ["wake.pointScale", w.wake?.pointScale], ["wake.alpha", w.wake?.alpha],
 			["wake.glow", w.wake?.glow], ["wake.speed", w.wake?.speed], ["wake.spread", w.wake?.spread],
 			["wake.wanderAmp", w.wake?.wanderAmp], ["wake.flowX", w.wake?.flowX], ["wake.flowY", w.wake?.flowY],

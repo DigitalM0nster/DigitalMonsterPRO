@@ -43,6 +43,7 @@ export function createMobileWhaleTrail(shared,source,emitters=[],config={}){
  geometry.setAttribute("skinWeight",new THREE.BufferAttribute(weights,4));
  const uniforms={
   uTime:shared.uTime,
+  uEntranceReveal:shared.uEntranceReveal,
   uViewportHeight:{value:679},
   uColor:{value:new THREE.Color(config.color??"#38d4ff")},
   uOpacity:{value:1},uGlow:{value:3.4},uParticleDensity:{value:.5},uPointScale:{value:1},
@@ -79,9 +80,9 @@ export function createMobileWhaleTrail(shared,source,emitters=[],config={}){
     if(isPerspectiveMatrix(projectionMatrix))pixels/=max(.001,-viewPosition.z);
     gl_PointSize=clamp(pixels*(.58+.6*aSeed.w)*visible,1.2*visible,8.);
    }`,
-  fragmentShader:`uniform vec3 uColor;uniform float uOpacity,uGlow;varying float vLight;
+  fragmentShader:`uniform vec3 uColor;uniform float uOpacity,uGlow,uEntranceReveal;varying float vLight;
    void main(){float r2=dot(gl_PointCoord-.5,gl_PointCoord-.5);if(r2>.25)discard;
-    float core=exp(-r2*36.);gl_FragColor=vec4(uColor*(1.4+uGlow*.6),core*vLight*uOpacity);}`,
+    float core=exp(-r2*36.);gl_FragColor=vec4(uColor*(1.4+uGlow*.6),core*vLight*uOpacity*uEntranceReveal);}`,
  });
  const trail=new RiggedTrail(geometry,material,source);
  trail.applyConfig=(next={})=>{

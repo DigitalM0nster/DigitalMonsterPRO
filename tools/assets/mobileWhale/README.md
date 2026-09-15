@@ -36,6 +36,54 @@ Edit JSON paths / Python sources before regenerating; the generator replaces
 manual master edits. `packParticles.mjs` appends the compressed point primitive
 using the GLB's actual joint order and normalized skin weights.
 
+After regenerating the base, restore the directional actions (also safe to run
+directly when only adjusting reactions):
+
+```powershell
+& 'C:\Program Files\Blender Foundation\Blender 4.2\blender.exe' --background --python tools/assets/mobileWhale/authorWhaleReactions.py
+```
+
+The master contains `Whale_LookLeft`, `Whale_LookRight`, `Whale_LookUp`,
+`Whale_LookDown`, and `Whale_LookCurious` in addition to the original swim. Select an action in Blender's
+Action Editor and scrub frames 1–49: neutral → supported reach, with tail
+counterbend and delayed fin tips. The object transform remains fixed.
+`authorWhaleReactions.py` controls the keyed angles and timing. Its exporter
+explicitly disables “single armature/all actions” so Blender does not merge the
+swim into each reaction. `mergeWhaleReactions.mjs` replaces only reaction tracks;
+the existing compressed geometry, particles and swim bytes remain intact.
+
+Runtime uses the same mixer and skeleton: five additive actions are bound before
+Start, referenced to their neutral first frame and held at their authored reach
+poses. The pointer spring blends their additive weights, avoiding the double
+braking that scrubbing eased clips causes at neutral. Screen X reverses the
+authored yaw to match the site camera. Diagonal targets are bounded to a unit
+circle before the spring so they approach the limit without an early hard stop.
+Releasing the pointer,
+DOM blockers, touch input or reduced-motion returns the pose to swimming. The
+local particle highlight is independent. Prepared bounds include eight reach
+directions at four swim phases, including the curiosity crest. No new meshes, shaders or point-buffer updates
+are introduced by interaction. The combined GLB remains below 800 KB.
+
+`whaleSurfaceInteraction.js` prepares one ellipsoid per influenced bone for cheap
+body hits; it never raycasts or skins the full point cloud per frame. Hover lights
+the surface without displacing particles or changing its silhouette. A steady hover for 1.1 seconds
+plays the two-second curiosity clip, with a six-second cooldown. A short click or
+tap sends one expanding light ring across the surface; repeated taps are rate
+limited, and movement over 10 CSS pixels, wheel, cancel, blur and UI blockers
+cancel the tap. Window hit events use the same home hex Y-band owner as rendering.
+Mouse tracking begins during the whale's entrance, as soon as Start is active.
+Touch movement keeps native scrolling. Reduced motion disables particle movement
+and curiosity, and reduces the sonar brightness. All interaction uniforms and
+animation bindings exist before the loader opens.
+
+The first entrance uses `whaleEntrance.js`: a 6.5-second approach from darkness
+and depth, with minimal lateral drift and no entrance turn. A shared reveal uniform
+fades the particles, model surface and wake together without overriding user opacity.
+The prepared swim continues from 0.8x to normal speed without restarting its phase.
+Position and ambient sway settle continuously into the idle composition.
+Reduced motion uses the settled pose. `whale.scale` also controls the fitted size
+after resize/reload (0.03 is the original composition; 0.033 is 10% larger).
+
 ## Runtime and budget
 
 - `loadMobileWhale.js` loads and prepares the same asset on desktop and mobile

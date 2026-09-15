@@ -2,7 +2,8 @@ import * as THREE from "three";
 import { getScenePixelRatio } from "../../renderer/renderResolution.js";
 
 import { digitalWhaleConfig } from "./digitalWhaleConfig.js";
-import { easeLinearBlendOut, getHeroCameraForSceneProgress, heroCamera, HERO_LOOK_AT, smoothSinePhase } from "./heroCamera.js";
+import { getHeroCameraForSceneProgress, heroCamera, HERO_LOOK_AT, smoothSinePhase } from "./heroCamera.js";
+import { WhaleEntrance } from "./whaleEntrance.js";
 import { getHeroSceneProgressDrift } from "./heroSceneProgressDrift.js";
 import { shouldActivateRoutePage } from "@/functions/shouldActivateRoutePage.js";
 import { store as appStore } from "@/app/store.jsx";
@@ -31,6 +32,11 @@ import { createHeroTitleText } from "./heroText/createHeroTitleText.js";
 import { isRingDormantReason } from "@/three/scenes/lifecycle/sceneLifecycle.js";
 import { getSceneCarousel } from "@/three/render/transition/carouselPage.js";
 import { LowWhaleBloom } from "./utils/LowWhaleBloom.js";
+import { WhaleCursorReaction, whaleCursorReactionConfig } from "./whaleCursorReaction.js";
+import { sampleWhaleReactions } from "./mobileWhale/whaleSkeletalReactions.js";
+import { applyMobileWhaleVisuals } from "./mobileWhale/mobileWhaleMaterial.js";
+import { WhaleSurfaceHit, WhaleSurfaceInteraction } from "./whaleSurfaceInteraction.js";
+import { sceneOwnsHexHitAtClientY } from "@/three/render/overlay/hexHitOwnership.js";
 
 /**
  * Hero-сцена: цифровой океан + FBX кит.
@@ -44,6 +50,10 @@ export class DigitalWhaleScene {
 		this.threeScene = new THREE.Scene();
 		this.elapsed = 0;
 		this.smoothPointer = new THREE.Vector2(0, 0);
+		this.cursorReaction = new WhaleCursorReaction();
+		this.surfaceInteraction = new WhaleSurfaceInteraction({ canInteract: event =>
+			this._appStarted && this.whaleReady && sceneOwnsHexHitAtClientY("home", event.clientY)
+			&& !event.target?.closest?.('[data-canvas-pointer-blocker="true"]') });
 		this.cameraPos = new THREE.Vector3();
 		this.lookAtTarget = new THREE.Vector3();
 		this._soundSnapshot = {
@@ -118,8 +128,8 @@ export class DigitalWhaleScene {
 			digitalWhaleConfig.whale.rotationY,
 			digitalWhaleConfig.whale.rotationZ,
 		);
-		this._whaleEnterFrom = new THREE.Vector3();
-		this._whaleEnterTo = new THREE.Vector3();
+		this._whaleEntrance = new WhaleEntrance();
+		this._whaleEntranceOffset = new THREE.Vector3();
 		this._whaleEnterCompleted = false;
 		this._whaleEnterActive = false;
 		this._whaleEnterStartedAt = 0;
@@ -328,8 +338,7 @@ export class DigitalWhaleScene {
 
 	_applyWhaleIntroPose() {
 		const w = digitalWhaleConfig.whale;
-		const intro = digitalWhaleConfig.whaleIntro ?? w;
-		this._whaleBasePos.set(intro.posX ?? w.posX, intro.posY ?? w.posY, intro.posZ ?? w.posZ);
+		this._whaleBasePos.set(w.posX, w.posY, w.posZ);
 	}
 
 	_playWhaleEnterAnimation() {
@@ -337,16 +346,11 @@ export class DigitalWhaleScene {
 			return;
 		}
 
-		const w = digitalWhaleConfig.whale;
-		const intro = digitalWhaleConfig.whaleIntro ?? w;
-		this._whaleEnterFrom.set(intro.posX ?? w.posX, intro.posY ?? w.posY, intro.posZ ?? w.posZ);
-		this._whaleEnterTo.set(w.posX, w.posY, w.posZ);
+		this._applyWhaleIntroPose();
 		this._whaleEnterActive = true;
 		this._whaleEnterStartedAt = this.elapsed;
 		// Capture timing once: rotating the phone must not change progress mid-enter.
-		const compact = window.innerWidth <= 768 || (window.innerWidth <= 1024 && window.innerHeight < 480);
-		this._whaleEnterDuration = Math.max(Math.min(digitalWhaleConfig.whaleEnter?.durationMs ?? 4000,
-			compact ? 4500 : Infinity) / 1000, 0.001);
+		this._whaleEnterDuration = Math.max((digitalWhaleConfig.whaleEnter?.durationMs ?? 6500) / 1000, .001);
 	}
 
 	/**
@@ -358,6 +362,8 @@ export class DigitalWhaleScene {
 			return;
 		}
 		this._resetHeroTitle();
+		this.cursorReaction.reset();
+		this.surfaceInteraction.reset();
 		this._carouselEnterPending = true;
 	}
 
@@ -387,17 +393,12 @@ export class DigitalWhaleScene {
 			return;
 		}
 
-		const enter = digitalWhaleConfig.whaleEnter ?? {};
 		const duration = this._whaleEnterDuration;
 		const linear = Math.min(1, (this.elapsed - this._whaleEnterStartedAt) / duration);
-		const eased = easeLinearBlendOut(linear, enter.endEasePower ?? 5, enter.endEaseBias ?? 2.5);
-
-		this._whaleBasePos.lerpVectors(this._whaleEnterFrom, this._whaleEnterTo, eased);
 
 		if (linear >= 1) {
 			this._whaleEnterActive = false;
 			this._whaleEnterCompleted = true;
-			this._whaleBasePos.copy(this._whaleEnterTo);
 		}
 	}
 
@@ -456,8 +457,10 @@ export class DigitalWhaleScene {
 				this.whaleRoot = whale.root;
 				this.whaleMixer = whale.mixer;
 				this.whaleSwimAction = whale.swimAction;
+				this.whaleReactionActions = whale.reactionActions;
 				this.whaleParticles = whale.particles;
 				this.whaleParticleMeshes = whale.particleMeshes;
+				this.surfaceInteraction.surface = new WhaleSurfaceHit(whale.particleMeshes[0]);
 				this.whaleHologramMaterial = whale.hologramMaterial;
 				this.whaleTrail = whale.trail ?? null;
 				this.whaleRenderMode = whale.renderMode;
@@ -546,6 +549,8 @@ export class DigitalWhaleScene {
 		// Portrait echoes the reference close-up: head/fin in frame, tail beyond the right edge.
 		const maxHeight = authoredWhale ? (desktop ? 1.26 : shortLandscape ? 1.24 : height < 640 ? .45 : .87) : shortLandscape ? 1.55 : 1.8;
 		const w = digitalWhaleConfig.whale, o = digitalWhaleConfig.ocean;
+		// Size remains meaningful after resize/reload instead of auto-fit cancelling scale.
+		const compositionScale = w.scale / .03;
 		// Build a stationary reference from configuration, not the currently swaying,
 		// scrolling or entering world. One correction is shared by both intro endpoints.
 		const parent = new THREE.Matrix4().compose(
@@ -590,7 +595,7 @@ export class DigitalWhaleScene {
 			to.set(targetX, targetY, point.z).unproject(camera).applyMatrix4(parentInverse);
 			this._whaleViewportOffset.add(to.sub(from));
 			if (pass < fitPasses - 1) {
-				const fit = Math.min(authoredWhale ? 1.5 : 1, maxWidth / Math.max(projected.max.x - projected.min.x, 1e-6), maxHeight / Math.max(projected.max.y - projected.min.y, 1e-6));
+				const fit = Math.min(authoredWhale ? 1.5 : 1, maxWidth * compositionScale / Math.max(projected.max.x - projected.min.x, 1e-6), maxHeight * compositionScale / Math.max(projected.max.y - projected.min.y, 1e-6));
 				this._whaleViewportFit *= fit;
 			}
 		}
@@ -997,6 +1002,9 @@ export class DigitalWhaleScene {
 	_updateWhaleBodySway(elapsed = this.elapsed) {
 		const w = digitalWhaleConfig.whale;
 		const sway = w.sway ?? {};
+		const progress = this._whaleEnterCompleted || this.cursorReaction.motionPreference.matches ? 1
+			: this._whaleEnterActive ? (this.elapsed - this._whaleEnterStartedAt) / this._whaleEnterDuration : 0;
+		const entrance = this._whaleEntrance.sample(progress, digitalWhaleConfig.whaleEnter);
 
 		const bobY = Math.sin(elapsed * (sway.bobSpeed ?? 0.9)) * (sway.bobAmp ?? 0);
 		const pitchZ = Math.sin(elapsed * (sway.pitchSpeed ?? 0.72) + 0.4) * (sway.pitchAmp ?? 0);
@@ -1004,7 +1012,7 @@ export class DigitalWhaleScene {
 		const yawY = smoothSinePhase(elapsed * (sway.yawSpeed ?? 0), sway.yawSmooth ?? 0) * (sway.yawAmp ?? 0);
 
 		const rotation = this._whaleViewportRotation ?? this._whaleBaseRot;
-		const swayScale = this._whaleViewportRotation ? .3 : 1;
+		const swayScale = (this._whaleViewportRotation ? .3 : 1) * entrance.sway;
 		const devRotationX = this._whaleViewportRotation ? this._whaleBaseRot.x - this._whaleConfigRotationOrigin.x : 0;
 		const devRotationY = this._whaleViewportRotation ? this._whaleBaseRot.y - this._whaleConfigRotationOrigin.y : 0;
 		const devRotationZ = this._whaleViewportRotation ? this._whaleBaseRot.z - this._whaleConfigRotationOrigin.z : 0;
@@ -1015,6 +1023,11 @@ export class DigitalWhaleScene {
 			rotation.y + devRotationY + yawY * swayScale,
 			rotation.z + devRotationZ + pitchZ * swayScale,
 		);
+		this._whaleEntranceOffset.copy(entrance.offset).applyQuaternion(this.whaleGroup.quaternion);
+		this.whaleGroup.position.add(this._whaleEntranceOffset);
+		if (this.whaleSwimAction && this.whaleRoot?.userData.authoredWhale) {
+			this.whaleSwimAction.timeScale = entrance.swimRate;
+		}
 
 		this._syncWhaleAnchorPositions();
 	}
@@ -1036,17 +1049,8 @@ export class DigitalWhaleScene {
 
 		if (this.whaleRenderMode === "hologram" && this.whaleHologramMaterial) {
 			if (this.whaleRoot.userData.authoredWhale) {
-				const u = this.whaleHologramMaterial.uniforms;
-				const tier = getGraphicsTier();
-				u.uOpacity.value = w.opacity;
-				// Lower-resolution bloom concentrates nearby dots; preserve their separation.
-				u.uGlow.value = tier === "medium" ? 2.1 : tier === "high" ? 3.4 : 4.2;
-				if (w.particleDensity != null && u.uParticleDensity) {
-					u.uParticleDensity.value = w.particleDensity;
-				}
-				if (w.particleScale != null && u.uParticleScale) {
-					u.uParticleScale.value = w.particleScale;
-				}
+				applyMobileWhaleVisuals(this.whaleHologramMaterial,w,getGraphicsTier(),this.elapsed);
+				this.whaleHologramMaterial.uniforms.uEntranceReveal.value = this._whaleEntrance.reveal;
 				return;
 			}
 			applyWhaleHologramVisuals(this.whaleHologramMaterial, {
@@ -1271,10 +1275,21 @@ export class DigitalWhaleScene {
 
 		this._applyOceanTilt(this.smoothPointer);
 		this._updateWhaleEnterAnimation();
+		this.cursorReaction.update(delta, frame, this._appStarted && this.whaleReady);
 		this._updateWhaleBodySway();
 		this._syncOceanRipple();
+		this.whaleGroup.updateMatrixWorld(true);
+		this.surfaceInteraction.surface?.syncCamera(this.cameraPos, this.lookAtTarget,
+			this._cameraFov ?? heroCamera.fov,
+			(frame?.viewportWidth || window.innerWidth) / (frame?.viewportHeight || window.innerHeight));
+		this.surfaceInteraction.update(delta, frame, this._appStarted && this.whaleReady,
+			this.cursorReaction.hasHoverPointer, this.cursorReaction.motionPreference.matches);
 
 		if (this.whaleMixer) {
+			sampleWhaleReactions(this.whaleReactionActions,
+				this.cursorReaction.yaw / whaleCursorReactionConfig.yaw,
+				-this.cursorReaction.pitch / whaleCursorReactionConfig.pitch,
+				this.surfaceInteraction.curiosityTime, this.surfaceInteraction.curiosityWeight);
 			this.whaleMixer.update(delta);
 		}
 
@@ -1292,6 +1307,9 @@ export class DigitalWhaleScene {
 		}
 
 		this._applyWhaleVisuals();
+		this.cursorReaction.applyUniforms(this.whaleHologramMaterial?.uniforms,
+			(frame?.viewportWidth || window.innerWidth) / (frame?.viewportHeight || window.innerHeight));
+		this.surfaceInteraction.applyUniforms(this.whaleHologramMaterial?.uniforms);
 
 		this._wakeCameraWorld.copy(this.cameraPos);
 		this.whaleWake?.update(delta, this.elapsed);
@@ -1313,6 +1331,8 @@ export class DigitalWhaleScene {
 
 	dispose() {
 		this._disposed = true;
+		this.cursorReaction.dispose();
+		this.surfaceInteraction.dispose();
 		this._whaleLoadToken += 1;
 		if (this._heroShowRaf) {
 			cancelAnimationFrame(this._heroShowRaf);
@@ -1331,6 +1351,7 @@ export class DigitalWhaleScene {
 		this.whaleHologramMaterial = null;
 
 		this.whaleMixer = null;
+		this.whaleReactionActions = null;
 		this.whaleSwimAction = null;
 		this.whaleReady = false;
 

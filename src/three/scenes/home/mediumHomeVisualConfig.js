@@ -8,6 +8,9 @@ export const mediumHomeVisualDefaults = Object.freeze({
 	mouseGlowWidth: 2.9,
 	textSharpness: 1,
 	textBrightness: 0.78,
+	// The services row is the smallest primary copy on Home. Keep it display-white;
+	// the softer shared value remains appropriate for the scroll hint.
+	stackTextBrightness: 1,
 	textDensity: 1,
 	stackTextRenderer: "msdf",
 	stackMsdfWeight: 0.05,
@@ -38,7 +41,9 @@ export function applyMediumHomeVisualConfig(scene) {
 	for (const overlay of scene.heroTitle?.getWarmupOverlays() ?? []) {
 		if (overlay.nativeSmallGlyphs) {
 			overlay.uniforms.uGlyphSharpness.value = c.textSharpness;
-			overlay.uniforms.uGlyphBrightness.value = c.textBrightness;
+			overlay.uniforms.uGlyphBrightness.value = overlay.shaderProfile === "stack"
+				? c.stackTextBrightness
+				: c.textBrightness;
 			overlay.uniforms.uGlyphDensity.value = c.textDensity;
 		}
 		if (overlay.msdf) {

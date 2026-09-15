@@ -63,7 +63,9 @@ export class HeroGpuTextMesh {
 		if (nativeSmallGlyphs) {
 			this.cssFontSize = this.shaderProfile === "hint" ? 12 : 14;
 			this.uniforms.uGlyphSharpness.value = mediumHomeVisualConfig.textSharpness;
-			this.uniforms.uGlyphBrightness.value = mediumHomeVisualConfig.textBrightness;
+			this.uniforms.uGlyphBrightness.value = this.shaderProfile === "stack"
+				? mediumHomeVisualConfig.stackTextBrightness
+				: mediumHomeVisualConfig.textBrightness;
 			this.uniforms.uGlyphDensity.value = mediumHomeVisualConfig.textDensity;
 			// Alpha already lives in the atlas. Keep ink independent of transparent
 			// black texels, which otherwise darken the antialiased edge a second time.

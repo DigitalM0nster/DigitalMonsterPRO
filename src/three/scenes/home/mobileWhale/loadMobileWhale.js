@@ -5,7 +5,7 @@ import { SkinnedWhalePoints } from "./SkinnedWhalePoints.js";
 import { prepareWhaleGestureAction, prepareWhaleReactionActions, sampleWhaleGesture, sampleWhaleReactions } from "./whaleSkeletalReactions.js";
 import { yieldToPreparationFrame } from "../../../app/preparationFrame.js";
 
-export const MOBILE_WHALE_URL="/models/home/whale-mobile.glb?v=authored-gestures-r3";
+export const MOBILE_WHALE_URL="/models/home/whale-mobile.glb?v=pectoral-continuity-r4";
 
 /** Load, bind and prepare both point draws before the site's Start gate. */
 export async function loadMobileWhale(options={}){

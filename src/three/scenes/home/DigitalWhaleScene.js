@@ -15,7 +15,6 @@ import {
 	createOceanSurface,
 	getOceanTileScrollX,
 	resolveOceanTileSlotCount,
-	OCEAN_SURFACE_Z_NEAR,
 } from "./utils/createOceanParticles.js";
 import { applyWhaleVisuals, disposeWhaleRoot, loadAnimatedWhale, rebuildWhaleParticles } from "./utils/loadAnimatedWhale.js";
 import { createWhaleWake } from "./utils/createWhaleWake.js";
@@ -86,7 +85,6 @@ export class DigitalWhaleScene {
 		this._whaleAmbientFlowTarget = new THREE.Vector3(1, 0, 0);
 		this._whaleWorldFlow = new THREE.Vector3(1, 0, 0);
 		this._whaleFlowParentInverse = new THREE.Matrix4();
-		this._whaleManeuverEnergy = .12;
 		this._lastSceneProgress = 0;
 		this._wakeCameraWorld = new THREE.Vector3();
 		this._whaleViewportOffset = new THREE.Vector3();
@@ -823,7 +821,6 @@ export class DigitalWhaleScene {
 	}
 
 	_applyOceanMaterialConfig(o) {
-		this.whaleTrail?.setOceanSurface(this.oceanSurfaceGroup, o, OCEAN_SURFACE_Z_NEAR);
 		if (!this.oceanMaterial) {
 			return;
 		}
@@ -1075,7 +1072,6 @@ export class DigitalWhaleScene {
 	_updateWhaleLocalFlow(delta) {
 		const yaw = this.cursorReaction.yaw / whaleCursorReactionConfig.yaw;
 		const pitch = this.cursorReaction.pitch / whaleCursorReactionConfig.pitch;
-		const click = this.surfaceInteraction.responseEnergy;
 		this._whaleLocalFlowTarget.set(
 			1,
 			pitch * .16,
@@ -1098,15 +1094,6 @@ export class DigitalWhaleScene {
 		}
 		this._whaleAmbientFlow.lerp(this._whaleAmbientFlowTarget,
 			1 - Math.exp(-3.2 * Math.max(0, delta))).normalize();
-		const angularSpeed = Math.hypot(
-			this.cursorReaction.yawVelocity / whaleCursorReactionConfig.yaw,
-			this.cursorReaction.pitchVelocity / whaleCursorReactionConfig.pitch,
-		);
-		const targetEnergy = THREE.MathUtils.clamp(.1 + angularSpeed * .18
-			+ click * .38 + this._whaleEntrance.maneuver * .45, .08, 1);
-		this._whaleManeuverEnergy += (targetEnergy - this._whaleManeuverEnergy)
-			* (1 - Math.exp(-(targetEnergy > this._whaleManeuverEnergy ? 8 : 2.4) * Math.max(0, delta)));
-		this.whaleTrail?.setMotionActivity?.(this._whaleManeuverEnergy);
 	}
 
 	_applyWhaleVisuals() {

@@ -1,54 +1,28 @@
 import * as THREE from "three";
 import { whaleDepthMistGLSL } from "./whaleComposition.js";
-import { getOceanSpaceCeilingY } from "../utils/oceanSurfaceClip.js";
 
-// One prepared point draw. Emission anchors share the creature's original rig.
-class RiggedTrail extends THREE.Points {
+// One prepared point draw. Anchors live in creature space, but deliberately do
+// not inherit fin/tail bones: the detached spray must never steer with a flap.
+class WhaleTrail extends THREE.Points {
  constructor(geometry,material,source){
   super(geometry,material);
   if(source){
-   this.isSkinnedMesh=true;this.skeleton=source.skeleton;
-   this.bindMatrix=source.bindMatrix.clone();this.bindMatrixInverse=source.bindMatrixInverse.clone();
    this.position.copy(source.position);this.quaternion.copy(source.quaternion);this.scale.copy(source.scale);
   }
   const viewport=new THREE.Vector4();
-  this.onBeforeRender=(renderer,scene,camera)=>{
-   renderer.getCurrentViewport(viewport);material.uniforms.uViewportHeight.value=viewport.w;
-   const u=material.uniforms,surface=this.oceanSurface;
-   u.uOceanClipEnabled.value=surface?.visible?1:0;
-   if(surface?.visible){
-    // Follow the actual water transform, independently of the whale's rig/pose.
-    u.uWhaleToOcean.value.copy(surface.matrixWorld).invert();
-    if(camera)u.uCameraOcean.value.setFromMatrixPosition(camera.matrixWorld).applyMatrix4(u.uWhaleToOcean.value);
-    u.uWhaleToOcean.value.multiply(this.matrixWorld);
-    u.uOceanCeilingY.value=getOceanSpaceCeilingY({},this.oceanConfig);
-    u.uOceanEdgeCeilingY.value=-(Math.abs(this.oceanConfig?.waveAmp??.9)*.65
-     +Math.abs(this.oceanConfig?.rippleAmp??.15)*.55+.05);
-   }
-  };
-  this.frustumCulled=false;this.renderOrder=5;this.name="Whale / rigged wave trails";
- }
- setOceanSurface(surface,config,zNear){
-  this.oceanSurface=surface;this.oceanConfig=config;
-  this.material.uniforms.uOceanZNear.value=zNear??0;
- }
- updateMatrixWorld(force){
-  super.updateMatrixWorld(force);
-  if(this.isSkinnedMesh)this.bindMatrixInverse.copy(this.matrixWorld).invert();
+  this.onBeforeRender=renderer=>{renderer.getCurrentViewport(viewport);material.uniforms.uViewportHeight.value=viewport.w;};
+  this.frustumCulled=false;this.renderOrder=5;this.name="Whale / independent wave trails";
  }
 }
 
 export function createMobileWhaleTrail(shared,source,emitters=[],config={}){
  // Prepare the maximum once; the dev count control only changes GPU visibility.
- const perStream=32,anchors=emitters.slice(0,40),count=anchors.length*perStream;
+ const perStream=48,anchors=emitters.slice(0,40),count=anchors.length*perStream;
  const positions=new Float32Array(count*3),seeds=new Float32Array(count*4);
  const originOffsets=new Float32Array(count*3);
- const indices=new Uint16Array(count*4),weights=new Float32Array(count*4);
- const names=source?.skeleton.bones.map(bone=>bone.name)||[];
  let randomState=74621;
  const random=()=>{randomState=(Math.imul(randomState,1664525)+1013904223)>>>0;return randomState/4294967296;};
  anchors.forEach((anchor,stream)=>{
-  const skin=Object.entries(anchor.weights);
   for(let i=0;i<perStream;i++){
    const index=stream*perStream+i;
    positions.set(anchor.position,index*3);
@@ -57,97 +31,66 @@ export function createMobileWhaleTrail(shared,source,emitters=[],config={}){
    // Each prepared stream owns a small emission patch around its real surface
    // anchor. The vector is shared; the spray no longer erupts from one pixel.
    originOffsets.set([(seedY-.5)*2,(seedZ-.5)*1.25,(seedW-.5)*1.7],index*3);
-   skin.forEach(([name,weight],j)=>{indices[index*4+j]=names.indexOf(name);weights[index*4+j]=weight;});
   }
  });
  const geometry=new THREE.BufferGeometry();
  geometry.setAttribute("position",new THREE.BufferAttribute(positions,3));
  geometry.setAttribute("aSeed",new THREE.BufferAttribute(seeds,4));
  geometry.setAttribute("aOriginOffset",new THREE.BufferAttribute(originOffsets,3));
- geometry.setAttribute("skinIndex",new THREE.BufferAttribute(indices,4));
- geometry.setAttribute("skinWeight",new THREE.BufferAttribute(weights,4));
  const uniforms={
   uTime:shared.uTime,
   uEntranceReveal:shared.uEntranceReveal,
   uViewportHeight:{value:679},
-  uWhaleToOcean:{value:new THREE.Matrix4()},uOceanClipEnabled:{value:0},
-  uOceanCeilingY:{value:-1.5},uOceanFadeBand:{value:1.1},
-  uOceanEdgeCeilingY:{value:-.8},
-  uCameraOcean:{value:new THREE.Vector3()},uOceanZNear:{value:0},
   uColor:{value:new THREE.Color(config.color??"#38d4ff")},
   uOpacity:{value:1},uGlow:{value:3.4},uParticleDensity:{value:.5},uPointScale:{value:1},
   uTrailSpeed:{value:.05},uFlowX:{value:.84},uFlowY:{value:.36},uSpread:{value:.64},uWander:{value:1},
-  uMotionEnergy:{value:.15},
  };
  const material=new THREE.ShaderMaterial({
   uniforms,transparent:true,depthWrite:false,
   blending:THREE.AdditiveBlending,toneMapped:false,
   vertexShader:`
    #include <common>
-   #include <skinning_pars_vertex>
-    uniform float uTime,uViewportHeight,uParticleDensity,uPointScale,uTrailSpeed,uFlowX,uFlowY,uSpread,uWander,uEntranceReveal;
-   uniform float uMotionEnergy;
-   uniform mat4 uWhaleToOcean;
-   uniform float uOceanClipEnabled,uOceanCeilingY,uOceanFadeBand,uOceanEdgeCeilingY;
-   uniform vec3 uCameraOcean;
-   uniform float uOceanZNear;
+   uniform float uTime,uViewportHeight,uParticleDensity,uPointScale,uTrailSpeed,uFlowX,uFlowY,uSpread,uWander;
    attribute vec4 aSeed;
    attribute vec3 aOriginOffset;
    varying float vLight;
    ${whaleDepthMistGLSL}
    void main(){
-    float activity=mix(.34,1.,smoothstep(0.,1.,uMotionEnergy));
-    float visible=step(aSeed.y,uParticleDensity*activity);
-    #include <skinbase_vertex>
+    float visible=step(aSeed.y,uParticleDensity);
     #include <begin_vertex>
     float sourceRadius=.025+min(uSpread,2.)*.018;
     transformed+=aOriginOffset*sourceRadius;
-    // Only the distributed source patch follows the rig. All displacement
-    // below is the original stable flow and cannot reverse with a fin turn.
-    #include <skinning_vertex>
-    float age=fract(aSeed.x+uTime*(uTrailSpeed*mix(1.75,3.25,uMotionEnergy)+aSeed.y*uTrailSpeed));
+    // Source patches and all later displacement remain in stable creature
+    // space. Only the creature root transform moves this whole prepared draw.
+    float age=fract(aSeed.x+uTime*(uTrailSpeed*2.4+aSeed.y*uTrailSpeed));
     float phase=position.x*3.7+position.y*2.3+uTime*.17;
     float curl=sin(age*7.5+phase)-sin(phase);
     float ripple=sin(age*16.+phase*1.3+aSeed.z*1.7)-sin(phase*1.3+aSeed.z*1.7);
     float spread=age*age;
-    // Restore the original independent vectors. They are authored in whale
-    // space and deliberately ignore cursor/body turning after emission.
+    // Original independent spray: the cursor and the whale's turn never alter
+    // its directions, speed, density or brightness.
     transformed+=vec3(
      age*(uFlowX+aSeed.y*abs(uFlowX)*.75),
      age*(uFlowY+aSeed.z*max(abs(uFlowY),.12)*.7),
      0.
     );
     transformed+=vec3(-.35,1.,.25)*(curl*.10+ripple*.025)*age*uWander;
-    transformed+=vec3(aSeed.y-.5,aSeed.z-.5,aSeed.w-.5)*spread*uSpread*.34;
-    vLight=visible*age*(.11+.39*pow(aSeed.w,2.))*mix(.58,1.12,uMotionEnergy);
+    transformed+=vec3(aSeed.y-.5,aSeed.z-.5,aSeed.w-.5)*spread*uSpread;
+    vLight=visible*age*(.13+.45*pow(aSeed.w,2.));
     float envelope=smoothstep(0.,.10,age)*(1.-smoothstep(.42,1.,age));
     vLight*=envelope;
-    // Cull the complete sprite below the lowest wave trough, fading beforehand.
-    // Evaluated AFTER skinning, so lifted fins/cursor poses cannot cross the water.
-    vec3 oceanPosition=(uWhaleToOcean*vec4(transformed,1.)).xyz;
-    float underwater=1.-smoothstep(uOceanCeilingY-uOceanFadeBand,uOceanCeilingY,oceanPosition.y);
-    // A submerged particle behind the grid must not shine through it. Test its
-    // camera ray at the near water edge as well as its own physical depth.
-    if(uCameraOcean.z>uOceanZNear && oceanPosition.z<uOceanZNear){
-     float edgeT=(uCameraOcean.z-uOceanZNear)/(uCameraOcean.z-oceanPosition.z);
-     float edgeY=mix(uCameraOcean.y,oceanPosition.y,edgeT);
-     // A narrow edge fade avoids erasing the wake well below the visible grid.
-     underwater*=1.-smoothstep(uOceanEdgeCeilingY-.2,uOceanEdgeCeilingY,edgeY);
-    }
-    vLight*=mix(1.,underwater,uOceanClipEnabled);
     vec4 viewPosition=modelViewMatrix*vec4(transformed,1.);
-    float distanceMist=max(whaleDepthMist(viewPosition.xyz,modelViewMatrix),1.-uEntranceReveal);
-    vLight*=1.-distanceMist*.82;
+    vLight*=1.-whaleDepthMist(viewPosition.xyz,modelViewMatrix)*.94;
     gl_Position=projectionMatrix*viewPosition;
     float pixels=.019*uViewportHeight*projectionMatrix[1][1]*length(modelViewMatrix[0].xyz)*uPointScale;
     if(isPerspectiveMatrix(projectionMatrix))pixels/=max(.001,-viewPosition.z);
-    gl_PointSize=clamp(pixels*(.58+.6*aSeed.w)*visible*(1.+distanceMist*1.1),1.2*visible,10.);
+    gl_PointSize=clamp(pixels*(.58+.6*aSeed.w)*visible,1.2*visible,8.);
    }`,
-  fragmentShader:`uniform vec3 uColor;uniform float uOpacity,uGlow;varying float vLight;
-   void main(){float r2=dot(gl_PointCoord-.5,gl_PointCoord-.5);if(r2>.25||vLight<=0.)discard;
-    float core=exp(-r2*36.);gl_FragColor=vec4(uColor*(1.4+uGlow*.6),core*vLight*uOpacity);}`,
+  fragmentShader:`uniform vec3 uColor;uniform float uOpacity,uGlow,uEntranceReveal;varying float vLight;
+   void main(){float r2=dot(gl_PointCoord-.5,gl_PointCoord-.5);if(r2>.25)discard;
+    float core=exp(-r2*36.);gl_FragColor=vec4(uColor*(1.4+uGlow*.6),core*vLight*uOpacity*uEntranceReveal);}`,
  });
- const trail=new RiggedTrail(geometry,material,source);
+ const trail=new WhaleTrail(geometry,material,source);
  trail.applyConfig=(next={})=>{
   uniforms.uColor.value.set(next.color??"#38d4ff");
   uniforms.uOpacity.value=Math.max(0,next.alpha??.32)*2.875;
@@ -157,11 +100,9 @@ export function createMobileWhaleTrail(shared,source,emitters=[],config={}){
   uniforms.uTrailSpeed.value=Math.max(0,next.speed??.05);
   uniforms.uFlowX.value=next.flowX??.84;
   uniforms.uFlowY.value=next.flowY??.36;
-  uniforms.uSpread.value=Math.max(0,next.spread??.18);
+  // Preserve the current panel's numeric range while restoring the old fan.
+  uniforms.uSpread.value=Math.max(0,next.spread??.18)*.34;
   uniforms.uWander.value=Math.max(0,next.wanderAmp??2.8)/2.8;
- };
- trail.setMotionActivity=(energy=0)=>{
-  uniforms.uMotionEnergy.value=THREE.MathUtils.clamp(energy,0,1);
  };
  trail.applyConfig(config);
  return trail;

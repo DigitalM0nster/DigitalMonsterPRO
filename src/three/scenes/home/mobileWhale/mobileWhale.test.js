@@ -6,7 +6,6 @@ import draco3d from "draco3d";
 import { applyMobileWhaleVisuals, createMobileWhaleMaterials, createMobileWhaleTrail, createWhaleDepthOccluder } from "./mobileWhaleMaterial.js";
 import { prepareWhaleGestureAction, prepareWhaleReactionActions, sampleWhaleGesture, sampleWhaleReactions } from "./whaleSkeletalReactions.js";
 import { setWhaleViewRotation } from "./whaleComposition.js";
-import { getOceanSpaceCeilingY } from "../utils/oceanSurfaceClip.js";
 
 const bytes=readFileSync(new URL("../../../../../public/models/home/whale-mobile.glb",import.meta.url));
 const jsonLength=bytes.readUInt32LE(12);
@@ -238,7 +237,7 @@ test("body drift is subtle and wake anchors have normalized, valid rig influence
  assert.ok(Math.max(...positions)-Math.min(...positions)>.04,"drift is present");
 });
 
-test("surface points and irregular wake share one shader clock and rig without buffer uploads",()=>{
+test("surface points and independent old wake share one clock without runtime uploads",()=>{
  const {body,shared}=createMobileWhaleMaterials();
  const source=new THREE.SkinnedMesh(new THREE.BufferGeometry(),body);
  const bones=gltf.skins[0].joints.map(index=>{const bone=new THREE.Bone();bone.name=gltf.nodes[index].name;source.add(bone);return bone;});
@@ -247,26 +246,26 @@ test("surface points and irregular wake share one shader clock and rig without b
  const trail=createMobileWhaleTrail(shared,source,emitters);
 
  assert.equal(trail.material.uniforms.uTime,body.uniforms.uTime);
- assert.equal(trail.geometry.attributes.position.count,1280,"40 surface anchors with 32 prepared particles");
- assert.equal(trail.skeleton,source.skeleton,"emission follows the same swimming fins and tail");
+ assert.equal(trail.geometry.attributes.position.count,1920,"the original forty sprays retain forty-eight prepared particles each");
+ assert.equal(trail.skeleton,undefined,"spray origins do not inherit fin or tail bones");
  const version=trail.geometry.attributes.position.version;
  const index=trail.geometry.attributes.position.count-1,rest=new THREE.Vector3().fromBufferAttribute(trail.geometry.attributes.position,index);
- const before=THREE.SkinnedMesh.prototype.applyBoneTransform.call(trail,index,rest.clone());
+ const before=rest.clone();
  bones.find(bone=>bone.name==="FlukeNearTip").position.y=.3;
  source.updateMatrixWorld(true);source.skeleton.update();
- const after=THREE.SkinnedMesh.prototype.applyBoneTransform.call(trail,index,rest.clone());
- assert.ok(after.distanceTo(before)>.1,"tip emission moves with the flexing tail");
+ const after=new THREE.Vector3().fromBufferAttribute(trail.geometry.attributes.position,index);
+ assert.ok(after.distanceTo(before)<1e-12,"tip motion cannot pull an emitted stream");
  assert.equal(trail.geometry.attributes.position.version,version,"swimming does not upload the point buffer again");
  const seeds=trail.geometry.attributes.aSeed;
  assert.equal(seeds.itemSize,4);
  assert.ok(new Set(Array.from(seeds.array).filter((_,i)=>i%4===1)).size>600,"independent wake speeds, no identical strings");
-	trail.setMotionActivity(.9);
-	assert.equal(trail.material.uniforms.uMotionEnergy.value,.9);
-	assert.equal(trail.material.uniforms.uFlowTurn,undefined,"detached vectors ignore live body turns");
+	assert.equal(trail.setMotionActivity,undefined,"the spray has no whale-motion response path");
+	assert.equal(trail.material.uniforms.uMotionEnergy,undefined,"turn energy cannot change spray speed or density");
+	assert.equal(trail.material.uniforms.uFlowTurn,undefined,"spray vectors ignore live body turns");
+	assert.equal(trail.setOceanSurface,undefined,"the old whole-body sprays are not removed by the ocean clip");
 	trail.applyConfig({spread:1.39});
-	assert.equal(trail.material.uniforms.uSpread.value,1.39,"spread is not multiplied into a glitchy fan");
-	assert.ok(trail.material.vertexShader.indexOf("#include <skinning_vertex>")
-		<trail.material.vertexShader.indexOf("Restore the original independent vectors"),"detached displacement is applied after skinning");
+	assert.ok(Math.abs(trail.material.uniforms.uSpread.value-1.39*.34)<1e-12,"current panel values preserve the original fan width");
+	assert.ok(!/skinning|uMotionEnergy|uFlowTurn/.test(trail.material.vertexShader),"spray has no live skeletal or turn response");
 	const offsets=trail.geometry.attributes.aOriginOffset;
 	assert.equal(offsets.itemSize,3);
 	assert.ok(new Set(Array.from(offsets.array)).size>100,"each vector emits from a distributed source patch");
@@ -276,42 +275,6 @@ test("surface points and irregular wake share one shader clock and rig without b
  assert.equal(body.depthWrite,false,"transparent glow corners must not occlude later contours");
  assert.equal(body.depthTest,true,"the body still occludes the distant contours");
  body.dispose();trail.geometry.dispose();trail.material.dispose();source.geometry.dispose();source.skeleton.dispose();
-});
-
-test("wake clipping follows the ocean instead of the whale pose, without rebuilding materials",()=>{
- const {body,shared}=createMobileWhaleMaterials(),trail=createMobileWhaleTrail(shared);
- const scene=new THREE.Group(),ocean=new THREE.Group(),whale=new THREE.Group();
- scene.add(ocean,whale);whale.add(trail);
- ocean.position.set(5,4.7,12.8);ocean.rotation.set(.31,-.02,.06);ocean.scale.set(.4,1,.4);
- whale.position.set(8,-4,-7);whale.rotation.set(.07,-1.24,.3);whale.scale.setScalar(5.85);
- const config={waveAmp:.7,rippleAmp:.45};trail.setOceanSurface(ocean,config,22);
- const camera=new THREE.PerspectiveCamera();camera.position.set(-11.5,1.5,26.5);scene.add(camera);
- const uniforms=trail.material.uniforms,version=trail.material.version;
- const renderer={getCurrentViewport:target=>target.set(0,0,1280,720)};
- for(const shift of [0,3,-5]){
-  whale.position.y+=shift;ocean.rotation.x+=.04;scene.updateMatrixWorld(true);
-  trail.onBeforeRender(renderer,scene,camera);
-  assert.equal(uniforms.uOceanClipEnabled.value,1);
-  assert.equal(uniforms.uOceanZNear.value,22);
-  assert.ok(uniforms.uCameraOcean.value.distanceTo(ocean.worldToLocal(camera.position.clone()))<1e-10);
-  const ceiling=uniforms.uOceanCeilingY.value;
-  assert.equal(ceiling,getOceanSpaceCeilingY({},config));
-  assert.ok(ceiling<-(config.waveAmp*.65+config.rippleAmp*.55),"reserve below every possible wave trough");
-  for(const y of [ceiling-2,ceiling,ceiling+2]){
-   const local=new THREE.Vector3(3,y,-12).applyMatrix4(ocean.matrixWorld)
-    .applyMatrix4(trail.matrixWorld.clone().invert());
-   const actual=local.applyMatrix4(uniforms.uWhaleToOcean.value).y;
-   assert.ok(Math.abs(actual-y)<1e-10,"clip evaluates actual ocean depth after all transforms");
-   const alpha=1-THREE.MathUtils.smoothstep(actual,ceiling-uniforms.uOceanFadeBand.value,ceiling);
-   assert.ok(y>=ceiling?alpha<1e-10:alpha===1);
-  }
- }
- config.waveAmp=2;trail.onBeforeRender(renderer);
- assert.equal(uniforms.uOceanCeilingY.value,getOceanSpaceCeilingY({},config),"live wave changes retain headroom");
- ocean.visible=false;trail.onBeforeRender(renderer);
- assert.equal(uniforms.uOceanClipEnabled.value,0,"hidden mobile ocean does not cut away the wake");
- assert.equal(trail.material.version,version);
- body.dispose();trail.geometry.dispose();trail.material.dispose();
 });
 
 test("transparent skin reveals rear fins, opaque skin occludes them on the same prepared rig",()=>{

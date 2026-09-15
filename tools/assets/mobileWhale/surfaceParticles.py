@@ -97,21 +97,50 @@ def build_surface_particles(reference,surface,on_body,coordinates,body_weights,w
                 return on_body(x,y,side,.009)
             curve(f'throat-{rib}/{side}',throat,lambda t,p,side=side:body_normal(p,side),
                 lambda t,p:body_weights(p.x),1,.35 if rib%5 else .48)
-    # Sparse fin surfaces. The collar is body-owned; there is no luminous root seam.
+    def pectoral_continuation(profile,theta,far,t):
+        """Carry one body current through the pectoral collar into the fin.
+
+        Starting every fin row on the same attachment section drew a bright,
+        crooked cut across the shoulder.  The first quarter of each row now is
+        a cubic continuation of the body chart; only then does it become the
+        ordinary fin row.  Geometry, normals and skinning all use this same path.
+        """
+        join=.24;side=1 if far else -1
+        root=wing_point(profile,0.,theta,far)
+        screen_x,screen_y=root.x*100+700,450-root.z*100
+        body_s,body_q=coordinates(screen_x,screen_y)
+        start_s=max(.0001,body_s-.105)
+        p0=surface(start_s,body_q,side,.009)
+        p1=surface(start_s+(body_s-start_s)*.72,body_q,side,.009)
+        p2=wing_point(profile,.075,theta,far)
+        p3=wing_point(profile,.18,theta,far)
+        if t<join:
+            u=max(0.,min(1.,t/join));v=1-u
+            return p0*(v**3)+p1*(3*v*v*u)+p2*(3*v*u*u)+p3*(u**3),.18*u
+        s=.18+(t-join)/(1-join)*.82
+        return wing_point(profile,s,theta,far),s
+
+    # Sparse fin surfaces. Pectoral rows are true continuations of the body
+    # currents instead of a separate fan pasted onto a common root section.
     for name,key,parent,far,region in wings:
         profile=reference[key];rows=12 if region==1 else 15
         for face in [-1,1]:
             for row in range(rows+1):
                 if face==1 and row in [0,rows]:continue
                 a=row/rows;theta=math.acos(2*a-1)*(face if face>0 else -1)
-                start=.006 if region==1 else .012
-                def fin(t,p=profile,theta=theta,far=far,start=start):
-                    point=wing_point(p,start+(1-start)*t,theta,far)
+                start=.012
+                def fin(t,p=profile,theta=theta,far=far,start=start,region=region):
+                    point=pectoral_continuation(p,theta,far,t)[0] if region==1 else wing_point(p,start+(1-start)*t,theta,far)
                     return point+normal(t,point)*.009
-                def normal(t,p,profile=profile,theta=theta,far=far,start=start,face=face):
-                    s=min(.9999,start+(1-start)*t)
-                    ds=wing_point(profile,min(1,s+.002),theta,far)-wing_point(profile,max(0,s-.002),theta,far)
-                    dt=wing_point(profile,s,theta+.004,far)-wing_point(profile,s,theta-.004,far)
+                def normal(t,p,profile=profile,theta=theta,far=far,start=start,face=face,region=region):
+                    if region==1:
+                        ds=pectoral_continuation(profile,theta,far,min(1,t+.002))[0]-pectoral_continuation(profile,theta,far,max(0,t-.002))[0]
+                        dt=pectoral_continuation(profile,theta+.004,far,t)[0]-pectoral_continuation(profile,theta-.004,far,t)[0]
+                        s=pectoral_continuation(profile,theta,far,t)[1]
+                    else:
+                        s=min(.9999,start+(1-start)*t)
+                        ds=wing_point(profile,min(1,s+.002),theta,far)-wing_point(profile,max(0,s-.002),theta,far)
+                        dt=wing_point(profile,s,theta+.004,far)-wing_point(profile,s,theta-.004,far)
                     n=ds.cross(dt)
                     if n.length_squared<1e-14:
                         return body_normal(p,1 if far else -1)
@@ -121,10 +150,13 @@ def build_surface_particles(reference,surface,on_body,coordinates,body_weights,w
                     return -n if n.dot(radial)<0 else n
                 edge=row in [0,rows];strength=.66 if edge else .14
                 curve(f'{name}-{face}-{row}',fin,normal,
-                    lambda t,p,name=name,parent=parent,start=start:wing_weights(start+(1-start)*t,name,parent,p),
-                    2 if edge else 1,lambda t,strength=strength:strength*(.20+.8*min(1,t/.16)),spacing=.048)
+                    lambda t,p,name=name,parent=parent,start=start,region=region,profile=profile,theta=theta,far=far:wing_weights(
+                        pectoral_continuation(profile,theta,far,t)[1] if region==1 else start+(1-start)*t,name,parent,p),
+                    2 if edge else 1,lambda t,strength=strength:strength*(.20+.8*min(1,t/.24)),spacing=.048)
     # Very quiet, irregular surface population adds mass between the ordered currents.
-    for _ in range(2100):
+    # The authored collar continuations replace part of the anonymous fill and
+    # keep the final GLB inside the established phone download budget.
+    for _ in range(1500):
         s=.004+rng.random()*.99;q=rng.uniform(-.99,.99);side=-1 if rng.random()<.5 else 1
         p=surface(s,q,side,.010+rng.random()*.004);n=body_normal(p,side)
         add(p,n,body_weights(p.x),.055+rng.random()*.04,0,-1,rng.random(),.52+rng.random()*.20)

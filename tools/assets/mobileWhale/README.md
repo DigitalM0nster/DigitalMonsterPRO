@@ -14,6 +14,8 @@ Shape-preserving cubic interpolation avoids overshoot between reference knots.
 pixels between beads), adds throat meridians, sparse fin rows and a quiet surface
 population. Four light strengths distinguish the main currents from the volume.
 Actual normals and a shared moving light determine the individual highlights.
+Pectoral rows begin as cubic continuations of the body chart before becoming
+fin rows, so their attachment does not draw a transverse particle seam.
 
 `MobileWhale.blend` contains the editable surface, loose-vertex particle cloud,
 13-bone rig and seamless six-second `MobileWhale_CalmSwim` action. The pectoral
@@ -107,22 +109,15 @@ add a blur pass or change the ocean fog. Resize preserves the perspective.
 - One body point draw, one skin surface draw and one wake draw. The surface writes
   depth only at full model opacity and reveal. Transparent skin leaves rear fins
   and particles visible; changing opacity does not rebuild or recompile materials.
-- `mobileWhaleTrail.js` prepares 2,496 points on 52 rigged emission anchors.
-  `whaleWakeFlow.js` derives departure tangents from the existing surface normals
-  and adds twelve near-side anchors with the actual point positions/rig weights.
-  Crest particles shed up/back; sides and fins progressively curve up and into
-  depth. Directions and curves are skinned with their anchors and projected in 3D.
-  Seeded ages, speeds and restrained dispersion keep the flow irregular, with
-  smoothly fading lifetimes. All flow attributes are prepared before Start.
-  The wake transforms skinned positions into ocean-surface space and fades below
-  the existing conservative wave ceiling (`oceanSurfaceClip.js`). The entire sprite
-  disappears before reaching the water, including during whale turns and live
-  ocean edits. Its camera ray is checked at the near water edge too, preventing
-  submerged particles from drawing over the grid in projection. The clip is
-  disabled when the mobile layout hides the ocean.
+- `mobileWhaleTrail.js` restores the original forty spray vectors with forty-eight
+  prepared particles each. Every vector starts from a small distributed source
+  patch rather than one pixel. The complete draw lives in creature space: fin
+  bones, cursor turns, clicks and entrance maneuvers cannot rotate, accelerate,
+  brighten or cull the spray. Seeded ages and dispersion retain the irregular
+  multi-direction fan, and all resources exist before Start.
 - Frame updates change bones and uniforms only. No CPU point skinning, changing
   bitmap texture, buffer upload or resource rebuild is used for swimming.
-- The export contains about 20,500 surface points and is about 719 KB, within
+- The export contains about 20,500 surface points and is about 800 KB, within
   the 800 KB asset budget. These are bounded costs, not measured phone FPS.
 - The contour preview uses the current implementation and retains model/reference,
   overlay, close-up, full view, animation and volume controls. The original-V3

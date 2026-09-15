@@ -262,7 +262,7 @@ test("surface points and independent old wake share one clock without runtime up
 	assert.equal(trail.setMotionActivity,undefined,"the spray has no whale-motion response path");
 	assert.equal(trail.material.uniforms.uMotionEnergy,undefined,"turn energy cannot change spray speed or density");
 	assert.equal(trail.material.uniforms.uFlowTurn,undefined,"spray vectors ignore live body turns");
-	assert.equal(trail.setOceanSurface,undefined,"the old whole-body sprays are not removed by the ocean clip");
+	assert.equal(trail.material.uniforms.uOceanClipEnabled.value,0,"a hidden ocean does not clip mobile spray");
 	trail.applyConfig({spread:1.39});
 	assert.ok(Math.abs(trail.material.uniforms.uSpread.value-1.39*.34)<1e-12,"current panel values preserve the original fan width");
 	assert.ok(!/skinning|uMotionEnergy|uFlowTurn/.test(trail.material.vertexShader),"spray has no live skeletal or turn response");
@@ -275,6 +275,33 @@ test("surface points and independent old wake share one clock without runtime up
  assert.equal(body.depthWrite,false,"transparent glow corners must not occlude later contours");
  assert.equal(body.depthTest,true,"the body still occludes the distant contours");
  body.dispose();trail.geometry.dispose();trail.material.dispose();source.geometry.dispose();source.skeleton.dispose();
+});
+
+test("wake boundary follows transformed ocean and disables on hidden mobile water without uploads",()=>{
+ const {body,shared}=createMobileWhaleMaterials();
+ const trail=createMobileWhaleTrail(shared,null,[{position:[0,0,0]}]);
+ const ocean=new THREE.Group(),parent=new THREE.Group(),camera=new THREE.PerspectiveCamera();
+ parent.position.set(5,4,12);parent.rotation.set(.31,-.02,.1);parent.scale.set(.4,1,.4);
+ parent.add(ocean);ocean.position.x=14;parent.updateMatrixWorld(true);
+ camera.position.set(-11.5,1.5,26.5);camera.updateMatrixWorld(true);
+ trail.position.set(8,-4,-7);trail.rotation.y=-1.24;trail.updateMatrixWorld(true);
+ trail.setOceanSurface(ocean,22);
+ const renderer={getCurrentViewport:target=>target.set(0,0,1920,1080)};
+ const u=trail.material.uniforms,version=trail.material.version,bufferVersion=trail.geometry.attributes.position.version;
+ trail.onBeforeRender(renderer,null,camera);
+ assert.equal(u.uOceanClipEnabled.value,1);
+ const point=new THREE.Vector3(.5,.2,-1);
+ const expected=point.clone().applyMatrix4(trail.matrixWorld);ocean.worldToLocal(expected);
+ assert.ok(point.applyMatrix4(u.uWhaleToOcean.value).distanceTo(expected)<1e-9);
+ assert.ok(u.uCameraOcean.value.distanceTo(ocean.worldToLocal(camera.position.clone()))<1e-9);
+ const first=u.uWhaleToOcean.value.clone();
+ ocean.position.x=-17;parent.rotation.x=.5;trail.onBeforeRender(renderer,null,camera);
+ assert.ok(!first.equals(u.uWhaleToOcean.value),"live ocean tilts and coverage offsets update the clip");
+ ocean.visible=false;trail.onBeforeRender(renderer,null,camera);
+ assert.equal(u.uOceanClipEnabled.value,0);
+ assert.equal(trail.material.version,version);
+ assert.equal(trail.geometry.attributes.position.version,bufferVersion);
+ body.dispose();trail.geometry.dispose();trail.material.dispose();
 });
 
 test("transparent skin reveals rear fins, opaque skin occludes them on the same prepared rig",()=>{

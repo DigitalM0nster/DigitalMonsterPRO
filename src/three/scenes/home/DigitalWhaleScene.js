@@ -15,6 +15,7 @@ import {
 	createOceanSurface,
 	getOceanTileScrollX,
 	resolveOceanTileSlotCount,
+	OCEAN_SURFACE_Z_NEAR,
 } from "./utils/createOceanParticles.js";
 import { applyWhaleVisuals, disposeWhaleRoot, loadAnimatedWhale, rebuildWhaleParticles } from "./utils/loadAnimatedWhale.js";
 import { createWhaleWake } from "./utils/createWhaleWake.js";
@@ -821,6 +822,7 @@ export class DigitalWhaleScene {
 	}
 
 	_applyOceanMaterialConfig(o) {
+		this.whaleTrail?.setOceanSurface(this.oceanSurfaceGroup, OCEAN_SURFACE_Z_NEAR);
 		if (!this.oceanMaterial) {
 			return;
 		}

@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { whaleDepthMistGLSL } from "./whaleComposition.js";
+import { oceanFrontEdgeGlsl } from "../shaders/oceanFrontEdge.glsl.js";
 
 // One prepared point draw. Anchors live in creature space, but deliberately do
 // not inherit fin/tail bones: the detached spray must never steer with a flap.
@@ -10,8 +11,24 @@ class WhaleTrail extends THREE.Points {
    this.position.copy(source.position);this.quaternion.copy(source.quaternion);this.scale.copy(source.scale);
   }
   const viewport=new THREE.Vector4();
-  this.onBeforeRender=renderer=>{renderer.getCurrentViewport(viewport);material.uniforms.uViewportHeight.value=viewport.w;};
+  const inverseOcean=new THREE.Matrix4();
+  this.onBeforeRender=(renderer,scene,camera)=>{
+   renderer.getCurrentViewport(viewport);material.uniforms.uViewportHeight.value=viewport.w;
+   const u=material.uniforms,surface=this.oceanSurface;
+   u.uOceanClipEnabled.value=surface?.visible?1:0;
+   if(surface?.visible){
+    surface.updateWorldMatrix(true,false);
+    inverseOcean.copy(surface.matrixWorld).invert();
+    u.uWhaleToOcean.value.multiplyMatrices(inverseOcean,this.matrixWorld);
+    u.uOceanToWorld.value.copy(surface.matrixWorld);
+    u.uCameraOcean.value.setFromMatrixPosition(camera.matrixWorld).applyMatrix4(inverseOcean);
+   }
+  };
   this.frustumCulled=false;this.renderOrder=5;this.name="Whale / independent wave trails";
+ }
+ setOceanSurface(surface,zNear){
+  this.oceanSurface=surface;
+  this.material.uniforms.uOceanZNear.value=zNear;
  }
 }
 
@@ -41,6 +58,9 @@ export function createMobileWhaleTrail(shared,source,emitters=[],config={}){
   uTime:shared.uTime,
   uEntranceReveal:shared.uEntranceReveal,
   uViewportHeight:{value:679},
+  uOceanClipEnabled:{value:0},uOceanZNear:{value:22},
+  uWhaleToOcean:{value:new THREE.Matrix4()},uOceanToWorld:{value:new THREE.Matrix4()},
+  uCameraOcean:{value:new THREE.Vector3()},
   uColor:{value:new THREE.Color(config.color??"#38d4ff")},
   uOpacity:{value:1},uGlow:{value:3.4},uParticleDensity:{value:.5},uPointScale:{value:1},
   uTrailSpeed:{value:.05},uFlowX:{value:.84},uFlowY:{value:.36},uSpread:{value:.64},uWander:{value:1},
@@ -51,10 +71,14 @@ export function createMobileWhaleTrail(shared,source,emitters=[],config={}){
   vertexShader:`
    #include <common>
    uniform float uTime,uViewportHeight,uParticleDensity,uPointScale,uTrailSpeed,uFlowX,uFlowY,uSpread,uWander;
+   uniform float uOceanClipEnabled,uOceanZNear;
+   uniform mat4 uWhaleToOcean,uOceanToWorld;
+   uniform vec3 uCameraOcean;
    attribute vec4 aSeed;
    attribute vec3 aOriginOffset;
    varying float vLight;
    ${whaleDepthMistGLSL}
+   ${oceanFrontEdgeGlsl}
    void main(){
     float visible=step(aSeed.y,uParticleDensity);
     #include <begin_vertex>
@@ -85,6 +109,18 @@ export function createMobileWhaleTrail(shared,source,emitters=[],config={}){
     float pixels=.019*uViewportHeight*projectionMatrix[1][1]*length(modelViewMatrix[0].xyz)*uPointScale;
     if(isPerspectiveMatrix(projectionMatrix))pixels/=max(.001,-viewPosition.z);
     gl_PointSize=clamp(pixels*(.58+.6*aSeed.w)*visible,1.2*visible,8.);
+    // Mask only at the visible foreground contour, using the ocean's own
+    // height curve. No broad depth ceiling that erases body emission sites.
+    vec3 oceanPosition=(uWhaleToOcean*vec4(transformed,1.)).xyz;
+    if(uOceanClipEnabled>.5 && uCameraOcean.z>uOceanZNear && oceanPosition.z<uCameraOcean.z-.001){
+     float edgeT=(uCameraOcean.z-uOceanZNear)/(uCameraOcean.z-oceanPosition.z);
+     vec3 edge=mix(uCameraOcean,oceanPosition,edgeT);
+     float worldX=(uOceanToWorld*vec4(edge.x,0.,uOceanZNear,1.)).x;
+     float ceiling=oceanFrontHeight(worldX)-.08;
+     float underwater=1.-smoothstep(ceiling-.22,ceiling,edge.y);
+     vLight*=underwater;
+     gl_PointSize*=underwater;
+    }
    }`,
   fragmentShader:`uniform vec3 uColor;uniform float uOpacity,uGlow,uEntranceReveal;varying float vLight;
    void main(){float r2=dot(gl_PointCoord-.5,gl_PointCoord-.5);if(r2>.25)discard;

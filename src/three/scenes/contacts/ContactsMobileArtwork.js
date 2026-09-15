@@ -143,7 +143,9 @@ export class ContactsMobileArtwork {
   this.root.translateX(((box.left+box.right-width)/2+camera.projectionMatrix.elements[8]*width/2)*unit);
   this.root.translateY(((height-box.top-box.bottom)/2+camera.projectionMatrix.elements[9]*height/2+progress*height*.14)*unit);
   this.root.translateZ(-depth);
-  const size=Math.max(45,Math.min((box.right-box.left)*.60,(box.bottom-box.top)*.87));
+  const widthFill=layout?.portrait?.78:.68;
+  const heightFill=layout?.portrait?.96:.91;
+  const size=Math.max(45,Math.min((box.right-box.left)*widthFill,(box.bottom-box.top)*heightFill));
   this.root.scale.setScalar(size*unit/2);
   this.root.visible=true;
  }

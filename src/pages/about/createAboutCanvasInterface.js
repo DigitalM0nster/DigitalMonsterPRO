@@ -3,6 +3,7 @@ import { store } from "@/app/store.jsx";
 import { getAboutPanelCopy, normalizeAboutPanelListItem } from "./aboutPanelCopy.js";
 import { resolveAboutResponsiveLayout } from "./aboutResponsiveLayout.js";
 import { yieldToPreparationFrame } from "@/three/app/preparationFrame.js";
+import { addHudExitGlyph } from "@/three/objects/sceneHud/addHudExitGlyph.js";
 
 function chapterRows(copy) {
 	const canvas = document.createElement("canvas"), ctx = canvas.getContext("2d");
@@ -35,10 +36,11 @@ export async function createAboutCanvasInterface(renderer) {
 	await document.fonts.load('400 16px MazzardM');
 	const ui = new SceneCanvasInterface("about", renderer); ui.reading = false; ui.chapter = 0; ui.scrollY = 0;
 	const close = () => { ui.reading = false; ui.scrollY = 0; };
-	ui.text("read", { ru: "ЧИТАТЬ О СТУДИИ  ↗", en: "READ OUR STORY  ↗", zh: "了解工作室  ↗" },
+	ui.text("read", { ru: "ЧИТАТЬ О СТУДИИ", en: "READ OUR STORY", zh: "了解工作室" },
 		{ size: 14, width: 220, height: 44, action: () => {
 			ui.chapter = Math.min(2, Math.floor((store.aboutExperience.storyProgress || 0) + 6 / 7)); ui.reading = true; ui.scrollY = 0;
 		} });
+	addHudExitGlyph(ui, "readArrow");
 	ui.text("cue", { ru: "ЛИСТАЙТЕ ВНИЗ  ↓", en: "SCROLL DOWN  ↓", zh: "向下滚动  ↓" }, { size: 12, width: 170, height: 28, align: "right" });
 	ui.add("readRule"); ui.add("shade"); ui.add("panel"); ui.add("edge");
 	ui.text("close", { ru: "ЗАКРЫТЬ  ×", en: "CLOSE  ×", zh: "关闭  ×" }, { size: 14, width: 132, height: 44, align: "right", action: close });
@@ -67,6 +69,7 @@ export async function createAboutCanvasInterface(renderer) {
 		if (!layout) { close(); return; }
 		const locale = store.siteLocale || "ru";
 		ui.place("read", layout.x, layout.actionY, 220, 44, { key: locale });
+		ui.place("readArrow", layout.x + 184, layout.actionY + 9, 24, 24, { key: "default", color: 0x76e6ff });
 		ui.place("readRule", layout.x, layout.actionY + 43, 176, 1, { color: 0x00a9ff });
 		if (ui.width > 420) ui.place("cue", ui.width - 194, layout.actionY + 8, 170, 28, { key: locale });
 		if (!ui.reading) return;

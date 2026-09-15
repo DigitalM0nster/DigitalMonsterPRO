@@ -4,6 +4,7 @@ import { contactsInteraction, focusContactsChannel } from "./contactsInteraction
 import { resolveContactsResponsiveLayout } from "@/three/scenes/contacts/contactsResponsiveLayout.js";
 import { store } from "@/app/store.jsx";
 import { Vector4 } from "three";
+import { addHudExitGlyph } from "@/three/objects/sceneHud/addHudExitGlyph.js";
 
 const activeChannel = () => contactsInteraction.mobileIndex;
 
@@ -35,12 +36,19 @@ export function createContactsCanvasInterface(renderer) {
  // Every channel/locale variant is painted and uploaded before Start.
  const actions = {};
  for (const locale of ["ru","en","zh"]) for (const [i, channel] of CONTACTS_CHANNELS.entries()) {
-  actions[`${locale}:${i}`] = `${({ru:"ОТКРЫТЬ",en:"OPEN",zh:"打开"})[locale]} ${channel.label.toUpperCase()} ↗`;
+  actions[`${locale}:${i}`] = `${({ru:"ПЕРЕЙТИ В",en:"GO TO",zh:"前往"})[locale]} ${channel.label.toUpperCase()}`;
  }
  hudText(ui,"open",actions,{size:14,spacing:2.2,width:400,align:"center",
   action: () => window.open(CONTACTS_CHANNELS[activeChannel()].href, "_blank", "noopener,noreferrer") });
- for (let i=0;i<8;i++)ui.add(`corner${i}`);
- ui.add("open-rule");
+ ui.add("open-frame",{width:400,height:60,values:{default:""},paint(ctx,value,w,h){
+  ctx.strokeStyle="rgba(255,255,255,.34)";ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(13,.5);ctx.lineTo(w-13,.5);ctx.lineTo(w-.5,13);ctx.lineTo(w-.5,h-13);
+  ctx.lineTo(w-13,h-.5);ctx.lineTo(13,h-.5);ctx.lineTo(.5,h-13);ctx.lineTo(.5,13);ctx.closePath();ctx.stroke();
+  ctx.strokeStyle="rgba(255,255,255,.95)";ctx.beginPath();ctx.moveTo(13,.5);ctx.lineTo(w*.34,.5);
+  ctx.moveTo(w*.66,h-.5);ctx.lineTo(w-13,h-.5);ctx.stroke();
+  ctx.fillStyle="rgba(255,255,255,.9)";ctx.fillRect(6,h/2-1,2,2);ctx.fillRect(w-8,h/2-1,2,2);
+ }});
+ addHudExitGlyph(ui,"open-arrow");
  for (const [i, channel] of CONTACTS_CHANNELS.entries()) {
   hudText(ui,`channel${i}`, { default: channel.label.toUpperCase() }, {
    ariaLabel: `Выбрать ${channel.label}`, action: () => focusContactsChannel(i) });
@@ -54,16 +62,12 @@ export function createContactsCanvasInterface(renderer) {
   const titleWidth=Math.min(l.titleWidth,l.titleHeight*3.8);
   ui.place("title",l.titleX+(l.titleWidth-titleWidth)/2,l.titleY,titleWidth,titleWidth/3.8,{key:store.siteLocale});
   const cta=ui.elements.get("open"),ctaKey=`${store.siteLocale}:${selected}`;
-  const ctaScale=Math.min(1,(l.buttonWidth-34)/(cta.inkWidths.get(actions[ctaKey])||340));
-  ui.place("open",l.buttonX+(l.buttonWidth-400*ctaScale)/2,l.buttonY+(l.buttonHeight-cta.height*ctaScale)/2,400*ctaScale,cta.height*ctaScale,
+  const ctaScale=Math.min(1,(l.buttonWidth-72)/(cta.inkWidths.get(actions[ctaKey])||340));
+  const labelWidth=400*ctaScale;
+  ui.place("open",l.buttonX+(l.buttonWidth-labelWidth-26)/2,l.buttonY+(l.buttonHeight-cta.height*ctaScale)/2,labelWidth,cta.height*ctaScale,
    {key:ctaKey,color:0xc4edff,hitRect:cta.bounds.set(l.buttonX,l.buttonY,l.buttonWidth,l.buttonHeight)});
-  let corner=0;
-  for(const [x,y,sx,sy] of [[l.buttonX,l.buttonY,1,1],[l.buttonX+l.buttonWidth,l.buttonY,-1,1],
-   [l.buttonX,l.buttonY+l.buttonHeight,1,-1],[l.buttonX+l.buttonWidth,l.buttonY+l.buttonHeight,-1,-1]]){
-   ui.place(`corner${corner++}`,x+(sx<0?-12:0),y,12,1,{color:0x3ec9ff,opacity:.85});
-   ui.place(`corner${corner++}`,x,y+(sy<0?-8:0),1,8,{color:0x3ec9ff,opacity:.85});
-  }
-  ui.place("open-rule",l.buttonX+20,l.buttonY+l.buttonHeight,l.buttonWidth-40,1,{color:0x23516a,opacity:.65});
+  ui.place("open-frame",l.buttonX,l.buttonY,l.buttonWidth,l.buttonHeight,{key:"default",color:0x26bff5,opacity:.9});
+  ui.place("open-arrow",l.buttonX+l.buttonWidth-42,l.buttonY+(l.buttonHeight-24)/2,24,24,{key:"default",color:0x7ee8ff});
   for (let i=0;i<CONTACTS_CHANNELS.length;i++) {
    const colWidth=l.listWidth/2, x=l.listX+(i%2)*colWidth, y=l.listY+Math.floor(i/2)*l.rowHeight;
    const selectedRow=selected===i;

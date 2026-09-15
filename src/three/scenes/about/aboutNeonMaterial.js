@@ -12,6 +12,7 @@ export function createAboutNeonMaterial(cfg = {}) {
 		uPulse: { value: cfg.pulse ?? 0.2 },
 		uPulseSpeed: { value: cfg.pulseSpeed ?? 1.8 },
 		uOpacity: { value: cfg.opacity ?? 1 },
+		uCompact: { value: 0 },
 		uTime: { value: 0 },
 	};
 
@@ -38,12 +39,13 @@ export function createAboutNeonMaterial(cfg = {}) {
 			uniform float uPulse;
 			uniform float uPulseSpeed;
 			uniform float uOpacity;
+			uniform float uCompact;
 			uniform float uTime;
 			varying vec3 vWorldPos;
 
 			void main() {
 				float pulse = 1.0 + uPulse * sin(uTime * uPulseSpeed + vWorldPos.x * 4.0 + vWorldPos.y * 2.5);
-				vec3 col = mix(uColor, uCoreColor, 0.35) * uIntensity * pulse;
+				vec3 col = mix(uColor, uCoreColor, 0.35) * uIntensity * pulse * mix(1.0, 0.52, uCompact);
 				gl_FragColor = vec4(col, uOpacity);
 			}
 		`,

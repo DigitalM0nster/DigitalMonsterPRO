@@ -21,7 +21,7 @@ function fixture(width, height) {
 	return { camera, hotspots };
 }
 
-test("compact crane circles stay on actual projected anchors; obscured or offscreen circles cannot be picked", () => {
+test("compact crane circles retain actual anchors and clamp their visible indicators inside the safe viewport", () => {
 	for (const [width, height] of viewports) {
 		const { camera, hotspots } = fixture(width, height);
 		const anchors = hotspots.markers.map(marker => marker.userData.anchor.toArray());
@@ -29,19 +29,18 @@ test("compact crane circles stay on actual projected anchors; obscured or offscr
 			hotspots.selectedId = selectedId; hotspots._layoutMarkers(camera);
 			for (const marker of hotspots.markers) {
 				const projected = marker.userData.anchor.clone().project(camera);
-				assert.ok(projected.distanceTo(marker.userData.screenAnchor) < 1e-9, `${width}×${height}: anchor was displaced`);
-				if (marker.userData.layoutVisible === false) {
-					assert.notEqual(hotspots._pickMarker(camera, projected, width, height), marker, "a culled circle has no ghost hit area");
-				} else {
-					marker.userData.magnetOffset.set(9, 0); hotspots._positionMarker(marker, camera);
-					const displayed = marker.position.clone().project(camera);
-					assert.ok(Math.abs((displayed.x - projected.x) * width / 2 - 9) < 1e-7);
-					marker.userData.magnetOffset.set(0, 0);
-				}
+				assert.ok(projected.distanceTo(marker.userData.projectedAnchor) < 1e-9, `${width}×${height}: 3D anchor changed`);
+				assert.equal(marker.userData.layoutVisible, true);
+				const displayed = marker.userData.screenAnchor;
+				assert.ok(displayed.x >= -1 && displayed.x <= 1 && displayed.y >= -1 && displayed.y <= 1);
+				marker.userData.magnetOffset.set(9, 0); hotspots._positionMarker(marker, camera);
+				const magnetized = marker.position.clone().project(camera);
+				assert.ok(Math.abs((magnetized.x - displayed.x) * width / 2 - 9) < 1e-7);
+				marker.userData.magnetOffset.set(0, 0);
 			}
 		}
 		assert.deepEqual(hotspots.markers.map(marker => marker.userData.anchor.toArray()), anchors);
-		assert.equal(hotspots.markers[2].userData.layoutVisible, false, "offscreen detail stays offscreen");
+		assert.equal(hotspots.markers[2].userData.layoutVisible, true, "offscreen detail keeps an edge indicator");
 		hotspots.dispose();
 	}
 });

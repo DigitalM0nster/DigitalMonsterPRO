@@ -444,7 +444,11 @@ export class InfiniteLightTrailsWorld {
 			&& frame?.interactionEnabled !== false && !frame?.pointerBlocked && !this._warming;
 		// Passive motion follows the viewport signal over HTML menus too. Scene
 		// clicks still require the owned interaction pointer and its Y-band.
-		const visualPointer = frame?.visualPointer ?? frame?.pointer;
+		// On touch screens the moving world follows the physical screen tilt. A
+		// finger remains a tap/gesture input and never steers the flight path.
+		const visualPointer = frame?.inputKind === "touch"
+			? (frame?.deviceTilt ?? { x: 0, y: 0 })
+			: (frame?.visualPointer ?? frame?.pointer);
 		const steeringEnabled = !this._pointerOutside && !this._warming
 			&& (frame?.visualPointer != null || clickEnabled);
 		// The camera retains the last owned cursor target. Its orientation is

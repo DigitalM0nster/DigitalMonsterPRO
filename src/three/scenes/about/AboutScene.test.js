@@ -14,26 +14,36 @@ const AboutScene = vm.runInNewContext(`${source}\nAboutScene`, {
 	setAboutDissolveProgress: (u, p) => { if (u?.uDissolve) u.uDissolve.value = p; },
 });
 
-test("compact glass exposure updates both prepared plates and restores desktop and Low", () => {
+test("compact material exposure updates prepared emissive surfaces and restores desktop", () => {
 	const scene = Object.create(AboutScene.prototype);
 	const front = { uniforms: { uCompact: { value: 0 } } };
 	const back = { uniforms: { uCompact: { value: 0 } } };
-	scene._materialsByKey = { frontGlass: front };
+	const heart = { uniforms: { uCompact: { value: 0 } } };
+	const neon = { uniforms: { uCompact: { value: 0 } } };
+	const cell = { uniforms: { uCompact: { value: 0 } } };
+	const seam = { uniforms: { uCompact: { value: 0 } } };
+	scene._materialsByKey = { frontGlass: front, heartBody: heart, NeonMaterial: neon, outerCell: cell, OuterCellSeam: seam };
 	scene._backPlate = { material: back };
 	scene.store = { graphicsTier: "high" };
 	scene._viewport = { width: 390, height: 664 };
 	scene._syncCompactGlass();
 	assert.equal(front.uniforms.uCompact.value, 1);
 	assert.equal(back.uniforms.uCompact.value, 1);
+	assert.equal(heart.uniforms.uCompact.value, 1);
+	assert.equal(neon.uniforms.uCompact.value, 1);
+	assert.equal(cell.uniforms.uCompact.value, 1);
+	assert.equal(seam.uniforms.uCompact.value, 1);
 	scene.store.graphicsTier = "low";
 	scene._syncCompactGlass();
-	assert.equal(front.uniforms.uCompact.value, 0);
-	assert.equal(back.uniforms.uCompact.value, 0);
+	assert.equal(front.uniforms.uCompact.value, 1);
+	assert.equal(back.uniforms.uCompact.value, 1);
 	scene.store.graphicsTier = "medium";
 	scene._viewport = { width: 1920, height: 1080 };
 	scene._syncCompactGlass();
 	assert.equal(front.uniforms.uCompact.value, 0);
 	assert.equal(back.uniforms.uCompact.value, 0);
+	assert.equal(heart.uniforms.uCompact.value, 0);
+	assert.equal(neon.uniforms.uCompact.value, 0);
 });
 
 test("fully dissolved shell skips drawing, warms when hidden and returns intact on reverse", () => {

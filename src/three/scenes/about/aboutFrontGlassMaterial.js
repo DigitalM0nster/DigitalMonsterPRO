@@ -162,30 +162,38 @@ export function createAboutFrontGlassMaterial(cfg = {}) {
 				// One FBM call site keeps the driver's cold compiler from expanding
 				// five copies of the same five-octave noise. Preserve field order:
 				// both warp components must exist before the two filament fields.
-				vec2 warp = vec2(0.0);
-				float n1 = 0.0, n2 = 0.0, rimField = 0.0;
-				for (int fieldIndex = 0; fieldIndex < 5; fieldIndex++) {
-					vec2 sampleUv = eUv + vec2(t * 0.15, -t * 0.08);
-					if (fieldIndex == 1) sampleUv = eUv * 1.3 + vec2(-t * 0.1, t * 0.12);
-					else if (fieldIndex == 2) sampleUv = eUv * 1.4 + warp * 1.8;
-					else if (fieldIndex == 3) sampleUv = eUv * 2.6 - warp.yx * 1.2 + vec2(t * 0.05, 0.0);
-					else if (fieldIndex == 4) sampleUv = plateUv * 14.0 + t * 0.2;
-					float field = fbm(sampleUv);
-					if (fieldIndex < 2) warp[fieldIndex] = field;
-					else if (fieldIndex == 2) n1 = field;
-					else if (fieldIndex == 3) n2 = field;
-					else rimField = field;
+				float energy = 0.0;
+				float rimNoise = 1.0;
+				if (uCompact > 0.5) {
+					// Compact screens cannot resolve the five-field domain warp, and
+					// paying for it at phone fill rates caused the About frame drop.
+					float field = noise(eUv * 1.45 + vec2(t * 0.11, -t * 0.07));
+					float ridge = 1.0 - smoothstep(0.055, 0.31, abs(field * 2.0 - 1.0));
+					energy = ridge * uEnergyOpacity * mix(0.28, 0.82, fresnel);
+					rimNoise = mix(0.78, 1.12, noise(plateUv * 9.0 + t * 0.08));
+				} else {
+					vec2 warp = vec2(0.0);
+					float n1 = 0.0, n2 = 0.0, rimField = 0.0;
+					for (int fieldIndex = 0; fieldIndex < 5; fieldIndex++) {
+						vec2 sampleUv = eUv + vec2(t * 0.15, -t * 0.08);
+						if (fieldIndex == 1) sampleUv = eUv * 1.3 + vec2(-t * 0.1, t * 0.12);
+						else if (fieldIndex == 2) sampleUv = eUv * 1.4 + warp * 1.8;
+						else if (fieldIndex == 3) sampleUv = eUv * 2.6 - warp.yx * 1.2 + vec2(t * 0.05, 0.0);
+						else if (fieldIndex == 4) sampleUv = plateUv * 14.0 + t * 0.2;
+						float field = fbm(sampleUv);
+						if (fieldIndex < 2) warp[fieldIndex] = field;
+						else if (fieldIndex == 2) n1 = field;
+						else if (fieldIndex == 3) n2 = field;
+						else rimField = field;
+					}
+					float ridges = abs(n1 * 2.0 - 1.0);
+					ridges = 1.0 - smoothstep(0.02, 0.28, ridges);
+					float veil = smoothstep(0.35, 0.85, n2);
+					float filaments = ridges * (0.45 + veil * 0.9);
+					filaments *= mix(0.35, 1.35, fresnel) * (0.55 + face * 0.6);
+					energy = filaments * uEnergyOpacity;
+					rimNoise = mix(0.65, 1.35, rimField);
 				}
-				float ridges = abs(n1 * 2.0 - 1.0);
-				ridges = 1.0 - smoothstep(0.02, 0.28, ridges);
-				float veil = smoothstep(0.35, 0.85, n2);
-				float filaments = ridges * (0.45 + veil * 0.9);
-				// Stronger near rims / bevels, softer on flat face.
-				filaments *= mix(0.35, 1.35, fresnel) * (0.55 + face * 0.6);
-				float energy = filaments * uEnergyOpacity;
-
-				// Noisy rim break-up (etched / plasma edge, not a clean outline).
-				float rimNoise = mix(0.65, 1.35, rimField);
 				float rim = fresnel * rimNoise;
 
 				float volume = mix(uThickness * 0.18, 1.05, fresnel);
@@ -195,12 +203,13 @@ export function createAboutFrontGlassMaterial(cfg = {}) {
 
 				// Preserve the edge shape/occlusion while keeping compact bloom from
 				// swallowing the glass face and thin etched details.
-				col += uRimColor * rim * uRimIntensity * mix(1.0, 0.5, uCompact);
+				float compactGain = mix(1.0, 0.28, uCompact);
+				col += uRimColor * rim * uRimIntensity * compactGain;
 				col += uRimColor * face * uInnerGlow * 0.25;
-				col += uRimColor * energy * (1.25 + rim * 0.6);
-				col += uRimColor * grid * 0.8;
-				col += vec3(0.7, 0.92, 1.0) * speck;
-				col += vec3(0.95, 0.98, 1.0) * spec;
+				col += uRimColor * energy * (1.25 + rim * 0.6) * mix(1.0, 0.58, uCompact);
+				col += uRimColor * grid * 0.8 * mix(1.0, 0.65, uCompact);
+				col += vec3(0.7, 0.92, 1.0) * speck * mix(1.0, 0.55, uCompact);
+				col += vec3(0.95, 0.98, 1.0) * spec * mix(1.0, 0.5, uCompact);
 
 				float bodyAlpha = mix(uFaceOpacity, uOpacity * 0.55, fresnel);
 				float alpha = clamp(

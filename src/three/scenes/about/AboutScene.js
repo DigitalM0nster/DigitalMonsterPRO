@@ -731,9 +731,15 @@ export class AboutScene {
 	}
 
 	_syncCompactGlass() {
-		const compact = (this._viewport.width <= 1024 || this._viewport.height <= 600)
-			&& this.store.graphicsTier !== "low";
-		for (const material of [this._materialsByKey?.frontGlass, this._backPlate?.material]) {
+		const compact = this._viewport.width <= 1024 || this._viewport.height <= 600;
+		for (const material of [
+			this._materialsByKey?.frontGlass,
+			this._backPlate?.material,
+			this._materialsByKey?.heartBody,
+			this._materialsByKey?.NeonMaterial,
+			this._materialsByKey?.outerCell,
+			this._materialsByKey?.OuterCellSeam,
+		]) {
 			const uniform = material?.uniforms?.uCompact;
 			if (uniform) uniform.value = compact ? 1 : 0;
 		}

@@ -166,6 +166,7 @@ export class DigitalMonsterThreeApp {
 			getViewportPointer: () => this.viewportPointer,
 			getVisualPointer: () => resolveVisualPointer(this._inputKind, this.pointerDown, this.viewportPointer),
 			getDeviceTilt: () => this.startApp ? this.deviceTilt.getCameraPointer(this._inputKind) : null,
+			getInputKind: () => this._inputKind,
 			getPointerDown: () => this.pointerDown,
 			getPointerBlocked: () => this.pointerBlocked,
 			gfx,

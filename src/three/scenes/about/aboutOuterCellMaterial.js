@@ -28,6 +28,7 @@ export function createAboutOuterCellMaterial(cfg = {}) {
 		uFiberIntensity: { value: cfg.fiberIntensity ?? 4.2 },
 		/** 0 = never, 1 = always, 2 = aRib attribute */
 		uFibersMode: { value: fibersMode === "always" ? 1 : fibersMode === "attrib" ? 2 : 0 },
+		uCompact: { value: 0 },
 		uTime: { value: 0 },
 		...createAboutDissolveUniforms(cfg.dissolve ?? {}),
 	};
@@ -75,6 +76,7 @@ export function createAboutOuterCellMaterial(cfg = {}) {
 			uniform float uFiberDensity;
 			uniform float uFiberIntensity;
 			uniform float uFibersMode;
+			uniform float uCompact;
 			uniform float uTime;
 
 			varying vec3 vWorldNormal;
@@ -156,7 +158,8 @@ export function createAboutOuterCellMaterial(cfg = {}) {
 				col = mix(col, uSheenColor, 0.08 + ndotl * 0.12);
 				col += uSheenColor * sheen * 0.55;
 				/** Subtle rim on clean plate body. */
-				col += uRimColor * fresnel * uRimIntensity * 0.22 * (1.0 - seamMask);
+				float compactGain = mix(1.0, 0.6, uCompact);
+				col += uRimColor * fresnel * uRimIntensity * 0.22 * (1.0 - seamMask) * compactGain;
 
 				/** Microchips on OuterCellSeam (authored) / aRib seams. */
 				if (seamMask > 0.5) {
@@ -175,8 +178,8 @@ export function createAboutOuterCellMaterial(cfg = {}) {
 					float f1 = irregularFibers(fiberUv, uFiberScale, uFiberDensity);
 					float f2 = irregularFibers(fiberUv.yx * 1.13 + 0.37, uFiberScale * 1.35, uFiberDensity * 0.8);
 					float fibers = max(f1, f2 * 0.75) * seamMask;
-					col += uFiberColor * fibers * uFiberIntensity;
-					col += vec3(0.85, 0.97, 1.0) * fibers * uFiberIntensity * 0.55;
+					col += uFiberColor * fibers * uFiberIntensity * compactGain;
+					col += vec3(0.85, 0.97, 1.0) * fibers * uFiberIntensity * 0.55 * compactGain;
 				}
 
 				/** Stable surface UV — must not scramble hexTransition tiling. */

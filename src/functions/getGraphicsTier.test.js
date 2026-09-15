@@ -19,10 +19,11 @@ test("Low retains its pixel budget and invalid device ratios fall back safely", 
 	}
 });
 
-test("mobile always follows native DPR up to five in every tier", () => {
+test("mobile scene buffers retain tier DPR caps", () => {
 	for (const tier of ["low", "medium", "high"]) {
-		for (const [device, expected] of [[1, 1], [2, 2], [3, 3], [4, 4], [5, 5], [6, 5]]) {
-			assert.equal(resolveRendererPixelRatio(tier, device, true), expected, `${tier}, mobile DPR ${device}`);
+		const cap = tier === "low" ? 1 : 2;
+		for (const device of [1, 2, 3, 4, 5, 6]) {
+			assert.equal(resolveRendererPixelRatio(tier, device, true), Math.min(device, cap), `${tier}, mobile DPR ${device}`);
 		}
 		for (const device of [NaN, Infinity, 0, -1]) {
 			assert.equal(resolveRendererPixelRatio(tier, device, true), 1);

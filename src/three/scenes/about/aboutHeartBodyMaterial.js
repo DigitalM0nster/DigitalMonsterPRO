@@ -22,6 +22,7 @@ export function createAboutHeartBodyMaterial(cfg = {}) {
 		uSpeckOpacity: { value: cfg.speckOpacity ?? 0.55 },
 		uEnergyOpacity: { value: cfg.energyOpacity ?? 0.22 },
 		uEnergySpeed: { value: cfg.energySpeed ?? 0.35 },
+		uCompact: { value: 0 },
 		uTime: { value: 0 },
 	};
 
@@ -67,6 +68,7 @@ export function createAboutHeartBodyMaterial(cfg = {}) {
 			uniform float uSpeckOpacity;
 			uniform float uEnergyOpacity;
 			uniform float uEnergySpeed;
+			uniform float uCompact;
 			uniform float uTime;
 
 			varying vec3 vWorldNormal;
@@ -152,12 +154,13 @@ export function createAboutHeartBodyMaterial(cfg = {}) {
 
 				vec3 col = uColor;
 				col = mix(col, uSheenColor, (0.12 + ndotl * 0.12) * mix(0.35, 1.0, outerMask));
-				col += uSheenColor * sheen * 0.85;
-				col += uTraceColor * (grid * 0.55 + traces * 1.1);
-				col += vec3(0.7, 0.9, 1.0) * speck * 0.9;
-				col += iri * uRimIntensity;
-				col += uRimColor * fresnel * uRimIntensity * 0.35 * outerMask;
-				col += uTraceColor * energy;
+				float compactGain = mix(1.0, 0.58, uCompact);
+				col += uSheenColor * sheen * 0.85 * compactGain;
+				col += uTraceColor * (grid * 0.55 + traces * 1.1) * compactGain;
+				col += vec3(0.7, 0.9, 1.0) * speck * 0.9 * compactGain;
+				col += iri * uRimIntensity * compactGain;
+				col += uRimColor * fresnel * uRimIntensity * 0.35 * outerMask * compactGain;
+				col += uTraceColor * energy * compactGain;
 
 				gl_FragColor = vec4(col, 1.0);
 			}

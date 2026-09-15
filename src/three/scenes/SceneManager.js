@@ -67,6 +67,7 @@ export class SceneManager {
 		this.getViewportPointer = options.getViewportPointer ?? this.getPointer;
 		this.getVisualPointer = options.getVisualPointer ?? this.getViewportPointer;
 		this.getDeviceTilt = options.getDeviceTilt ?? (() => null);
+		this.getInputKind = options.getInputKind ?? (() => "mouse");
 		this.getPointerDown = options.getPointerDown ?? (() => false);
 		this.getPointerBlocked = options.getPointerBlocked ?? (() => false);
 		this.gfx = options.gfx ?? {
@@ -414,6 +415,7 @@ export class SceneManager {
 			// interaction frame may zero `pointer`, but never this viewport signal.
 			visualPointer: this.getVisualPointer(),
 			deviceTilt: this.getDeviceTilt(),
+			inputKind: this.getInputKind(),
 			pointerDown: this.getPointerDown(),
 			pointerBlocked: this.getPointerBlocked(),
 			viewportWidth: Math.floor(cssW * dpr),

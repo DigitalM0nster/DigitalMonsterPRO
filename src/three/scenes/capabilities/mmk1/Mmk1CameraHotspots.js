@@ -84,6 +84,7 @@ export class Mmk1CameraHotspots {
 			sprite.userData.rotationPhase = [0, 2.7, 6.3, 8.4][index];
 			sprite.userData.anchor = new THREE.Vector3().fromArray(definition.point);
 			sprite.userData.screenAnchor = new THREE.Vector3();
+			sprite.userData.projectedAnchor = new THREE.Vector3();
 			sprite.userData.magnetOffset = new THREE.Vector2();
 			sprite.userData.magnetVelocity = new THREE.Vector2();
 			this.group.add(sprite);
@@ -234,7 +235,7 @@ export class Mmk1CameraHotspots {
 			const marker = this.markers[index];
 			this.projected.copy(marker.userData.anchor).project(camera);
 			const inDepth = this.projected.z >= -1 && this.projected.z <= 1;
-			// Never clamp/reassign an anchor: every circle stays on its crane detail.
+			marker.userData.projectedAnchor.copy(this.projected);
 			marker.userData.screenAnchor.copy(this.projected);
 			const x = (this.projected.x + 1) * width * .5, y = (1 - this.projected.y) * height * .5;
 			let fits = inDepth && x >= left + padding && x <= width - right - padding
@@ -252,6 +253,18 @@ export class Mmk1CameraHotspots {
 					const point = other.userData.screenAnchor;
 					if (Math.hypot((point.x - this.projected.x) * width * .5, (point.y - this.projected.y) * height * .5) < 72) fits = false;
 				}
+			}
+			if (adapted && inDepth) {
+				// Compact close-ups can project distant crane details beyond the
+				// viewport. Keep their circles as edge indicators instead of fading
+				// them away; the original 3D anchor remains in projectedAnchor.
+				const minX = -1 + 2 * padding / width;
+				const maxX = 1 - 2 * padding / width;
+				const minY = -1 + 2 * (bottom + padding) / height;
+				const maxY = 1 - 2 * (top + padding) / height;
+				marker.userData.screenAnchor.x = THREE.MathUtils.clamp(this.projected.x, minX, maxX);
+				marker.userData.screenAnchor.y = THREE.MathUtils.clamp(this.projected.y, minY, maxY);
+				fits = true;
 			}
 			marker.userData.layoutVisible = fits;
 			marker.visible = inDepth && (fits || marker.material.opacity > .002);

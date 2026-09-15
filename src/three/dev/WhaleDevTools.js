@@ -9,9 +9,19 @@ import {
 } from "./devPanelHotkeys.js";
 
 const HOTKEY = "w";
-const STORAGE_KEY = "digitalMonster.whaleDevPanel.v1";
+const STORAGE_KEY = "digitalMonster.whaleDevPanel.v2";
 
 const FIELD_SECTIONS = [
+	{
+		title: "Появление существа",
+		description: "X: − влево, + вправо. Y: − вниз, + вверх. Глубина отодвигает существо от камеры.",
+		fields: [
+			["enter.startX", -2, 2, 0.01, "Старт X"],
+			["enter.startY", -1.5, 1.5, 0.01, "Старт Y"],
+			["enter.depth", 0, 80, 0.5, "Глубина старта"],
+			["enter.durationSec", 0.5, 20, 0.1, "Длительность, сек"],
+		],
+	},
 	{
 		title: "Положение существа",
 		fields: [
@@ -27,7 +37,8 @@ const FIELD_SECTIONS = [
 	{
 		title: "Поверхность модели",
 		fields: [
-			["modelOpacity", 0, 1, 0.01],
+			["modelOpacity", 0, 1, 0.01, "Прозрачность модели"],
+			["modelColor", "color"],
 		],
 	},
 	{
@@ -36,7 +47,7 @@ const FIELD_SECTIONS = [
 			["pointScale", 0.2, 24, 0.05],
 			["particleDensity", 0.1, 1, 0.01],
 			["particleScale", 0.2, 3, 0.01],
-			["opacity", 0, 1, 0.01],
+			["opacity", 0, 1, 1],
 			["emissiveIntensity", 0, 30, 0.1],
 			["glowPulseMax", 0.5, 16, 0.1],
 			["colorTint", "color"],
@@ -69,17 +80,18 @@ const FIELD_SECTIONS = [
 function formatSection(section) {
 	return `<section class="section">
 		<p class="sectionTitle">${section.title}</p>
+		${section.description ? `<p class="legend">${section.description}</p>` : ""}
 		${section.fields.map((field) => {
-			const [key, typeOrMin, max, step] = field;
+			const [key, typeOrMin, max, step, label = key] = field;
 			if (typeOrMin === "color") {
 				return `<div class="field" data-field="${key}">
-					<label>${key}</label>
+					<label>${label}</label>
 					<input type="color" />
 					<input type="text" />
 				</div>`;
 			}
 			return `<div class="field" data-field="${key}">
-				<label>${key}</label>
+				<label>${label}</label>
 				<input type="range" min="${typeOrMin}" max="${max}" step="${step}" />
 				<input type="number" min="${typeOrMin}" max="${max}" step="${step}" />
 			</div>`;
@@ -110,6 +122,7 @@ export class WhaleDevTools {
 		this.enabled = false;
 		this._fields = new Map();
 		this._defaults = structuredClone(digitalWhaleConfig.whale);
+		this._enterDefaults = structuredClone(digitalWhaleConfig.whaleEnter);
 		this._detachPanelDrag = null;
 
 		injectSceneDevToolsStyles();
@@ -122,6 +135,7 @@ export class WhaleDevTools {
 			${FIELD_SECTIONS.map(formatSection).join("\n")}
 			<section class="section">
 				<div class="actions">
+					<button type="button" data-action="replay">Повторить появление</button>
 					<button type="button" data-action="copy">Копировать</button>
 					<button type="button" data-action="save">Сохранить локально</button>
 					<button type="button" data-action="reset">Сброс</button>
@@ -140,6 +154,7 @@ export class WhaleDevTools {
 		this._bindFields();
 		this._detachPanelDrag = attachDevPanelDrag(this._panel, { id: "digitalWhale" });
 
+		this._panel.querySelector('[data-action="replay"]')?.addEventListener("click", () => this._replayEntrance());
 		this._panel.querySelector('[data-action="copy"]')?.addEventListener("click", () => this._copyConfig());
 		this._panel.querySelector('[data-action="save"]')?.addEventListener("click", () => this._saveConfigLocally());
 		this._panel.querySelector('[data-action="reset"]')?.addEventListener("click", () => this._reset());
@@ -167,6 +182,7 @@ export class WhaleDevTools {
 
 			const saved = JSON.parse(raw);
 			const source = digitalWhaleConfig.whale;
+			const enterSource = digitalWhaleConfig.whaleEnter;
 			if (saved?.whale?.wake && typeof saved.whale.wake === "object") {
 				Object.assign(source.wake, saved.whale.wake);
 			}
@@ -184,6 +200,11 @@ export class WhaleDevTools {
 					source[key] = Number(value);
 				} else if (typeof source[key] === "string") {
 					source[key] = String(value);
+				}
+			}
+			for (const key of ["startX", "startY", "depth", "durationMs"]) {
+				if (typeof saved?.whaleEnter?.[key] === "number" && key in enterSource) {
+					enterSource[key] = Number(saved.whaleEnter[key]);
 				}
 			}
 			if (typeof saved?.bloomIntensity === "number") {
@@ -214,10 +235,21 @@ export class WhaleDevTools {
 				if (key === "particleDensity") {
 					next = clamp01(next);
 				}
-				if (key === "opacity" || key === "modelOpacity") {
+				if (key === "opacity") {
+					next = clamp01(next) >= .5 ? 1 : 0;
+				} else if (key === "modelOpacity") {
 					next = clamp01(next);
 				}
-				if (key === "glowPulseMax") {
+				if (key.startsWith("enter.")) {
+					const enterKey = key.slice("enter.".length);
+					if (enterKey === "durationSec") {
+						digitalWhaleConfig.whaleEnter.durationMs = Math.max(100, next * 1000);
+					} else if (typeof digitalWhaleConfig.whaleEnter?.[enterKey] === "number") {
+						digitalWhaleConfig.whaleEnter[enterKey] = next;
+					}
+					this.getScene()?.restartWhaleEntranceFromDev?.();
+					this._syncStatus(`Появление: ${enterKey} = ${formatConfigNumber(next)}`);
+				} else if (key === "glowPulseMax") {
 					const w = digitalWhaleConfig.whale;
 					const glowPulse = { ...w.glowPulse };
 					glowPulse.max = sanitizeNumber(next, 0.5, 40, glowPulse.max);
@@ -258,6 +290,8 @@ export class WhaleDevTools {
 				if (!/^#[0-9a-fA-F]{6}$/i.test(hex)) return;
 				if (key === "wake.color") {
 					digitalWhaleConfig.whale.wake.color = hex;
+				} else if (key === "modelColor") {
+					digitalWhaleConfig.whale.modelColor = hex;
 				} else {
 					digitalWhaleConfig.whale.colorTint = hex;
 				}
@@ -274,6 +308,7 @@ export class WhaleDevTools {
 
 	_copyConfig() {
 		const payload = JSON.stringify({
+			whaleEnter: structuredClone(digitalWhaleConfig.whaleEnter),
 			whale: {
 				posX: digitalWhaleConfig.whale.posX,
 				posY: digitalWhaleConfig.whale.posY,
@@ -286,6 +321,7 @@ export class WhaleDevTools {
 				particleScale: digitalWhaleConfig.whale.particleScale,
 				opacity: digitalWhaleConfig.whale.opacity,
 				modelOpacity: digitalWhaleConfig.whale.modelOpacity,
+				modelColor: digitalWhaleConfig.whale.modelColor,
 				emissiveIntensity: digitalWhaleConfig.whale.emissiveIntensity,
 				colorTint: digitalWhaleConfig.whale.colorTint,
 				glowPulseMax: digitalWhaleConfig.whale.glowPulse?.max,
@@ -314,6 +350,7 @@ export class WhaleDevTools {
 	_saveConfigLocally() {
 		try {
 			const snapshot = {
+				whaleEnter: structuredClone(digitalWhaleConfig.whaleEnter),
 				whale: {
 					posX: digitalWhaleConfig.whale.posX,
 					posY: digitalWhaleConfig.whale.posY,
@@ -326,6 +363,7 @@ export class WhaleDevTools {
 					particleScale: digitalWhaleConfig.whale.particleScale,
 					opacity: digitalWhaleConfig.whale.opacity,
 					modelOpacity: digitalWhaleConfig.whale.modelOpacity,
+					modelColor: digitalWhaleConfig.whale.modelColor,
 					emissiveIntensity: digitalWhaleConfig.whale.emissiveIntensity,
 					colorTint: digitalWhaleConfig.whale.colorTint,
 					glowPulseMax: digitalWhaleConfig.whale.glowPulse?.max,
@@ -345,6 +383,7 @@ export class WhaleDevTools {
 
 	_reset() {
 		Object.assign(digitalWhaleConfig.whale, this._defaults);
+		Object.assign(digitalWhaleConfig.whaleEnter, this._enterDefaults);
 		siteBloomDevOverrides.intensity = undefined;
 		siteBloomDevOverrides.radius = undefined;
 		try {
@@ -355,13 +394,23 @@ export class WhaleDevTools {
 		this.getPostProcess()?.applyConfigFromDev?.();
 		this._syncFields();
 		this.getScene()?.applyWhaleConfigFromDev?.();
+		this.getScene()?.restartWhaleEntranceFromDev?.();
 		this._syncStatus("Сброшено к дефолту сцены и dev-override.");
+	}
+
+	_replayEntrance() {
+		this.getScene()?.restartWhaleEntranceFromDev?.();
+		this._syncStatus(`Повтор: ${formatConfigNumber((digitalWhaleConfig.whaleEnter.durationMs ?? 0) / 1000)} сек.`);
 	}
 
 	_syncFields() {
 		const w = digitalWhaleConfig.whale;
 		const bloomConfig = getSiteBloomConfig(this.gfx);
 		const pairs = [
+			["enter.startX", digitalWhaleConfig.whaleEnter.startX],
+			["enter.startY", digitalWhaleConfig.whaleEnter.startY],
+			["enter.depth", digitalWhaleConfig.whaleEnter.depth],
+			["enter.durationSec", digitalWhaleConfig.whaleEnter.durationMs / 1000],
 			["posX", w.posX], ["posY", w.posY], ["posZ", w.posZ],
 			["rotationX", w.rotationX], ["rotationY", w.rotationY], ["rotationZ", w.rotationZ],
 			["scale", w.scale],
@@ -381,20 +430,10 @@ export class WhaleDevTools {
 			if (refs.number) refs.number.value = String(value);
 		}
 
-		const colorRefs = this._fields.get("colorTint");
-		if (colorRefs?.color) {
-			colorRefs.color.value = w.colorTint;
-		}
-		if (colorRefs?.text) {
-			colorRefs.text.value = w.colorTint;
-		}
-
-		const wakeColorRefs = this._fields.get("wake.color");
-		if (wakeColorRefs?.color) {
-			wakeColorRefs.color.value = w.wake.color;
-		}
-		if (wakeColorRefs?.text) {
-			wakeColorRefs.text.value = w.wake.color;
+		for (const [key, value] of [["colorTint", w.colorTint], ["modelColor", w.modelColor], ["wake.color", w.wake.color]]) {
+			const refs = this._fields.get(key);
+			if (refs?.color) refs.color.value = value;
+			if (refs?.text) refs.text.value = value;
 		}
 	}
 

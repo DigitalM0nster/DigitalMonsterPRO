@@ -14,11 +14,13 @@ const base = json.extras.whaleReactionBase ||= {
 };
 json.accessors.length = base.accessors;
 json.bufferViews.length = base.views;
-json.animations = json.animations.filter(a => !a.name.startsWith('Whale_Look'));
+json.animations = json.animations.filter(a => !a.name.startsWith('Whale_Look')
+  && a.name !== 'Whale_ClickResponse' && a.name !== 'Whale_EntranceStroke');
 const chunks = [binary.subarray(0, base.bytes)];
 let length = base.bytes;
-for (const direction of ['Left', 'Right', 'Up', 'Down', 'Curious']) {
-  const name = `Whale_Look${direction}`;
+const actions = ['Whale_LookLeft', 'Whale_LookRight', 'Whale_LookUp', 'Whale_LookDown',
+  'Whale_ClickResponse', 'Whale_EntranceStroke'];
+for (const name of actions) {
   const source = read(new URL(`../../../output/mobile-whale/reactions/${name}.glb`, import.meta.url));
   const input = source.json.animations[0];
   if (!input) throw new Error(`Blender did not export ${name}`);
@@ -57,4 +59,4 @@ header.writeUInt32LE(28 + padded.length + bin.length, 8);
 header.writeUInt32LE(padded.length, 12); header.writeUInt32LE(0x4e4f534a, 16);
 const binHeader = Buffer.alloc(8); binHeader.writeUInt32LE(bin.length); binHeader.writeUInt32LE(0x004e4942, 4);
 writeFileSync(asset, Buffer.concat([header, padded, binHeader, bin]));
-console.log(`Whale: preserved surface + swim, merged five Blender actions (${bin.length} binary bytes)`);
+console.log(`Whale: preserved surface + swim, merged ${actions.length} Blender actions (${bin.length} binary bytes)`);

@@ -1,6 +1,6 @@
 import { AnimationUtils, LoopOnce } from "three";
 
-export const whaleReactionDirections = ["Left", "Right", "Up", "Down", "Curious"];
+export const whaleReactionDirections = ["Left", "Right", "Up", "Down"];
 
 /** All bindings are allocated under the curtain, on the existing swim mixer. */
 export function prepareWhaleReactionActions(mixer, clips) {
@@ -21,7 +21,7 @@ export function prepareWhaleReactionActions(mixer, clips) {
 
 /** Blend authored reach poses. The pointer spring owns easing; scrubbing each
  * clip's eased neutral→reach curve would brake twice when crossing neutral. */
-export function sampleWhaleReactions(actions, x, y, curiosityTime = 0, curiosityWeight = 0) {
+export function sampleWhaleReactions(actions, x, y) {
 	if (!actions) return;
 	const radius = Math.max(1, Math.hypot(x, y));
 	x /= radius;
@@ -32,6 +32,26 @@ export function sampleWhaleReactions(actions, x, y, curiosityTime = 0, curiosity
 	actions[2].setEffectiveWeight(Math.max(0, y));
 	actions[3].setEffectiveWeight(Math.max(0, -y));
 	for (const action of actions) action.time = action.getClip().duration;
-	actions[4].time = curiosityTime;
-	actions[4].setEffectiveWeight(curiosityWeight);
+}
+
+/** A named additive gesture prepared under the preloader curtain. */
+export function prepareWhaleGestureAction(mixer, clips, name) {
+	const source = clips.find(clip => clip.name === name);
+	if (!source) throw new Error(`Missing Blender whale gesture: ${name}`);
+	const clip = AnimationUtils.makeClipAdditive(source.clone(), 0);
+	const action = mixer.clipAction(clip);
+	action.setLoop(LoopOnce, 1);
+	action.clampWhenFinished = true;
+	action.play();
+	action.paused = true;
+	action.time = 0;
+	action.setEffectiveWeight(0);
+	return action;
+}
+
+export function sampleWhaleGesture(action, progress, weight = 1) {
+	if (!action) return;
+	const t = Math.max(0, Math.min(1, progress));
+	action.time = action.getClip().duration * t;
+	action.setEffectiveWeight(Math.max(0, weight));
 }

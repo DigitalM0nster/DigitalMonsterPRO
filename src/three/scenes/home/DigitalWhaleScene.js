@@ -14,6 +14,7 @@ import {
 	createOceanSurface,
 	getOceanTileScrollX,
 	resolveOceanTileSlotCount,
+	OCEAN_SURFACE_Z_NEAR,
 } from "./utils/createOceanParticles.js";
 import { applyWhaleVisuals, disposeWhaleRoot, loadAnimatedWhale, rebuildWhaleParticles } from "./utils/loadAnimatedWhale.js";
 import { createWhaleWake } from "./utils/createWhaleWake.js";
@@ -33,7 +34,7 @@ import { isRingDormantReason } from "@/three/scenes/lifecycle/sceneLifecycle.js"
 import { getSceneCarousel } from "@/three/render/transition/carouselPage.js";
 import { LowWhaleBloom } from "./utils/LowWhaleBloom.js";
 import { WhaleCursorReaction, whaleCursorReactionConfig } from "./whaleCursorReaction.js";
-import { sampleWhaleReactions } from "./mobileWhale/whaleSkeletalReactions.js";
+import { sampleWhaleGesture, sampleWhaleReactions } from "./mobileWhale/whaleSkeletalReactions.js";
 import { applyMobileWhaleVisuals } from "./mobileWhale/mobileWhaleMaterial.js";
 import { setWhaleViewRotation } from "./mobileWhale/whaleComposition.js";
 import { WhaleSurfaceHit, WhaleSurfaceInteraction } from "./whaleSurfaceInteraction.js";
@@ -78,6 +79,9 @@ export class DigitalWhaleScene {
 		this._oceanScrollPhase = new THREE.Vector2();
 		this._deepScrollAuto = 0;
 		this._whaleAmbientScrollAuto = 0;
+		this._whaleLocalFlow = new THREE.Vector3(1, 0, 0);
+		this._whaleLocalFlowTarget = new THREE.Vector3(1, 0, 0);
+		this._whaleManeuverEnergy = .12;
 		this._lastSceneProgress = 0;
 		this._wakeCameraWorld = new THREE.Vector3();
 		this._whaleViewportOffset = new THREE.Vector3();
@@ -115,6 +119,9 @@ export class DigitalWhaleScene {
 
 		this.whaleMixer = null;
 		this.whaleSwimAction = null;
+		this.whaleReactionActions = null;
+		this.whaleClickAction = null;
+		this.whaleEntranceAction = null;
 		this.whaleParticles = null;
 		this.whaleParticleMeshes = null;
 		this.whaleHologramMaterial = null;
@@ -130,7 +137,6 @@ export class DigitalWhaleScene {
 			digitalWhaleConfig.whale.rotationZ,
 		);
 		this._whaleEntrance = new WhaleEntrance();
-		this._whaleEntranceOffset = new THREE.Vector3();
 		this._whaleEnterCompleted = false;
 		this._whaleEnterActive = false;
 		this._whaleEnterStartedAt = 0;
@@ -459,6 +465,8 @@ export class DigitalWhaleScene {
 				this.whaleMixer = whale.mixer;
 				this.whaleSwimAction = whale.swimAction;
 				this.whaleReactionActions = whale.reactionActions;
+				this.whaleClickAction = whale.clickAction;
+				this.whaleEntranceAction = whale.entranceAction;
 				this.whaleParticles = whale.particles;
 				this.whaleParticleMeshes = whale.particleMeshes;
 				this.surfaceInteraction.surface = new WhaleSurfaceHit(whale.particleMeshes[0]);
@@ -472,7 +480,9 @@ export class DigitalWhaleScene {
 				this.whaleGroup.updateMatrixWorld(true);
 				this.whaleParticles?.updatePositions();
 				this._measureWhaleBodyBounds();
-				this._initWhaleWake(whale.root);
+				// Authored mobile/desktop whale owns one prepared, rigged GPU trail.
+				// Keep the CPU fallback only for older assets without surface emitters.
+				if (!this.whaleTrail) this._initWhaleWake(whale.root);
 				this._applyWhaleTransform();
 				this._applyWhaleVisuals();
 				this.applyConfig();
@@ -752,7 +762,7 @@ export class DigitalWhaleScene {
 		this._syncFogMaterials();
 	}
 
-	/** Скролл: shader — uniform vec2; points — тайлы по X, фаза Z в шейдере. */
+	/** Скролл всегда вправо: shader — uniform; points — бесшовное смещение тайлов. */
 	_syncOceanScroll() {
 		if (!this.oceanSurfaceGroup.visible) return;
 		const phase = this._oceanScrollPhase;
@@ -808,6 +818,7 @@ export class DigitalWhaleScene {
 	}
 
 	_applyOceanMaterialConfig(o) {
+		this.whaleTrail?.setOceanSurface(this.oceanSurfaceGroup, o, OCEAN_SURFACE_Z_NEAR);
 		if (!this.oceanMaterial) {
 			return;
 		}
@@ -917,21 +928,20 @@ export class DigitalWhaleScene {
 		return this.threeScene;
 	}
 
-	syncCamera(pointer = { x: 0, y: 0 }, sceneProgress = 0) {
+	syncCamera(sceneProgress = 0) {
 		this._lastSceneProgress = Number.isFinite(sceneProgress) ? sceneProgress : 0;
 		const c = getHeroCameraForSceneProgress(this._lastSceneProgress);
-		const px = pointer.x ?? 0;
-		const py = pointer.y ?? 0;
 		/**
 		 * Vertical scroll parallax: +sceneProgress lowers camera (content rises).
 		 * lookAt.y follows the same ΔY so the frame translates — not just pitches.
 		 */
 		const scrollYDelta = c.y - heroCamera.y;
 
-		this.cameraPos.set(c.x + px * c.parallaxX, c.y + py * c.parallaxY, c.z);
+		// Pointer belongs to whale interaction; only route progress drives the camera.
+		this.cameraPos.set(c.x, c.y, c.z);
 		this.lookAtTarget.set(
-			HERO_LOOK_AT.x + px * c.parallaxX * c.parallaxLook,
-			HERO_LOOK_AT.y + scrollYDelta + py * c.parallaxY * c.parallaxLook,
+			HERO_LOOK_AT.x,
+			HERO_LOOK_AT.y + scrollYDelta,
 			HERO_LOOK_AT.z,
 		);
 		this._cameraFov = c.fov;
@@ -948,7 +958,9 @@ export class DigitalWhaleScene {
 		const ocean = config.ocean ?? {};
 		const ambient = config.ambient ?? {};
 
-		this.oceanScrollAuto += (ocean.scrollSpeedX ?? 0) * delta;
+		// Direction is part of the composition: a negative live/dev value may
+		// change the speed, but never reverses the ocean flow.
+		this.oceanScrollAuto += Math.abs(ocean.scrollSpeedX ?? 0) * delta;
 		this.oceanScrollAutoZ -= (ocean.scrollSpeedZ ?? 0) * delta;
 		this._deepScrollAuto += (ambient.deepScrollSpeed ?? 0) * delta;
 		this._whaleAmbientScrollAuto += (ambient.whaleAmbientScrollSpeed ?? 0) * delta;
@@ -1004,7 +1016,7 @@ export class DigitalWhaleScene {
 		const sway = w.sway ?? {};
 		const progress = this._whaleEnterCompleted || this.cursorReaction.motionPreference.matches ? 1
 			: this._whaleEnterActive ? (this.elapsed - this._whaleEnterStartedAt) / this._whaleEnterDuration : 0;
-		const entrance = this._whaleEntrance.sample(progress, digitalWhaleConfig.whaleEnter);
+		const entrance = this._whaleEntrance.sample(progress);
 
 		const bobY = Math.sin(elapsed * (sway.bobSpeed ?? 0.9)) * (sway.bobAmp ?? 0);
 		const pitchZ = Math.sin(elapsed * (sway.pitchSpeed ?? 0.72) + 0.4) * (sway.pitchAmp ?? 0);
@@ -1023,8 +1035,12 @@ export class DigitalWhaleScene {
 			rotation.y + devRotationY + yawY * swayScale,
 			rotation.z + devRotationZ + pitchZ * swayScale,
 		);
-		this._whaleEntranceOffset.copy(entrance.offset).applyQuaternion(this.whaleGroup.quaternion);
-		this.whaleGroup.position.add(this._whaleEntranceOffset);
+		if (entrance.progress < 1) {
+			this.whaleGroup.parent.updateWorldMatrix(true, false);
+			entrance.applyPosition(this.whaleGroup.position, this.whaleGroup.parent.matrixWorld,
+				this.cameraPos, this.lookAtTarget, this._cameraFov ?? heroCamera.fov,
+				window.innerWidth / window.innerHeight, digitalWhaleConfig.whaleEnter);
+		}
 		if (this.whaleSwimAction && this.whaleRoot?.userData.authoredWhale) {
 			this.whaleSwimAction.timeScale = entrance.swimRate;
 		}
@@ -1038,6 +1054,31 @@ export class DigitalWhaleScene {
 
 		this.deepOceanAnchor.position.set(x, y, z);
 		this.whaleAmbientGroup.position.set(x, y, z);
+	}
+
+	/** One smoothed local current drives the rigged wake, nearby water particles
+	 * and ripple direction. The large ocean retains its permanent +X current. */
+	_updateWhaleLocalFlow(delta) {
+		const yaw = this.cursorReaction.yaw / whaleCursorReactionConfig.yaw;
+		const pitch = this.cursorReaction.pitch / whaleCursorReactionConfig.pitch;
+		const click = this.surfaceInteraction.responseEnergy;
+		const clickDirection = this.surfaceInteraction.responseDirection;
+		this._whaleLocalFlowTarget.set(
+			1,
+			-pitch * .28 - clickDirection.y * click * .16,
+			yaw * .5 + clickDirection.x * click * .22,
+		).normalize();
+		this._whaleLocalFlow.lerp(this._whaleLocalFlowTarget, 1 - Math.exp(-3.8 * Math.max(0, delta)));
+		this._whaleLocalFlow.normalize();
+		const angularSpeed = Math.hypot(
+			this.cursorReaction.yawVelocity / whaleCursorReactionConfig.yaw,
+			this.cursorReaction.pitchVelocity / whaleCursorReactionConfig.pitch,
+		);
+		const targetEnergy = THREE.MathUtils.clamp(.1 + angularSpeed * .18
+			+ click * .85 + this._whaleEntrance.maneuver * .45, .08, 1);
+		this._whaleManeuverEnergy += (targetEnergy - this._whaleManeuverEnergy)
+			* (1 - Math.exp(-(targetEnergy > this._whaleManeuverEnergy ? 8 : 2.4) * Math.max(0, delta)));
+		this.whaleTrail?.setMotionActivity?.(this._whaleManeuverEnergy, this._whaleLocalFlow);
 	}
 
 	_applyWhaleVisuals() {
@@ -1127,8 +1168,8 @@ export class DigitalWhaleScene {
 		this.whaleTrail?.applyConfig?.(c.whale.wake);
 		this.ambientEffects?.applyConfig(buildTierScaledWhaleConfig(c));
 		this._syncFogMaterials();
-		this.syncCamera(this.smoothPointer);
-		this._applyOceanTilt(this.smoothPointer);
+		this.syncCamera();
+		this._applyOceanTilt();
 		this._updateWhaleViewportLayout();
 		this._updateWhaleBodySway();
 	}
@@ -1147,7 +1188,7 @@ export class DigitalWhaleScene {
 		this.oceanGroup.position.set(o.posX, o.posY, o.posZ);
 		this.oceanGroup.scale.set(o.scaleX, 1, o.scaleZ);
 		this.whaleScaleNeutralizer.scale.set(1 / Math.max(o.scaleX, 1e-6), 1, 1 / Math.max(o.scaleZ, 1e-6));
-		this._applyOceanTilt(this.smoothPointer);
+		this._applyOceanTilt();
 		this.oceanGroup.updateMatrixWorld(true);
 		this._applyOceanMaterialConfig(o);
 		this._syncOceanScrollState();
@@ -1170,10 +1211,24 @@ export class DigitalWhaleScene {
 		this._syncOceanRipple();
 	}
 
-	_applyOceanTilt(pointer = { x: 0, y: 0 }) {
+	/** DEV panel: restart the authored approach from the currently edited origin. */
+	restartWhaleEntranceFromDev() {
+		if (!import.meta.env.DEV || !this.whaleReady) return;
+		this._whaleEnterCompleted = false;
+		this._whaleEnterActive = true;
+		this._pendingWhaleEnter = false;
+		this._whaleEnterStartedAt = this.elapsed;
+		this._whaleEnterDuration = Math.max((digitalWhaleConfig.whaleEnter?.durationMs ?? 6500) / 1000, .1);
+		this._whaleEntrance.sample(0);
+		this._applyWhaleIntroPose();
+		this._updateWhaleBodySway(this.elapsed);
+		this._applyWhaleVisuals();
+	}
+
+	_applyOceanTilt() {
 		const o = digitalWhaleConfig.ocean;
-		this.oceanGroup.rotation.x = o.tiltX + (pointer.y ?? 0) * o.mouseTiltX;
-		this.oceanGroup.rotation.y = o.rotationY + (pointer.x ?? 0) * o.mouseTiltY;
+		this.oceanGroup.rotation.x = o.tiltX;
+		this.oceanGroup.rotation.y = o.rotationY;
 	}
 
 	_publishSceneProgressDebug(frame, sceneProgress) {
@@ -1230,6 +1285,16 @@ export class DigitalWhaleScene {
 				this._rippleWakeDir.set(this._swimForward.x, this._swimForward.z);
 			}
 		}
+		// Rotate the local surface wake with the cursor-driven body turn. This only
+		// bends water close to the animal; the ocean grid still travels rightward.
+		const localFlow = this._whaleLocalFlow ?? { x: 1, z: 0 };
+		const flowAngle = Math.atan2(localFlow.z, localFlow.x) * .72;
+		const rippleX = this._rippleWakeDir.x;
+		const rippleY = this._rippleWakeDir.y;
+		this._rippleWakeDir.set(
+			rippleX * Math.cos(flowAngle) - rippleY * Math.sin(flowAngle),
+			rippleX * Math.sin(flowAngle) + rippleY * Math.cos(flowAngle),
+		).normalize();
 
 		this.oceanMaterial.uniforms.uRippleCenter.value.set(this._rippleWorld.x, this._rippleWorld.z);
 		this.oceanMaterial.uniforms.uRippleDir.value.copy(this._rippleWakeDir);
@@ -1246,7 +1311,7 @@ export class DigitalWhaleScene {
 	/** Анимация скролла — камера по sceneProgress при role current|next. */
 	applyScrollCamera(camera, frame) {
 		const sceneProgress = frame?.sceneProgress ?? 0;
-		this.syncCamera(this.smoothPointer, sceneProgress);
+		this.syncCamera(sceneProgress);
 		this._syncOceanScrollState();
 		this._syncOceanRipple();
 		this._publishSceneProgressDebug(frame, sceneProgress);
@@ -1273,23 +1338,29 @@ export class DigitalWhaleScene {
 		this.smoothPointer.x += (pointer.x - this.smoothPointer.x) * 0.08;
 		this.smoothPointer.y += (pointer.y - this.smoothPointer.y) * 0.08;
 
-		this._applyOceanTilt(this.smoothPointer);
+		this._applyOceanTilt();
 		this._updateWhaleEnterAnimation();
 		this.cursorReaction.update(delta, frame, this._appStarted && this.whaleReady);
 		this._updateWhaleBodySway();
-		this._syncOceanRipple();
 		this.whaleGroup.updateMatrixWorld(true);
 		this.surfaceInteraction.surface?.syncCamera(this.cameraPos, this.lookAtTarget,
 			this._cameraFov ?? heroCamera.fov,
 			(frame?.viewportWidth || window.innerWidth) / (frame?.viewportHeight || window.innerHeight));
 		this.surfaceInteraction.update(delta, frame, this._appStarted && this.whaleReady,
 			this.cursorReaction.hasHoverPointer, this.cursorReaction.motionPreference.matches);
+		this._updateWhaleLocalFlow(delta);
+		this._syncOceanRipple();
 
 		if (this.whaleMixer) {
+			const clickX = this.surfaceInteraction.responseDirection.x * this.surfaceInteraction.responseEnergy * .38;
+			const clickY = this.surfaceInteraction.responseDirection.y * this.surfaceInteraction.responseEnergy * .3;
 			sampleWhaleReactions(this.whaleReactionActions,
-				this.cursorReaction.yaw / whaleCursorReactionConfig.yaw,
-				-this.cursorReaction.pitch / whaleCursorReactionConfig.pitch,
-				this.surfaceInteraction.curiosityTime, this.surfaceInteraction.curiosityWeight);
+				this.cursorReaction.yaw / whaleCursorReactionConfig.yaw + clickX,
+				-this.cursorReaction.pitch / whaleCursorReactionConfig.pitch + clickY);
+			sampleWhaleGesture(this.whaleClickAction, this.surfaceInteraction.responseProgress,
+				this.surfaceInteraction.responseWeight);
+			sampleWhaleGesture(this.whaleEntranceAction, this._whaleEntrance.strokeProgress,
+				this._whaleEnterActive ? this._whaleEntrance.strokeWeight : 0);
 			this.whaleMixer.update(delta);
 		}
 
@@ -1316,7 +1387,7 @@ export class DigitalWhaleScene {
 		this.ambientEffects?.update(delta, this.elapsed, {
 			deep: this._deepScrollAuto,
 			whale: this._whaleAmbientScrollAuto,
-		});
+		}, this._whaleLocalFlow);
 
 		if (this.oceanMaterial) {
 			this.oceanMaterial.uniforms.uTime.value = this.elapsed;
@@ -1352,6 +1423,8 @@ export class DigitalWhaleScene {
 
 		this.whaleMixer = null;
 		this.whaleReactionActions = null;
+		this.whaleClickAction = null;
+		this.whaleEntranceAction = null;
 		this.whaleSwimAction = null;
 		this.whaleReady = false;
 

@@ -2,10 +2,10 @@ import * as THREE from "three";
 import { createGLTFLoader } from "../../../assets/gltfLoader.js";
 import { createMobileWhaleMaterials, createMobileWhaleTrail, createWhaleDepthOccluder } from "./mobileWhaleMaterial.js";
 import { SkinnedWhalePoints } from "./SkinnedWhalePoints.js";
-import { prepareWhaleReactionActions, sampleWhaleReactions } from "./whaleSkeletalReactions.js";
+import { prepareWhaleGestureAction, prepareWhaleReactionActions, sampleWhaleGesture, sampleWhaleReactions } from "./whaleSkeletalReactions.js";
 import { yieldToPreparationFrame } from "../../../app/preparationFrame.js";
 
-export const MOBILE_WHALE_URL="/models/home/whale-mobile.glb?v=authored-curiosity-r2";
+export const MOBILE_WHALE_URL="/models/home/whale-mobile.glb?v=authored-gestures-r3";
 
 /** Load, bind and prepare both point draws before the site's Start gate. */
 export async function loadMobileWhale(options={}){
@@ -21,6 +21,8 @@ export async function loadMobileWhale(options={}){
  if(!skin||!cloud)throw new Error("Whale GLB requires a rigged surface and POINTS primitive");
  const points=new SkinnedWhalePoints(cloud.geometry,materials.body,skin);
  const depth=createWhaleDepthOccluder(skin,materials.shared);
+ points.surfaceMesh=depth;
+ depth.computeBoundingSphere();
  skin.parent.add(points,depth);
  cloud.removeFromParent();skin.removeFromParent();
  for(const material of sourceMaterials)material.dispose();
@@ -41,6 +43,8 @@ export async function loadMobileWhale(options={}){
  const swimAction=swimClip?mixer.clipAction(swimClip):null;
  swimAction?.setLoop(THREE.LoopRepeat,Infinity);swimAction?.play();
  const reactionActions=prepareWhaleReactionActions(mixer,gltf.animations);
+ const clickAction=prepareWhaleGestureAction(mixer,gltf.animations,"Whale_ClickResponse");
+ const entranceAction=prepareWhaleGestureAction(mixer,gltf.animations,"Whale_EntranceStroke");
  await points.prepareBounds();
  const bounds=new THREE.Box3();
  for(let sample=0;sample<12;sample++){
@@ -58,8 +62,20 @@ export async function loadMobileWhale(options={}){
    await yieldToPreparationFrame();
   }
  }
+ // Gesture extremes are also drawn and bounded before Start. Runtime only
+ // changes action time and weight; it never creates a clip or binding.
+ for(const action of [clickAction,entranceAction]){
+  for(const progress of [0,.2,.4,.6,.8,1]){
+   sampleWhaleGesture(action,progress,1);mixer.update(0);
+   root.updateMatrixWorld(true);points.expandSwimBounds(bounds);
+   await yieldToPreparationFrame();
+  }
+  sampleWhaleGesture(action,1,0);
+ }
  root.userData.swimBounds={min:bounds.min.toArray(),max:bounds.max.toArray()};
- mixer.setTime(0);root.updateMatrixWorld(true);
- return {root,mixer,swimAction,reactionActions,animations:gltf.animations,particles:null,
+ sampleWhaleReactions(reactionActions,0,0);
+ sampleWhaleGesture(clickAction,1,0);sampleWhaleGesture(entranceAction,1,0);
+ mixer.setTime(0);mixer.update(0);root.updateMatrixWorld(true);
+ return {root,mixer,swimAction,reactionActions,clickAction,entranceAction,animations:gltf.animations,particles:null,
 	particleMeshes:[points],hologramMaterial:materials.body,trail,renderMode:"hologram"};
 }

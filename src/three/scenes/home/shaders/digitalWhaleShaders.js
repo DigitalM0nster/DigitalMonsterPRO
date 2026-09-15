@@ -1,6 +1,7 @@
 /** Шейдеры цифрового океана (партиклы) и point cloud кита. */
 
 import { underwaterPointGrainGlsl } from "@/three/shaders/underwaterPointGrain.glsl.js";
+import { oceanFrontEdgeGlsl } from "./oceanFrontEdge.glsl.js";
 import { oceanSwimWakeRippleGlsl } from "./oceanSwimWakeRipple.glsl.js";
 import { whaleParticleSkinningGlsl } from "./whaleParticleSkinning.glsl.js";
 
@@ -298,6 +299,7 @@ export const oceanParticlesVertexShader = /* glsl */ `
 #include <fog_pars_vertex>
 
 ${oceanSwimWakeRippleGlsl}
+${oceanFrontEdgeGlsl}
 
 uniform float uTime;
 uniform vec2 uRippleCenter;
@@ -324,10 +326,12 @@ void main() {
 
 	float rippleWave = oceanSwimWakeRipple(vec2(worldPos.x, worldPos.z), uRippleCenter, uRippleDir, uTime);
 
-	pos.y += (wave1 + wave2 + wave3) * uWaveAmp + rippleWave * uRippleAmp;
+	float motion = oceanMotionWeight(position.z);
+	float movingHeight = (wave1 + wave2 + wave3) * uWaveAmp + rippleWave * uRippleAmp;
+	pos.y += mix(oceanFrontHeight(worldPos.x), movingHeight, motion);
 
 	vWave = pos.y;
-	vPulse = 0.5 + 0.5 * sin(-uTime * 1.4 + waveX * 0.6 + waveZ * 0.4);
+	vPulse = mix(0.5, 0.5 + 0.5 * sin(-uTime * 1.4 + waveX * 0.6 + waveZ * 0.4), motion);
 
 	vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
 	gl_PointSize = uPointScale;
@@ -404,6 +408,7 @@ export const oceanGridLineVertexShader = /* glsl */ `
 #include <fog_pars_vertex>
 
 ${oceanSwimWakeRippleGlsl}
+${oceanFrontEdgeGlsl}
 
 uniform float uTime;
 uniform vec2 uRippleCenter;
@@ -427,10 +432,12 @@ void main() {
 
 	float rippleWave = oceanSwimWakeRipple(vec2(worldPos.x, worldPos.z), uRippleCenter, uRippleDir, uTime);
 
-	pos.y += (wave1 + wave2 + wave3) * uWaveAmp + rippleWave * uRippleAmp;
+	float motion = oceanMotionWeight(position.z);
+	float movingHeight = (wave1 + wave2 + wave3) * uWaveAmp + rippleWave * uRippleAmp;
+	pos.y += mix(oceanFrontHeight(worldPos.x), movingHeight, motion);
 
 	vWave = pos.y;
-	vPulse = 0.5 + 0.5 * sin(-uTime * 1.4 + waveX * 0.6 + waveZ * 0.4);
+	vPulse = mix(0.5, 0.5 + 0.5 * sin(-uTime * 1.4 + waveX * 0.6 + waveZ * 0.4), motion);
 
 	vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
 	gl_Position = projectionMatrix * mvPosition;
@@ -445,6 +452,7 @@ export const oceanSurfaceVertexShader = /* glsl */ `
 #include <fog_pars_vertex>
 
 ${oceanSwimWakeRippleGlsl}
+${oceanFrontEdgeGlsl}
 
 uniform float uTime;
 uniform vec2 uRippleCenter;
@@ -471,10 +479,12 @@ void main() {
 
 	float rippleWave = oceanSwimWakeRipple(vec2(worldPos.x, worldPos.z), uRippleCenter, uRippleDir, uTime);
 
-	pos.y += (wave1 + wave2 + wave3) * uWaveAmp + rippleWave * uRippleAmp;
+	float motion = oceanMotionWeight(position.z);
+	float movingHeight = (wave1 + wave2 + wave3) * uWaveAmp + rippleWave * uRippleAmp;
+	pos.y += mix(oceanFrontHeight(worldPos.x), movingHeight, motion);
 
 	vWave = pos.y;
-	vPulse = 0.5 + 0.5 * sin(-uTime * 1.4 + waveX * 0.6 + waveZ * 0.4);
+	vPulse = mix(0.5, 0.5 + 0.5 * sin(-uTime * 1.4 + waveX * 0.6 + waveZ * 0.4), motion);
 
 	vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
 	gl_Position = projectionMatrix * mvPosition;
@@ -505,16 +515,18 @@ varying vec2 vSurfaceLocalXZ;
 varying float vWave;
 varying float vPulse;
 
+${oceanFrontEdgeGlsl}
+
 float oceanHash(vec2 p) {
 	return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
 }
 
-void main() {
+vec4 sampleOceanSurface(vec2 phase, float time) {
 	// cols ячеек: точки в центрах, без дубля на ±width/2 между соседними периодами 120.
 	float stepX = uSurfaceWidth / max(uGridCols, 1.0);
 	float stepZ = uSurfaceDepth / max(uGridRows, 1.0);
-	float scrolledX = vSurfaceLocalXZ.x - uScrollPhase.x;
-	float scrolledZ = vSurfaceLocalXZ.y - uScrollPhase.y;
+	float scrolledX = vSurfaceLocalXZ.x - phase.x;
+	float scrolledZ = vSurfaceLocalXZ.y - phase.y;
 	float zFromNear = uSurfaceZNear - scrolledZ;
 	vec2 g = vec2(scrolledX, zFromNear);
 	vec2 cellCoord = vec2((g.x - stepX * 0.5) / stepX, (g.y - stepZ * 0.5) / stepZ);
@@ -534,7 +546,7 @@ void main() {
 	float core = 1.0 - smoothstep(radiusPx * 0.35, radiusPx * 0.35 + 0.9, distCenterPx);
 	float glow = 1.0 - smoothstep(radiusPx * 0.5, radiusPx + 2.2, distCenterPx);
 	float rareNode = smoothstep(0.97, 0.995, seed);
-	float flow = pow(0.5 + 0.5 * sin(cellId.x * 0.13 + cellId.y * 0.21 - uTime * 0.85), 5.0);
+	float flow = pow(0.5 + 0.5 * sin(cellId.x * 0.13 + cellId.y * 0.21 - time * 0.85), 5.0);
 	float waveBoost = 0.72 + smoothstep(-0.1, 0.4, vWave) * 0.28;
 	float energy = (0.38 + seed * 0.34 + flow * 0.42 + rareNode * 2.4) * waveBoost;
 	// Match the high-tier point sprite: controlled HDR core and a colored halo,
@@ -552,10 +564,17 @@ void main() {
 	float alpha = clamp(peak, 0.0, 1.0);
 
 	if (alpha < 0.0001) {
-		discard;
+		return vec4(0.0);
 	}
 
-	gl_FragColor = vec4(color, 1.0);
+	return vec4(color, 1.0);
+}
+
+void main() {
+	// The foreground keeps its authored height contour, while its light lattice
+	// participates in the same uninterrupted rightward current as open water.
+	gl_FragColor = sampleOceanSurface(uScrollPhase, uTime);
+	if (gl_FragColor.a < 0.0001) discard;
 
 	#include <fog_fragment>
 }
@@ -595,6 +614,7 @@ uniform float uOceanCeilingY;
 /** Тот же поток, что у сетки океана — частицы уезжают вправо и появляются слева. */
 uniform float uScrollPhase;
 uniform float uWrapWidth;
+uniform vec3 uFlowDirection;
 
 attribute float aPhase;
 attribute float aSize;
@@ -605,7 +625,15 @@ void main() {
 	vec3 pos = position;
 
 	float halfW = max(uWrapWidth, 0.001) * 0.5;
-	pos.x = mod(pos.x + uScrollPhase + halfW, halfW * 2.0) - halfW;
+	vec2 flowXZ = uFlowDirection.xz;
+	if (length(flowXZ) < 0.001) flowXZ = vec2(1.0, 0.0);
+	flowXZ = normalize(flowXZ);
+	vec2 crossFlow = vec2(-flowXZ.y, flowXZ.x);
+	float along = dot(pos.xz, flowXZ);
+	float across = dot(pos.xz, crossFlow);
+	along = mod(along + uScrollPhase + halfW, halfW * 2.0) - halfW;
+	pos.xz = flowXZ * along + crossFlow * across;
+	pos.y += uFlowDirection.y * along * 0.22;
 
 	float driftX = sin(uTime * 0.45 + aPhase) * uDriftAmp;
 	float driftY = sin(uTime * 0.32 + aPhase * 1.7) * uDriftAmp * 0.35;

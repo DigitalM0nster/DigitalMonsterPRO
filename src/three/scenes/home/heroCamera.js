@@ -33,9 +33,6 @@ export const heroCamera = {
 	easePowerPos: 2.2,
 	easePowerYNeg: 1.05,
 	easePowerYPos: 1.05,
-	parallaxX: 0.65,
-	parallaxY: 0.45,
-	parallaxLook: 0.15,
 };
 
 /** Ease-in-out с настраиваемой степенью (1 = линейно). */

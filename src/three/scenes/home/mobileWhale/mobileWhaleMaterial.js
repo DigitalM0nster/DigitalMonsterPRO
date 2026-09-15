@@ -8,10 +8,11 @@ const vertexShader = `
 #include <common>
 #include <skinning_pars_vertex>
 attribute vec4 _light;
-uniform float uTime,uViewportHeight,uParticleDensity,uParticleScale,uPointScale;
+	uniform float uTime,uViewportHeight,uParticleDensity,uParticleScale,uPointScale,uEntranceReveal;
 uniform vec2 uCursorPosition;
 uniform float uCursorStrength,uCursorAspect;
-uniform vec2 uTouchPosition,uSonarPosition;
+uniform vec2 uTouchPosition;
+uniform vec3 uSonarPosition,uSonarNormal;
 uniform float uTouchStrength,uSonarAge,uSonarStrength;
 varying float vEnergy;
 varying float vKey;
@@ -27,7 +28,7 @@ void main(){
  #include <begin_vertex>
  #include <skinning_vertex>
  vec4 viewPosition=modelViewMatrix*vec4(transformed,1.);
- vDepthMist=whaleDepthMist(viewPosition.xyz,modelViewMatrix);
+	vDepthMist=max(whaleDepthMist(viewPosition.xyz,modelViewMatrix),1.-uEntranceReveal);
  vec3 n=normalize(transformedNormal);
  vec3 viewDirection=isPerspectiveMatrix(projectionMatrix)?normalize(-viewPosition.xyz):vec3(0.,0.,1.);
  vec3 keyDirection=normalize(vec3(-.38+sin(uTime*.16)*.13,.65,1.));
@@ -53,10 +54,14 @@ void main(){
  vec2 screen=gl_Position.xy/max(.001,gl_Position.w);
  vSonarLight=0.;
  if(uSonarStrength>.001 && uSonarAge<2.4){
-  vec2 delta=screen-uSonarPosition;delta.x*=uCursorAspect;
-  float ring=(length(delta)-uSonarAge*.7)/.025;
+  // Bind-space surface propagation follows skinning, perspective and separate fins.
+  // Curvature lengthens travel around the body instead of cutting straight through it.
+  float bend=clamp(1.-dot(normalize(normal),uSonarNormal),0.,2.);
+  float surfaceDistance=length(position-uSonarPosition)*(1.+bend*.275);
+  float radius=uSonarAge*4.2;
+  float ring=(surfaceDistance-radius)/(.12+radius*.025);
   float envelope=smoothstep(0.,.10,uSonarAge)*(1.-smoothstep(1.5,2.4,uSonarAge));
-  vSonarLight=exp(-ring*ring)*envelope*uSonarStrength;
+  vSonarLight=exp(-ring*ring)*envelope*uSonarStrength/(1.+radius*.08);
  }
  // A circular screen-space pool follows the pointer on visible surface beads.
  // Radius is relative to viewport height, independent of scene/output DPR.
@@ -75,7 +80,7 @@ void main(){
 
 const fragmentShader = `
 uniform vec3 uColor;
-uniform float uGlow,uOpacity,uEntranceReveal;
+uniform float uGlow,uOpacity;
 varying float vEnergy;
 varying float vKey;
 varying float vCursorLight;
@@ -95,7 +100,8 @@ void main(){
  float radiance=6.*energy/(6.+energy);
  float spread=1.+vDepthMist*1.25;
  float transmission=(1.-vDepthMist*.94)/(spread*spread);
- gl_FragColor=vec4(tint*radiance,(core+halo)*uOpacity*uEntranceReveal*transmission);
+	// Distance mist widens and softens the points; global visibility stays binary.
+	gl_FragColor=vec4(tint*radiance,(core+halo)*uOpacity*transmission);
 }`;
 
 /** Actual skinned points; no surface texture, UV deformation or separate eye mesh. */
@@ -104,10 +110,11 @@ const shared=withFogUniforms({
  uTime:{value:0},uColor:{value:new THREE.Color("#009fff")},
   uOpacity:{value:.92},uGlow:{value:3.4},uViewportHeight:{value:679},
   uParticleDensity:{value:1},uParticleScale:{value:1},uPointScale:{value:6},
-  uModelOpacity:{value:0},uEntranceReveal:{value:1},
+  uModelOpacity:{value:0},uModelColor:{value:new THREE.Color("#0091ff")},uEntranceReveal:{value:1},
   uCursorPosition:{value:new THREE.Vector2()},uCursorStrength:{value:0},uCursorAspect:{value:1},
   uTouchPosition:{value:new THREE.Vector2()},uTouchStrength:{value:0},
-  uSonarPosition:{value:new THREE.Vector2()},uSonarAge:{value:3},uSonarStrength:{value:0},
+  uSonarPosition:{value:new THREE.Vector3()},uSonarNormal:{value:new THREE.Vector3(0,0,1)},
+  uSonarAge:{value:3},uSonarStrength:{value:0},
  });
  const body=new THREE.ShaderMaterial({uniforms:shared,vertexShader,fragmentShader,
   transparent:true,depthWrite:false,depthTest:true,
@@ -121,11 +128,12 @@ export function createWhaleDepthOccluder(source,shared){
  const depth=source.clone(false);
  depth.name="Whale / surface and shared skin depth";
  depth.material=new THREE.ShaderMaterial({
-  uniforms:{uModelOpacity:shared?.uModelOpacity??{value:0},uColor:shared?.uColor??{value:new THREE.Color("#0f93cc")},
+  uniforms:{uModelOpacity:shared?.uModelOpacity??{value:0},uModelColor:shared?.uModelColor??{value:new THREE.Color("#0091ff")},
    uEntranceReveal:shared?.uEntranceReveal??{value:1}},
   vertexShader:`
    #include <common>
    #include <skinning_pars_vertex>
+   uniform float uEntranceReveal;
    varying vec3 vSkinNormal;
    varying float vDepthMist;
    ${whaleDepthMistGLSL}
@@ -138,10 +146,10 @@ export function createWhaleDepthOccluder(source,shared){
     #include <begin_vertex>
     #include <skinning_vertex>
     #include <project_vertex>
-    vDepthMist=whaleDepthMist(mvPosition.xyz,modelViewMatrix);
+    vDepthMist=max(whaleDepthMist(mvPosition.xyz,modelViewMatrix),1.-uEntranceReveal);
    }`,
   fragmentShader:`
-   uniform vec3 uColor;
+   uniform vec3 uModelColor;
    uniform float uModelOpacity,uEntranceReveal;
    varying vec3 vSkinNormal;
    varying float vDepthMist;
@@ -149,17 +157,19 @@ export function createWhaleDepthOccluder(source,shared){
     vec3 n=normalize(vSkinNormal);
     float key=max(0.,dot(n,normalize(vec3(-.4,.65,1.))));
     float rim=pow(1.-abs(n.z),3.);
-    gl_FragColor=vec4(uColor*(.16+.55*key)+vec3(.02,.06,.08)*rim,uModelOpacity*uEntranceReveal*(1.-vDepthMist*.94));
+    float transmission=1.-vDepthMist*.94;
+    // Skin opacity is continuous; entrance depth changes light without overriding it.
+    gl_FragColor=vec4(uModelColor*(.16+.55*key+.12*rim)*transmission,uModelOpacity);
    }`,
   transparent:true,depthWrite:false,depthTest:true,toneMapped:false,
  });
  depth.material.polygonOffset=true;depth.material.polygonOffsetFactor=1;depth.material.polygonOffsetUnits=1;
  depth.renderOrder=2;depth.frustumCulled=false;
- // Read shared live controls at draw time, including the entrance fade.
- // Depth writes are a render state change; no new material/program is needed.
+ // A partially transparent skin must keep the prepared particles visible through it.
+ // Only a fully opaque skin writes depth; changing this state never recompiles the shader.
  depth.onBeforeRender=()=>{
   const u=depth.material.uniforms;
-  depth.material.depthWrite=u.uModelOpacity.value*u.uEntranceReveal.value>=1;
+  depth.material.depthWrite=u.uModelOpacity.value>=.999;
  };
  return depth;
 }
@@ -169,10 +179,11 @@ export function applyMobileWhaleVisuals(material,config,tier,elapsed=0){
  const u=material.uniforms;
  u.uPointScale.value=Math.max(0,config.pointScale??6);
  u.uParticleScale.value=Math.max(0,config.particleScale??1);
- u.uParticleDensity.value=THREE.MathUtils.clamp(config.particleDensity??1,0,1);
- u.uOpacity.value=THREE.MathUtils.clamp(config.opacity??1,0,1);
- u.uModelOpacity.value=THREE.MathUtils.clamp(config.modelOpacity??0,0,1);
+  u.uParticleDensity.value=THREE.MathUtils.clamp(config.particleDensity??1,0,1);
+  u.uOpacity.value=(config.opacity??1)>=.5?1:0;
+  u.uModelOpacity.value=THREE.MathUtils.clamp(config.modelOpacity??0,0,1);
  u.uColor.value.set(config.colorTint??"#0f93cc");
+ u.uModelColor.value.set(config.modelColor??"#0091ff");
  const base=config.emissiveIntensity??3.05;
  const speed=config.glowPulse?.speed??0;
  const pulse=speed>0?.5+.5*smoothSinePhase(elapsed*speed*Math.PI*2,config.glowPulse?.smooth??.7):0;

@@ -71,7 +71,6 @@ export default function ScrollHintHud() {
 		<div className={`${styles.hud} ${isCore ? styles.core : ""} ${visible ? styles.visible : ""}`} aria-hidden={!visible} data-scroll-hint-hud data-hint-kind={isCore ? "core" : "scroll"}>
 			{isCore ? <div className={styles.clickVisual} aria-hidden="true">
 				<CoreHintIcon />
-				<span className={styles.clickRipple} />
 				<svg className={styles.clickPointer} viewBox="0 0 18 22" fill="none">
 					<path d="M2 2L15 12L9 13L7 19L2 2Z" fill="#06131b" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round" />
 				</svg>

@@ -4,8 +4,10 @@ import { readFileSync } from "node:fs";
 import * as THREE from "three";
 import draco3d from "draco3d";
 import { applyMobileWhaleVisuals, createMobileWhaleMaterials, createMobileWhaleTrail, createWhaleDepthOccluder } from "./mobileWhaleMaterial.js";
-import { prepareWhaleReactionActions, sampleWhaleReactions } from "./whaleSkeletalReactions.js";
+import { prepareWhaleGestureAction, prepareWhaleReactionActions, sampleWhaleGesture, sampleWhaleReactions } from "./whaleSkeletalReactions.js";
 import { setWhaleViewRotation } from "./whaleComposition.js";
+import { prepareWhaleWakeFlow } from "./whaleWakeFlow.js";
+import { getOceanSpaceCeilingY } from "../utils/oceanSurfaceClip.js";
 
 const bytes=readFileSync(new URL("../../../../../public/models/home/whale-mobile.glb",import.meta.url));
 const jsonLength=bytes.readUInt32LE(12);
@@ -23,7 +25,7 @@ function floats(index){
 test("mobile export contains one shared skin, real compressed points and a complete swim",()=>{
  assert.ok(bytes.length<800000,"skin, 3D currents and animation fit the 800 KB budget");
  assert.equal(gltf.skins.length,1);assert.equal(gltf.skins[0].joints.length,13);
- assert.deepEqual(gltf.animations.map(a=>a.name),["MobileWhale_CalmSwim","Whale_LookLeft","Whale_LookRight","Whale_LookUp","Whale_LookDown","Whale_LookCurious"]);
+ assert.deepEqual(gltf.animations.map(a=>a.name),["MobileWhale_CalmSwim","Whale_LookLeft","Whale_LookRight","Whale_LookUp","Whale_LookDown","Whale_ClickResponse","Whale_EntranceStroke"]);
  const primitives=gltf.meshes.flatMap(mesh=>mesh.primitives);
  assert.equal(primitives.length,2,"one occlusion surface and one visible point primitive");
  const points=primitives.find(primitive=>primitive.mode===0);
@@ -162,11 +164,18 @@ test("Blender reactions deform several bones, preserve swim at neutral and rever
  assert.ok(diagonal.toArray().every(Number.isFinite));
  mixer.setTime(1.7);sampleWhaleReactions(actions,0,0);mixer.update(0);
  for(const [i,bone] of [body,tail,fin].entries())assert.ok(bone.quaternion.angleTo(baseline[i])<1e-6,"release restores swim without drift");
- sampleWhaleReactions(actions,0,0,1,1);mixer.update(0);
- assert.ok(body.quaternion.angleTo(baseline[0])>.08,"curiosity lifts the front body");
- sampleWhaleReactions(actions,0,0,2,1);mixer.update(0);
- assert.ok(body.quaternion.angleTo(baseline[0])<1e-6,"curiosity ends at swimming pose");
- assert.equal(actions.length,5);
+ const click=prepareWhaleGestureAction(mixer,clips,"Whale_ClickResponse");
+ sampleWhaleGesture(click,.45,1);mixer.update(0);
+ assert.ok(body.quaternion.angleTo(baseline[0])>.12,"click makes a clearly readable body acknowledgement");
+ assert.ok(fin.quaternion.angleTo(baseline[2])>.12,"click opens the pectoral fin");
+ sampleWhaleGesture(click,1,1);mixer.update(0);
+ assert.ok(body.quaternion.angleTo(baseline[0])<1e-6,"click returns exactly to the swimming pose");
+ const entrance=prepareWhaleGestureAction(mixer,clips,"Whale_EntranceStroke");
+ sampleWhaleGesture(entrance,.5,1);mixer.update(0);
+ assert.ok(fin.quaternion.angleTo(baseline[2])>.1,"entrance has an authored power stroke");
+ sampleWhaleGesture(entrance,1,1);mixer.update(0);
+ assert.ok(body.quaternion.angleTo(baseline[0])<1e-6,"entrance cycle loops without a seam");
+ assert.equal(actions.length,4);
  mixer.stopAllAction();mixer.uncacheRoot(root);
 });
 
@@ -234,7 +243,7 @@ test("surface points and irregular wake share one shader clock and rig without b
  const trail=createMobileWhaleTrail(shared,source,emitters);
 
  assert.equal(trail.material.uniforms.uTime,body.uniforms.uTime);
- assert.equal(trail.geometry.attributes.position.count,1920,"40 surface anchors with 48 prepared particles");
+ assert.equal(trail.geometry.attributes.position.count,1280,"40 surface anchors with 32 prepared particles");
  assert.equal(trail.skeleton,source.skeleton,"emission follows the same swimming fins and tail");
  const version=trail.geometry.attributes.position.version;
  const index=trail.geometry.attributes.position.count-1,rest=new THREE.Vector3().fromBufferAttribute(trail.geometry.attributes.position,index);
@@ -246,13 +255,84 @@ test("surface points and irregular wake share one shader clock and rig without b
  assert.equal(trail.geometry.attributes.position.version,version,"swimming does not upload the point buffer again");
  const seeds=trail.geometry.attributes.aSeed;
  assert.equal(seeds.itemSize,4);
- assert.ok(new Set(Array.from(seeds.array).filter((_,i)=>i%4===1)).size>900,"independent wake speeds, no identical strings");
+ assert.ok(new Set(Array.from(seeds.array).filter((_,i)=>i%4===1)).size>600,"independent wake speeds, no identical strings");
+	trail.setMotionActivity(.9,new THREE.Vector3(1,.2,-.3));
+	assert.equal(trail.material.uniforms.uMotionEnergy.value,.9);
+	assert.deepEqual(trail.material.uniforms.uFlowTurn.value.toArray(),[-.3,.2]);
  assert.ok(!/vFlow|uv1|sampler2D/.test(body.vertexShader+body.fragmentShader));
  for(const uniform of Object.values(shared))assert.ok(!uniform.value?.isTexture);
  assert.equal(body.side,THREE.FrontSide);
  assert.equal(body.depthWrite,false,"transparent glow corners must not occlude later contours");
  assert.equal(body.depthTest,true,"the body still occludes the distant contours");
  body.dispose();trail.geometry.dispose();trail.material.dispose();source.geometry.dispose();source.skeleton.dispose();
+});
+
+test("wake sheds from real side points and curves rearward/upward in the whale's perspective",async()=>{
+ const data=await decoded,geometry=new THREE.BufferGeometry();
+ for(const [key,values,size] of [["position",data.POSITION,3],["normal",data.NORMAL,3],
+  ["skinIndex",data.JOINTS_0,4]])
+  geometry.setAttribute(key,new THREE.BufferAttribute(values,size));
+ geometry.setAttribute("skinWeight",new THREE.Uint8BufferAttribute(data.WEIGHTS_0,4,true));
+ const source={geometry,skeleton:{bones:gltf.skins[0].joints.map(index=>({name:gltf.nodes[index].name}))}};
+ const emitters=JSON.parse(gltf.nodes.find(node=>node.name==="MobileWhaleRig").extras.wakeEmitters);
+ const anchors=prepareWhaleWakeFlow(emitters,source);
+ assert.equal(anchors.length,64,"crest and fins plus twenty-four real flank emitters");
+ assert.equal(emitters.length,40,"the original prepared asset is not modified");
+ const view=new THREE.Matrix4().makeRotationFromQuaternion(setWhaleViewRotation(
+  new THREE.Quaternion(),new THREE.Matrix4(),new THREE.Quaternion()));
+ for(const anchor of anchors){
+  const direction=new THREE.Vector3(...anchor.direction),bend=new THREE.Vector3(...anchor.bend);
+  for(let age=0;age<=1;age+=.1){
+   const velocity=direction.clone().addScaledVector(bend,2*age).transformDirection(view);
+   assert.ok(velocity.x>0&&velocity.y>0&&velocity.z<0,"flow travels right/up/away, never reverses");
+  }
+  if(anchor.side){
+   assert.ok(bend.y>.7,"side flow progressively curls upward");
+   const sum=Object.values(anchor.weights).reduce((a,b)=>a+b,0);
+   assert.ok(Math.abs(sum-1)<1e-6);
+   const match=Array.from({length:data.POSITION.length/3},(_,i)=>i)
+    .some(i=>anchor.position.every((value,j)=>value===data.POSITION[i*3+j]));
+   assert.ok(match,"emission starts on the actual skin, not in surrounding space");
+  }
+ }
+ assert.ok(anchors[0].direction[1]>anchors[10].direction[1],"crest slope changes across the shoulder");
+ geometry.dispose();
+});
+
+test("wake clipping follows the ocean instead of the whale pose, without rebuilding materials",()=>{
+ const {body,shared}=createMobileWhaleMaterials(),trail=createMobileWhaleTrail(shared);
+ const scene=new THREE.Group(),ocean=new THREE.Group(),whale=new THREE.Group();
+ scene.add(ocean,whale);whale.add(trail);
+ ocean.position.set(5,4.7,12.8);ocean.rotation.set(.31,-.02,.06);ocean.scale.set(.4,1,.4);
+ whale.position.set(8,-4,-7);whale.rotation.set(.07,-1.24,.3);whale.scale.setScalar(5.85);
+ const config={waveAmp:.7,rippleAmp:.45};trail.setOceanSurface(ocean,config,22);
+ const camera=new THREE.PerspectiveCamera();camera.position.set(-11.5,1.5,26.5);scene.add(camera);
+ const uniforms=trail.material.uniforms,version=trail.material.version;
+ const renderer={getCurrentViewport:target=>target.set(0,0,1280,720)};
+ for(const shift of [0,3,-5]){
+  whale.position.y+=shift;ocean.rotation.x+=.04;scene.updateMatrixWorld(true);
+  trail.onBeforeRender(renderer,scene,camera);
+  assert.equal(uniforms.uOceanClipEnabled.value,1);
+  assert.equal(uniforms.uOceanZNear.value,22);
+  assert.ok(uniforms.uCameraOcean.value.distanceTo(ocean.worldToLocal(camera.position.clone()))<1e-10);
+  const ceiling=uniforms.uOceanCeilingY.value;
+  assert.equal(ceiling,getOceanSpaceCeilingY({},config));
+  assert.ok(ceiling<-(config.waveAmp*.65+config.rippleAmp*.55),"reserve below every possible wave trough");
+  for(const y of [ceiling-2,ceiling,ceiling+2]){
+   const local=new THREE.Vector3(3,y,-12).applyMatrix4(ocean.matrixWorld)
+    .applyMatrix4(trail.matrixWorld.clone().invert());
+   const actual=local.applyMatrix4(uniforms.uWhaleToOcean.value).y;
+   assert.ok(Math.abs(actual-y)<1e-10,"clip evaluates actual ocean depth after all transforms");
+   const alpha=1-THREE.MathUtils.smoothstep(actual,ceiling-uniforms.uOceanFadeBand.value,ceiling);
+   assert.ok(y>=ceiling?alpha<1e-10:alpha===1);
+  }
+ }
+ config.waveAmp=2;trail.onBeforeRender(renderer);
+ assert.equal(uniforms.uOceanCeilingY.value,getOceanSpaceCeilingY({},config),"live wave changes retain headroom");
+ ocean.visible=false;trail.onBeforeRender(renderer);
+ assert.equal(uniforms.uOceanClipEnabled.value,0,"hidden mobile ocean does not cut away the wake");
+ assert.equal(trail.material.version,version);
+ body.dispose();trail.geometry.dispose();trail.material.dispose();
 });
 
 test("transparent skin reveals rear fins, opaque skin occludes them on the same prepared rig",()=>{
@@ -273,11 +353,12 @@ test("transparent skin reveals rear fins, opaque skin occludes them on the same 
  assert.equal(depth.material.uniforms.uModelOpacity.value,0);
  assert.equal(depth.material.depthWrite,false,"invisible surface cannot hide rear beads");
  const version=depth.material.version;
- for(const [opacity,reveal,writesDepth] of [[0,1,false],[.5,1,false],[1,1,true],[1,.5,false],[0,1,false]]){
+ for(const [opacity,reveal,writesDepth] of [[0,1,false],[.5,1,false],[.8,1,false],[1,1,true],[1,.5,true],[0,1,false]]){
   depth.material.uniforms.uModelOpacity.value=opacity;
   depth.material.uniforms.uEntranceReveal.value=reveal;
   depth.onBeforeRender();
   assert.equal(depth.material.depthWrite,writesDepth,`model ${opacity}, entrance ${reveal}`);
+  assert.equal(depth.material.uniforms.uModelOpacity.value,opacity,"draw preserves fractional opacity");
  }
  assert.equal(depth.material.version,version,"live transparency does not recompile the shader");
  assert.equal(depth.frustumCulled,false);
@@ -297,10 +378,20 @@ test("live point size and skin opacity update prepared materials independently o
   assert.equal(shared.uOpacity.value,1);assert.equal(skin.material.uniforms.uModelOpacity.value,0);
   applyMobileWhaleVisuals(body,{...config,pointScale:2,modelOpacity:.7},tier);
   assert.equal(shared.uPointScale.value,2);
-  assert.equal(skin.material.uniforms.uModelOpacity.value,.7);
-  assert.equal(shared.uOpacity.value,1,"surface alpha cannot change particle alpha");
+	assert.equal(skin.material.uniforms.uModelOpacity.value,.7);
+	assert.equal(shared.uOpacity.value,1,"surface visibility cannot change particle visibility");
   applyMobileWhaleVisuals(body,{...config,opacity:.15,modelOpacity:.7},tier);
-  assert.equal(skin.material.uniforms.uModelOpacity.value,.7,"particle alpha cannot change surface alpha");
+	assert.equal(skin.material.uniforms.uModelOpacity.value,.7,"particle visibility cannot change surface visibility");
+	assert.equal(shared.uOpacity.value,0,"particle visibility is binary");
+	applyMobileWhaleVisuals(body,{...config,modelOpacity:1.4},tier);
+	assert.equal(skin.material.uniforms.uModelOpacity.value,1,"surface opacity clamps above one");
+	applyMobileWhaleVisuals(body,{...config,modelOpacity:-.4},tier);
+	assert.equal(skin.material.uniforms.uModelOpacity.value,0,"surface opacity clamps below zero");
+  applyMobileWhaleVisuals(body,{...config,modelColor:"#ff3300"},tier);
+  assert.equal(skin.material.uniforms.uModelColor.value.getHexString(),"ff3300");
+  assert.equal(shared.uColor.value.getHexString(),"0f93cc","model colour leaves particles unchanged");
+  applyMobileWhaleVisuals(body,{...config,modelColor:"#ff3300",colorTint:"#00ff00"},tier);
+  assert.equal(skin.material.uniforms.uModelColor.value.getHexString(),"ff3300","particle colour leaves skin unchanged");
   applyMobileWhaleVisuals(body,{...config,emissiveIntensity:1,glowPulse:{max:1,speed:0}},tier);
   const dim=shared.uGlow.value;
   applyMobileWhaleVisuals(body,{...config,emissiveIntensity:10,glowPulse:{max:10,speed:0}},tier);

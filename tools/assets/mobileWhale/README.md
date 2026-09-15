@@ -44,7 +44,7 @@ directly when only adjusting reactions):
 ```
 
 The master contains `Whale_LookLeft`, `Whale_LookRight`, `Whale_LookUp`,
-`Whale_LookDown`, and `Whale_LookCurious` in addition to the original swim. Select an action in Blender's
+`Whale_LookDown`, `Whale_ClickResponse`, and `Whale_EntranceStroke` in addition to the original swim. Select an action in Blender's
 Action Editor and scrub frames 1–49: neutral → supported reach, with tail
 counterbend and delayed fin tips. The object transform remains fixed.
 `authorWhaleReactions.py` controls the keyed angles and timing. Its exporter
@@ -52,33 +52,42 @@ explicitly disables “single armature/all actions” so Blender does not merge 
 swim into each reaction. `mergeWhaleReactions.mjs` replaces only reaction tracks;
 the existing compressed geometry, particles and swim bytes remain intact.
 
-Runtime uses the same mixer and skeleton: five additive actions are bound before
-Start, referenced to their neutral first frame and held at their authored reach
-poses. The pointer spring blends their additive weights, avoiding the double
+Runtime uses the same mixer and skeleton: four directional actions and two
+complete gestures are bound before Start, referenced to their neutral first frame.
+The pointer spring blends directional weights, avoiding the double
 braking that scrubbing eased clips causes at neutral. Screen X reverses the
 authored yaw to match the site camera. Diagonal targets are bounded to a unit
 circle before the spring so they approach the limit without an early hard stop.
 Releasing the pointer,
 DOM blockers, touch input or reduced-motion returns the pose to swimming. The
 local particle highlight is independent. Prepared bounds include eight reach
-directions at four swim phases, including the curiosity crest. No new meshes, shaders or point-buffer updates
+directions at four swim phases, plus the click response and entrance power stroke. No new meshes, shaders or point-buffer updates
 are introduced by interaction. The combined GLB remains below 800 KB.
 
 `whaleSurfaceInteraction.js` prepares one ellipsoid per influenced bone for cheap
 body hits; it never raycasts or skins the full point cloud per frame. Hover lights
-the surface without displacing particles or changing its silhouette. A steady hover for 1.1 seconds
-plays the two-second curiosity clip, with a six-second cooldown. A short click or
-tap sends one expanding light ring across the surface; repeated taps are rate
+the surface without displacing particles or changing its silhouette. A short click
+or tap plays the two-second response with the sonar wave, picks the nearest posed
+skin triangle once and stores its barycentric bind-space
+position/normal. A model-space light front uses 3D distance with a curvature correction,
+so it deforms with the skeleton and projects with the whale's perspective instead of
+remaining a screen-space circle. This is an inexpensive surface-distance approximation,
+not a geodesic solver. Precise triangle picking happens only on accepted taps; hover
+keeps the bone proxies and propagation uses uniforms only. Repeated taps are rate
 limited, and movement over 10 CSS pixels, wheel, cancel, blur and UI blockers
 cancel the tap. Window hit events use the same home hex Y-band owner as rendering.
 Mouse tracking begins during the whale's entrance, as soon as Start is active.
-Touch movement keeps native scrolling. Reduced motion disables particle movement
-and curiosity, and reduces the sonar brightness. All interaction uniforms and
+Touch movement keeps native scrolling. Reduced motion subdues the response and
+sonar brightness. All interaction uniforms and
 animation bindings exist before the loader opens.
 
-The first entrance uses `whaleEntrance.js`: a 6.5-second approach from darkness
-and depth, with minimal lateral drift and no entrance turn. A shared reveal uniform
-fades the particles, model surface and wake together without overriding user opacity.
+The first entrance uses `whaleEntrance.js`: a configurable 7.2-second curved
+approach from soft depth, starting at screen NDC (.79, .18). The authored entrance
+stroke loops during the approach and fades into the calm swim before arrival.
+Camera-space travel compensates perspective for a smooth apparent approach;
+the parent scene transform is inverted before applying the position locally.
+`modelColor` controls the prepared surface material independently of particle
+`colorTint` and wake color; it is visible when `modelOpacity` is above zero.
 The prepared swim continues from 0.8x to normal speed without restarting its phase.
 Position and ambient sway settle continuously into the idle composition.
 Reduced motion uses the settled pose. `whale.scale` also controls the fitted size
@@ -98,9 +107,19 @@ add a blur pass or change the ocean fog. Resize preserves the perspective.
 - One body point draw, one skin surface draw and one wake draw. The surface writes
   depth only at full model opacity and reveal. Transparent skin leaves rear fins
   and particles visible; changing opacity does not rebuild or recompile materials.
-- `mobileWhaleTrail.js` prepares 960 points on 40 rigged emission anchors.
-  Independently seeded ages, speeds and dispersion produce irregular drifting
-  particles with an overall right/up current and smoothly fading lifetimes.
+- `mobileWhaleTrail.js` prepares 2,496 points on 52 rigged emission anchors.
+  `whaleWakeFlow.js` derives departure tangents from the existing surface normals
+  and adds twelve near-side anchors with the actual point positions/rig weights.
+  Crest particles shed up/back; sides and fins progressively curve up and into
+  depth. Directions and curves are skinned with their anchors and projected in 3D.
+  Seeded ages, speeds and restrained dispersion keep the flow irregular, with
+  smoothly fading lifetimes. All flow attributes are prepared before Start.
+  The wake transforms skinned positions into ocean-surface space and fades below
+  the existing conservative wave ceiling (`oceanSurfaceClip.js`). The entire sprite
+  disappears before reaching the water, including during whale turns and live
+  ocean edits. Its camera ray is checked at the near water edge too, preventing
+  submerged particles from drawing over the grid in projection. The clip is
+  disabled when the mobile layout hides the ocean.
 - Frame updates change bones and uniforms only. No CPU point skinning, changing
   bitmap texture, buffer upload or resource rebuild is used for swimming.
 - The export contains about 20,500 surface points and is about 719 KB, within

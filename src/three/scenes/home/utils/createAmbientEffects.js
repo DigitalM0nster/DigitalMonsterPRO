@@ -32,6 +32,7 @@ function createDriftMaterial(color, options = {}) {
 			uOceanFadeBand: { value: options.oceanFadeBand ?? 2.5 },
 			uScrollPhase: { value: 0 },
 			uWrapWidth: { value: options.wrapWidth ?? 40 },
+			uFlowDirection: { value: new THREE.Vector3(1, 0, 0) },
 		}),
 		vertexShader: ambientDriftVertexShader,
 		fragmentShader: ambientDriftFragmentShader,
@@ -162,9 +163,10 @@ export function createDeepOceanParticles(
 		material,
 		getCount: () => count,
 		rebuild,
-		update(elapsed, scrollPhase = 0) {
+		update(elapsed, scrollPhase = 0, flowDirection = null) {
 			material.uniforms.uTime.value = elapsed;
 			material.uniforms.uScrollPhase.value = scrollPhase;
+			if (flowDirection) material.uniforms.uFlowDirection.value.copy(flowDirection);
 		},
 		applyConfig,
 	};
@@ -288,9 +290,10 @@ export function createWhaleAmbientParticles(
 		material,
 		getCount: () => count,
 		rebuild,
-		update(elapsed, scrollPhase = 0) {
+		update(elapsed, scrollPhase = 0, flowDirection = null) {
 			material.uniforms.uTime.value = elapsed;
 			material.uniforms.uScrollPhase.value = scrollPhase;
+			if (flowDirection) material.uniforms.uFlowDirection.value.copy(flowDirection);
 		},
 		applyConfig,
 	};
@@ -333,9 +336,9 @@ export function createAmbientEffects() {
 			replaceDisposable(prevDeepGeo, deepOcean.geometry);
 			replaceDisposable(prevWhaleGeo, whaleAmbient.geometry);
 		},
-		update(delta, elapsed, scrollPhases = {}) {
+		update(delta, elapsed, scrollPhases = {}, whaleFlowDirection = null) {
 			deepOcean.update(elapsed, scrollPhases.deep ?? 0);
-			whaleAmbient.update(elapsed, scrollPhases.whale ?? 0);
+			whaleAmbient.update(elapsed, scrollPhases.whale ?? 0, whaleFlowDirection);
 		},
 	};
 }

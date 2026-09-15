@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { applyDeviceTiltCamera } from "../../interaction/deviceTiltCamera.js";
 import { resolveAboutResponsiveLayout } from "@/pages/about/aboutResponsiveLayout.js";
 import { createGLTFLoader } from "@/three/assets/gltfLoader.js";
 import { applySceneProgressToCamera } from "../utils/applySceneProgressToCamera.js";
@@ -658,6 +659,7 @@ export class AboutScene {
 				sceneProgress,
 			);
 			this._applyCompactCamera(camera, sceneProgress);
+			applyDeviceTiltCamera(camera, frame);
 			return;
 		}
 
@@ -667,6 +669,7 @@ export class AboutScene {
 		camera.fov = verticalFov;
 		camera.updateProjectionMatrix();
 		this._applyCompactCamera(camera, sceneProgress);
+		applyDeviceTiltCamera(camera, frame);
 	}
 
 	_applyCompactCamera(camera, sceneProgress) {

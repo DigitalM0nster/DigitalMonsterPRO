@@ -1,6 +1,7 @@
 import { getScenePixelRatio } from "@/three/renderer/renderResolution.js";
 import { getGraphicsTier } from "@/functions/getGraphicsTier.js";
 import * as THREE from "three";
+import { applyDeviceTiltCamera } from "../../../interaction/deviceTiltCamera.js";
 import { filmProjects } from "@/pages/portfolio/data/filmProjects.js";
 import { getPortfolioLocale } from "@/pages/portfolio/data/portfolioProjectsCopy.js";
 import { attachFilmActions, publishFilmUi, getFilmUiSnapshot, updateFilmInfoView } from "@/pages/portfolio/filmInteraction.js";
@@ -140,6 +141,7 @@ export class PortfolioFilmScene {
 	endWarmupDraw(previous) { this.warming = previous; if (this.screen) this.screen.warming = previous; }
 	applyCamera(camera, frame) {
 		applySceneProgressToCamera(camera, { position: [0, 0, 10], lookAt: [0, 0, 0], fov: 40, scrollY: 1.2, scrollZ: 0.3 }, frame?.sceneProgress ?? 0);
+		applyDeviceTiltCamera(camera, frame);
 		camera.updateMatrixWorld();
 		this.camera.copy(camera);
 	}

@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { applyDeviceTiltCamera } from "../../interaction/deviceTiltCamera.js";
 import { sceneOwnsHexHitAtClientY } from "@/three/render/overlay/hexHitOwnership.js";
 import { InfiniteLightTrailsWorld } from "./lightTrails/InfiniteLightTrailsWorld.js";
 import { SyntheticCoreWorld } from "./placeholders/SyntheticCoreWorld.js";
@@ -137,13 +138,15 @@ export class CapabilityWorldScene {
 		return this.capability.sceneVariant === "spatialMatrix" ? Math.PI / 18 : undefined;
 	}
 
-	applyCamera(camera) {
+	applyCamera(camera, frame) {
 		if (this._freeCamera?.apply(camera)) return;
 		if (this.capability.sceneVariant === "lightTrails") {
 			this.world.applyCamera(camera, 1);
+			applyDeviceTiltCamera(camera, frame);
 			return;
 		}
 		this.world.applyCamera(camera, this.cameraParallax);
+		applyDeviceTiltCamera(camera, frame);
 	}
 
 	_enableWorld() {

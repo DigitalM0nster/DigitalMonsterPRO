@@ -547,7 +547,7 @@ export class HeroTextMesh {
 		// Keep the full-frame coordinate system for reveal, glyph geometry and light
 		// motion, but allocate only the occupied rows. No glyph resampling: Safari's
 		// tall viewport previously uploaded ~36 MiB for these two short title lines.
-		const boundedTitle = this.shaderProfile === "title" && this.useInstancedLetters && !this.useGlitchSnake && getGraphicsTier() !== "high";
+		const boundedTitle = this.shaderProfile === "title" && this.useInstancedLetters && !this.useGlitchSnake;
 		const titleRows = Math.ceil((Math.max(1, text.length) * this.reverseNormalizeItem(this.lineHeight)
 			+ this.reverseNormalizeItem(this.fontSize) + 32) / 16) * 16;
 		this.canvas.height = boundedTitle ? Math.min(Math.floor(this.canvasHeight), titleRows) : this.canvasHeight;

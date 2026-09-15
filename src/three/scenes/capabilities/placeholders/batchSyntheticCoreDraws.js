@@ -41,7 +41,8 @@ export async function batchSyntheticCoreDraws(root, isDisposed = () => false, yi
 		for (const meshes of buckets.values()) if (meshes.length > 1) batches.push({ parent, meshes });
 	});
 	let savedDraws = 0;
-	for (const { parent, meshes } of batches) {
+	while (batches.length) {
+		const { parent, meshes } = batches.shift();
 		await yieldFrame();
 		if (isDisposed()) break;
 		const geometry = mergeGeometries(meshes.map(mesh => mesh.geometry));
@@ -57,7 +58,10 @@ export async function batchSyntheticCoreDraws(root, isDisposed = () => false, yi
 			parent.remove(mesh);
 			const remaining = references.get(mesh.geometry) - 1;
 			references.set(mesh.geometry, remaining);
-			if (remaining === 0) mesh.geometry.dispose();
+			if (remaining === 0) {
+				mesh.geometry.dispose();
+				references.delete(mesh.geometry);
+			}
 		}
 		savedDraws += meshes.length - 1;
 	}

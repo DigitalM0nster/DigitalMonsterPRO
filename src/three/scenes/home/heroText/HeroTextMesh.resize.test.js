@@ -80,6 +80,8 @@ for (const tier of ["high", "medium", "low"]) {
 	test(`${tier}: Safari height changes retain the title atlas, geometry and CSS glyph size`, async () => {
 		const { title, viewport, counts } = harness(tier);
 		await title.readyPromise;
+		assert.ok(title.canvas.height < 1400, "All tiers retain glyph rows, not a tall empty viewport");
+		assert.equal(title.canvas.width, 2048, "Cropping must preserve the original glyph resolution");
 		const texture = title._textTexture, geometry = title.textMesh.geometry;
 		const materials = [title.textMaterial, title.fillMaterial];
 		const versions = [texture.version, geometry.getAttribute("instancePosition").version];

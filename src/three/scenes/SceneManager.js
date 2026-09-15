@@ -66,6 +66,7 @@ export class SceneManager {
 		this.getPointer = options.getPointer ?? (() => ({ x: 0, y: 0 }));
 		this.getViewportPointer = options.getViewportPointer ?? this.getPointer;
 		this.getVisualPointer = options.getVisualPointer ?? this.getViewportPointer;
+		this.getDeviceTilt = options.getDeviceTilt ?? (() => null);
 		this.getPointerDown = options.getPointerDown ?? (() => false);
 		this.getPointerBlocked = options.getPointerBlocked ?? (() => false);
 		this.gfx = options.gfx ?? {
@@ -412,6 +413,7 @@ export class SceneManager {
 			// Passive visual response must survive hex Y-band hit ownership. The
 			// interaction frame may zero `pointer`, but never this viewport signal.
 			visualPointer: this.getVisualPointer(),
+			deviceTilt: this.getDeviceTilt(),
 			pointerDown: this.getPointerDown(),
 			pointerBlocked: this.getPointerBlocked(),
 			viewportWidth: Math.floor(cssW * dpr),

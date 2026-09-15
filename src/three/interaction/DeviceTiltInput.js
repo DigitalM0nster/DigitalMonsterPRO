@@ -1,6 +1,12 @@
 let activeInput = null;
 const clamp = value => Math.max(-1, Math.min(1, value));
 const angleDelta = (value, base) => ((value - base + 540) % 360) - 180;
+const neutralPointer = Object.freeze({ x: 0, y: 0 });
+
+/** Touch presses retain real coordinates; an idle finger is not a hover cursor. */
+export function resolveVisualPointer(inputKind, pointerDown, viewportPointer) {
+	return inputKind === "touch" && !pointerDown ? neutralPointer : viewportPointer;
+}
 
 /** Screen-relative tilt from the comfortable pose held when the sensor starts. */
 export function tiltToPointer(beta, gamma, neutral, screenAngle = 0, result = { x: 0, y: 0 }) {
@@ -51,9 +57,13 @@ export class DeviceTiltInput {
 		return this.pending;
 	}
 	update(delta) {
+		if (!this.available || this.disposed || this.env.document?.hidden) return;
 		const ease = 1 - Math.exp(-7 * Math.min(.05, Math.max(0, delta)));
 		this.pointer.x += (this.target.x - this.pointer.x) * ease;
 		this.pointer.y += (this.target.y - this.pointer.y) * ease;
+	}
+	getCameraPointer(inputKind) {
+		return inputKind === "touch" && this.available && !this.disposed ? this.pointer : null;
 	}
 	dispose() {
 		this.disposed = true;

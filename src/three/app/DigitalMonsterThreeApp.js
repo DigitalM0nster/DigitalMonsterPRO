@@ -8,7 +8,7 @@ import { yieldToPreparationFrame } from "./preparationFrame.js";
 import { warmScreenOverlay } from "../renderer/warmScreenOverlay.js";
 import { waitForCompiledPrograms } from "../renderer/compileSceneChunked.js";
 import { prepareSceneCanvasInterfaces } from "@/app/prepareSceneCanvasInterfaces.js";
-import { DeviceTiltInput } from "../interaction/DeviceTiltInput.js";
+import { DeviceTiltInput, resolveVisualPointer } from "../interaction/DeviceTiltInput.js";
 import { BackgroundPipeline } from "../render/background/BackgroundPipeline.js";
 import { ScreenCompositor } from "../render/toScreen/ScreenCompositor.js";
 import { updateSiteGrainBlurRadius } from "../render/toScreen/siteGrainBlurRuntime.js";
@@ -164,7 +164,8 @@ export class DigitalMonsterThreeApp {
 			store: this.store,
 			getPointer: () => this.pointer,
 			getViewportPointer: () => this.viewportPointer,
-			getVisualPointer: () => this._inputKind === "touch" && !this.pointerDown && this.deviceTilt.available ? this.deviceTilt.pointer : this.viewportPointer,
+			getVisualPointer: () => resolveVisualPointer(this._inputKind, this.pointerDown, this.viewportPointer),
+			getDeviceTilt: () => this.startApp ? this.deviceTilt.getCameraPointer(this._inputKind) : null,
 			getPointerDown: () => this.pointerDown,
 			getPointerBlocked: () => this.pointerBlocked,
 			gfx,

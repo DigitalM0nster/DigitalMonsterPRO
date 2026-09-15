@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { applyDeviceTiltCamera } from "../../interaction/deviceTiltCamera.js";
 import { PortfolioHubScene } from "../portfolio/PortfolioHubScene.js";
 import { store as appStore } from "@/app/store.jsx";
 import { CONTACTS_HUB_PROJECTS } from "@/pages/contacts/contactsChannels.js";
@@ -98,6 +99,7 @@ export class ContactsScene extends PortfolioHubScene {
 			camera.projectionMatrix.elements[9] = projection.y;
 			camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
 		}
+		applyDeviceTiltCamera(camera, frame);
 		this._applyResponsiveHud(camera);
 		camera.updateMatrixWorld();
 		this._linkCamera?.copy(camera);

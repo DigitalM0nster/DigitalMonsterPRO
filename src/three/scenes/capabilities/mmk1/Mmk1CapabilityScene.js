@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { applyDeviceTiltCamera } from "../../../interaction/deviceTiltCamera.js";
 import { Case3Scene } from "@/three/scenes/portfolio/case3/Case3Scene.js";
 import { PortfolioFreeCameraController } from "@/three/scenes/portfolio/hub/PortfolioFreeCameraController.js";
 import { setMmk1ReturnToOverviewHandler } from "@/pages/capabilities/mmk1SceneBridge.js";
@@ -327,11 +328,13 @@ export class Mmk1CapabilityScene extends Case3Scene {
 			return;
 		}
 		if (this._cameraHotspots?.applyCamera(camera, this.cameraParallax)) {
+			applyDeviceTiltCamera(camera, frame);
 			this._cameraHotspots.syncCamera(camera);
 			return;
 		}
 		super.applyCamera(camera, frame);
 		this._applyResponsiveOverviewCamera(camera);
+		applyDeviceTiltCamera(camera, frame);
 		this._cameraHotspots?.syncCamera(camera);
 	}
 

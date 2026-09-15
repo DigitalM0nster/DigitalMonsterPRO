@@ -17,13 +17,19 @@ function batch(parent) {
  return {
   part(value) { part = value; },
   add(geometry, material, position = [0,0,0], rotation = [0,0,0]) {
-   const flat = geometry.index ? geometry.toNonIndexed() : geometry;
-   if (flat !== geometry) geometry.dispose();
+   // Preserve shared vertices. Expanding every torus/panel duplicated normals,
+   // UVs and assembly attributes up to six times, in RAM and again on the GPU.
+   if (!geometry.index) {
+    const count = geometry.attributes.position.count;
+    const indices = count > 65535 ? new Uint32Array(count) : new Uint16Array(count);
+    for (let i = 0; i < count; i++) indices[i] = i;
+    geometry.setIndex(new THREE.BufferAttribute(indices, 1));
+   }
    const matrix = new THREE.Matrix4().compose(new THREE.Vector3(...position), new THREE.Quaternion().setFromEuler(new THREE.Euler(...rotation)), new THREE.Vector3(1,1,1));
-   flat.applyMatrix4(matrix);
-   tagAssemblyPart(flat, part);
+   geometry.applyMatrix4(matrix);
+   tagAssemblyPart(geometry, part);
    if (!buckets.has(material)) buckets.set(material, []);
-   buckets.get(material).push(flat);
+   buckets.get(material).push(geometry);
   },
   finish() {
    for (const [material, geometries] of buckets) {
@@ -41,14 +47,16 @@ function batch(parent) {
 function createShellPatch(radius, phi, span, theta, height, thickness = 0.10, detail = 1) {
  const nx = Math.max(8, Math.ceil(span * (40 + detail * 40))), ny = Math.max(2, Math.ceil(height * (24 + detail * 40)));
  const count = 12 * (nx * ny + nx + ny);
- const positions = new Float32Array(count * 3), normals = new Float32Array(count * 3), uvs = new Float32Array(count * 2);
- let cursor = 0;
+ const capacity = Math.min(count, 6 * (nx + 1) * (ny + 1) + 12 * (nx + ny));
+ const positions = new Float32Array(capacity * 3), normals = new Float32Array(capacity * 3), uvs = new Float32Array(capacity * 2);
+ const indices = new Uint32Array(count);
+ let cursor = 0, indexCursor = 0;
  const bevelInset = Math.min(0.008, span * 0.12, height * 0.12);
  const vertex = (p, n, u, v) => {
   const i = cursor * 3, j = cursor * 2;
   positions[i]=p.x;positions[i+1]=p.y;positions[i+2]=p.z;
   normals[i]=n.x;normals[i+1]=n.y;normals[i+2]=n.z;
-  uvs[j]=u;uvs[j+1]=v;cursor++;
+  uvs[j]=u;uvs[j+1]=v;return cursor++;
  };
  for (const side of [1,-1]) {
   const r = radius + (side === 1 ? thickness : 0);
@@ -60,9 +68,15 @@ function createShellPatch(radius, phi, span, theta, height, thickness = 0.10, de
    const p=point(r,phi+inset+(span-2*inset)*x/nx,theta+inset+(height-2*inset)*y/ny);
    points.push(p);directions.push(p.clone().normalize().multiplyScalar(side));
   }
-  const triangle = (a,b,c) => {
-   vertex(points[a],directions[a],0,0);vertex(points[b],directions[b],1,0);vertex(points[c],directions[c],0,1);
+  // A corner has three distinct UV roles in the authored triangle pattern.
+  // Share only identical roles, keeping every position/normal/UV bit intact.
+  const corners = new Int32Array(points.length * 3).fill(-1);
+  const indexedVertex = (corner, role) => {
+   const key = corner * 3 + role;
+   if (corners[key] < 0) corners[key] = vertex(points[corner], directions[corner], role === 1 ? 1 : 0, role === 2 ? 1 : 0);
+   indices[indexCursor++] = corners[key];
   };
+  const triangle = (a,b,c) => { indexedVertex(a,0);indexedVertex(b,1);indexedVertex(c,2); };
   for (let y = 0; y < ny; y++) for (let x = 0; x < nx; x++) {
    const a=y*(nx+1)+x,b=a+1,d=a+nx+1,c=d+1;
    if(side===1){triangle(a,c,b);triangle(a,d,c);}else{triangle(a,b,c);triangle(a,c,d);}
@@ -80,11 +94,16 @@ function createShellPatch(radius, phi, span, theta, height, thickness = 0.10, de
    const tangentPhi=new THREE.Vector3(-Math.sin(ph),Math.cos(ph),0);
    const tangentTheta=new THREE.Vector3(Math.cos(th)*Math.cos(ph),Math.cos(th)*Math.sin(ph),-Math.sin(th));
    const normal=(edge%2?tangentPhi:tangentTheta).multiplyScalar(edge===0||edge===3?-1:1);
-   normal.addScaledVector(radial,0.4).normalize();vertex(p,normal,u,v);
+   normal.addScaledVector(radial,0.4).normalize();indices[indexCursor++]=vertex(p,normal,u,v);
   };
   emit(a,u0,v0);emit(c,u1,v1);emit(b,u1,v1);emit(a,u0,v0);emit(d,u0,v0);emit(c,u1,v1);
  }
- const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(positions,3));g.setAttribute('normal',new THREE.BufferAttribute(normals,3));g.setAttribute('uv',new THREE.BufferAttribute(uvs,2));return g;
+ const g=new THREE.BufferGeometry();
+ g.setAttribute('position',new THREE.BufferAttribute(positions.slice(0,cursor*3),3));
+ g.setAttribute('normal',new THREE.BufferAttribute(normals.slice(0,cursor*3),3));
+ g.setAttribute('uv',new THREE.BufferAttribute(uvs.slice(0,cursor*2),2));
+ g.setIndex(new THREE.BufferAttribute(cursor > 65535 ? indices : new Uint16Array(indices),1));
+ return g;
 }
 
 function irisBlade() {

@@ -27,9 +27,12 @@ test("cached shell corners preserve the original geometry byte for byte", () => 
 	let index = 0;
 	for (const detail of [.45,.7,1]) {
 		for (const args of [[2.08,0,.57,.74,.39,.1],[2.3,.13,.3,.9,.011,.012],[2.2,1.2,.37,.8,.64,.1]]) {
-			const geometry = patch(...args,detail), hash = createHash("sha256");
-			for (const name of ["position","normal","uv"]) hash.update(new Uint8Array(geometry.attributes[name].array.buffer));
+			const geometry = patch(...args,detail), hash = createHash("sha256"), expanded = geometry.toNonIndexed();
+			for (const name of ["position","normal","uv"]) hash.update(new Uint8Array(expanded.attributes[name].array.buffer));
 			assert.equal(hash.digest("hex"),reference[index++]);
+			const bytes = g => Object.values(g.attributes).reduce((sum, a) => sum + a.array.byteLength, g.index?.array.byteLength ?? 0);
+			assert.ok(bytes(geometry) < bytes(expanded) * .85, "Preserve triangles while removing duplicate vertex storage");
+			expanded.dispose();
 			geometry.dispose();
 		}
 	}

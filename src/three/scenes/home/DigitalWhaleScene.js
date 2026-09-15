@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { applyDeviceTiltCamera } from "../../interaction/deviceTiltCamera.js";
 import { getScenePixelRatio } from "../../renderer/renderResolution.js";
 
 import { digitalWhaleConfig } from "./digitalWhaleConfig.js";
@@ -1318,9 +1319,10 @@ export class DigitalWhaleScene {
 
 		camera.position.copy(this.cameraPos);
 		camera.lookAt(this.lookAtTarget);
-		this._wakeCameraWorld.copy(camera.position);
 		camera.fov = this._cameraFov ?? heroCamera.fov;
 		camera.updateProjectionMatrix();
+		applyDeviceTiltCamera(camera, frame);
+		this._wakeCameraWorld.copy(camera.position);
 
 		this._ensureOceanTileCoverage(camera);
 		this._syncOceanScroll();
@@ -1346,6 +1348,7 @@ export class DigitalWhaleScene {
 		this.surfaceInteraction.surface?.syncCamera(this.cameraPos, this.lookAtTarget,
 			this._cameraFov ?? heroCamera.fov,
 			(frame?.viewportWidth || window.innerWidth) / (frame?.viewportHeight || window.innerHeight));
+		if (this.surfaceInteraction.surface) applyDeviceTiltCamera(this.surfaceInteraction.surface.camera, frame);
 		this.surfaceInteraction.update(delta, frame, this._appStarted && this.whaleReady,
 			this.cursorReaction.hasHoverPointer, this.cursorReaction.motionPreference.matches);
 		this._updateWhaleLocalFlow(delta);

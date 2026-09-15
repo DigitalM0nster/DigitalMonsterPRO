@@ -164,11 +164,16 @@ test("Blender reactions deform several bones, preserve swim at neutral and rever
  mixer.setTime(1.7);sampleWhaleReactions(actions,0,0);mixer.update(0);
  for(const [i,bone] of [body,tail,fin].entries())assert.ok(bone.quaternion.angleTo(baseline[i])<1e-6,"release restores swim without drift");
  const click=prepareWhaleGestureAction(mixer,clips,"Whale_ClickResponse");
+ const clickLayer=prepareWhaleGestureAction(mixer,clips,"Whale_ClickResponse");
+ assert.notEqual(clickLayer,click,"repeat taps use two independently scrubbed prepared actions");
  sampleWhaleGesture(click,.45,1);mixer.update(0);
  assert.ok(body.quaternion.angleTo(baseline[0])>.12,"click makes a clearly readable body acknowledgement");
  assert.ok(fin.quaternion.angleTo(baseline[2])>.12,"click opens the pectoral fin");
  sampleWhaleGesture(click,1,1);mixer.update(0);
  assert.ok(body.quaternion.angleTo(baseline[0])<1e-6,"click returns exactly to the swimming pose");
+ sampleWhaleGesture(click,.6,.5);sampleWhaleGesture(clickLayer,.2,.5);mixer.update(0);
+ assert.ok(body.quaternion.toArray().every(Number.isFinite),"overlapping click poses blend safely");
+ sampleWhaleGesture(click,1,0);sampleWhaleGesture(clickLayer,1,0);mixer.update(0);
  const entrance=prepareWhaleGestureAction(mixer,clips,"Whale_EntranceStroke");
  sampleWhaleGesture(entrance,.5,1);mixer.update(0);
  assert.ok(fin.quaternion.angleTo(baseline[2])>.1,"entrance has an authored power stroke");

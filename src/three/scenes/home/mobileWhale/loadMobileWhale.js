@@ -43,7 +43,7 @@ export async function loadMobileWhale(options={}){
  const swimAction=swimClip?mixer.clipAction(swimClip):null;
  swimAction?.setLoop(THREE.LoopRepeat,Infinity);swimAction?.play();
  const reactionActions=prepareWhaleReactionActions(mixer,gltf.animations);
- const clickAction=prepareWhaleGestureAction(mixer,gltf.animations,"Whale_ClickResponse");
+ const clickActions=[0,1].map(()=>prepareWhaleGestureAction(mixer,gltf.animations,"Whale_ClickResponse"));
  const entranceAction=prepareWhaleGestureAction(mixer,gltf.animations,"Whale_EntranceStroke");
  await points.prepareBounds();
  const bounds=new THREE.Box3();
@@ -64,7 +64,7 @@ export async function loadMobileWhale(options={}){
  }
  // Gesture extremes are also drawn and bounded before Start. Runtime only
  // changes action time and weight; it never creates a clip or binding.
- for(const action of [clickAction,entranceAction]){
+ for(const action of [...clickActions,entranceAction]){
   for(const progress of [0,.2,.4,.6,.8,1]){
    sampleWhaleGesture(action,progress,1);mixer.update(0);
    root.updateMatrixWorld(true);points.expandSwimBounds(bounds);
@@ -74,8 +74,9 @@ export async function loadMobileWhale(options={}){
  }
  root.userData.swimBounds={min:bounds.min.toArray(),max:bounds.max.toArray()};
  sampleWhaleReactions(reactionActions,0,0);
- sampleWhaleGesture(clickAction,1,0);sampleWhaleGesture(entranceAction,1,0);
+ for(const action of clickActions)sampleWhaleGesture(action,1,0);
+ sampleWhaleGesture(entranceAction,1,0);
  mixer.setTime(0);mixer.update(0);root.updateMatrixWorld(true);
- return {root,mixer,swimAction,reactionActions,clickAction,entranceAction,animations:gltf.animations,particles:null,
+ return {root,mixer,swimAction,reactionActions,clickActions,clickAction:clickActions[0],entranceAction,animations:gltf.animations,particles:null,
 	particleMeshes:[points],hologramMaterial:materials.body,trail,renderMode:"hologram"};
 }

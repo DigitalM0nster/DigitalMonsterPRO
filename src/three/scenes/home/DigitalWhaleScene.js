@@ -125,7 +125,7 @@ export class DigitalWhaleScene {
 		this.whaleMixer = null;
 		this.whaleSwimAction = null;
 		this.whaleReactionActions = null;
-		this.whaleClickAction = null;
+		this.whaleClickActions = null;
 		this.whaleEntranceAction = null;
 		this.whaleParticles = null;
 		this.whaleParticleMeshes = null;
@@ -470,7 +470,7 @@ export class DigitalWhaleScene {
 				this.whaleMixer = whale.mixer;
 				this.whaleSwimAction = whale.swimAction;
 				this.whaleReactionActions = whale.reactionActions;
-				this.whaleClickAction = whale.clickAction;
+				this.whaleClickActions = whale.clickActions ?? [whale.clickAction].filter(Boolean);
 				this.whaleEntranceAction = whale.entranceAction;
 				this.whaleParticles = whale.particles;
 				this.whaleParticleMeshes = whale.particleMeshes;
@@ -1387,8 +1387,13 @@ export class DigitalWhaleScene {
 			sampleWhaleReactions(this.whaleReactionActions,
 				this.cursorReaction.yaw / whaleCursorReactionConfig.yaw + clickX,
 				(-this.cursorReaction.pitch / whaleCursorReactionConfig.pitch + clickY) * .55);
-			sampleWhaleGesture(this.whaleClickAction, this.surfaceInteraction.responseProgress,
-				this.surfaceInteraction.responseWeight * .3);
+			const clickAmplitude0 = Math.sqrt(this.surfaceInteraction.responseEnergies[0]);
+			const clickAmplitude1 = Math.sqrt(this.surfaceInteraction.responseEnergies[1]);
+			const clickWeightScale = .3 / Math.max(1, clickAmplitude0 + clickAmplitude1);
+			sampleWhaleGesture(this.whaleClickActions?.[0], this.surfaceInteraction.responseProgresses[0],
+				clickAmplitude0 * clickWeightScale);
+			sampleWhaleGesture(this.whaleClickActions?.[1], this.surfaceInteraction.responseProgresses[1],
+				clickAmplitude1 * clickWeightScale);
 			sampleWhaleGesture(this.whaleEntranceAction, this._whaleEntrance.strokeProgress,
 				this._whaleEnterActive ? this._whaleEntrance.strokeWeight : 0);
 			this.whaleMixer.update(delta);
@@ -1453,7 +1458,7 @@ export class DigitalWhaleScene {
 
 		this.whaleMixer = null;
 		this.whaleReactionActions = null;
-		this.whaleClickAction = null;
+		this.whaleClickActions = null;
 		this.whaleEntranceAction = null;
 		this.whaleSwimAction = null;
 		this.whaleReady = false;

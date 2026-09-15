@@ -44,10 +44,29 @@ test("only a short body tap launches sonar; drags, scroll, menu and background d
 	assert.equal(f.effect.sonarAge, 0); assert.equal(f.effect.sonarStrength, 1);
 	assert.equal(f.effect.responseWeight, 1); assert.ok(f.effect.responseEnergy > 0);
 	assert.deepEqual(f.effect.sonarPosition.toArray(), [0, 0, 1], "tap uses a 3D surface point");
-	f.run(.2); f.send("pointerdown"); f.send("pointerup"); f.run(1 / 60);
-	assert.ok(f.effect.sonarAge > .2, "repeated taps cannot stack pulses");
+	f.run(.2); const firstAge = f.effect.sonarAges[0];
+	f.send("pointerdown"); f.send("pointerup"); f.run(1 / 60);
+	assert.ok(f.effect.sonarAges[0] > firstAge, "the first pulse remains continuous");
+	assert.equal(f.effect.sonarAges[1], 0, "the repeat pulse starts on the prepared second channel");
 	f.effect.dispose(); f.send("pointerdown"); f.send("pointerup");
 	assert.equal(f.effect.pendingSonar, false, "listeners are removed");
+});
+
+test("repeated taps blend immediately without resetting the active wave or body gesture", () => {
+	const f = fixture();
+	f.send("pointerdown"); f.send("pointerup"); f.run(1 / 60);
+	f.run(.8);
+	const age = f.effect.sonarAges[0], progress = f.effect.responseProgresses[0];
+	f.send("pointerdown", 600, 400); f.send("pointerup", 600, 400); f.run(1 / 60);
+	assert.ok(f.effect.sonarAges[0] > age, "the first visible wave radius stays monotonic");
+	assert.ok(f.effect.responseProgresses[0] > progress, "the first authored gesture keeps advancing");
+	assert.equal(f.effect.sonarAges[1], 0, "the second wave starts immediately");
+	assert.ok(f.effect.responseProgresses[1] > 0 && f.effect.responseProgresses[1] < .02,
+		"the second gesture blends in from its neutral frame");
+	assert.ok(f.effect.responseEnergies[0] > 0 && f.effect.responseEnergies[1] > 0,
+		"both prepared reactions overlap");
+	assert.ok(f.effect.responseEnergy <= 1, "rapid input cannot amplify the directional reaction");
+	f.effect.dispose();
 });
 
 test("sonar origin picks the nearest animated triangle and stays in bind space across viewpoints", () => {
@@ -102,7 +121,7 @@ test("Y-band and DOM blockers fade effects; reduced motion keeps only a subdued 
 	assert.ok(f.effect.touch < .00001); assert.equal(f.effect.responseWeight, 0);
 	f.send("pointerdown"); f.send("pointerup"); f.run(1 / 60, false, true);
 	assert.equal(f.effect.sonarStrength, .25);
-	assert.equal(f.effect.responseWeight, .16);
+	assert.ok(Math.abs(f.effect.responseWeight - .16) < 1e-6);
 	f.effect.dispose();
 });
 

@@ -14,12 +14,23 @@ uniform float uCursorStrength,uCursorAspect;
 uniform vec2 uTouchPosition;
 uniform vec3 uSonarPosition,uSonarNormal;
 uniform float uTouchStrength,uSonarAge,uSonarStrength;
+uniform vec3 uSonarPosition2,uSonarNormal2;
+uniform float uSonarAge2,uSonarStrength2;
 varying float vEnergy;
 varying float vKey;
 varying float vCursorLight;
 varying float vSonarLight;
 varying float vDepthMist;
 ${whaleDepthMistGLSL}
+float whaleSonarLight(vec3 sourcePosition,vec3 sourceNormal,float age,float strength){
+ if(strength<=.001||age>=2.4)return 0.;
+ float bend=clamp(1.-dot(normalize(normal),sourceNormal),0.,2.);
+ float surfaceDistance=length(position-sourcePosition)*(1.+bend*.275);
+ float radius=age*4.2;
+ float ring=(surfaceDistance-radius)/(.12+radius*.025);
+ float envelope=smoothstep(0.,.10,age)*(1.-smoothstep(1.5,2.4,age));
+ return exp(-ring*ring)*envelope*strength/(1.+radius*.08);
+}
 void main(){
  #include <beginnormal_vertex>
  #include <skinbase_vertex>
@@ -52,17 +63,10 @@ void main(){
  gl_PointSize=clamp(projected,1.,64.)*(1.+vDepthMist*1.25);
  gl_Position=projectionMatrix*viewPosition;
  vec2 screen=gl_Position.xy/max(.001,gl_Position.w);
- vSonarLight=0.;
- if(uSonarStrength>.001 && uSonarAge<2.4){
-  // Bind-space surface propagation follows skinning, perspective and separate fins.
-  // Curvature lengthens travel around the body instead of cutting straight through it.
-  float bend=clamp(1.-dot(normalize(normal),uSonarNormal),0.,2.);
-  float surfaceDistance=length(position-uSonarPosition)*(1.+bend*.275);
-  float radius=uSonarAge*4.2;
-  float ring=(surfaceDistance-radius)/(.12+radius*.025);
-  float envelope=smoothstep(0.,.10,uSonarAge)*(1.-smoothstep(1.5,2.4,uSonarAge));
-  vSonarLight=exp(-ring*ring)*envelope*uSonarStrength/(1.+radius*.08);
- }
+ // Two prepared rings can overlap. A repeat tap starts immediately while the
+ // previous ring continues, so neither radius nor source position jumps.
+ vSonarLight=min(1.,whaleSonarLight(uSonarPosition,uSonarNormal,uSonarAge,uSonarStrength)
+  +whaleSonarLight(uSonarPosition2,uSonarNormal2,uSonarAge2,uSonarStrength2));
  // A circular screen-space pool follows the pointer on visible surface beads.
  // Radius is relative to viewport height, independent of scene/output DPR.
  vCursorLight=0.;
@@ -115,6 +119,8 @@ const shared=withFogUniforms({
   uTouchPosition:{value:new THREE.Vector2()},uTouchStrength:{value:0},
   uSonarPosition:{value:new THREE.Vector3()},uSonarNormal:{value:new THREE.Vector3(0,0,1)},
   uSonarAge:{value:3},uSonarStrength:{value:0},
+  uSonarPosition2:{value:new THREE.Vector3()},uSonarNormal2:{value:new THREE.Vector3(0,0,1)},
+  uSonarAge2:{value:3},uSonarStrength2:{value:0},
  });
  const body=new THREE.ShaderMaterial({uniforms:shared,vertexShader,fragmentShader,
   transparent:true,depthWrite:false,depthTest:true,

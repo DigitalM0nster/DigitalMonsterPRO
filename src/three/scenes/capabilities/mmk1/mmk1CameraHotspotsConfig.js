@@ -33,6 +33,11 @@ export const MMK1_CAMERA_HOTSPOTS = [
 			quaternion: [-0.13303, 0.404253, 0.059557, 0.902959],
 			fov: 49,
 		},
+		mobileCamera: {
+			position: [5.1935, 3.1967, -0.07],
+			quaternion: [-0.154382, 0.311365, 0.052986, 0.936168],
+			fov: 49,
+		},
 	},
 	{
 		id: "mmk1-point-03",

@@ -83,7 +83,7 @@ test("mobile close-ups inherit the same live root transform as their crane", () 
 	const root = new THREE.Group(), model = new THREE.Group(), crane = new THREE.Group();
 	root.position.set(0, -2.15, 0); root.scale.setScalar(.72);
 	hotspots.modelsParent.add(root); root.add(model); model.add(crane); hotspots.bindToObject(crane);
-	const definition = hotspots.markers[1].userData.hotspotDefinition;
+	const definition = { ...hotspots.markers[1].userData.hotspotDefinition, mobileCamera: null };
 	const expected = new THREE.Vector3().fromArray(definition.camera.position).sub(new THREE.Vector3(4.15, -3.18, 0)).applyMatrix4(root.matrixWorld);
 	hotspots._startFlight(definition, camera);
 	assert.ok(hotspots.toPosition.distanceTo(expected) < 1e-9);
@@ -95,7 +95,7 @@ test("approved mobile close-ups bypass the desktop root remap", () => {
 	const root = new THREE.Group(), model = new THREE.Group(), crane = new THREE.Group();
 	root.position.set(0, -2.15, 0); root.scale.setScalar(.72);
 	hotspots.modelsParent.add(root); root.add(model); model.add(crane); hotspots.bindToObject(crane);
-	for (const index of [0, 2, 3]) {
+	for (const index of [0, 1, 2, 3]) {
 		const definition = hotspots.markers[index].userData.hotspotDefinition;
 		hotspots._startFlight(definition, camera);
 		assert.deepEqual(hotspots.toPosition.toArray(), definition.mobileCamera.position);
